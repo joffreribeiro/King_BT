@@ -89,10 +89,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
         }
+        setLoading(false);
       } else {
         setGroup(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
     return unsub;
   }, []);
