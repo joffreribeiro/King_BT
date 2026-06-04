@@ -12,12 +12,12 @@ export default function LoginScreen() {
         <Text style={styles.tagline}>Play com respeito, evolua sempre.</Text>
 
         <View style={styles.btns}>
-          <TouchableOpacity style={styles.btnGoogle} onPress={() => router.replace('/(app)/index')} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.btnGoogle} onPress={() => router.replace('/(app)')} activeOpacity={0.85}>
             <Text style={styles.googleG}>G</Text>
             <Text style={styles.btnText}>Entrar com Google</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.btnCode} onPress={() => router.replace('/(app)/index')} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.btnCode} onPress={() => router.replace('/(app)')} activeOpacity={0.85}>
             <Text style={styles.btnCodeText}>Entrar com código do grupo</Text>
           </TouchableOpacity>
         </View>
