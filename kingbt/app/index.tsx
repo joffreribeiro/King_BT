@@ -8,9 +8,11 @@ export default function Root() {
   const { user, group, loading } = useAuth();
   const router = useRouter();
 
+  console.log('[Root] render - loading:', loading, 'user:', user?.uid ?? 'null', 'group:', group?.id ?? 'null');
+
   useEffect(() => {
     if (loading) return;
-    console.log('[Root] user:', user?.uid ?? 'null', 'group:', group?.id ?? 'null');
+    console.log('[Root] navigating - user:', user?.uid ?? 'null', 'group:', group?.id ?? 'null');
     if (!user) router.replace('/(auth)/login');
     else if (!group) router.replace('/(auth)/join');
     else router.replace('/(app)');
