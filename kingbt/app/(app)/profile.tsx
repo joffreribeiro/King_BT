@@ -1,9 +1,10 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
 import { PLAYERS } from '@/mocks/data';
 import { useCompetitions } from '@/store/CompetitionsContext';
+import { useAuth } from '@/store/AuthContext';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 
@@ -30,6 +31,14 @@ export default function ProfileScreen() {
   const MY_ID = 'p1';
   const player = PLAYERS.find(p => p.id === MY_ID)!;
   const { state } = useCompetitions();
+  const { logout, user } = useAuth();
+
+  function handleLogout() {
+    Alert.alert('Sair', 'Deseja sair da sua conta?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Sair', style: 'destructive', onPress: logout },
+    ]);
+  }
   const allGames = state.competitions.flatMap(extractPlayerGames);
   const ranking = buildRanking(
     PLAYERS.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0,3).toUpperCase(), color: p.color })),
@@ -92,6 +101,14 @@ export default function ProfileScreen() {
           <Bar label="GA ×2" value={gaPts} max={me.points} color={Colors.gold} />
         </Card>
 
+        {/* Conta */}
+        <Card style={styles.accountCard}>
+          <Text style={styles.accountEmail}>{user?.email ?? user?.displayName}</Text>
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
+            <Text style={styles.logoutText}>Sair da conta</Text>
+          </TouchableOpacity>
+        </Card>
+
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
     </SafeAreaView>
@@ -114,4 +131,12 @@ const styles = StyleSheet.create({
   cellVal: { fontFamily: FontFamily.titleBold, fontSize: 26 },
   cellLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
   sectionTitle: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.text, marginBottom: Spacing.sm },
+  accountCard: { gap: Spacing.sm, alignItems: 'center' },
+  accountEmail: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
+  logoutBtn: {
+    borderWidth: 1, borderColor: Colors.coral + '66',
+    borderRadius: Radius.md, paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xl, alignItems: 'center',
+  },
+  logoutText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.coral },
 });

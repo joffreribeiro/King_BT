@@ -2,6 +2,9 @@ import React, { createContext, useContext, useEffect, useState, type ReactNode }
 import {
   onAuthStateChanged,
   signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
   GoogleAuthProvider,
   signOut,
   type User,
@@ -13,29 +16,36 @@ type Group = {
   id: string;
   name: string;
   code: string;
+  admins?: string[];
 };
 
 type AuthState = {
   user: User | null;
   group: Group | null;
+  isAdmin: boolean;
   loading: boolean;
   error: string | null;
 };
 
 type AuthContextType = AuthState & {
   signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (name: string, email: string, password: string) => Promise<void>;
   joinGroup: (code: string) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
+  promoteToAdmin: (uid: string) => Promise<void>;
+  removeFromGroup: (uid: string) => Promise<void>;
 };
 
 const Ctx = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser]   = useState<User | null>(null);
-  const [group, setGroup] = useState<Group | null>(null);
+  const [user, setUser]     = useState<User | null>(null);
+  const [group, setGroup]   = useState<Group | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]   = useState<string | null>(null);
 
   // Escuta mudanças de auth
   useEffect(() => {
@@ -49,7 +59,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (groupId) {
             const groupDoc = await getDoc(doc(db, 'groups', groupId));
             if (groupDoc.exists()) {
-              setGroup({ id: groupDoc.id, ...groupDoc.data() } as Group);
+              const gData = groupDoc.data();
+              const g = { id: groupDoc.id, ...gData } as Group;
+              setGroup(g);
+              const admins: string[] = gData.admins ?? [];
+              setIsAdmin(admins.includes(u.uid));
             }
           }
         }
@@ -75,6 +89,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }, { merge: true });
     } catch (e: any) {
       setError('Erro ao entrar com Google. Tente novamente.');
+    }
+  }
+
+  async function signInWithEmail(email: string, password: string) {
+    try {
+      setError(null);
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (e: any) {
+      setError('E-mail ou senha incorretos.');
+    }
+  }
+
+  async function signUpWithEmail(name: string, email: string, password: string) {
+    try {
+      setError(null);
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(result.user, { displayName: name });
+      await setDoc(doc(db, 'users', result.user.uid), {
+        name, email, updatedAt: new Date().toISOString(),
+      }, { merge: true });
+    } catch (e: any) {
+      if (e.code === 'auth/email-already-in-use') setError('E-mail já cadastrado.');
+      else if (e.code === 'auth/weak-password') setError('Senha muito fraca. Use 6+ caracteres.');
+      else setError('Erro ao criar conta. Tente novamente.');
     }
   }
 
@@ -111,10 +149,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Associa grupo ao usuário
       await setDoc(doc(db, 'users', user.uid), { groupId: groupDoc.id }, { merge: true });
-      setGroup({ id: groupDoc.id, ...groupData } as Group);
+      const g = { id: groupDoc.id, ...groupData } as Group;
+      setGroup(g);
+      const admins: string[] = groupData.admins ?? [];
+      setIsAdmin(admins.includes(user.uid));
     } catch (e: any) {
       setError('Erro ao entrar no grupo. Tente novamente.');
     }
+  }
+
+  async function promoteToAdmin(uid: string) {
+    if (!group || !isAdmin) return;
+    const admins = [...(group.admins ?? [])];
+    if (!admins.includes(uid)) {
+      admins.push(uid);
+      await setDoc(doc(db, 'groups', group.id), { admins }, { merge: true });
+      setGroup(prev => prev ? { ...prev, admins } : prev);
+    }
+  }
+
+  async function removeFromGroup(uid: string) {
+    if (!group || !isAdmin) return;
+    const members = (group as any).members?.filter((m: string) => m !== uid) ?? [];
+    await setDoc(doc(db, 'groups', group.id), { members }, { merge: true });
   }
 
   async function logout() {
@@ -123,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Ctx.Provider value={{ user, group, loading, error, signInWithGoogle, joinGroup, logout, clearError: () => setError(null) }}>
+    <Ctx.Provider value={{ user, group, isAdmin, loading, error, signInWithGoogle, signInWithEmail, signUpWithEmail, joinGroup, logout, clearError: () => setError(null), promoteToAdmin, removeFromGroup }}>
       {children}
     </Ctx.Provider>
   );

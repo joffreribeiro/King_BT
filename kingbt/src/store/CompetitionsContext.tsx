@@ -7,13 +7,31 @@ import { useAuth } from './AuthContext';
 
 type State = {
   competitions: Competition[];
-  synced: boolean; // true quando veio do Firestore
+  synced: boolean;
 };
 
 type Action =
   | { type: 'SET'; competitions: Competition[] }
   | { type: 'ADD'; comp: Competition }
-  | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number };
+  | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number }
+  | { type: 'CORRECT_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number } // admin only
+  | { type: 'DELETE'; compId: string }; // admin only
+
+function applyScore(comp: Competition, matchId: string, scoreA: number, scoreB: number): Competition {
+  const updated = {
+    ...comp,
+    matches: comp.matches.map(m =>
+      m.id === matchId ? { ...m, scoreA, scoreB } : m
+    ),
+  };
+  resolveCompetition(updated);
+  const scoreable = updated.matches.filter(
+    m => (m.aId != null && m.bId != null) || (m.teamA && m.teamB)
+  );
+  updated.status = scoreable.length > 0 && scoreable.every(m => m.scoreA != null)
+    ? 'done' : 'active';
+  return updated;
+}
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -21,27 +39,15 @@ function reducer(state: State, action: Action): State {
       return { competitions: action.competitions, synced: true };
     case 'ADD':
       return { ...state, competitions: [action.comp, ...state.competitions] };
+    case 'DELETE':
+      return { ...state, competitions: state.competitions.filter(c => c.id !== action.compId) };
     case 'SAVE_SCORE':
+    case 'CORRECT_SCORE':
       return {
         ...state,
-        competitions: state.competitions.map(c => {
-          if (c.id !== action.compId) return c;
-          const updated = {
-            ...c,
-            matches: c.matches.map(m =>
-              m.id === action.matchId
-                ? { ...m, scoreA: action.scoreA, scoreB: action.scoreB }
-                : m
-            ),
-          };
-          resolveCompetition(updated);
-          const scoreable = updated.matches.filter(
-            m => (m.aId != null && m.bId != null) || (m.teamA && m.teamB)
-          );
-          updated.status = scoreable.length > 0 && scoreable.every(m => m.scoreA != null)
-            ? 'done' : 'active';
-          return updated;
-        }),
+        competitions: state.competitions.map(c =>
+          c.id !== action.compId ? c : applyScore(c, action.matchId, action.scoreA, action.scoreB)
+        ),
       };
   }
 }
@@ -54,13 +60,13 @@ type CtxType = {
 const Ctx = createContext<CtxType | null>(null);
 
 export function CompetitionsProvider({ children }: { children: ReactNode }) {
-  const { user, group } = useAuth();
+  const { user, group, isAdmin } = useAuth();
   const [state, dispatch] = useReducer(reducer, {
     competitions: [...MOCK_COMPETITIONS],
     synced: false,
   });
 
-  // Se autenticado com grupo → escuta Firestore em tempo real
+  // Escuta Firestore em tempo real quando autenticado
   useEffect(() => {
     if (!user || !group) return;
     const unsub = subscribeCompetitions(group.id, (comps) => {
@@ -69,9 +75,13 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
     return unsub;
   }, [user, group]);
 
-  // Intercepta ADD para salvar no Firestore se autenticado
   const wrappedDispatch: React.Dispatch<Action> = async (action) => {
+    // Proteção admin
+    if (action.type === 'DELETE' && !isAdmin) return;
+    if (action.type === 'CORRECT_SCORE' && !isAdmin) return;
+
     dispatch(action);
+
     if (!user || !group) return;
 
     if (action.type === 'ADD') {
@@ -79,20 +89,18 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
       await createCompetition(group.id, data);
     }
 
-    if (action.type === 'SAVE_SCORE') {
+    if (action.type === 'SAVE_SCORE' || action.type === 'CORRECT_SCORE') {
       const comp = state.competitions.find(c => c.id === action.compId);
       if (comp) {
-        const updated = {
-          ...comp,
-          matches: comp.matches.map(m =>
-            m.id === action.matchId
-              ? { ...m, scoreA: action.scoreA, scoreB: action.scoreB }
-              : m
-          ),
-        };
-        resolveCompetition(updated);
+        const updated = applyScore(comp, action.matchId, action.scoreA, action.scoreB);
         await fsUpdateComp(group.id, updated);
       }
+    }
+
+    if (action.type === 'DELETE') {
+      // Soft delete — marca como arquivada
+      const comp = state.competitions.find(c => c.id === action.compId);
+      if (comp) await fsUpdateComp(group.id, { ...comp, status: 'done' });
     }
   };
 

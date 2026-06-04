@@ -9,6 +9,7 @@ import { Avatar, Badge, Card } from '@/components';
 import { PLAYERS } from '@/mocks/data';
 import { standings, groupComplete, matchWinner, matchLoser, koRoundName } from '@/logic/formats';
 import { useCompetitions } from '@/store/CompetitionsContext';
+import { useAuth } from '@/store/AuthContext';
 import type { Match, Competition } from '@/logic/types';
 
 function getPlayer(id: string) {
@@ -317,10 +318,11 @@ const tabs = StyleSheet.create({
 
 // ─── Scorer Modal ─────────────────────────────────────────────────────────────
 
-function ScorerModal({ match, comp, onClose, onSave }: {
+function ScorerModal({ match, comp, onClose, onSave, isAdmin = false }: {
   match: Match | null; comp: Competition;
   onClose: () => void;
   onSave: (id: string, a: number, b: number) => void;
+  isAdmin?: boolean;
 }) {
   const [sA, setSA] = useState(match?.scoreA != null ? String(match.scoreA) : '');
   const [sB, setSB] = useState(match?.scoreB != null ? String(match.scoreB) : '');
@@ -328,6 +330,8 @@ function ScorerModal({ match, comp, onClose, onSave }: {
   const a = parseInt(sA), b = parseInt(sB);
   const valid = !isNaN(a) && !isNaN(b) && a >= 0 && b >= 0 && a !== b;
   const draw = !isNaN(a) && !isNaN(b) && a === b;
+  const alreadyScored = match.scoreA != null;
+  const canEdit = !alreadyScored || isAdmin;
 
   const nameA = match.teamA
     ? match.teamA.map(id => getPlayer(id)?.name.split(' ')[0]).join(' / ')
@@ -359,13 +363,22 @@ function ScorerModal({ match, comp, onClose, onSave }: {
             ))}
           </View>
           {draw && <Text style={sc.warn}>⚠️ Empate não permitido</Text>}
+          {alreadyScored && !isAdmin && (
+            <Text style={sc.lockedText}>🔒 Placar já registrado. Apenas admin pode corrigir.</Text>
+          )}
+          {isAdmin && alreadyScored && (
+            <Text style={sc.adminNote}>⚙️ Admin — você pode corrigir este placar.</Text>
+          )}
           <View style={sc.btns}>
             <TouchableOpacity onPress={onClose} style={sc.cancel}>
               <Text style={sc.cancelText}>Cancelar</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => { if (valid) onSave(match.id, a, b); }}
-              style={[sc.save, !valid && sc.saveOff]} disabled={!valid}>
-              <Text style={sc.saveText}>Salvar</Text>
+            <TouchableOpacity
+              onPress={() => { if (valid && canEdit) onSave(match.id, a, b); }}
+              style={[sc.save, (!valid || !canEdit) && sc.saveOff]}
+              disabled={!valid || !canEdit}
+            >
+              <Text style={sc.saveText}>{alreadyScored && isAdmin ? 'Corrigir' : 'Salvar'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -392,6 +405,8 @@ const sc = StyleSheet.create({
   save: { flex: 1, padding: Spacing.md, borderRadius: Radius.md, backgroundColor: Colors.gold, alignItems: 'center' },
   saveOff: { opacity: 0.4 },
   saveText: { fontFamily: FontFamily.title, color: Colors.bg },
+  lockedText: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint, textAlign: 'center' },
+  adminNote: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.gold, textAlign: 'center' },
 });
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
@@ -399,8 +414,10 @@ const sc = StyleSheet.create({
 export default function CompetitionDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state, dispatch } = useCompetitions();
+  const { isAdmin } = useAuth();
   const comp = state.competitions.find(c => c.id === id);
   const [scoring, setScoring] = useState<Match | null>(null);
+  const [showAdminMenu, setShowAdminMenu] = useState(false);
 
   if (!comp) {
     return (
@@ -413,6 +430,22 @@ export default function CompetitionDetail() {
   function handleSave(matchId: string, a: number, b: number) {
     dispatch({ type: 'SAVE_SCORE', compId: id!, matchId, scoreA: a, scoreB: b });
     setScoring(null);
+  }
+
+  function handleCorrect(matchId: string, a: number, b: number) {
+    dispatch({ type: 'CORRECT_SCORE', compId: id!, matchId, scoreA: a, scoreB: b });
+    setScoring(null);
+  }
+
+  function handleDelete() {
+    const { Alert } = require('react-native');
+    Alert.alert('Excluir competição', 'Tem certeza? Esta ação não pode ser desfeita.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Excluir', style: 'destructive', onPress: () => {
+        dispatch({ type: 'DELETE', compId: id! });
+        router.replace('/(app)');
+      }},
+    ]);
   }
 
   return (
@@ -430,7 +463,24 @@ export default function CompetitionDetail() {
             small
           />
         </View>
+        {isAdmin && (
+          <TouchableOpacity onPress={() => setShowAdminMenu(true)} style={main.adminBtn}>
+            <Text style={main.adminBtnText}>⚙️</Text>
+          </TouchableOpacity>
+        )}
       </View>
+
+      {/* Menu admin */}
+      {showAdminMenu && (
+        <View style={main.adminMenu}>
+          <TouchableOpacity style={main.adminMenuItem} onPress={() => setShowAdminMenu(false)}>
+            <Text style={main.adminMenuClose}>✕ Fechar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={main.adminMenuAction} onPress={() => { setShowAdminMenu(false); handleDelete(); }}>
+            <Text style={main.adminMenuDanger}>🗑️ Excluir competição</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Conteúdo por formato */}
       {comp.format === 'grupos'
@@ -446,7 +496,8 @@ export default function CompetitionDetail() {
         match={scoring}
         comp={comp}
         onClose={() => setScoring(null)}
-        onSave={handleSave}
+        onSave={isAdmin && scoring?.scoreA != null ? handleCorrect : handleSave}
+        isAdmin={isAdmin}
       />
     </SafeAreaView>
   );
@@ -458,4 +509,11 @@ const main = StyleSheet.create({
   back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
   headerInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
   compName: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text, flex: 1 },
+  adminBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
+  adminBtnText: { fontSize: 18 },
+  adminMenu: { backgroundColor: Colors.surf2, borderBottomWidth: 1, borderBottomColor: Colors.line, padding: Spacing.sm, gap: Spacing.xs },
+  adminMenuItem: { alignSelf: 'flex-end' },
+  adminMenuClose: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
+  adminMenuAction: { paddingVertical: Spacing.xs },
+  adminMenuDanger: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.coral },
 });

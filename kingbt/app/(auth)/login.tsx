@@ -1,46 +1,38 @@
 import {
   View, Text, StyleSheet, TouchableOpacity, Image,
-  TextInput, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator,
+  ActivityIndicator, TextInput, KeyboardAvoidingView,
+  Platform, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 import { useState } from 'react';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { useAuth } from '@/store/AuthContext';
 
-export default function LoginScreen() {
-  const { signInWithGoogle, joinGroup, user, group, loading, error, clearError } = useAuth();
-  const [code, setCode]           = useState('');
-  const [loadingCode, setLoadingCode]   = useState(false);
-  const [loadingGoogle, setLoadingGoogle] = useState(false);
+type Mode = 'options' | 'signin' | 'signup';
 
-  // Se já autenticado com grupo → vai para o app
-  if (!loading && user && group) {
-    router.replace('/(app)');
-    return null;
-  }
+export default function LoginScreen() {
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, error, clearError } = useAuth();
+  const [mode, setMode]         = useState<Mode>('options');
+  const [name, setName]         = useState('');
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy]         = useState(false);
+
+  function reset(m: Mode) { clearError(); setMode(m); }
 
   async function handleGoogle() {
-    setLoadingGoogle(true);
-    await signInWithGoogle();
-    setLoadingGoogle(false);
+    setBusy(true); await signInWithGoogle(); setBusy(false);
   }
 
-  async function handleJoinGroup() {
-    if (!code.trim()) return;
-    setLoadingCode(true);
-    clearError();
-    if (!user) {
-      // Login anônimo via Google primeiro
-      await signInWithGoogle();
-    }
-    await joinGroup(code.trim());
-    setLoadingCode(false);
+  async function handleSignIn() {
+    if (!email || !password) return;
+    setBusy(true); await signInWithEmail(email, password); setBusy(false);
   }
 
-  const groupName = code.toUpperCase() === 'KINGS-2026' ? 'BT na Quadra'
-    : code.toUpperCase() === 'KINGBT' ? 'King BT'
-    : null;
+  async function handleSignUp() {
+    if (!name || !email || !password) return;
+    setBusy(true); await signUpWithEmail(name, email, password); setBusy(false);
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -52,86 +44,99 @@ export default function LoginScreen() {
             <Image source={require('../../assets/kingbt-logo.png')} style={styles.logo} resizeMode="contain" />
           </View>
 
-          {/* Formulário */}
-          <View style={styles.form}>
-
-            {/* Erro */}
-            {error && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            )}
-
-            {/* Campo código */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Código do grupo</Text>
-              <View style={styles.inputRow}>
-                <TextInput
-                  style={styles.input}
-                  value={code}
-                  onChangeText={t => { setCode(t.toUpperCase()); clearError(); }}
-                  placeholder="Ex: KINGS-2026"
-                  placeholderTextColor={Colors.faint}
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                />
-                {groupName && (
-                  <View style={styles.groupBadge}>
-                    <Text style={styles.groupBadgeText}>{groupName}</Text>
-                  </View>
-                )}
-              </View>
+          {/* Erro */}
+          {error && (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{error}</Text>
             </View>
+          )}
 
-            {/* Botão entrar no grupo */}
-            <TouchableOpacity
-              style={[styles.btnPrimary, (!code.trim() || loadingCode) && styles.btnDisabled]}
-              onPress={handleJoinGroup}
-              activeOpacity={0.85}
-              disabled={!code.trim() || loadingCode}
-            >
-              {loadingCode
-                ? <ActivityIndicator color={Colors.bg} />
-                : <>
-                    <Text style={styles.btnPrimaryIcon}>⚡</Text>
-                    <Text style={styles.btnPrimaryText}>Entrar no grupo</Text>
-                  </>
-              }
-            </TouchableOpacity>
+          {/* ── Tela de opções ── */}
+          {mode === 'options' && (
+            <View style={styles.form}>
+              <Text style={styles.title}>Entrar</Text>
 
-            {/* Separador */}
-            <View style={styles.separator}>
-              <View style={styles.sepLine} />
-              <Text style={styles.sepText}>ou</Text>
-              <View style={styles.sepLine} />
-            </View>
+              <TouchableOpacity style={[styles.btnGoogle, busy && styles.btnDisabled]} onPress={handleGoogle} disabled={busy} activeOpacity={0.85}>
+                {busy ? <ActivityIndicator color={Colors.bg} /> : <>
+                  <Text style={styles.googleG}>G</Text>
+                  <Text style={styles.btnText}>Continuar com Google</Text>
+                </>}
+              </TouchableOpacity>
 
-            {/* Botão Google */}
-            <TouchableOpacity
-              style={[styles.btnGoogle, loadingGoogle && styles.btnDisabled]}
-              onPress={handleGoogle}
-              activeOpacity={0.85}
-              disabled={loadingGoogle}
-            >
-              {loadingGoogle
-                ? <ActivityIndicator color={Colors.text} />
-                : <>
-                    <Text style={styles.googleG}>G</Text>
-                    <Text style={styles.btnGoogleText}>Continuar com Google</Text>
-                  </>
-              }
-            </TouchableOpacity>
-
-            {/* Info pós-Google */}
-            {user && !group && (
-              <View style={styles.infoBox}>
-                <Text style={styles.infoText}>
-                  ✓ Logado como {user.displayName}. Agora insira o código do grupo.
-                </Text>
+              <View style={styles.sep}>
+                <View style={styles.sepLine} /><Text style={styles.sepText}>ou</Text><View style={styles.sepLine} />
               </View>
-            )}
 
-          </View>
+              <TouchableOpacity style={styles.btnEmail} onPress={() => reset('signin')} activeOpacity={0.85}>
+                <Text style={styles.btnEmailText}>Entrar com e-mail</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => reset('signup')} style={styles.linkBtn}>
+                <Text style={styles.linkText}>Não tem conta? <Text style={styles.linkAccent}>Criar conta</Text></Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ── Login com e-mail ── */}
+          {mode === 'signin' && (
+            <View style={styles.form}>
+              <TouchableOpacity onPress={() => reset('options')} style={styles.backBtn}>
+                <Text style={styles.backText}>← Voltar</Text>
+              </TouchableOpacity>
+              <Text style={styles.title}>Entrar com e-mail</Text>
+
+              <TextInput style={styles.input} value={email} onChangeText={setEmail}
+                placeholder="E-mail" placeholderTextColor={Colors.faint}
+                keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
+
+              <TextInput style={styles.input} value={password} onChangeText={setPassword}
+                placeholder="Senha" placeholderTextColor={Colors.faint}
+                secureTextEntry />
+
+              <TouchableOpacity
+                style={[styles.btnPrimary, (!email || !password || busy) && styles.btnDisabled]}
+                onPress={handleSignIn} disabled={!email || !password || busy} activeOpacity={0.85}>
+                {busy ? <ActivityIndicator color={Colors.bg} /> : <Text style={styles.btnText}>Entrar</Text>}
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => reset('signup')} style={styles.linkBtn}>
+                <Text style={styles.linkText}>Não tem conta? <Text style={styles.linkAccent}>Criar conta</Text></Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ── Criar conta ── */}
+          {mode === 'signup' && (
+            <View style={styles.form}>
+              <TouchableOpacity onPress={() => reset('options')} style={styles.backBtn}>
+                <Text style={styles.backText}>← Voltar</Text>
+              </TouchableOpacity>
+              <Text style={styles.title}>Criar conta</Text>
+
+              <TextInput style={styles.input} value={name} onChangeText={setName}
+                placeholder="Seu nome" placeholderTextColor={Colors.faint}
+                autoCapitalize="words" />
+
+              <TextInput style={styles.input} value={email} onChangeText={setEmail}
+                placeholder="E-mail" placeholderTextColor={Colors.faint}
+                keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
+
+              <TextInput style={styles.input} value={password} onChangeText={setPassword}
+                placeholder="Senha (mín. 6 caracteres)" placeholderTextColor={Colors.faint}
+                secureTextEntry />
+
+              <TouchableOpacity
+                style={[styles.btnPrimary, (!name || !email || !password || busy) && styles.btnDisabled]}
+                onPress={handleSignUp} disabled={!name || !email || !password || busy} activeOpacity={0.85}>
+                {busy ? <ActivityIndicator color={Colors.bg} /> : <Text style={styles.btnText}>Criar conta</Text>}
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => reset('signin')} style={styles.linkBtn}>
+                <Text style={styles.linkText}>Já tem conta? <Text style={styles.linkAccent}>Entrar</Text></Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -140,28 +145,27 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  scroll: { flexGrow: 1, justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
-  logoWrap: { alignItems: 'center', paddingTop: Spacing.lg },
-  logo: { width: 280, height: 280 },
-  form: { gap: Spacing.md, paddingTop: Spacing.lg },
-  errorBox: { backgroundColor: Colors.coral + '22', borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.coral + '44' },
+  scroll: { flexGrow: 1, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
+  logoWrap: { alignItems: 'center', paddingTop: Spacing.lg, paddingBottom: Spacing.sm },
+  logo: { width: 220, height: 220 },
+  form: { gap: Spacing.md },
+  title: { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text },
+  errorBox: { backgroundColor: Colors.coral + '22', borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.coral + '44', marginBottom: Spacing.xs },
   errorText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.coral },
-  inputGroup: { gap: Spacing.xs },
-  inputLabel: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, paddingLeft: 4 },
-  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, overflow: 'hidden' },
-  input: { flex: 1, fontFamily: FontFamily.numberBold, fontSize: 18, color: Colors.text, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, letterSpacing: 1 },
-  groupBadge: { backgroundColor: Colors.teal + '22', borderLeftWidth: 1, borderLeftColor: Colors.teal + '44', paddingHorizontal: Spacing.sm, paddingVertical: Spacing.xs, marginRight: 2, borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center', maxWidth: 90 },
-  groupBadgeText: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.teal, textAlign: 'center' },
-  btnPrimary: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md + 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 52 },
+  input: { backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, fontFamily: FontFamily.body, fontSize: 15, color: Colors.text },
+  btnGoogle: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md + 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 54 },
+  btnEmail: { borderWidth: 1.5, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', backgroundColor: Colors.surf, minHeight: 52 },
+  btnEmailText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
+  btnPrimary: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md + 2, alignItems: 'center', minHeight: 54 },
   btnDisabled: { backgroundColor: Colors.surf2 },
-  btnPrimaryIcon: { fontSize: 18 },
-  btnPrimaryText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg },
-  separator: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginVertical: Spacing.xs },
+  btnText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg },
+  googleG: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.bg },
+  sep: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   sepLine: { flex: 1, height: 1, backgroundColor: Colors.line },
   sepText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint },
-  btnGoogle: { borderWidth: 1.5, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, backgroundColor: Colors.surf, minHeight: 52 },
-  googleG: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
-  btnGoogleText: { fontFamily: FontFamily.bodyMed, fontSize: 16, color: Colors.text },
-  infoBox: { backgroundColor: Colors.teal + '22', borderRadius: Radius.sm, padding: Spacing.sm },
-  infoText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.teal },
+  backBtn: { paddingBottom: Spacing.xs },
+  backText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.teal },
+  linkBtn: { alignItems: 'center' },
+  linkText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted },
+  linkAccent: { color: Colors.gold, fontFamily: FontFamily.bodyMed },
 });
