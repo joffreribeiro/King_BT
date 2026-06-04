@@ -55,6 +55,7 @@ function reducer(state: State, action: Action): State {
 type CtxType = {
   state: State;
   dispatch: React.Dispatch<Action>;
+  addCompetition: (comp: Competition) => Promise<string>;
 };
 
 const Ctx = createContext<CtxType | null>(null);
@@ -87,6 +88,7 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
     if (action.type === 'ADD') {
       const { id, ...data } = action.comp;
       await createCompetition(group.id, data);
+      // ID real vem pelo subscribeCompetitions
     }
 
     if (action.type === 'SAVE_SCORE' || action.type === 'CORRECT_SCORE') {
@@ -104,8 +106,16 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  async function addCompetition(comp: Competition): Promise<string> {
+    dispatch({ type: 'ADD', comp });
+    if (!user || !group) return comp.id;
+    const { id, ...data } = comp;
+    const firestoreId = await createCompetition(group.id, data);
+    return firestoreId;
+  }
+
   return (
-    <Ctx.Provider value={{ state, dispatch: wrappedDispatch }}>
+    <Ctx.Provider value={{ state, dispatch: wrappedDispatch, addCompetition }}>
       {children}
     </Ctx.Provider>
   );

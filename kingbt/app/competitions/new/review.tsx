@@ -27,11 +27,11 @@ const FORMAT_ICON_COLOR: Record<Format, string> = {
 type Params = {
   format: Format; name: string; unit: string; rounds: string;
   winMode: string; target: string; groups: string; qualifiers: string;
-  thirdPlace: string; playerIds: string;
+  thirdPlace: string; playerIds: string; guestData?: string;
 };
 
 export default function ReviewStep() {
-  const { dispatch } = useCompetitions();
+  const { addCompetition } = useCompetitions();
   const p = useLocalSearchParams<Params>();
 
   const isDuplas = p.unit === 'duplas';
@@ -39,14 +39,22 @@ export default function ReviewStep() {
   const roundsLabel = p.rounds === 'double' ? 'Ida e volta' : 'Turno único';
   const winRule = `Melhor de ${p.target} ${winLabel[p.winMode] ?? p.winMode}`;
 
+  // Jogadores + convidados
+  const guests: { id: string; name: string; color: string }[] = p.guestData ? JSON.parse(p.guestData) : [];
+  const allPlayers = [
+    ...PLAYERS.map(pl => ({ id: pl.id, name: pl.name, color: pl.color })),
+    ...guests,
+  ];
+
   // Montar competitors a partir dos playerIds
   const competitors: Competitor[] = (() => {
     if (!p.playerIds) return [];
     if (isDuplas) {
       return p.playerIds.split(',').map((pair, i) => {
         const [aId, bId] = pair.split('+');
-        const pA = PLAYERS.find(pl => pl.id === aId)!;
-        const pB = PLAYERS.find(pl => pl.id === bId)!;
+        const pA = allPlayers.find(pl => pl.id === aId);
+        const pB = allPlayers.find(pl => pl.id === bId);
+        if (!pA || !pB) return null;
         return {
           id: `d${i}`,
           name: `${pA.name.split(' ')[0]}/${pB.name.split(' ')[0]}`,
@@ -54,12 +62,13 @@ export default function ReviewStep() {
           color: pA.color,
           members: [aId, bId],
         };
-      });
+      }).filter(Boolean) as Competitor[];
     }
     return p.playerIds.split(',').map(id => {
-      const pl = PLAYERS.find(x => x.id === id)!;
+      const pl = allPlayers.find(x => x.id === id);
+      if (!pl) return null;
       return { id, name: pl.name, short: pl.name.slice(0, 3).toUpperCase(), color: pl.color, members: [id] };
-    });
+    }).filter(Boolean) as Competitor[];
   })();
 
   const comp = buildCompetition({
@@ -76,9 +85,10 @@ export default function ReviewStep() {
     },
   });
 
-  function start() {
-    dispatch({ type: 'ADD', comp });
-    router.replace({ pathname: '/competitions/[id]', params: { id: comp.id } });
+  async function start() {
+    const id = await addCompetition(comp);
+    router.dismissAll();
+    router.replace({ pathname: '/competitions/[id]', params: { id } });
   }
 
   return (
@@ -139,7 +149,7 @@ export default function ReviewStep() {
         {/* Grid de competidores */}
         <View style={styles.competitorGrid}>
           {competitors.map(c => {
-            const mainPlayer = PLAYERS.find(pl => pl.id === c.members[0]);
+            const mainPlayer = allPlayers.find(pl => pl.id === c.members[0]);
             return (
               <View key={c.id} style={styles.competitorChip}>
                 {mainPlayer && <Avatar name={mainPlayer.name} color={mainPlayer.color} size={28} />}

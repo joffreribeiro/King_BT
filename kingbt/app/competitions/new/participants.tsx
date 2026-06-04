@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -14,22 +14,49 @@ type Params = {
   winMode: string; target: string; groups: string; qualifiers: string; thirdPlace: string;
 };
 
+type GuestPlayer = { id: string; name: string; color: string; guest: true };
+
+const GUEST_COLORS = ['#94A3B8', '#FB923C', '#A78BFA', '#34D399', '#F472B6', '#2DD4BF', '#FCD34D'];
+
 export default function ParticipantsStep() {
   const params = useLocalSearchParams<Params>();
   const isDuplas = params.unit === 'duplas';
 
-  // Modo individual — selecionar jogadores
   const [selected, setSelected] = useState<string[]>([]);
-  // Modo duplas — pares montados
   const [pairs, setPairs] = useState<[string, string][]>([]);
-  const [pairBuf, setPairBuf] = useState<string | null>(null); // primeiro jogador da dupla em formação
+  const [pairBuf, setPairBuf] = useState<string | null>(null);
+
+  // Convidados
+  const [guests, setGuests] = useState<GuestPlayer[]>([]);
+  const [showGuestModal, setShowGuestModal] = useState(false);
+  const [guestName, setGuestName] = useState('');
+
+  const allPlayers = [
+    ...PLAYERS.map(p => ({ ...p, guest: false as const })),
+    ...guests,
+  ];
+
+  function addGuest() {
+    const name = guestName.trim();
+    if (!name) return;
+    const id = `guest_${Date.now()}`;
+    const color = GUEST_COLORS[guests.length % GUEST_COLORS.length];
+    setGuests(prev => [...prev, { id, name, color, guest: true }]);
+    setGuestName('');
+    setShowGuestModal(false);
+  }
+
+  function removeGuest(id: string) {
+    setGuests(prev => prev.filter(g => g.id !== id));
+    setSelected(prev => prev.filter(x => x !== id));
+    setPairs(prev => prev.filter(([a, b]) => a !== id && b !== id));
+  }
 
   function togglePlayer(id: string) {
     if (!isDuplas) {
       setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
       return;
     }
-    // Modo duplas: dois toques = 1 dupla
     if (pairBuf === null) {
       setPairBuf(id);
     } else if (pairBuf === id) {
@@ -52,9 +79,10 @@ export default function ParticipantsStep() {
     const ids = isDuplas
       ? pairs.map(([a, b]) => `${a}+${b}`).join(',')
       : selected.join(',');
+    const guestData = guests.length > 0 ? JSON.stringify(guests.map(g => ({ id: g.id, name: g.name, color: g.color }))) : '';
     router.push({
       pathname: '/competitions/new/review',
-      params: { ...params, playerIds: ids },
+      params: { ...params, playerIds: ids, guestData },
     });
   }
 
@@ -100,8 +128,8 @@ export default function ParticipantsStep() {
         {isDuplas && pairs.length > 0 && (
           <View style={styles.pairsGrid}>
             {pairs.map(([a, b], i) => {
-              const pA = PLAYERS.find(p => p.id === a)!;
-              const pB = PLAYERS.find(p => p.id === b)!;
+              const pA = allPlayers.find(p => p.id === a)!;
+              const pB = allPlayers.find(p => p.id === b)!;
               return (
                 <TouchableOpacity key={i} style={styles.pairChip} onPress={() => removePair(i)}>
                   <Avatar name={pA.name} color={pA.color} size={24} />
@@ -115,7 +143,7 @@ export default function ParticipantsStep() {
 
         {/* Grid de jogadores */}
         <View style={styles.grid}>
-          {PLAYERS.map(pl => {
+          {allPlayers.map(pl => {
             const isSelected = isDuplas
               ? usedInPair.includes(pl.id) || pairBuf === pl.id
               : selected.includes(pl.id);
@@ -136,19 +164,43 @@ export default function ParticipantsStep() {
                 activeOpacity={0.75}
               >
                 <Avatar name={pl.name} color={pl.color} size={36} />
-                <Text style={[styles.playerName, isSelected && { color: Colors.gold }]} numberOfLines={1}>
-                  {pl.name.split(' ')[0]}
-                </Text>
+                <View style={styles.playerInfo}>
+                  <Text style={[styles.playerName, isSelected && { color: Colors.gold }]} numberOfLines={1}>
+                    {pl.name.split(' ')[0]}
+                  </Text>
+                  {pl.guest && (
+                    <Text style={styles.guestBadge}>convidado</Text>
+                  )}
+                </View>
+                {pl.guest && (
+                  <TouchableOpacity
+                    style={styles.removeGuest}
+                    onPress={() => removeGuest(pl.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={styles.removeGuestText}>✕</Text>
+                  </TouchableOpacity>
+                )}
               </TouchableOpacity>
             );
           })}
+
+          {/* Botão adicionar convidado */}
+          <TouchableOpacity
+            style={styles.addGuestCard}
+            onPress={() => setShowGuestModal(true)}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.addGuestIcon}>+</Text>
+            <Text style={styles.addGuestText}>Convidado</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Instrução modo duplas */}
         {isDuplas && pairBuf && (
           <View style={styles.bufHint}>
             <Text style={styles.bufHintText}>
-              {PLAYERS.find(p => p.id === pairBuf)?.name} selecionado — toque no parceiro
+              {allPlayers.find(p => p.id === pairBuf)?.name} selecionado — toque no parceiro
             </Text>
           </View>
         )}
@@ -171,6 +223,38 @@ export default function ParticipantsStep() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Modal convidado */}
+      <Modal visible={showGuestModal} transparent animationType="fade" onRequestClose={() => setShowGuestModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowGuestModal(false)}>
+          <TouchableOpacity style={styles.modalBox} activeOpacity={1}>
+            <Text style={styles.modalTitle}>Adicionar convidado</Text>
+            <Text style={styles.modalSubtitle}>Jogador sem cadastro no grupo</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={guestName}
+              onChangeText={setGuestName}
+              placeholder="Nome do convidado"
+              placeholderTextColor={Colors.faint}
+              autoFocus
+              autoCapitalize="words"
+              onSubmitEditing={addGuest}
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalBtnCancel} onPress={() => { setShowGuestModal(false); setGuestName(''); }}>
+                <Text style={styles.modalBtnCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtnAdd, !guestName.trim() && styles.btnDisabled]}
+                onPress={addGuest}
+                disabled={!guestName.trim()}
+              >
+                <Text style={styles.modalBtnAddText}>Adicionar</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -215,7 +299,43 @@ const styles = StyleSheet.create({
   playerCardSelected: { borderColor: Colors.gold, backgroundColor: Colors.surf2 },
   playerCardBuf: { borderColor: Colors.teal, backgroundColor: Colors.teal + '11' },
   playerCardUsed: { opacity: 0.4 },
+  playerInfo: { flex: 1, gap: 2 },
   playerName: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  guestBadge: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.muted },
+  removeGuest: { padding: 2 },
+  removeGuestText: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.coral },
+
+  addGuestCard: {
+    width: '47%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    backgroundColor: 'transparent',
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.line,
+    borderStyle: 'dashed',
+    padding: Spacing.sm + 2,
+    minHeight: 56,
+  },
+  addGuestIcon: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.muted },
+  addGuestText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
+
+  modalOverlay: { flex: 1, backgroundColor: '#000000aa', justifyContent: 'center', alignItems: 'center', padding: Spacing.xl },
+  modalBox: { backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.lg, width: '100%', gap: Spacing.md },
+  modalTitle: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text },
+  modalSubtitle: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: -Spacing.sm },
+  modalInput: {
+    backgroundColor: Colors.bg, borderRadius: Radius.md, borderWidth: 1.5,
+    borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md,
+    fontFamily: FontFamily.body, fontSize: 16, color: Colors.text,
+  },
+  modalButtons: { flexDirection: 'row', gap: Spacing.sm },
+  modalBtnCancel: { flex: 1, borderWidth: 1.5, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' },
+  modalBtnCancelText: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.muted },
+  modalBtnAdd: { flex: 1, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' },
+  modalBtnAddText: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg },
 
   bufHint: { backgroundColor: Colors.teal + '22', borderRadius: Radius.sm, padding: Spacing.sm, alignItems: 'center' },
   bufHintText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.teal },

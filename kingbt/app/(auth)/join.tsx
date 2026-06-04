@@ -3,14 +3,21 @@ import {
   ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { useAuth } from '@/store/AuthContext';
 
 export default function JoinGroupScreen() {
-  const { user, joinGroup, logout, error, clearError } = useAuth();
+  const { user, group, loading, joinGroup, logout, error, clearError } = useAuth();
+  const router = useRouter();
   const [code, setCode]     = useState('');
   const [busy, setBusy]     = useState(false);
+
+  useEffect(() => {
+    if (loading) return;
+    if (user && group) router.replace('/(app)');
+  }, [loading, user, group]);
 
   async function handleJoin() {
     if (!code.trim()) return;

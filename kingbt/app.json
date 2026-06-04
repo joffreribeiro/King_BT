@@ -4,7 +4,7 @@
     "slug": "kingbt",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/kingbt-crest.png",
     "scheme": "kingbt",
     "userInterfaceStyle": "dark",
     "sdkVersion": "52.0.0",
@@ -12,15 +12,16 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.kingbt.app",
       "adaptiveIcon": {
         "backgroundColor": "#0B0B0D",
-        "foregroundImage": "./assets/android-icon-foreground.png"
+        "foregroundImage": "./assets/kingbt-crest.png"
       }
     },
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/kingbt-crest.png"
     },
     "plugins": [
       "expo-router",
@@ -28,6 +29,14 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "9db1be6e-09df-461e-92e8-d55bd44c22ef"
+      }
     }
   }
 }
