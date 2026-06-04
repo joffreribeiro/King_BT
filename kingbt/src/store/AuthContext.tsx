@@ -68,20 +68,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Escuta mudanças de auth
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
+      console.log('[Auth] onAuthStateChanged:', u?.uid ?? 'null');
       setUser(u);
       if (u) {
-        // Busca grupo do usuário
         const userDoc = await getDoc(doc(db, 'users', u.uid));
+        console.log('[Auth] userDoc exists:', userDoc.exists(), userDoc.data());
         if (userDoc.exists()) {
           const { groupId } = userDoc.data();
+          console.log('[Auth] groupId:', groupId);
           if (groupId) {
             const groupDoc = await getDoc(doc(db, 'groups', groupId));
+            console.log('[Auth] groupDoc exists:', groupDoc.exists());
             if (groupDoc.exists()) {
               const gData = groupDoc.data();
               const g = { id: groupDoc.id, ...gData } as Group;
               setGroup(g);
               const admins: string[] = gData.admins ?? [];
               setIsAdmin(admins.includes(u.uid));
+              console.log('[Auth] group set:', g.name, 'isAdmin:', admins.includes(u.uid));
             }
           }
         }
