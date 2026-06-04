@@ -69,7 +69,7 @@ export default function FormatStep() {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.closeBtn}>
+        <TouchableOpacity onPress={() => router.replace('/(app)')} style={styles.closeBtn}>
           <Text style={styles.closeIcon}>✕</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nova competição</Text>
