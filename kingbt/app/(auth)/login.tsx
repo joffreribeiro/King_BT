@@ -4,15 +4,23 @@ import {
   Platform, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { useAuth } from '@/store/AuthContext';
 
 type Mode = 'options' | 'signin' | 'signup';
 
 export default function LoginScreen() {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, error, clearError } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, error, clearError, user, group, loading } = useAuth();
+  const router = useRouter();
   const [mode, setMode]         = useState<Mode>('options');
+
+  useEffect(() => {
+    if (loading) return;
+    if (user && group) router.replace('/(app)');
+    else if (user && !group) router.replace('/(auth)/join');
+  }, [loading, user, group]);
   const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
