@@ -1,37 +1,23 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors, FontFamily, Radius, Spacing } from '@/theme';
 
-type Variant = 'gold' | 'teal' | 'coral' | 'neutral';
+type Variant = 'gold' | 'teal' | 'coral' | 'neutral' | 'muted';
 
-type Props = {
-  label: string;
-  variant?: Variant;
-  small?: boolean;
-};
+type Props = { label: string; variant?: Variant; small?: boolean };
 
-const BG: Record<Variant, string> = {
-  gold:    Colors.gold + '22',
-  teal:    Colors.teal + '22',
-  coral:   Colors.coral + '22',
-  neutral: Colors.line,
-};
-
-const FG: Record<Variant, string> = {
-  gold:    Colors.gold,
-  teal:    Colors.teal,
-  coral:   Colors.coral,
-  neutral: Colors.textSoft,
+const CFG: Record<Variant, { bg: string; fg: string }> = {
+  gold:    { bg: Colors.gold  + '22', fg: Colors.gold   },
+  teal:    { bg: Colors.teal  + '22', fg: Colors.teal   },
+  coral:   { bg: Colors.coral + '22', fg: Colors.coral  },
+  neutral: { bg: Colors.line,         fg: Colors.muted  },
+  muted:   { bg: Colors.surf2,        fg: Colors.faint  },
 };
 
 export default function Badge({ label, variant = 'neutral', small = false }: Props) {
+  const { bg, fg } = CFG[variant];
   return (
-    <View style={[styles.badge, { backgroundColor: BG[variant] }]}>
-      <Text style={[
-        styles.label,
-        { color: FG[variant], fontSize: small ? 11 : 13 },
-      ]}>
-        {label}
-      </Text>
+    <View style={[styles.badge, { backgroundColor: bg }]}>
+      <Text style={[styles.label, { color: fg, fontSize: small ? 10 : 12 }]}>{label}</Text>
     </View>
   );
 }
@@ -43,8 +29,5 @@ const styles = StyleSheet.create({
     borderRadius: Radius.full,
     alignSelf: 'flex-start',
   },
-  label: {
-    fontFamily: FontFamily.numberBold,
-    letterSpacing: 0.3,
-  },
+  label: { fontFamily: FontFamily.numberBold, letterSpacing: 0.3 },
 });

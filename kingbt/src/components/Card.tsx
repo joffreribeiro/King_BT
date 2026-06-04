@@ -5,11 +5,12 @@ type Props = {
   children: React.ReactNode;
   style?: ViewStyle;
   elevated?: boolean;
+  padding?: number;
 };
 
-export default function Card({ children, style, elevated = false }: Props) {
+export default function Card({ children, style, elevated = false, padding = Spacing.md }: Props) {
   return (
-    <View style={[styles.card, elevated && styles.elevated, style]}>
+    <View style={[styles.card, elevated && styles.elevated, { padding }, style]}>
       {children}
     </View>
   );
@@ -17,18 +18,17 @@ export default function Card({ children, style, elevated = false }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface1,
+    backgroundColor: Colors.surf,
     borderRadius: Radius.md,
-    padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.line,
   },
   elevated: {
-    backgroundColor: Colors.surface2,
+    backgroundColor: Colors.surf2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
 });

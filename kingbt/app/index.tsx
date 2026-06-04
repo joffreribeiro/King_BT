@@ -1,5 +1,6 @@
 import { Redirect } from 'expo-router';
 
 export default function Root() {
-  return <Redirect href="/(tabs)/home" />;
+  // Em produção: checar auth e redirecionar para login se não autenticado
+  return <Redirect href="/(app)/index" />;
 }

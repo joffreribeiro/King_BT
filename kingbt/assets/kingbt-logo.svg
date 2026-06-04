@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <!-- Fundo escuro -->
+  <rect width="400" height="400" fill="#0B0B0D"/>
+  <!-- Escudo -->
+  <path d="M200 30 L340 90 L340 230 Q340 320 200 370 Q60 320 60 230 L60 90 Z"
+        fill="#16140F" stroke="#F3C544" stroke-width="3"/>
+  <!-- Coroa -->
+  <path d="M150 100 L170 130 L200 115 L230 130 L250 100 L245 150 L155 150 Z"
+        fill="#F3C544"/>
+  <!-- Texto KING -->
+  <text x="200" y="230" font-family="Arial Black" font-size="62" font-weight="900"
+        fill="#F6EFDD" text-anchor="middle" letter-spacing="4">KING</text>
+  <!-- Texto BT -->
+  <text x="200" y="300" font-family="Arial Black" font-size="72" font-weight="900"
+        fill="#F3C544" text-anchor="middle" letter-spacing="2">BT</text>
+  <!-- Tagline -->
+  <text x="200" y="340" font-family="Arial" font-size="14"
+        fill="#A99B7C" text-anchor="middle" letter-spacing="3">BEACH TENNIS</text>
+</svg>

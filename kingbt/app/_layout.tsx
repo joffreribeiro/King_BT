@@ -6,11 +6,14 @@ import * as SplashScreen from 'expo-splash-screen';
 import {
   useFonts,
   Sora_400Regular,
+  Sora_500Medium,
   Sora_600SemiBold,
   Sora_700Bold,
+  Sora_800ExtraBold,
 } from '@expo-google-fonts/sora';
 import {
   SpaceGrotesk_500Medium,
+  SpaceGrotesk_600SemiBold,
   SpaceGrotesk_700Bold,
 } from '@expo-google-fonts/space-grotesk';
 import { Colors } from '@/theme';
@@ -20,16 +23,17 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     Sora_400Regular,
+    Sora_500Medium,
     Sora_600SemiBold,
     Sora_700Bold,
+    Sora_800ExtraBold,
     SpaceGrotesk_500Medium,
+    SpaceGrotesk_600SemiBold,
     SpaceGrotesk_700Bold,
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
+    if (fontsLoaded || fontError) SplashScreen.hideAsync();
   }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError) {
