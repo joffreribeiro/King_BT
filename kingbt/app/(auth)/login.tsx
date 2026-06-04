@@ -1,29 +1,42 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { KingBTLogo } from '@/components';
 
 export default function LoginScreen() {
-  const handleEnter = () => {
-    router.replace('/(tabs)/home');
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.center}>
+
         <Text style={styles.crown}>👑</Text>
-        <Text style={styles.logo}>
-          KING<Text style={styles.logoAccent}>BT</Text>
+        <KingBTLogo size="lg" showTagline />
+
+        <Text style={styles.tagline}>Play com respeito, evolua sempre.</Text>
+
+        <View style={styles.btnGroup}>
+          <TouchableOpacity
+            style={styles.btnGoogle}
+            onPress={() => router.replace('/(tabs)/home')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.googleIcon}>G</Text>
+            <Text style={styles.btnText}>Entrar com Google</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.btnCode}
+            onPress={() => router.replace('/(tabs)/home')}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.btnCodeText}>Entrar com código do grupo</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.footer}>
+          Código do grupo KING BT: <Text style={styles.code}>KINGBT</Text>
         </Text>
-        <Text style={styles.tagline}>Beach Tennis entre amigos</Text>
 
-        <TouchableOpacity style={styles.btnGoogle} onPress={handleEnter}>
-          <Text style={styles.btnText}>Entrar com Google</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.btnCode} onPress={handleEnter}>
-          <Text style={styles.btnCodeText}>Entrar com código do grupo</Text>
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -36,29 +49,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.xl,
-    gap: Spacing.md,
+    gap: Spacing.lg,
   },
-  crown: { fontSize: 64 },
-  logo: {
-    fontFamily: FontFamily.titleBold,
-    fontSize: 48,
-    color: Colors.text,
-    letterSpacing: 2,
-  },
-  logoAccent: { color: Colors.gold },
+  crown: { fontSize: 72 },
   tagline: {
-    fontFamily: FontFamily.body,
-    fontSize: 16,
+    fontFamily: FontFamily.number,
+    fontSize: 13,
     color: Colors.textSoft,
-    marginBottom: Spacing.xl,
+    letterSpacing: 1,
+    textAlign: 'center',
   },
+  btnGroup: { width: '100%', gap: Spacing.md },
   btnGoogle: {
     backgroundColor: Colors.teal,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.xl,
     borderRadius: Radius.md,
-    width: '100%',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+  },
+  googleIcon: {
+    fontFamily: FontFamily.titleBold,
+    fontSize: 18,
+    color: Colors.bg,
   },
   btnText: {
     fontFamily: FontFamily.title,
@@ -66,12 +81,11 @@ const styles = StyleSheet.create({
     color: Colors.bg,
   },
   btnCode: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.gold,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.xl,
     borderRadius: Radius.md,
-    width: '100%',
     alignItems: 'center',
   },
   btnCodeText: {
@@ -79,4 +93,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.gold,
   },
+  footer: {
+    fontFamily: FontFamily.body,
+    fontSize: 12,
+    color: Colors.textSoft,
+  },
+  code: { color: Colors.gold, fontFamily: FontFamily.numberBold },
 });
