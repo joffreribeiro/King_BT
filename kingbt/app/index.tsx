@@ -1,10 +1,12 @@
 import { Redirect } from 'expo-router';
-
-// Mock: false = não logado → vai para login
-// Quando integrar Firebase, trocar por: const { user } = useAuth()
-const IS_LOGGED_IN = false;
+import { View } from 'react-native';
+import { useAuth } from '@/store/AuthContext';
+import { Colors } from '@/theme';
 
 export default function Root() {
-  if (!IS_LOGGED_IN) return <Redirect href="/(auth)/login" />;
+  const { user, group, loading } = useAuth();
+
+  if (loading) return <View style={{ flex: 1, backgroundColor: Colors.bg }} />;
+  if (!user || !group) return <Redirect href="/(auth)/login" />;
   return <Redirect href="/(app)" />;
 }
