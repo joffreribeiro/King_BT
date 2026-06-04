@@ -89,8 +89,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const groupDoc = snap.docs[0];
       const groupData = groupDoc.data();
 
-      // Adiciona usuário ao grupo
-      const members: string[] = groupData.members ?? [];
+      // Adiciona usuário ao grupo (filtra strings vazias do array)
+      const members: string[] = (groupData.members ?? []).filter((m: unknown) => typeof m === 'string' && m !== '');
       if (!members.includes(user.uid)) {
         await setDoc(doc(db, 'groups', groupDoc.id), {
           members: [...members, user.uid],
