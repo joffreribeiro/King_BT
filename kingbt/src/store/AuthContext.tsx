@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState, type ReactNode }
 import {
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
@@ -9,6 +11,7 @@ import {
   signOut,
   type User,
 } from 'firebase/auth';
+import { Platform } from 'react-native';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '@/firebase/config';
 
@@ -47,6 +50,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState<string | null>(null);
 
+  // Captura resultado do redirect do Google (web)
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    getRedirectResult(auth).then(async (result) => {
+      if (result?.user) {
+        await setDoc(doc(db, 'users', result.user.uid), {
+          name: result.user.displayName,
+          email: result.user.email,
+          photoURL: result.user.photoURL,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      }
+    }).catch(() => {});
+  }, []);
+
   // Escuta mudanças de auth
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -79,14 +97,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null);
       const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      // Cria/atualiza doc do usuário
-      await setDoc(doc(db, 'users', result.user.uid), {
-        name: result.user.displayName,
-        email: result.user.email,
-        photoURL: result.user.photoURL,
-        updatedAt: new Date().toISOString(),
-      }, { merge: true });
+      if (Platform.OS === 'web') {
+        // Web: redirect é mais confiável que popup
+        await signInWithRedirect(auth, provider);
+      } else {
+        // Mobile: popup funciona bem
+        const result = await signInWithPopup(auth, provider);
+        await setDoc(doc(db, 'users', result.user.uid), {
+          name: result.user.displayName,
+          email: result.user.email,
+          photoURL: result.user.photoURL,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      }
     } catch (e: any) {
       setError('Erro ao entrar com Google. Tente novamente.');
     }
