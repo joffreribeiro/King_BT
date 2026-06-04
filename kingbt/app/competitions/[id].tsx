@@ -438,14 +438,20 @@ export default function CompetitionDetail() {
   }
 
   function handleDelete() {
-    const { Alert } = require('react-native');
-    Alert.alert('Excluir competição', 'Tem certeza? Esta ação não pode ser desfeita.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Excluir', style: 'destructive', onPress: () => {
-        dispatch({ type: 'DELETE', compId: id! });
-        router.replace('/(app)');
-      }},
-    ]);
+    const { Platform } = require('react-native');
+    const doDelete = () => {
+      dispatch({ type: 'DELETE', compId: id! });
+      router.replace('/(app)');
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm('Excluir competição? Esta ação não pode ser desfeita.')) doDelete();
+    } else {
+      const { Alert } = require('react-native');
+      Alert.alert('Excluir competição', 'Tem certeza?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Excluir', style: 'destructive', onPress: doDelete },
+      ]);
+    }
   }
 
   return (

@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
@@ -34,10 +34,14 @@ export default function ProfileScreen() {
   const { logout, user } = useAuth();
 
   function handleLogout() {
-    Alert.alert('Sair', 'Deseja sair da sua conta?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sair', style: 'destructive', onPress: logout },
-    ]);
+    if (Platform.OS === 'web') {
+      if (window.confirm('Deseja sair da sua conta?')) logout();
+    } else {
+      Alert.alert('Sair', 'Deseja sair da sua conta?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Sair', style: 'destructive', onPress: logout },
+      ]);
+    }
   }
   const allGames = state.competitions.flatMap(extractPlayerGames);
   const ranking = buildRanking(
