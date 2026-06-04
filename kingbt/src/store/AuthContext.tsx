@@ -97,11 +97,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setError(null);
       const provider = new GoogleAuthProvider();
-      if (Platform.OS === 'web') {
-        // Web: redirect é mais confiável que popup
-        await signInWithRedirect(auth, provider);
-      } else {
-        // Mobile: popup funciona bem
+      provider.addScope('email');
+      provider.addScope('profile');
+      // Tenta popup primeiro, se bloqueado usa redirect
+      try {
         const result = await signInWithPopup(auth, provider);
         await setDoc(doc(db, 'users', result.user.uid), {
           name: result.user.displayName,
@@ -109,9 +108,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           photoURL: result.user.photoURL,
           updatedAt: new Date().toISOString(),
         }, { merge: true });
+      } catch (popupErr: any) {
+        // Popup bloqueado → tenta redirect
+        if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user') {
+          await signInWithRedirect(auth, provider);
+        } else {
+          throw popupErr;
+        }
       }
     } catch (e: any) {
-      setError('Erro ao entrar com Google. Tente novamente.');
+      if (e.code !== 'auth/popup-closed-by-user') {
+        setError('Erro ao entrar com Google. Verifique se popups estão habilitados.');
+      }
     }
   }
 
