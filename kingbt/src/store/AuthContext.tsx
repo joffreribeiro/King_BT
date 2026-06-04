@@ -104,26 +104,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const provider = new GoogleAuthProvider();
       provider.addScope('email');
       provider.addScope('profile');
-      // Tenta popup primeiro, se bloqueado usa redirect
-      try {
-        const result = await signInWithPopup(auth, provider);
-        await setDoc(doc(db, 'users', result.user.uid), {
-          name: result.user.displayName,
-          email: result.user.email,
-          photoURL: result.user.photoURL,
-          updatedAt: new Date().toISOString(),
-        }, { merge: true });
-      } catch (popupErr: any) {
-        // Popup bloqueado → tenta redirect
-        if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user') {
+      if (Platform.OS === 'web') {
+        // No navegador desktop usa popup, no mobile usa redirect
+        const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+        if (isMobile) {
           await signInWithRedirect(auth, provider);
         } else {
-          throw popupErr;
+          try {
+            const result = await signInWithPopup(auth, provider);
+            await setDoc(doc(db, 'users', result.user.uid), {
+              name: result.user.displayName,
+              email: result.user.email,
+              photoURL: result.user.photoURL,
+              updatedAt: new Date().toISOString(),
+            }, { merge: true });
+          } catch (popupErr: any) {
+            if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user') {
+              await signInWithRedirect(auth, provider);
+            } else {
+              throw popupErr;
+            }
+          }
         }
       }
     } catch (e: any) {
       if (e.code !== 'auth/popup-closed-by-user') {
-        setError('Erro ao entrar com Google. Verifique se popups estão habilitados.');
+        setError('Erro ao entrar com Google. Tente novamente.');
       }
     }
   }
