@@ -3,19 +3,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
 import { PLAYERS } from '@/mocks/data';
-import { MOCK_COMPETITIONS } from '@/mocks/competitions';
+import { useCompetitions } from '@/store/CompetitionsContext';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
-
-const MY_ID = 'p1';
-const player = PLAYERS.find(p => p.id === MY_ID)!;
-const allGames = MOCK_COMPETITIONS.flatMap(extractPlayerGames);
-const ranking = buildRanking(
-  PLAYERS.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0,3).toUpperCase(), color: p.color })),
-  allGames
-);
-const me = ranking.find(r => r.id === MY_ID)!;
-const myPos = ranking.findIndex(r => r.id === MY_ID) + 1;
 
 function Bar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
   return (
@@ -37,6 +27,16 @@ const bar = StyleSheet.create({
 });
 
 export default function ProfileScreen() {
+  const MY_ID = 'p1';
+  const player = PLAYERS.find(p => p.id === MY_ID)!;
+  const { state } = useCompetitions();
+  const allGames = state.competitions.flatMap(extractPlayerGames);
+  const ranking = buildRanking(
+    PLAYERS.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0,3).toUpperCase(), color: p.color })),
+    allGames
+  );
+  const me = ranking.find(r => r.id === MY_ID) ?? ranking[0];
+  const myPos = ranking.findIndex(r => r.id === MY_ID) + 1;
   const winRate = me.played > 0 ? Math.round((me.wins / me.played) * 100) : 0;
   const wPts = me.wins * 3;
   const jPts = Math.round(me.played * 0.5 * 10) / 10;

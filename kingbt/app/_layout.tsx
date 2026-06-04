@@ -17,6 +17,7 @@ import {
   SpaceGrotesk_700Bold,
 } from '@expo-google-fonts/space-grotesk';
 import { Colors } from '@/theme';
+import { CompetitionsProvider } from '@/store/CompetitionsContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -41,7 +42,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <CompetitionsProvider>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -50,6 +51,6 @@ export default function RootLayout() {
           animation: 'slide_from_right',
         }}
       />
-    </>
+    </CompetitionsProvider>
   );
 }

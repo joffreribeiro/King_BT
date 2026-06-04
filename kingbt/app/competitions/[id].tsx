@@ -1,46 +1,194 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useState } from 'react';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
-import { getCompetition, updateCompetition } from '@/mocks/competitionStore';
 import { PLAYERS } from '@/mocks/data';
-import { standings, matchWinner } from '@/logic/formats';
+import { standings, groupComplete, matchWinner, matchLoser, koRoundName } from '@/logic/formats';
+import { useCompetitions } from '@/store/CompetitionsContext';
 import type { Match, Competition } from '@/logic/types';
 
 function getPlayer(id: string) {
   return PLAYERS.find(p => p.id === id);
 }
-
-function getComp(id: string) {
-  return getCompetition(id);
-}
-
 function getCompetitor(comp: Competition, id: string) {
   return comp.competitors.find(c => c.id === id);
 }
 
-// ─── Sub-views por formato ────────────────────────────────────────────────────
+// ─── Standings Table ──────────────────────────────────────────────────────────
+
+function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
+  comp: Competition; ids: string[]; matches: Match[]; highlightTop?: number;
+}) {
+  const st = standings(ids, matches);
+  return (
+    <Card padding={0} style={{ overflow: 'hidden', marginBottom: Spacing.sm }}>
+      <View style={[stRow.row, stRow.header]}>
+        {['#', 'JOGADOR', 'J', 'V', 'SG', 'PTS'].map(h => (
+          <Text key={h} style={[h === 'JOGADOR' ? stRow.cName : h === '#' ? stRow.c0 : stRow.cN, stRow.th]}>{h}</Text>
+        ))}
+      </View>
+      {st.map((s, i) => {
+        const pl = getPlayer(s.id);
+        const classified = highlightTop > 0 && i < highlightTop;
+        return (
+          <View key={s.id} style={[stRow.row, i < st.length - 1 && stRow.border, classified && stRow.classified]}>
+            <Text style={[stRow.c0, stRow.pos]}>{i + 1}</Text>
+            <View style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+              {pl && <Avatar name={pl.name} color={pl.color} size={22} />}
+              <Text style={stRow.name} numberOfLines={1}>{pl?.name ?? s.id}</Text>
+            </View>
+            <Text style={stRow.cN}>{s.played}</Text>
+            <Text style={stRow.cN}>{s.wins}</Text>
+            <Text style={[stRow.cN, { color: s.gd >= 0 ? Colors.teal : Colors.coral }]}>
+              {s.gd >= 0 ? '+' : ''}{s.gd}
+            </Text>
+            <Text style={[stRow.cN, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>{s.pts}</Text>
+          </View>
+        );
+      })}
+    </Card>
+  );
+}
+const stRow = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.sm, paddingVertical: 8 },
+  header: { backgroundColor: Colors.surf2, paddingVertical: 6 },
+  border: { borderBottomWidth: 1, borderBottomColor: Colors.line },
+  classified: { borderLeftWidth: 3, borderLeftColor: Colors.teal },
+  c0: { width: 24 },
+  cName: { flex: 1 },
+  cN: { width: 32, textAlign: 'center', fontFamily: FontFamily.number, fontSize: 12, color: Colors.text },
+  th: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.faint, letterSpacing: 0.5 },
+  pos: { fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.muted },
+  name: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, flex: 1 },
+});
+
+// ─── Game Row (avulso/super8) ─────────────────────────────────────────────────
+
+function GameRow({ match: m, index, comp, onPress }: {
+  match: Match; index: number; comp: Competition; onPress: () => void;
+}) {
+  const pA = [getPlayer(m.teamA?.[0] ?? ''), getPlayer(m.teamA?.[1] ?? '')];
+  const pB = [getPlayer(m.teamB?.[0] ?? ''), getPlayer(m.teamB?.[1] ?? '')];
+  const has = m.scoreA != null;
+  const aWon = has && m.scoreA! > m.scoreB!;
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+      <Card style={gRow.card}>
+        <View style={gRow.row}>
+          <View style={gRow.team}>
+            <View style={gRow.pair}>
+              {pA.map((p, i) => p && <Avatar key={i} name={p.name} color={p.color} size={28} />)}
+            </View>
+            <Text style={gRow.names} numberOfLines={1}>
+              {pA[0]?.name.split(' ')[0]} / {pA[1]?.name.split(' ')[0]}
+            </Text>
+          </View>
+          <View style={gRow.score}>
+            {has
+              ? <Text style={gRow.scoreText}>
+                  <Text style={aWon ? gRow.win : gRow.lose}>{m.scoreA}</Text>
+                  {' – '}
+                  <Text style={!aWon ? gRow.win : gRow.lose}>{m.scoreB}</Text>
+                </Text>
+              : <Text style={gRow.pending}>Jogo {index + 1}</Text>
+            }
+          </View>
+          <View style={[gRow.team, { alignItems: 'flex-end' }]}>
+            <View style={[gRow.pair, { flexDirection: 'row-reverse' }]}>
+              {pB.map((p, i) => p && <Avatar key={i} name={p.name} color={p.color} size={28} />)}
+            </View>
+            <Text style={[gRow.names, { textAlign: 'right' }]} numberOfLines={1}>
+              {pB[0]?.name.split(' ')[0]} / {pB[1]?.name.split(' ')[0]}
+            </Text>
+          </View>
+        </View>
+        {!has && <Text style={gRow.hint}>Toque para registrar placar</Text>}
+      </Card>
+    </TouchableOpacity>
+  );
+}
+const gRow = StyleSheet.create({
+  card: { marginBottom: 0 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  team: { flex: 1, gap: 4 },
+  pair: { flexDirection: 'row', gap: -6 },
+  names: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+  score: { alignItems: 'center', minWidth: 64 },
+  scoreText: { fontFamily: FontFamily.numberBold, fontSize: 20 },
+  win: { color: Colors.teal },
+  lose: { color: Colors.muted },
+  pending: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
+  hint: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center', marginTop: Spacing.xs, borderTopWidth: 1, borderTopColor: Colors.line, paddingTop: Spacing.xs },
+});
+
+// ─── Match Row (liga/grupos/mata-mata) ────────────────────────────────────────
+
+function MatchRow({ match: m, comp, onPress }: {
+  match: Match; comp: Competition; onPress: () => void;
+}) {
+  const cA = m.aId ? getCompetitor(comp, m.aId) : null;
+  const cB = m.bId ? getCompetitor(comp, m.bId) : null;
+  const pA = cA?.members[0] ? getPlayer(cA.members[0]) : null;
+  const pB = cB?.members[0] ? getPlayer(cB.members[0]) : null;
+  const has = m.scoreA != null && m.scoreB != null;
+  const aWon = has && m.scoreA! > m.scoreB!;
+  const pending = !cA || !cB;
+
+  return (
+    <TouchableOpacity onPress={onPress} disabled={pending} activeOpacity={0.8}>
+      <Card style={pending ? { ...mRow.card, ...mRow.disabled } : mRow.card}>
+        <View style={mRow.row}>
+          <View style={mRow.side}>
+            {pA && <Avatar name={pA.name} color={pA.color} size={28} />}
+            <Text style={[mRow.name, aWon && { color: Colors.gold }]} numberOfLines={1}>
+              {cA?.name ?? '?'}
+            </Text>
+          </View>
+          <Text style={mRow.vs}>
+            {has ? `${m.scoreA} – ${m.scoreB}` : pending ? 'A definir' : 'vs'}
+          </Text>
+          <View style={[mRow.side, mRow.sideRight]}>
+            <Text style={[mRow.name, { textAlign: 'right' }, !aWon && has && { color: Colors.gold }]} numberOfLines={1}>
+              {cB?.name ?? '?'}
+            </Text>
+            {pB && <Avatar name={pB.name} color={pB.color} size={28} />}
+          </View>
+        </View>
+      </Card>
+    </TouchableOpacity>
+  );
+}
+const mRow = StyleSheet.create({
+  card: { marginBottom: 0 },
+  disabled: { opacity: 0.45 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  side: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+  sideRight: { justifyContent: 'flex-end' },
+  name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
+  vs: { fontFamily: FontFamily.numberBold, fontSize: 15, color: Colors.muted, minWidth: 56, textAlign: 'center' },
+});
+
+// ─── Views por formato ────────────────────────────────────────────────────────
 
 function RotatingView({ comp, onScore }: { comp: Competition; onScore: (m: Match) => void }) {
   const done  = comp.matches.filter(m => m.scoreA != null).length;
   const total = comp.matches.length;
   return (
-    <ScrollView contentContainerStyle={styles.scroll}>
-      <Card style={styles.progCard}>
-        <View style={styles.progRow}>
-          <Text style={styles.progLabel}>Progresso</Text>
-          <Text style={styles.progCount}>{done}/{total}</Text>
+    <ScrollView contentContainerStyle={vw.scroll}>
+      <Card style={vw.prog}>
+        <View style={vw.progRow}>
+          <Text style={vw.progLabel}>Progresso</Text>
+          <Text style={vw.progCount}>{done}/{total} jogos</Text>
         </View>
-        <View style={styles.progTrack}>
-          <View style={[styles.progFill, { width: `${total ? done / total * 100 : 0}%` }]} />
+        <View style={vw.track}>
+          <View style={[vw.fill, { width: `${total ? done / total * 100 : 0}%` }]} />
         </View>
-        {done === total && total > 0 && (
-          <Text style={styles.reiDoDia}>👑 Todos os jogos concluídos!</Text>
-        )}
+        {done === total && total > 0 && <Text style={vw.rei}>👑 Todos os jogos concluídos!</Text>}
       </Card>
-
       {comp.matches.map((m, i) => (
         <GameRow key={m.id} match={m} index={i} comp={comp} onPress={() => onScore(m)} />
       ))}
@@ -52,41 +200,14 @@ function RotatingView({ comp, onScore }: { comp: Competition; onScore: (m: Match
 function LeagueView({ comp, onScore }: { comp: Competition; onScore: (m: Match) => void }) {
   const rounds = [...new Set(comp.matches.map(m => m.round))].sort((a, b) => (a ?? 0) - (b ?? 0));
   const st = standings(comp.competitors.map(c => c.id), comp.matches);
-
   return (
-    <ScrollView contentContainerStyle={styles.scroll}>
-      {/* Classificação */}
-      <Text style={styles.sectionTitle}>Classificação</Text>
-      <Card padding={0} style={{ overflow: 'hidden', marginBottom: Spacing.md }}>
-        <View style={[styles.stRow, styles.stHeader]}>
-          {['#','Jogador','J','V','D','SG','Pts'].map(h => (
-            <Text key={h} style={[styles.stCell, styles.stTh, h === 'Jogador' && styles.stNameCol]}>{h}</Text>
-          ))}
-        </View>
-        {st.map((s, i) => {
-          const pl = getPlayer(s.id);
-          return (
-            <View key={s.id} style={[styles.stRow, i < st.length - 1 && { borderBottomWidth: 1, borderBottomColor: Colors.line }]}>
-              <Text style={[styles.stCell, styles.stPos]}>{i + 1}</Text>
-              <View style={[styles.stNameCol, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
-                {pl && <Avatar name={pl.name} color={pl.color} size={22} />}
-                <Text style={styles.stName} numberOfLines={1}>{pl?.name ?? s.id}</Text>
-              </View>
-              <Text style={styles.stCell}>{s.played}</Text>
-              <Text style={styles.stCell}>{s.wins}</Text>
-              <Text style={styles.stCell}>{s.losses}</Text>
-              <Text style={[styles.stCell, { color: s.gd >= 0 ? Colors.teal : Colors.coral }]}>{s.gd >= 0 ? '+' : ''}{s.gd}</Text>
-              <Text style={[styles.stCell, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>{s.pts}</Text>
-            </View>
-          );
-        })}
-      </Card>
-
-      {/* Jogos por rodada */}
+    <ScrollView contentContainerStyle={vw.scroll}>
+      <Text style={vw.section}>Classificação</Text>
+      <StandingsTable comp={comp} ids={comp.competitors.map(c => c.id)} matches={comp.matches} />
       {rounds.map(r => (
         <View key={r}>
-          <Text style={styles.sectionTitle}>Rodada {r}</Text>
-          {comp.matches.filter(m => m.round === r).map((m, i) => (
+          <Text style={vw.section}>Rodada {r}</Text>
+          {comp.matches.filter(m => m.round === r).map(m => (
             <MatchRow key={m.id} match={m} comp={comp} onPress={() => onScore(m)} />
           ))}
         </View>
@@ -96,23 +217,71 @@ function LeagueView({ comp, onScore }: { comp: Competition; onScore: (m: Match) 
   );
 }
 
-function KOView({ comp, onScore }: { comp: Competition; onScore: (m: Match) => void }) {
-  const rounds = [...new Set(comp.matches.map(m => m.koRound))].sort((a, b) => (a ?? 0) - (b ?? 0));
-  const { koRoundName } = require('@/logic/formats');
+function GroupsView({ comp, onScore }: { comp: Competition; onScore: (m: Match) => void }) {
+  const [tab, setTab] = useState<'grupos' | 'jogos' | 'chave'>('grupos');
+  const allGroupsDone = comp.groupDefs?.every((_, gi) => groupComplete(comp.matches, gi)) ?? false;
+  const groupMatches = (gi: number) => comp.matches.filter(m => m.stage === 'group' && m.groupIdx === gi);
+
   return (
-    <ScrollView contentContainerStyle={styles.scroll}>
-      {rounds.map(r => {
-        const rMatches = comp.matches.filter(m => m.koRound === r);
-        const cnt = rMatches.find(m => !m.third)?.cnt ?? 0;
-        return (
-          <View key={r}>
-            <Text style={styles.sectionTitle}>{koRoundName(cnt)}</Text>
-            {rMatches.filter(m => !m.third).map(m => (
+    <View style={{ flex: 1 }}>
+      {/* Tab selector */}
+      <View style={tabs.bar}>
+        {(['grupos', 'jogos', 'chave'] as const).map(t => (
+          <TouchableOpacity key={t} style={[tabs.tab, tab === t && tabs.active]} onPress={() => setTab(t)}>
+            <Text style={[tabs.text, tab === t && tabs.textActive]}>
+              {t === 'grupos' ? 'Grupos' : t === 'jogos' ? 'Jogos' : 'Mata-mata'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <ScrollView contentContainerStyle={vw.scroll}>
+        {tab === 'grupos' && comp.groupDefs?.map((gd, gi) => (
+          <View key={gi}>
+            <Text style={vw.section}>{gd.name}</Text>
+            <StandingsTable comp={comp} ids={gd.ids} matches={groupMatches(gi)} highlightTop={comp.config.qualifiers} />
+          </View>
+        ))}
+
+        {tab === 'jogos' && comp.groupDefs?.map((gd, gi) => (
+          <View key={gi}>
+            <Text style={vw.section}>{gd.name}</Text>
+            {groupMatches(gi).map(m => (
               <MatchRow key={m.id} match={m} comp={comp} onPress={() => onScore(m)} />
             ))}
-            {rMatches.filter(m => m.third).map(m => (
+          </View>
+        ))}
+
+        {tab === 'chave' && (
+          allGroupsDone
+            ? <KOView comp={comp} onScore={onScore} />
+            : <Card style={vw.locked}>
+                <Text style={vw.lockedText}>⏳ Termine a fase de grupos para desbloquear o mata-mata.</Text>
+              </Card>
+        )}
+        <View style={{ height: Spacing.xl }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+function KOView({ comp, onScore }: { comp: Competition; onScore: (m: Match) => void }) {
+  const rounds = [...new Set(comp.matches.filter(m => m.stage === 'ko').map(m => m.koRound))]
+    .sort((a, b) => (a ?? 0) - (b ?? 0));
+  return (
+    <ScrollView contentContainerStyle={vw.scroll}>
+      {rounds.map(r => {
+        const rMatches = comp.matches.filter(m => m.koRound === r);
+        const main = rMatches.filter(m => !m.third);
+        const third = rMatches.filter(m => m.third);
+        const cnt = main[0]?.cnt ?? 0;
+        return (
+          <View key={r}>
+            <Text style={vw.section}>{koRoundName(cnt)}</Text>
+            {main.map(m => <MatchRow key={m.id} match={m} comp={comp} onPress={() => onScore(m)} />)}
+            {third.map(m => (
               <View key={m.id}>
-                <Text style={styles.sectionTitle}>Disputa de 3º Lugar</Text>
+                <Text style={vw.section}>Disputa de 3º Lugar</Text>
                 <MatchRow match={m} comp={comp} onPress={() => onScore(m)} />
               </View>
             ))}
@@ -124,101 +293,38 @@ function KOView({ comp, onScore }: { comp: Competition; onScore: (m: Match) => v
   );
 }
 
-// ─── Rows ─────────────────────────────────────────────────────────────────────
+const vw = StyleSheet.create({
+  scroll: { padding: Spacing.md, gap: Spacing.sm },
+  prog: { gap: Spacing.sm, marginBottom: Spacing.sm },
+  progRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  progLabel: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
+  progCount: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.text },
+  track: { height: 4, backgroundColor: Colors.line, borderRadius: 2, overflow: 'hidden' },
+  fill: { height: 4, backgroundColor: Colors.teal, borderRadius: 2 },
+  rei: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.gold, textAlign: 'center' },
+  section: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.muted, letterSpacing: 1, marginTop: Spacing.sm, marginBottom: Spacing.xs },
+  locked: { alignItems: 'center', padding: Spacing.xl },
+  lockedText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, textAlign: 'center' },
+});
 
-function GameRow({ match: m, index, comp, onPress }: { match: Match; index: number; comp: Competition; onPress: () => void }) {
-  const pA = [getPlayer(m.teamA?.[0] ?? ''), getPlayer(m.teamA?.[1] ?? '')];
-  const pB = [getPlayer(m.teamB?.[0] ?? ''), getPlayer(m.teamB?.[1] ?? '')];
-  const has = m.scoreA != null;
-  const aWon = has && m.scoreA! > m.scoreB!;
-  return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-      <Card style={styles.gameCard}>
-        <View style={styles.gameRow}>
-          <View style={styles.teamSide}>
-            <View style={styles.avatarPair}>
-              {pA.map((p, i) => p && <Avatar key={i} name={p.name} color={p.color} size={28} />)}
-            </View>
-            <Text style={styles.teamName} numberOfLines={1}>
-              {pA[0]?.name.split(' ')[0]} / {pA[1]?.name.split(' ')[0]}
-            </Text>
-          </View>
-          <View style={styles.scoreCenter}>
-            {has
-              ? <Text style={styles.scoreText}>
-                  <Text style={aWon ? styles.win : styles.lose}>{m.scoreA}</Text>
-                  {' – '}
-                  <Text style={!aWon ? styles.win : styles.lose}>{m.scoreB}</Text>
-                </Text>
-              : <Text style={styles.scorePending}>Jogo {index + 1}</Text>
-            }
-          </View>
-          <View style={[styles.teamSide, styles.teamRight]}>
-            <View style={[styles.avatarPair, { flexDirection: 'row-reverse' }]}>
-              {pB.map((p, i) => p && <Avatar key={i} name={p.name} color={p.color} size={28} />)}
-            </View>
-            <Text style={[styles.teamName, { textAlign: 'right' }]} numberOfLines={1}>
-              {pB[0]?.name.split(' ')[0]} / {pB[1]?.name.split(' ')[0]}
-            </Text>
-          </View>
-        </View>
-        {!has && <Text style={styles.tapHint}>Toque para registrar placar</Text>}
-      </Card>
-    </TouchableOpacity>
-  );
-}
-
-function MatchRow({ match: m, comp, onPress }: { match: Match; comp: Competition; onPress: () => void }) {
-  const cA = m.aId ? getCompetitor(comp, m.aId) : null;
-  const cB = m.bId ? getCompetitor(comp, m.bId) : null;
-  const pA = cA?.members[0] ? getPlayer(cA.members[0]) : null;
-  const pB = cB?.members[0] ? getPlayer(cB.members[0]) : null;
-  const has = m.scoreA != null && m.scoreB != null;
-  const aWon = has && m.scoreA! > m.scoreB!;
-  const pending = !cA || !cB;
-
-  return (
-    <TouchableOpacity onPress={onPress} disabled={pending} activeOpacity={0.8}>
-      <Card style={pending ? { ...styles.matchCard, ...styles.matchPending } : styles.matchCard}>
-        <View style={styles.matchRow}>
-          <View style={styles.side}>
-            {pA && <Avatar name={pA.name} color={pA.color} size={28} />}
-            <Text style={[styles.matchName, aWon && { color: Colors.gold }]} numberOfLines={1}>
-              {cA?.name ?? '?'}
-            </Text>
-          </View>
-          <Text style={styles.matchScore}>
-            {has
-              ? `${m.scoreA} – ${m.scoreB}`
-              : pending ? 'A definir' : 'vs'
-            }
-          </Text>
-          <View style={[styles.side, styles.sideRight]}>
-            <Text style={[styles.matchName, { textAlign: 'right' }, !aWon && has && { color: Colors.gold }]} numberOfLines={1}>
-              {cB?.name ?? '?'}
-            </Text>
-            {pB && <Avatar name={pB.name} color={pB.color} size={28} />}
-          </View>
-        </View>
-      </Card>
-    </TouchableOpacity>
-  );
-}
+const tabs = StyleSheet.create({
+  bar: { flexDirection: 'row', backgroundColor: Colors.surf2, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  tab: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center' },
+  active: { borderBottomWidth: 2, borderBottomColor: Colors.gold },
+  text: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.faint },
+  textActive: { color: Colors.gold },
+});
 
 // ─── Scorer Modal ─────────────────────────────────────────────────────────────
 
-function ScorerModal({
-  match, comp, onClose, onSave,
-}: {
-  match: Match | null;
-  comp: Competition;
+function ScorerModal({ match, comp, onClose, onSave }: {
+  match: Match | null; comp: Competition;
   onClose: () => void;
   onSave: (id: string, a: number, b: number) => void;
 }) {
   const [sA, setSA] = useState(match?.scoreA != null ? String(match.scoreA) : '');
   const [sB, setSB] = useState(match?.scoreB != null ? String(match.scoreB) : '');
   if (!match) return null;
-
   const a = parseInt(sA), b = parseInt(sB);
   const valid = !isNaN(a) && !isNaN(b) && a >= 0 && b >= 0 && a !== b;
   const draw = !isNaN(a) && !isNaN(b) && a === b;
@@ -232,46 +338,34 @@ function ScorerModal({
 
   return (
     <Modal visible transparent animationType="slide">
-      <View style={modal.overlay}>
-        <View style={modal.sheet}>
-          <Text style={modal.title}>Registrar Placar</Text>
-          <Text style={modal.subtitle}>{nameA}{'\nvs\n'}{nameB}</Text>
-
-          <View style={modal.inputRow}>
+      <View style={sc.overlay}>
+        <View style={sc.sheet}>
+          <Text style={sc.title}>Registrar Placar</Text>
+          <Text style={sc.sub}>{nameA}{'\nvs\n'}{nameB}</Text>
+          <View style={sc.inputRow}>
             {[{ val: sA, set: setSA, label: nameA }, { val: sB, set: setSB, label: nameB }].map(({ val, set, label }, idx) => (
-              <View key={idx} style={modal.inputBlock}>
-                <Text style={modal.inputLabel} numberOfLines={1}>{label}</Text>
-                <View style={modal.stepper}>
-                  <TouchableOpacity style={modal.btn} onPress={() => set(s => String(Math.max(0, parseInt(s||'0') - 1)))}>
-                    <Text style={modal.btnText}>−</Text>
+              <View key={idx} style={sc.inputBlock}>
+                <Text style={sc.inputLabel} numberOfLines={1}>{label}</Text>
+                <View style={sc.stepper}>
+                  <TouchableOpacity style={sc.btn} onPress={() => set(s => String(Math.max(0, parseInt(s || '0') - 1)))}>
+                    <Text style={sc.btnText}>−</Text>
                   </TouchableOpacity>
-                  <TextInput
-                    style={modal.input}
-                    value={val}
-                    onChangeText={set}
-                    keyboardType="number-pad"
-                    maxLength={2}
-                  />
-                  <TouchableOpacity style={modal.btn} onPress={() => set(s => String(parseInt(s||'0') + 1))}>
-                    <Text style={modal.btnText}>+</Text>
+                  <TextInput style={sc.input} value={val} onChangeText={set} keyboardType="number-pad" maxLength={2} />
+                  <TouchableOpacity style={sc.btn} onPress={() => set(s => String(parseInt(s || '0') + 1))}>
+                    <Text style={sc.btnText}>+</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ))}
           </View>
-
-          {draw && <Text style={modal.warn}>⚠️ Empate não permitido</Text>}
-
-          <View style={modal.btns}>
-            <TouchableOpacity onPress={onClose} style={modal.cancel}>
-              <Text style={modal.cancelText}>Cancelar</Text>
+          {draw && <Text style={sc.warn}>⚠️ Empate não permitido</Text>}
+          <View style={sc.btns}>
+            <TouchableOpacity onPress={onClose} style={sc.cancel}>
+              <Text style={sc.cancelText}>Cancelar</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => { if (valid) onSave(match.id, a, b); }}
-              style={[modal.save, !valid && modal.saveDisabled]}
-              disabled={!valid}
-            >
-              <Text style={modal.saveText}>Salvar</Text>
+            <TouchableOpacity onPress={() => { if (valid) onSave(match.id, a, b); }}
+              style={[sc.save, !valid && sc.saveOff]} disabled={!valid}>
+              <Text style={sc.saveText}>Salvar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -279,119 +373,11 @@ function ScorerModal({
     </Modal>
   );
 }
-
-// ─── Main screen ─────────────────────────────────────────────────────────────
-
-export default function CompetitionDetail() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const base = getComp(id ?? '');
-  const [comp, setComp] = useState<Competition | null>(base ?? null);
-  const [scoring, setScoring] = useState<Match | null>(null);
-
-  if (!comp) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.err}>Competição não encontrada.</Text>
-      </SafeAreaView>
-    );
-  }
-
-  function handleSave(matchId: string, a: number, b: number) {
-    setComp(prev => {
-      if (!prev) return prev;
-      const { resolveCompetition } = require('@/logic/formats');
-      const updated = resolveCompetition({
-        ...prev,
-        matches: prev.matches.map(m => m.id === matchId ? { ...m, scoreA: a, scoreB: b } : m),
-      });
-      updateCompetition(updated);
-      return updated;
-    });
-    setScoring(null);
-  }
-
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>←</Text>
-        </TouchableOpacity>
-        <View style={styles.headerInfo}>
-          <Text style={styles.compName} numberOfLines={1}>{comp.name}</Text>
-          <Badge label={comp.status === 'done' ? 'Concluída' : 'Ativa'} variant={comp.status === 'done' ? 'teal' : 'gold'} small />
-        </View>
-      </View>
-
-      {(comp.format === 'avulso' || comp.format === 'super8')
-        ? <RotatingView comp={comp} onScore={setScoring} />
-        : comp.format === 'liga'
-          ? <LeagueView comp={comp} onScore={setScoring} />
-          : <KOView comp={comp} onScore={setScoring} />
-      }
-
-      <ScorerModal
-        match={scoring}
-        comp={comp}
-        onClose={() => setScoring(null)}
-        onSave={handleSave}
-      />
-    </SafeAreaView>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
-  headerInfo: { flex: 1, gap: 4 },
-  compName: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
-  err: { fontFamily: FontFamily.body, color: Colors.coral, padding: Spacing.md },
-  scroll: { padding: Spacing.md, gap: Spacing.sm },
-  sectionTitle: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.muted, letterSpacing: 1, marginTop: Spacing.sm, marginBottom: Spacing.xs },
-
-  progCard: { gap: Spacing.sm },
-  progRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  progLabel: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
-  progCount: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.text },
-  progTrack: { height: 4, backgroundColor: Colors.line, borderRadius: 2, overflow: 'hidden' },
-  progFill: { height: 4, backgroundColor: Colors.teal, borderRadius: 2 },
-  reiDoDia: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.gold, textAlign: 'center' },
-
-  gameCard: { marginBottom: 0 },
-  gameRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  teamSide: { flex: 1, gap: 4 },
-  teamRight: { alignItems: 'flex-end' },
-  avatarPair: { flexDirection: 'row', gap: -6 },
-  teamName: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
-  scoreCenter: { alignItems: 'center', minWidth: 64 },
-  scoreText: { fontFamily: FontFamily.numberBold, fontSize: 20 },
-  win: { color: Colors.teal },
-  lose: { color: Colors.muted },
-  scorePending: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
-  tapHint: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center', marginTop: Spacing.xs, borderTopWidth: 1, borderTopColor: Colors.line, paddingTop: Spacing.xs },
-
-  matchCard: { marginBottom: 0 },
-  matchPending: { opacity: 0.5 },
-  matchRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  side: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  sideRight: { justifyContent: 'flex-end' },
-  matchName: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
-  matchScore: { fontFamily: FontFamily.numberBold, fontSize: 15, color: Colors.muted, minWidth: 56, textAlign: 'center' },
-
-  stRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.sm, paddingVertical: 9 },
-  stHeader: { backgroundColor: Colors.surf2, paddingVertical: 7 },
-  stCell: { width: 28, textAlign: 'center', fontFamily: FontFamily.number, fontSize: 12, color: Colors.text },
-  stTh: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.faint, letterSpacing: 0.5 },
-  stNameCol: { flex: 1 },
-  stPos: { fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.muted },
-  stName: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, flex: 1 },
-});
-
-const modal = StyleSheet.create({
+const sc = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.xl, gap: Spacing.md },
   title: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text, textAlign: 'center' },
-  subtitle: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
+  sub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
   inputRow: { flexDirection: 'row', justifyContent: 'space-around', gap: Spacing.md },
   inputBlock: { alignItems: 'center', gap: Spacing.sm, flex: 1 },
   inputLabel: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, textAlign: 'center' },
@@ -404,6 +390,72 @@ const modal = StyleSheet.create({
   cancel: { flex: 1, padding: Spacing.md, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, alignItems: 'center' },
   cancelText: { fontFamily: FontFamily.body, color: Colors.muted },
   save: { flex: 1, padding: Spacing.md, borderRadius: Radius.md, backgroundColor: Colors.gold, alignItems: 'center' },
-  saveDisabled: { opacity: 0.4 },
+  saveOff: { opacity: 0.4 },
   saveText: { fontFamily: FontFamily.title, color: Colors.bg },
+});
+
+// ─── Main screen ──────────────────────────────────────────────────────────────
+
+export default function CompetitionDetail() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { state, dispatch } = useCompetitions();
+  const comp = state.competitions.find(c => c.id === id);
+  const [scoring, setScoring] = useState<Match | null>(null);
+
+  if (!comp) {
+    return (
+      <SafeAreaView style={main.container}>
+        <Text style={{ color: Colors.coral, padding: Spacing.md }}>Competição não encontrada.</Text>
+      </SafeAreaView>
+    );
+  }
+
+  function handleSave(matchId: string, a: number, b: number) {
+    dispatch({ type: 'SAVE_SCORE', compId: id!, matchId, scoreA: a, scoreB: b });
+    setScoring(null);
+  }
+
+  return (
+    <SafeAreaView style={main.container} edges={['top']}>
+      {/* Header */}
+      <View style={main.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={main.back}>←</Text>
+        </TouchableOpacity>
+        <View style={main.headerInfo}>
+          <Text style={main.compName} numberOfLines={1}>{comp.name}</Text>
+          <Badge
+            label={comp.status === 'done' ? 'Concluída' : 'Ativa'}
+            variant={comp.status === 'done' ? 'teal' : 'gold'}
+            small
+          />
+        </View>
+      </View>
+
+      {/* Conteúdo por formato */}
+      {comp.format === 'grupos'
+        ? <GroupsView comp={comp} onScore={setScoring} />
+        : comp.format === 'liga'
+          ? <LeagueView comp={comp} onScore={setScoring} />
+          : comp.format === 'mata'
+            ? <KOView comp={comp} onScore={setScoring} />
+            : <RotatingView comp={comp} onScore={setScoring} />
+      }
+
+      <ScorerModal
+        match={scoring}
+        comp={comp}
+        onClose={() => setScoring(null)}
+        onSave={handleSave}
+      />
+    </SafeAreaView>
+  );
+}
+
+const main = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.bg },
+  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
+  headerInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
+  compName: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text, flex: 1 },
 });

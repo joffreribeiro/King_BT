@@ -1,46 +1,59 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Colors, FontFamily, Spacing } from '@/theme';
+import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Card, Button } from '@/components';
 import { PLAYERS } from '@/mocks/data';
 import { buildCompetition } from '@/logic/formats';
-import { addCompetition } from '@/mocks/competitionStore';
+import { useCompetitions } from '@/store/CompetitionsContext';
 import type { Format } from '@/logic/types';
 
 const FORMAT_LABEL: Record<Format, string> = {
-  avulso: 'Americano (duplas rotativas)', liga: 'Liga', grupos: 'Grupos + Eliminatórias',
-  mata: 'Mata-Mata', super8: 'Super 8',
+  avulso: 'Americano (duplas rotativas)',
+  liga: 'Liga',
+  grupos: 'Grupos + Eliminatórias',
+  mata: 'Mata-Mata',
+  super8: 'Super 8',
 };
 
 export default function ReviewStep() {
+  const { dispatch } = useCompetitions();
   const p = useLocalSearchParams<{
-    format: Format; dbl: string; groups: string; qualifiers: string;
-    thirdPlace: string; playerIds: string;
+    format: Format;
+    dbl: string;
+    groups: string;
+    qualifiers: string;
+    thirdPlace: string;
+    playerIds: string;
   }>();
 
   const playerIds = p.playerIds?.split(',') ?? [];
   const players = playerIds.map(id => PLAYERS.find(pl => pl.id === id)!).filter(Boolean);
+
+  const config = {
+    rounds: p.dbl === 'true' ? 'double' as const : 'single' as const,
+    groups: parseInt(p.groups ?? '2'),
+    qualifiers: parseInt(p.qualifiers ?? '2'),
+    thirdPlace: p.thirdPlace === 'true',
+    winRule: { mode: 'games' as const, target: 6 },
+  };
 
   const comp = buildCompetition({
     name: `${FORMAT_LABEL[p.format]} — ${new Date().toLocaleDateString('pt-BR')}`,
     format: p.format,
     unit: 'individual',
     competitors: players.map(pl => ({
-      id: pl.id, name: pl.name, short: pl.name.slice(0,3).toUpperCase(),
-      color: pl.color, members: [pl.id],
+      id: pl.id,
+      name: pl.name,
+      short: pl.name.slice(0, 3).toUpperCase(),
+      color: pl.color,
+      members: [pl.id],
     })),
-    config: {
-      rounds: p.dbl === 'true' ? 'double' : 'single',
-      groups: parseInt(p.groups ?? '2'),
-      qualifiers: parseInt(p.qualifiers ?? '2'),
-      thirdPlace: p.thirdPlace === 'true',
-      winRule: { mode: 'games', target: 6 },
-    },
+    config,
   });
 
   function start() {
-    addCompetition(comp);
+    dispatch({ type: 'ADD', comp });
     router.replace({ pathname: '/competitions/[id]', params: { id: comp.id } });
   }
 
@@ -51,8 +64,9 @@ export default function ReviewStep() {
           <Text style={styles.backText}>← Voltar</Text>
         </TouchableOpacity>
 
+        {/* Indicador de passos */}
         <View style={styles.wizard}>
-          {[1,2,3,4].map(n => (
+          {[1, 2, 3, 4].map(n => (
             <View key={n} style={[styles.step, n === 4 && styles.stepActive, n < 4 && styles.stepDone]}>
               <Text style={[styles.stepNum, (n === 4 || n < 4) && styles.stepNumActive]}>
                 {n < 4 ? '✓' : n}
@@ -61,7 +75,7 @@ export default function ReviewStep() {
           ))}
         </View>
 
-        <Text style={styles.title}>Revisar e Gerar</Text>
+        <Text style={styles.title}>Revisar e Criar</Text>
 
         <Card style={styles.summary}>
           <Row label="Formato" value={FORMAT_LABEL[p.format]} />
@@ -83,7 +97,7 @@ export default function ReviewStep() {
           </View>
         </Card>
 
-        <Button label="🎾 Iniciar Competição" onPress={start} fullWidth size="lg" />
+        <Button label="🎾 Criar Competição" onPress={start} fullWidth size="lg" />
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
     </SafeAreaView>

@@ -3,65 +3,70 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Card } from '@/components';
 import { PLAYERS } from '@/mocks/data';
-import { MOCK_COMPETITIONS } from '@/mocks/competitions';
-import { buildRanking, type RankedPlayer } from '@/logic/scoring';
+import { useCompetitions } from '@/store/CompetitionsContext';
+import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 
-const allGames = MOCK_COMPETITIONS.flatMap(extractPlayerGames);
-const ranking = buildRanking(
-  PLAYERS.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0,3).toUpperCase(), color: p.color })),
-  allGames
-);
-
-const PODIUM = [ranking[1], ranking[0], ranking[2]].filter(Boolean);
-
 export default function RankingScreen() {
+  const { state } = useCompetitions();
+
+  const allGames = state.competitions.flatMap(extractPlayerGames);
+  const ranking = buildRanking(
+    PLAYERS.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color })),
+    allGames
+  );
+
+  const PODIUM = [ranking[1], ranking[0], ranking[2]].filter(Boolean);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
         <View style={styles.titleBlock}>
           <Text style={styles.title}>RANKING GERAL</Text>
-          <Text style={styles.subtitle}>Todas as competições · Temporada 2026</Text>
+          <Text style={styles.subtitle}>
+            {state.competitions.length} competições · Temporada 2026
+          </Text>
         </View>
 
         {/* Pódio */}
-        <View style={styles.podium}>
-          {PODIUM.map((s, i) => {
-            const pl = PLAYERS.find(p => p.id === s.id)!;
-            const pos = i === 0 ? 2 : i === 1 ? 1 : 3;
-            const heights = [80, 110, 64];
-            const isFirst = pos === 1;
-            return (
-              <View key={s.id} style={styles.podiumCol}>
-                <Avatar name={pl.name} color={pl.color} size={isFirst ? 60 : 46} showCrown={isFirst} />
-                <Text style={[styles.podiumName, isFirst && { color: Colors.gold }]} numberOfLines={1}>
-                  {pl.name}
-                </Text>
-                <Text style={[styles.podiumPts, isFirst && styles.podiumPtsBig]}>
-                  {s.points.toFixed(2)}
-                </Text>
-                <View style={[styles.podiumBlock, {
-                  height: heights[i],
-                  backgroundColor: isFirst ? Colors.gold + '28' : Colors.surf2,
-                  borderTopColor: isFirst ? Colors.gold : Colors.line,
-                }]}>
-                  <Text style={[styles.podiumPos, isFirst && { color: Colors.gold }]}>{pos}°</Text>
+        {ranking.length >= 3 && (
+          <View style={styles.podium}>
+            {PODIUM.map((s, i) => {
+              const pl = PLAYERS.find(p => p.id === s.id)!;
+              const pos = i === 0 ? 2 : i === 1 ? 1 : 3;
+              const heights = [80, 110, 64];
+              const isFirst = pos === 1;
+              return (
+                <View key={s.id} style={styles.podiumCol}>
+                  <Avatar name={pl.name} color={pl.color} size={isFirst ? 60 : 46} showCrown={isFirst} />
+                  <Text style={[styles.podiumName, isFirst && { color: Colors.gold }]} numberOfLines={1}>
+                    {pl.name}
+                  </Text>
+                  <Text style={[styles.podiumPts, isFirst && styles.podiumPtsBig]}>
+                    {s.points.toFixed(2)}
+                  </Text>
+                  <View style={[styles.podiumBlock, {
+                    height: heights[i],
+                    backgroundColor: isFirst ? Colors.gold + '28' : Colors.surf2,
+                    borderTopColor: isFirst ? Colors.gold : Colors.line,
+                  }]}>
+                    <Text style={[styles.podiumPos, isFirst && { color: Colors.gold }]}>{pos}°</Text>
+                  </View>
                 </View>
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
+        )}
 
         {/* Tabela */}
         <Card padding={0} style={{ overflow: 'hidden' }}>
           <View style={[styles.row, styles.th]}>
-            <Text style={[styles.c0, styles.thText]}>#</Text>
-            <Text style={[styles.cName, styles.thText]}>JOGADOR</Text>
-            <Text style={[styles.cN, styles.thText]}>V</Text>
-            <Text style={[styles.cN, styles.thText]}>J</Text>
-            <Text style={[styles.cN, styles.thText]}>GA</Text>
-            <Text style={[styles.cPts, styles.thText]}>PTS</Text>
+            {['#', 'JOGADOR', 'V', 'J', 'GA', 'PTS'].map(h => (
+              <Text key={h} style={[h === 'JOGADOR' ? styles.cName : h === '#' ? styles.c0 : h === 'PTS' ? styles.cPts : styles.cN, styles.thText]}>
+                {h}
+              </Text>
+            ))}
           </View>
           {ranking.map((s, i) => {
             const pl = PLAYERS.find(p => p.id === s.id)!;

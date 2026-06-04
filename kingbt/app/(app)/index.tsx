@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
-import { getAllCompetitions } from '@/mocks/competitionStore';
+import { useCompetitions } from '@/store/CompetitionsContext';
 import { PLAYERS } from '@/mocks/data';
 import type { Competition } from '@/logic/types';
 
@@ -79,7 +79,8 @@ function CompCard({ comp }: { comp: Competition }) {
 }
 
 export default function HubScreen() {
-  const all    = getAllCompetitions();
+  const { state } = useCompetitions();
+  const all    = state.competitions;
   const active = all.filter(c => c.status === 'active');
   const done   = all.filter(c => c.status === 'done');
 
@@ -106,7 +107,7 @@ export default function HubScreen() {
                 <View>
                   <Text style={styles.headerGroup}>Grupo</Text>
                   <Text style={styles.headerTitle}>
-                    KING<Text style={styles.headerTitleBT}>BT</Text>
+                    KING <Text style={styles.headerTitleBT}>BT</Text>
                   </Text>
                 </View>
               </View>
