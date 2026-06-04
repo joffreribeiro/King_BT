@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
@@ -97,11 +97,17 @@ export default function HubScreen() {
           <View>
             {/* Header */}
             <View style={styles.header}>
-              <View>
-                <Text style={styles.headerGroup}>Grupo</Text>
-                <View style={styles.headerTitleRow}>
-                  <Text style={styles.headerCrown}>👑</Text>
-                  <Text style={styles.headerTitle}>KING<Text style={styles.headerTitleBT}>BT</Text></Text>
+              <View style={styles.headerLeft}>
+                <Image
+                  source={require('../../assets/kingbt-logo.png')}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
+                <View>
+                  <Text style={styles.headerGroup}>Grupo</Text>
+                  <Text style={styles.headerTitle}>
+                    KING<Text style={styles.headerTitleBT}>BT</Text>
+                  </Text>
                 </View>
               </View>
               <TouchableOpacity onPress={() => router.push('/(app)/profile')}>
@@ -158,9 +164,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: Spacing.md,
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  logo: {
+    width: 52,
+    height: 52,
+  },
   headerGroup: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
-  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  headerCrown: { fontSize: 20 },
   headerTitle: {
     fontFamily: FontFamily.titleBold,
     fontSize: 26,

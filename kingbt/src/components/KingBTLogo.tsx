@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import { Colors, FontFamily } from '@/theme';
 
 type Props = {
@@ -12,7 +12,18 @@ const FS = { sm: 18, md: 30, lg: 48 } as const;
 export default function KingBTLogo({ size = 'md', showTagline = false, useImage = false }: Props) {
   const fs = FS[size];
 
-  // useImage desativado até o arquivo kingbt-logo.png ser adicionado em assets/
+  if (useImage) {
+    const imgSize = fs * 2.8;
+    return (
+      <View style={styles.container}>
+        <Image
+          source={require('../../assets/kingbt-logo.png')}
+          style={{ width: imgSize, height: imgSize }}
+          resizeMode="contain"
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
