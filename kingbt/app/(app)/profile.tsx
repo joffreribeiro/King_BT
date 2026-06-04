@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
 import { PLAYERS } from '@/mocks/data';
@@ -33,13 +34,17 @@ export default function ProfileScreen() {
   const { state } = useCompetitions();
   const { logout, user } = useAuth();
 
-  function handleLogout() {
+  async function handleLogout() {
+    const doLogout = async () => {
+      await logout();
+      router.replace('/(auth)/login');
+    };
     if (Platform.OS === 'web') {
-      if (window.confirm('Deseja sair da sua conta?')) logout();
+      if (window.confirm('Deseja sair da sua conta?')) await doLogout();
     } else {
       Alert.alert('Sair', 'Deseja sair da sua conta?', [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Sair', style: 'destructive', onPress: logout },
+        { text: 'Sair', style: 'destructive', onPress: doLogout },
       ]);
     }
   }
