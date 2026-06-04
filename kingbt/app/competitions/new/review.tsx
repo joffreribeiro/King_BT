@@ -5,6 +5,7 @@ import { Colors, FontFamily, Spacing } from '@/theme';
 import { Avatar, Card, Button } from '@/components';
 import { PLAYERS } from '@/mocks/data';
 import { buildCompetition } from '@/logic/formats';
+import { addCompetition } from '@/mocks/competitionStore';
 import type { Format } from '@/logic/types';
 
 const FORMAT_LABEL: Record<Format, string> = {
@@ -39,9 +40,8 @@ export default function ReviewStep() {
   });
 
   function start() {
-    // Em produção: salvar no Firestore e navegar para o detalhe
-    // No mock: navegar para a competição c1 como demo
-    router.replace({ pathname: '/competitions/[id]', params: { id: 'c1' } });
+    addCompetition(comp);
+    router.replace({ pathname: '/competitions/[id]', params: { id: comp.id } });
   }
 
   return (

@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { Colors, FontFamily } from '@/theme';
 
 type TabIconProps = { label: string; focused: boolean; icon: string };
 
@@ -19,11 +19,13 @@ function TabIcon({ label, focused, icon }: TabIconProps) {
 function FABButton() {
   return (
     <TouchableOpacity
-      style={styles.fab}
+      style={styles.fabWrap}
       onPress={() => router.push('/competitions/new/format')}
       activeOpacity={0.85}
     >
-      <Text style={styles.fabText}>+</Text>
+      <View style={styles.fab}>
+        <Text style={styles.fabText}>+</Text>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -52,11 +54,6 @@ export default function AppLayout() {
         options={{
           tabBarIcon: ({ focused }) => (
             <TabIcon label="Ranking" focused={focused} icon="📊" />
-          ),
-          tabBarButton: (props) => (
-            <View style={{ flex: 1 }}>
-              {props.children}
-            </View>
           ),
         }}
       />
@@ -91,6 +88,11 @@ const styles = StyleSheet.create({
   iconWrap: { alignItems: 'center', gap: 2 },
   iconEmoji: { fontSize: 22 },
   iconLabel: { fontFamily: FontFamily.body, fontSize: 10 },
+  fabWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   fab: {
     width: 56,
     height: 56,
@@ -98,7 +100,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
     shadowColor: Colors.gold,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,

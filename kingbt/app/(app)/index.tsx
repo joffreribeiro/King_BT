@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Badge, Card, KingBTLogo } from '@/components';
-import { MOCK_COMPETITIONS } from '@/mocks/competitions';
+import { getAllCompetitions } from '@/mocks/competitionStore';
 import type { Competition } from '@/logic/types';
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -53,8 +53,9 @@ function CompCard({ comp }: { comp: Competition }) {
 }
 
 export default function HubScreen() {
-  const active = MOCK_COMPETITIONS.filter(c => c.status === 'active');
-  const done   = MOCK_COMPETITIONS.filter(c => c.status === 'done');
+  const all    = getAllCompetitions();
+  const active = all.filter(c => c.status === 'active');
+  const done   = all.filter(c => c.status === 'done');
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

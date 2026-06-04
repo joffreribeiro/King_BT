@@ -4,7 +4,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useState } from 'react';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
-import { MOCK_COMPETITIONS } from '@/mocks/competitions';
+import { getCompetition, updateCompetition } from '@/mocks/competitionStore';
 import { PLAYERS } from '@/mocks/data';
 import { standings, matchWinner } from '@/logic/formats';
 import type { Match, Competition } from '@/logic/types';
@@ -14,7 +14,7 @@ function getPlayer(id: string) {
 }
 
 function getComp(id: string) {
-  return MOCK_COMPETITIONS.find(c => c.id === id);
+  return getCompetition(id);
 }
 
 function getCompetitor(comp: Competition, id: string) {
@@ -299,9 +299,13 @@ export default function CompetitionDetail() {
   function handleSave(matchId: string, a: number, b: number) {
     setComp(prev => {
       if (!prev) return prev;
-      const updated = { ...prev, matches: prev.matches.map(m => m.id === matchId ? { ...m, scoreA: a, scoreB: b } : m) };
       const { resolveCompetition } = require('@/logic/formats');
-      return resolveCompetition(updated);
+      const updated = resolveCompetition({
+        ...prev,
+        matches: prev.matches.map(m => m.id === matchId ? { ...m, scoreA: a, scoreB: b } : m),
+      });
+      updateCompetition(updated);
+      return updated;
     });
     setScoring(null);
   }
