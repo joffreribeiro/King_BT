@@ -4,7 +4,6 @@ import {
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
-  signInWithCredential,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
@@ -13,12 +12,8 @@ import {
   type User,
 } from 'firebase/auth';
 import { Platform } from 'react-native';
-import * as Google from 'expo-auth-session/providers/google';
-import * as WebBrowser from 'expo-web-browser';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '@/firebase/config';
-
-WebBrowser.maybeCompleteAuthSession();
 
 export type Group = {
   id: string;
@@ -52,40 +47,15 @@ type AuthContextType = AuthState & {
 
 const Ctx = createContext<AuthContextType | null>(null);
 
-const GOOGLE_WEB_CLIENT_ID = '859106891704-s022doc6nkck7eqqmapklbmqonodjfoo.apps.googleusercontent.com';
-const GOOGLE_ANDROID_CLIENT_ID = '859106891704-55sipqmpiph4m9gr5kdj377mu47hufvc.apps.googleusercontent.com';
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser]     = useState<User | null>(null);
   const [group, setGroup]   = useState<Group | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  const [googleRequest, googleResponse, googlePromptAsync] = Google.useAuthRequest({
-    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
-    webClientId: GOOGLE_WEB_CLIENT_ID,
-    scopes: ['profile', 'email'],
-  });
-
-  useEffect(() => {
-    if (googleResponse?.type === 'success') {
-      const { id_token } = googleResponse.params;
-      const credential = GoogleAuthProvider.credential(id_token);
-      signInWithCredential(auth, credential).then(async (result) => {
-        await setDoc(doc(db, 'users', result.user.uid), {
-          name: result.user.displayName,
-          email: result.user.email,
-          photoURL: result.user.photoURL,
-          updatedAt: new Date().toISOString(),
-        }, { merge: true });
-      }).catch(() => {});
-    }
-  }, [googleResponse]);
   const [error, setError]   = useState<string | null>(null);
 
-  // Captura resultado do redirect do Google (web)
+  // Captura resultado do redirect do Google
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
     getRedirectResult(auth).then(async (result) => {
       if (result?.user) {
         await setDoc(doc(db, 'users', result.user.uid), {
@@ -134,29 +104,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signInWithGoogle() {
     try {
       setError(null);
-      if (Platform.OS !== 'web') {
-        // APK nativo → usa expo-auth-session
-        await googlePromptAsync();
-      } else {
-        // Web desktop → popup
-        const provider = new GoogleAuthProvider();
-        provider.addScope('email');
-        provider.addScope('profile');
-        try {
-          const result = await signInWithPopup(auth, provider);
-          await setDoc(doc(db, 'users', result.user.uid), {
-            name: result.user.displayName,
-            email: result.user.email,
-            photoURL: result.user.photoURL,
-            updatedAt: new Date().toISOString(),
-          }, { merge: true });
-        } catch (popupErr: any) {
-          if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user') {
-            await signInWithRedirect(auth, provider);
-          } else {
-            throw popupErr;
+      const provider = new GoogleAuthProvider();
+      provider.addScope('email');
+      provider.addScope('profile');
+      if (Platform.OS === 'web') {
+        const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+        if (isMobile) {
+          await signInWithRedirect(auth, provider);
+        } else {
+          try {
+            const result = await signInWithPopup(auth, provider);
+            await setDoc(doc(db, 'users', result.user.uid), {
+              name: result.user.displayName,
+              email: result.user.email,
+              photoURL: result.user.photoURL,
+              updatedAt: new Date().toISOString(),
+            }, { merge: true });
+          } catch (popupErr: any) {
+            if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user') {
+              await signInWithRedirect(auth, provider);
+            } else {
+              throw popupErr;
+            }
           }
         }
+      } else {
+        await signInWithRedirect(auth, provider);
       }
     } catch (e: any) {
       if (e.code !== 'auth/popup-closed-by-user') {
