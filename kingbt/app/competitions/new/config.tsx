@@ -84,6 +84,7 @@ const stp = StyleSheet.create({
 export default function ConfigStep() {
   const { format } = useLocalSearchParams<{ format: Format }>();
   const [name, setName]       = useState(FORMAT_DEFAULT_NAME[format] ?? 'Competição');
+  const isRotativo = format === 'avulso' || format === 'super8';
   const [unit, setUnit]       = useState<Unit>('individual');
   const [rounds, setRounds]   = useState<Rounds>('single');
   const [winMode, setWinMode] = useState<WinMode>('games');
@@ -101,7 +102,7 @@ export default function ConfigStep() {
       params: {
         format,
         name,
-        unit,
+        unit: isRotativo ? 'individual' : unit,
         rounds,
         winMode,
         target: String(target),
@@ -145,25 +146,27 @@ export default function ConfigStep() {
           />
         </View>
 
-        {/* Tipo de competidor */}
-        <View style={styles.field}>
-          <Text style={styles.fieldLabel}>
-            Tipo de competidor
-            {unit === 'duplas' && <Text style={styles.required}>*</Text>}
-          </Text>
-          <SegmentControl
-            options={[
-              { value: 'individual', label: 'Individual' },
-              { value: 'duplas', label: 'Duplas fixas' },
-            ]}
-            value={unit}
-            onChange={setUnit}
-            descriptions={{
-              individual: 'Cada jogador compete individualmente.',
-              duplas: 'Você inscreve as duplas; elas competem entre si.',
-            }}
-          />
-        </View>
+        {/* Tipo de competidor — oculto para avulso/super8 (sempre rotativo) */}
+        {!isRotativo && (
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>
+              Tipo de competidor
+              {unit === 'duplas' && <Text style={styles.required}>*</Text>}
+            </Text>
+            <SegmentControl
+              options={[
+                { value: 'individual', label: 'Individual' },
+                { value: 'duplas', label: 'Duplas fixas' },
+              ]}
+              value={unit}
+              onChange={setUnit}
+              descriptions={{
+                individual: 'Cada jogador compete individualmente.',
+                duplas: 'Você inscreve as duplas; elas competem entre si.',
+              }}
+            />
+          </View>
+        )}
 
         {/* Turnos — só para liga e grupos */}
         {(format === 'liga' || format === 'grupos') && (
