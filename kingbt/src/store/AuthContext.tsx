@@ -63,8 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const [googleRequest, googleResponse, googlePromptAsync] = Google.useAuthRequest({
     clientId: GOOGLE_WEB_CLIENT_ID,
-    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
     webClientId: GOOGLE_WEB_CLIENT_ID,
+    scopes: ['profile', 'email'],
   });
 
   useEffect(() => {

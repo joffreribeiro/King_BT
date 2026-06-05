@@ -4,7 +4,7 @@
     "slug": "kingbt",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/kingbt-crest.png",
+    "icon": "./assets/icon.png",
     "scheme": "kingbt",
     "userInterfaceStyle": "dark",
     "sdkVersion": "52.0.0",
@@ -21,7 +21,7 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/kingbt-crest.png"
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router",
