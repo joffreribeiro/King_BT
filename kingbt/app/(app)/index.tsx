@@ -7,6 +7,7 @@ import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { PLAYERS } from '@/mocks/data';
 import type { Competition } from '@/logic/types';
+import { standings } from '@/logic/formats';
 
 const FORMAT_LABEL: Record<string, string> = {
   avulso: 'Avulso', liga: 'Liga', grupos: 'Grupos + Eliminatórias',
@@ -37,7 +38,6 @@ function formatDate(iso: string) {
 function competitionChampion(comp: Competition): { name: string } | null {
   if (comp.status !== 'done') return null;
   if (comp.format === 'liga') {
-    const { standings } = require('@/logic/formats');
     const st = standings(comp.competitors.map((c: any) => c.id), comp.matches);
     if (!st.length) return null;
     const winner = comp.competitors.find((c: any) => c.id === st[0].id);
