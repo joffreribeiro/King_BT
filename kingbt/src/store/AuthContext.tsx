@@ -20,7 +20,7 @@ import { auth, db } from '@/firebase/config';
 
 WebBrowser.maybeCompleteAuthSession();
 
-type Group = {
+export type Group = {
   id: string;
   name: string;
   code: string;
@@ -40,6 +40,10 @@ type AuthContextType = AuthState & {
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (name: string, email: string, password: string) => Promise<void>;
   joinGroup: (code: string) => Promise<void>;
+  createGroup: (name: string) => Promise<void>;
+  leaveGroup: () => Promise<void>;
+  switchGroup: (groupId: string) => Promise<void>;
+  getMyGroups: () => Promise<Group[]>;
   logout: () => Promise<void>;
   clearError: () => void;
   promoteToAdmin: (uid: string) => Promise<void>;
@@ -216,8 +220,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      // Associa grupo ao usuário
-      await setDoc(doc(db, 'users', user.uid), { groupId: groupDoc.id }, { merge: true });
+      // Associa grupo ao usuário e salva no histórico
+      const userSnap = await getDoc(doc(db, 'users', user.uid));
+      const prevGroupIds: string[] = userSnap.data()?.groupIds ?? [];
+      const groupIds = prevGroupIds.includes(groupDoc.id) ? prevGroupIds : [...prevGroupIds, groupDoc.id];
+      await setDoc(doc(db, 'users', user.uid), { groupId: groupDoc.id, groupIds }, { merge: true });
       const g = { id: groupDoc.id, ...groupData } as Group;
       setGroup(g);
       const admins: string[] = groupData.admins ?? [];
@@ -243,13 +250,90 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await setDoc(doc(db, 'groups', group.id), { members }, { merge: true });
   }
 
+  async function getMyGroups(): Promise<Group[]> {
+    if (!user) return [];
+    try {
+      const userSnap = await getDoc(doc(db, 'users', user.uid));
+      const groupIds: string[] = userSnap.data()?.groupIds ?? [];
+      const groups = await Promise.all(
+        groupIds.map(async (gid) => {
+          const gSnap = await getDoc(doc(db, 'groups', gid));
+          if (!gSnap.exists()) return null;
+          return { id: gSnap.id, ...gSnap.data() } as Group;
+        })
+      );
+      return groups.filter(Boolean) as Group[];
+    } catch {
+      return [];
+    }
+  }
+
+  async function switchGroup(groupId: string) {
+    if (!user) return;
+    try {
+      setError(null);
+      const gSnap = await getDoc(doc(db, 'groups', groupId));
+      if (!gSnap.exists()) { setError('Grupo não encontrado.'); return; }
+      const gData = gSnap.data();
+      await setDoc(doc(db, 'users', user.uid), { groupId }, { merge: true });
+      const g = { id: gSnap.id, ...gData } as Group;
+      setGroup(g);
+      setIsAdmin((gData.admins ?? []).includes(user.uid));
+    } catch {
+      setError('Erro ao trocar de grupo.');
+    }
+  }
+
+  async function leaveGroup() {
+    if (!user) return;
+    try {
+      await setDoc(doc(db, 'users', user.uid), { groupId: null }, { merge: true });
+      setGroup(null);
+      setIsAdmin(false);
+    } catch (e: any) {
+      setError('Erro ao sair do grupo. Tente novamente.');
+    }
+  }
+
+  async function createGroup(name: string) {
+    if (!user) { setError('Faça login primeiro.'); return; }
+    try {
+      setError(null);
+      // Gera código a partir do nome (sem espaços, maiúsculo, max 8 chars)
+      const code = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'GRUPO' + Math.floor(Math.random() * 1000);
+      const groupRef = doc(collection(db, 'groups'));
+      await setDoc(groupRef, {
+        name,
+        code,
+        admins: [user.uid],
+        members: [user.uid],
+      });
+      // Cria player no grupo
+      await setDoc(doc(db, 'groups', groupRef.id, 'players', user.uid), {
+        name: user.displayName ?? 'Jogador',
+        uid: user.uid,
+        color: '#FFD166',
+        guest: false,
+      });
+      // Associa grupo ao usuário e salva no histórico
+      const userSnap2 = await getDoc(doc(db, 'users', user.uid));
+      const prevGroupIds2: string[] = userSnap2.data()?.groupIds ?? [];
+      const groupIds2 = prevGroupIds2.includes(groupRef.id) ? prevGroupIds2 : [...prevGroupIds2, groupRef.id];
+      await setDoc(doc(db, 'users', user.uid), { groupId: groupRef.id, groupIds: groupIds2 }, { merge: true });
+      setGroup({ id: groupRef.id, name, code, admins: [user.uid] });
+      setIsAdmin(true);
+    } catch (e: any) {
+      setError('Erro ao criar grupo. Tente novamente.');
+    }
+  }
+
   async function logout() {
     await signOut(auth);
     setGroup(null);
   }
 
   return (
-    <Ctx.Provider value={{ user, group, isAdmin, loading, error, signInWithGoogle, signInWithEmail, signUpWithEmail, joinGroup, logout, clearError: () => setError(null), promoteToAdmin, removeFromGroup }}>
+    <Ctx.Provider value={{ user, group, isAdmin, loading, error, signInWithGoogle, signInWithEmail, signUpWithEmail, joinGroup, createGroup, leaveGroup, switchGroup, getMyGroups, logout, clearError: () => setError(null), promoteToAdmin, removeFromGroup }}>
       {children}
     </Ctx.Provider>
   );

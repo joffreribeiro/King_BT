@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconText: { fontSize: 22, fontWeight: '700' },
+  iconText: { fontSize: 26, fontWeight: '700' },
   cardInfo: { flex: 1, gap: 3 },
   cardLabel: {
     fontFamily: FontFamily.title,

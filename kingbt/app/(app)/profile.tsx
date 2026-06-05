@@ -32,7 +32,22 @@ export default function ProfileScreen() {
   const MY_ID = 'p1';
   const player = PLAYERS.find(p => p.id === MY_ID)!;
   const { state } = useCompetitions();
-  const { logout, user } = useAuth();
+  const { logout, leaveGroup, group, user } = useAuth();
+
+  async function handleLeaveGroup() {
+    const doLeave = async () => {
+      await leaveGroup();
+      router.replace('/(auth)/join');
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm('Sair do grupo atual? Você poderá entrar em outro grupo.')) await doLeave();
+    } else {
+      Alert.alert('Trocar de grupo', 'Sair do grupo atual?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Sair do grupo', style: 'destructive', onPress: doLeave },
+      ]);
+    }
+  }
 
   async function handleLogout() {
     const doLogout = async () => {
@@ -113,6 +128,12 @@ export default function ProfileScreen() {
         {/* Conta */}
         <Card style={styles.accountCard}>
           <Text style={styles.accountEmail}>{user?.email ?? user?.displayName}</Text>
+          {group && (
+            <Text style={styles.groupInfo}>Grupo: {group.name} · {group.code}</Text>
+          )}
+          <TouchableOpacity style={styles.leaveGroupBtn} onPress={() => router.push('/(auth)/groups')} activeOpacity={0.8}>
+            <Text style={styles.leaveGroupText}>Trocar de grupo</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
             <Text style={styles.logoutText}>Sair da conta</Text>
           </TouchableOpacity>
@@ -142,6 +163,13 @@ const styles = StyleSheet.create({
   sectionTitle: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.text, marginBottom: Spacing.sm },
   accountCard: { gap: Spacing.sm, alignItems: 'center' },
   accountEmail: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
+  groupInfo: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.gold },
+  leaveGroupBtn: {
+    borderWidth: 1, borderColor: Colors.line,
+    borderRadius: Radius.md, paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xl, alignItems: 'center',
+  },
+  leaveGroupText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
   logoutBtn: {
     borderWidth: 1, borderColor: Colors.coral + '66',
     borderRadius: Radius.md, paddingVertical: Spacing.sm,

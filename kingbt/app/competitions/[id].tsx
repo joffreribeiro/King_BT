@@ -519,7 +519,7 @@ export default function CompetitionDetail() {
     <SafeAreaView style={main.container} edges={['top']}>
       {/* Header */}
       <View style={main.header}>
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)')}>
           <Text style={main.back}>←</Text>
         </TouchableOpacity>
         <View style={main.headerInfo}>

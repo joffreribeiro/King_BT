@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
+import { useAuth } from '@/store/AuthContext';
 import { PLAYERS } from '@/mocks/data';
 import type { Competition } from '@/logic/types';
 
@@ -12,10 +13,13 @@ const FORMAT_LABEL: Record<string, string> = {
   mata: 'Mata-Mata', super8: 'Super 8',
 };
 const FORMAT_ICON: Record<string, string> = {
-  avulso: '🔀', liga: '≡', grupos: '⊞', mata: '⚔', super8: '8',
+  liga: '≡', grupos: '⊞', mata: '⇌', avulso: '✕', super8: '◈',
 };
 const FORMAT_ICON_BG: Record<string, string> = {
-  avulso: '#1a3a2a', liga: '#1a2a3a', grupos: '#2a1a3a', mata: '#3a1a1a', super8: '#2a2a1a',
+  liga: '#1a2e1a', grupos: '#1a1a2e', mata: '#2e1a1a', avulso: '#1a2a2e', super8: '#2a1a2e',
+};
+const FORMAT_ICON_COLOR: Record<string, string> = {
+  liga: '#54B981', grupos: '#6B7FD7', mata: '#E5483D', avulso: '#2DD4BF', super8: '#C084FC',
 };
 
 function formatDate(iso: string) {
@@ -42,7 +46,7 @@ function CompCard({ comp }: { comp: Competition }) {
         <View style={styles.cardRow}>
           {/* Ícone do formato */}
           <View style={[styles.fmtIcon, { backgroundColor: FORMAT_ICON_BG[comp.format] ?? '#1a1a1a' }]}>
-            <Text style={styles.fmtIconText}>{FORMAT_ICON[comp.format]}</Text>
+            <Text style={[styles.fmtIconText, { color: FORMAT_ICON_COLOR[comp.format] ?? '#ffffff' }]}>{FORMAT_ICON[comp.format]}</Text>
           </View>
 
           {/* Info */}
@@ -80,11 +84,11 @@ function CompCard({ comp }: { comp: Competition }) {
 
 export default function HubScreen() {
   const { state } = useCompetitions();
+  const { group, user } = useAuth();
   const all    = state.competitions;
   const active = all.filter(c => c.status === 'active');
   const done   = all.filter(c => c.status === 'done');
 
-  // Usuário logado (mock = Joffre)
   const me = PLAYERS[0];
 
   return (
@@ -106,8 +110,8 @@ export default function HubScreen() {
                 />
                 <View>
                   <Text style={styles.headerGroup}>Grupo</Text>
-                  <Text style={styles.headerTitle}>
-                    KING <Text style={styles.headerTitleBT}>BT</Text>
+                  <Text style={styles.headerTitle} numberOfLines={1}>
+                    {group?.name ?? 'King BT'}
                   </Text>
                 </View>
               </View>
@@ -177,11 +181,11 @@ const styles = StyleSheet.create({
   headerGroup: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
   headerTitle: {
     fontFamily: FontFamily.titleBold,
-    fontSize: 26,
+    fontSize: 22,
     color: Colors.text,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
+    maxWidth: 200,
   },
-  headerTitleBT: { color: Colors.gold },
 
   // Botão criar
   createBtn: {
