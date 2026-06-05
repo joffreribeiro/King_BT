@@ -4,7 +4,7 @@
     "slug": "kingbt",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/kingbt-icon-square.png",
     "scheme": "kingbt",
     "userInterfaceStyle": "dark",
     "sdkVersion": "52.0.0",
@@ -15,7 +15,7 @@
       "package": "com.kingbt.app",
       "adaptiveIcon": {
         "backgroundColor": "#0B0B0D",
-        "foregroundImage": "./assets/kingbt-crest.png"
+        "foregroundImage": "./assets/kingbt-icon-square.png"
       }
     },
     "web": {
