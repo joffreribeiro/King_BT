@@ -70,16 +70,20 @@ export default function LoginScreen() {
             <View style={styles.form}>
               <Text style={styles.title}>Entrar</Text>
 
-              <TouchableOpacity style={[styles.btnGoogle, busy && styles.btnDisabled]} onPress={handleGoogle} disabled={busy} activeOpacity={0.85}>
-                {busy ? <ActivityIndicator color={Colors.bg} /> : <>
-                  <Text style={styles.googleG}>G</Text>
-                  <Text style={styles.btnText}>Continuar com Google</Text>
-                </>}
-              </TouchableOpacity>
+              {Platform.OS === 'web' && (
+                <>
+                  <TouchableOpacity style={[styles.btnGoogle, busy && styles.btnDisabled]} onPress={handleGoogle} disabled={busy} activeOpacity={0.85}>
+                    {busy ? <ActivityIndicator color={Colors.bg} /> : <>
+                      <Text style={styles.googleG}>G</Text>
+                      <Text style={styles.btnText}>Continuar com Google</Text>
+                    </>}
+                  </TouchableOpacity>
 
-              <View style={styles.sep}>
-                <View style={styles.sepLine} /><Text style={styles.sepText}>ou</Text><View style={styles.sepLine} />
-              </View>
+                  <View style={styles.sep}>
+                    <View style={styles.sepLine} /><Text style={styles.sepText}>ou</Text><View style={styles.sepLine} />
+                  </View>
+                </>
+              )}
 
               <TouchableOpacity style={styles.btnEmail} onPress={() => reset('signin')} activeOpacity={0.85}>
                 <Text style={styles.btnEmailText}>Entrar com e-mail</Text>
