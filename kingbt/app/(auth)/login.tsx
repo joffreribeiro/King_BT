@@ -25,6 +25,7 @@ export default function LoginScreen() {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy]         = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   function reset(m: Mode) { clearError(); setMode(m); }
 
@@ -97,9 +98,14 @@ export default function LoginScreen() {
                 placeholder="E-mail" placeholderTextColor={Colors.faint}
                 keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
 
-              <TextInput style={styles.input} value={password} onChangeText={setPassword}
-                placeholder="Senha" placeholderTextColor={Colors.faint}
-                secureTextEntry />
+              <View style={styles.passwordWrap}>
+                <TextInput style={styles.passwordInput} value={password} onChangeText={setPassword}
+                  placeholder="Senha" placeholderTextColor={Colors.faint}
+                  secureTextEntry={!showPassword} />
+                <TouchableOpacity onPress={() => setShowPassword(p => !p)} style={styles.eyeBtn}>
+                  <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
+                </TouchableOpacity>
+              </View>
 
               <TouchableOpacity
                 style={[styles.btnPrimary, (!email || !password || busy) && styles.btnDisabled]}
@@ -129,9 +135,14 @@ export default function LoginScreen() {
                 placeholder="E-mail" placeholderTextColor={Colors.faint}
                 keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
 
-              <TextInput style={styles.input} value={password} onChangeText={setPassword}
-                placeholder="Senha (mín. 6 caracteres)" placeholderTextColor={Colors.faint}
-                secureTextEntry />
+              <View style={styles.passwordWrap}>
+                <TextInput style={styles.passwordInput} value={password} onChangeText={setPassword}
+                  placeholder="Senha (mín. 6 caracteres)" placeholderTextColor={Colors.faint}
+                  secureTextEntry={!showPassword} />
+                <TouchableOpacity onPress={() => setShowPassword(p => !p)} style={styles.eyeBtn}>
+                  <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
+                </TouchableOpacity>
+              </View>
 
               <TouchableOpacity
                 style={[styles.btnPrimary, (!name || !email || !password || busy) && styles.btnDisabled]}
@@ -161,6 +172,10 @@ const styles = StyleSheet.create({
   errorBox: { backgroundColor: Colors.coral + '22', borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.coral + '44', marginBottom: Spacing.xs },
   errorText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.coral },
   input: { backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, fontFamily: FontFamily.body, fontSize: 15, color: Colors.text },
+  passwordWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line },
+  passwordInput: { flex: 1, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, fontFamily: FontFamily.body, fontSize: 15, color: Colors.text },
+  eyeBtn: { paddingHorizontal: Spacing.md },
+  eyeText: { fontSize: 18 },
   btnGoogle: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md + 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 54 },
   btnEmail: { borderWidth: 1.5, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', backgroundColor: Colors.surf, minHeight: 52 },
   btnEmailText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },

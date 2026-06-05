@@ -176,25 +176,86 @@ const mRow = StyleSheet.create({
 // ─── Views por formato ────────────────────────────────────────────────────────
 
 function RotatingView({ comp, onScore }: { comp: Competition; onScore: (m: Match) => void }) {
+  const [tab, setTab] = useState<'ranking' | 'jogos'>('ranking');
   const done  = comp.matches.filter(m => m.scoreA != null).length;
   const total = comp.matches.length;
+
+  // Ranking dos jogadores baseado nos placares
+  const playerIds = [...new Set(comp.matches.flatMap(m => [...(m.teamA ?? []), ...(m.teamB ?? [])]))];
+  const rankingStats = playerIds.map(pid => {
+    let wins = 0, losses = 0, gf = 0, gc = 0;
+    comp.matches.forEach(m => {
+      if (m.scoreA == null) return;
+      const inA = m.teamA?.includes(pid);
+      const inB = m.teamB?.includes(pid);
+      if (inA) { gf += m.scoreA!; gc += m.scoreB!; if (m.scoreA! > m.scoreB!) wins++; else losses++; }
+      if (inB) { gf += m.scoreB!; gc += m.scoreA!; if (m.scoreB! > m.scoreA!) wins++; else losses++; }
+    });
+    const played = wins + losses;
+    const ga = gc > 0 ? gf / gc : gf > 0 ? 999 : 0;
+    return { pid, wins, losses, played, gf, gc, ga };
+  }).sort((a, b) => b.wins - a.wins || b.ga - a.ga);
+
   return (
-    <ScrollView contentContainerStyle={vw.scroll}>
-      <Card style={vw.prog}>
-        <View style={vw.progRow}>
-          <Text style={vw.progLabel}>Progresso</Text>
-          <Text style={vw.progCount}>{done}/{total} jogos</Text>
-        </View>
-        <View style={vw.track}>
-          <View style={[vw.fill, { width: `${total ? done / total * 100 : 0}%` }]} />
-        </View>
-        {done === total && total > 0 && <Text style={vw.rei}>👑 Todos os jogos concluídos!</Text>}
-      </Card>
-      {comp.matches.map((m, i) => (
-        <GameRow key={m.id} match={m} index={i} comp={comp} onPress={() => onScore(m)} />
-      ))}
-      <View style={{ height: Spacing.xl }} />
-    </ScrollView>
+    <View style={{ flex: 1 }}>
+      {/* Abas */}
+      <View style={tabs.bar}>
+        {(['ranking', 'jogos'] as const).map(t => (
+          <TouchableOpacity key={t} style={[tabs.tab, tab === t && tabs.active]} onPress={() => setTab(t)}>
+            <Text style={[tabs.text, tab === t && tabs.textActive]}>
+              {t === 'ranking' ? 'Ranking' : 'Jogos'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <ScrollView contentContainerStyle={vw.scroll}>
+        {/* Progresso */}
+        <Card style={vw.prog}>
+          <View style={vw.progRow}>
+            <Text style={vw.progLabel}>Progresso</Text>
+            <Text style={vw.progCount}>{done}/{total} jogos</Text>
+          </View>
+          <View style={vw.track}>
+            <View style={[vw.fill, { width: `${total ? done / total * 100 : 0}%` }]} />
+          </View>
+          {done === total && total > 0 && <Text style={vw.rei}>👑 Todos os jogos concluídos!</Text>}
+        </Card>
+
+        {tab === 'ranking' && (
+          <Card padding={0} style={{ overflow: 'hidden' }}>
+            <View style={[stRow.row, stRow.header]}>
+              {['#', 'JOGADOR', 'J', 'V', 'GA'].map(h => (
+                <Text key={h} style={[h === 'JOGADOR' ? stRow.cName : h === '#' ? stRow.c0 : stRow.cN, stRow.th]}>{h}</Text>
+              ))}
+            </View>
+            {rankingStats.map((s, i) => {
+              const pl = getPlayer(s.pid);
+              return (
+                <View key={s.pid} style={[stRow.row, i < rankingStats.length - 1 && stRow.border]}>
+                  <Text style={[stRow.c0, stRow.pos]}>{i + 1}</Text>
+                  <View style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                    {pl && <Avatar name={pl.name} color={pl.color} size={22} />}
+                    <Text style={stRow.name} numberOfLines={1}>{pl?.name ?? s.pid}</Text>
+                  </View>
+                  <Text style={stRow.cN}>{s.played}</Text>
+                  <Text style={stRow.cN}>{s.wins}</Text>
+                  <Text style={[stRow.cN, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>
+                    {s.gc > 0 ? s.ga.toFixed(2) : '0,00'}
+                  </Text>
+                </View>
+              );
+            })}
+          </Card>
+        )}
+
+        {tab === 'jogos' && comp.matches.map((m, i) => (
+          <GameRow key={m.id} match={m} index={i} comp={comp} onPress={() => onScore(m)} />
+        ))}
+
+        <View style={{ height: Spacing.xl }} />
+      </ScrollView>
+    </View>
   );
 }
 
