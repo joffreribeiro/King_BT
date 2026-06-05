@@ -1,5 +1,5 @@
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -69,15 +69,15 @@ const stRow = StyleSheet.create({
 
 // ─── Game Row (avulso/super8) ─────────────────────────────────────────────────
 
-function GameRow({ match: m, index, comp, onPress }: {
-  match: Match; index: number; comp: Competition; onPress: () => void;
+function GameRow({ match: m, index, comp, onPress, onLongPress }: {
+  match: Match; index: number; comp: Competition; onPress: () => void; onLongPress?: () => void;
 }) {
   const pA = [getPlayer(m.teamA?.[0] ?? ''), getPlayer(m.teamA?.[1] ?? '')];
   const pB = [getPlayer(m.teamB?.[0] ?? ''), getPlayer(m.teamB?.[1] ?? '')];
   const has = m.scoreA != null;
   const aWon = has && m.scoreA! > m.scoreB!;
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity onPress={onPress} onLongPress={onLongPress} activeOpacity={0.8}>
       <Card style={gRow.card}>
         <View style={gRow.row}>
           <View style={gRow.team}>
@@ -128,8 +128,8 @@ const gRow = StyleSheet.create({
 
 // ─── Match Row (liga/grupos/mata-mata) ────────────────────────────────────────
 
-function MatchRow({ match: m, comp, onPress }: {
-  match: Match; comp: Competition; onPress: () => void;
+function MatchRow({ match: m, comp, onPress, onLongPress }: {
+  match: Match; comp: Competition; onPress: () => void; onLongPress?: () => void;
 }) {
   const cA = m.aId ? getCompetitor(comp, m.aId) : null;
   const cB = m.bId ? getCompetitor(comp, m.bId) : null;
@@ -140,7 +140,7 @@ function MatchRow({ match: m, comp, onPress }: {
   const pending = !cA || !cB;
 
   return (
-    <TouchableOpacity onPress={onPress} disabled={pending} activeOpacity={0.8}>
+    <TouchableOpacity onPress={onPress} onLongPress={onLongPress} disabled={pending} activeOpacity={0.8}>
       <Card style={pending ? { ...mRow.card, ...mRow.disabled } : mRow.card}>
         <View style={mRow.row}>
           <View style={mRow.side}>
@@ -175,7 +175,7 @@ const mRow = StyleSheet.create({
 
 // ─── Views por formato ────────────────────────────────────────────────────────
 
-function RotatingView({ comp, onScore }: { comp: Competition; onScore: (m: Match) => void }) {
+function RotatingView({ comp, onScore, onClear }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void }) {
   const [tab, setTab] = useState<'ranking' | 'jogos'>('ranking');
   const done  = comp.matches.filter(m => m.scoreA != null).length;
   const total = comp.matches.length;
@@ -250,7 +250,7 @@ function RotatingView({ comp, onScore }: { comp: Competition; onScore: (m: Match
         )}
 
         {tab === 'jogos' && comp.matches.map((m, i) => (
-          <GameRow key={m.id} match={m} index={i} comp={comp} onPress={() => onScore(m)} />
+          <GameRow key={m.id} match={m} index={i} comp={comp} onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
         ))}
 
         <View style={{ height: Spacing.xl }} />
@@ -259,9 +259,8 @@ function RotatingView({ comp, onScore }: { comp: Competition; onScore: (m: Match
   );
 }
 
-function LeagueView({ comp, onScore }: { comp: Competition; onScore: (m: Match) => void }) {
+function LeagueView({ comp, onScore, onClear }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void }) {
   const rounds = [...new Set(comp.matches.map(m => m.round))].sort((a, b) => (a ?? 0) - (b ?? 0));
-  const st = standings(comp.competitors.map(c => c.id), comp.matches);
   return (
     <ScrollView contentContainerStyle={vw.scroll}>
       <Text style={vw.section}>Classificação</Text>
@@ -270,7 +269,7 @@ function LeagueView({ comp, onScore }: { comp: Competition; onScore: (m: Match) 
         <View key={r}>
           <Text style={vw.section}>Rodada {r}</Text>
           {comp.matches.filter(m => m.round === r).map(m => (
-            <MatchRow key={m.id} match={m} comp={comp} onPress={() => onScore(m)} />
+            <MatchRow key={m.id} match={m} comp={comp} onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
           ))}
         </View>
       ))}
@@ -279,7 +278,7 @@ function LeagueView({ comp, onScore }: { comp: Competition; onScore: (m: Match) 
   );
 }
 
-function GroupsView({ comp, onScore }: { comp: Competition; onScore: (m: Match) => void }) {
+function GroupsView({ comp, onScore, onClear }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void }) {
   const [tab, setTab] = useState<'grupos' | 'jogos' | 'chave'>('grupos');
   const allGroupsDone = comp.groupDefs?.every((_, gi) => groupComplete(comp.matches, gi)) ?? false;
   const groupMatches = (gi: number) => comp.matches.filter(m => m.stage === 'group' && m.groupIdx === gi);
@@ -309,14 +308,14 @@ function GroupsView({ comp, onScore }: { comp: Competition; onScore: (m: Match) 
           <View key={gi}>
             <Text style={vw.section}>{gd.name}</Text>
             {groupMatches(gi).map(m => (
-              <MatchRow key={m.id} match={m} comp={comp} onPress={() => onScore(m)} />
+              <MatchRow key={m.id} match={m} comp={comp} onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
             ))}
           </View>
         ))}
 
         {tab === 'chave' && (
           allGroupsDone
-            ? <KOView comp={comp} onScore={onScore} />
+            ? <KOView comp={comp} onScore={onScore} onClear={onClear} />
             : <Card style={vw.locked}>
                 <Text style={vw.lockedText}>⏳ Termine a fase de grupos para desbloquear o mata-mata.</Text>
               </Card>
@@ -327,7 +326,7 @@ function GroupsView({ comp, onScore }: { comp: Competition; onScore: (m: Match) 
   );
 }
 
-function KOView({ comp, onScore }: { comp: Competition; onScore: (m: Match) => void }) {
+function KOView({ comp, onScore, onClear }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void }) {
   const rounds = [...new Set(comp.matches.filter(m => m.stage === 'ko').map(m => m.koRound))]
     .sort((a, b) => (a ?? 0) - (b ?? 0));
   return (
@@ -340,11 +339,11 @@ function KOView({ comp, onScore }: { comp: Competition; onScore: (m: Match) => v
         return (
           <View key={r}>
             <Text style={vw.section}>{koRoundName(cnt)}</Text>
-            {main.map(m => <MatchRow key={m.id} match={m} comp={comp} onPress={() => onScore(m)} />)}
+            {main.map(m => <MatchRow key={m.id} match={m} comp={comp} onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />)}
             {third.map(m => (
               <View key={m.id}>
                 <Text style={vw.section}>Disputa de 3º Lugar</Text>
-                <MatchRow match={m} comp={comp} onPress={() => onScore(m)} />
+                <MatchRow match={m} comp={comp} onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
               </View>
             ))}
           </View>
@@ -498,6 +497,18 @@ export default function CompetitionDetail() {
     setScoring(null);
   }
 
+  function handleClear(matchId: string) {
+    const doClear = () => dispatch({ type: 'CLEAR_SCORE', compId: id!, matchId });
+    if (Platform.OS === 'web') {
+      if (window.confirm('Apagar placar? O resultado será removido.')) doClear();
+    } else {
+      Alert.alert('Apagar placar?', 'O resultado será removido.', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Apagar', style: 'destructive', onPress: doClear },
+      ]);
+    }
+  }
+
   function handleDelete() {
     const { Platform } = require('react-native');
     const doDelete = () => {
@@ -551,12 +562,12 @@ export default function CompetitionDetail() {
 
       {/* Conteúdo por formato */}
       {comp.format === 'grupos'
-        ? <GroupsView comp={comp} onScore={setScoring} />
+        ? <GroupsView comp={comp} onScore={setScoring} onClear={handleClear} />
         : comp.format === 'liga'
-          ? <LeagueView comp={comp} onScore={setScoring} />
+          ? <LeagueView comp={comp} onScore={setScoring} onClear={handleClear} />
           : comp.format === 'mata'
-            ? <KOView comp={comp} onScore={setScoring} />
-            : <RotatingView comp={comp} onScore={setScoring} />
+            ? <KOView comp={comp} onScore={setScoring} onClear={handleClear} />
+            : <RotatingView comp={comp} onScore={setScoring} onClear={handleClear} />
       }
 
       <ScorerModal

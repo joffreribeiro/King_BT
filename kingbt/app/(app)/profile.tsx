@@ -79,13 +79,16 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
-        <View style={styles.hero}>
-          <Avatar name={player.name} color={player.color} size={80} showCrown={myPos === 1} />
-          <Text style={styles.name}>{player.name}</Text>
-          <Text style={styles.title}>{player.titleEmoji} {player.title}</Text>
-          <View style={styles.badges}>
-            <Badge label={`${myPos}° lugar`} variant="gold" />
-            <Badge label={`${winRate}% aproveit.`} variant="teal" />
+        <View style={styles.heroBanner}>
+          <View style={[styles.heroBg, { backgroundColor: player.color + '22' }]} />
+          <View style={styles.heroInner}>
+            <Avatar name={player.name} color={player.color} size={88} showCrown={myPos === 1} />
+            <Text style={styles.name}>{player.name}</Text>
+            <Text style={styles.titleText}>{player.titleEmoji} {player.title}</Text>
+            <View style={styles.badges}>
+              <Badge label={`${myPos}° lugar`} variant="gold" />
+              <Badge label={`${winRate}% aproveit.`} variant="teal" />
+            </View>
           </View>
         </View>
 
@@ -110,12 +113,45 @@ export default function ProfileScreen() {
             { l: 'Saldo',        v: (me.sg >= 0 ? '+' : '') + me.sg, c: me.sg >= 0 ? Colors.teal : Colors.coral },
             { l: 'Win Rate',     v: `${winRate}%`,        c: Colors.goldBright },
           ].map(item => (
-            <Card key={item.l} style={styles.cell}>
+            <View key={item.l} style={[styles.cell, { borderLeftWidth: 3, borderLeftColor: item.c + '88' }]}>
               <Text style={[styles.cellVal, { color: item.c }]}>{item.v}</Text>
               <Text style={styles.cellLabel}>{item.l}</Text>
-            </Card>
+            </View>
           ))}
         </View>
+
+        {/* Forma recente */}
+        {(() => {
+          const recentGames = state.competitions
+            .flatMap(c => c.matches)
+            .filter(m => m.scoreA != null && m.scoreB != null)
+            .filter(m => (m.teamA ?? [m.aId]).includes(MY_ID) || (m.teamB ?? [m.bId]).includes(MY_ID))
+            .slice(-6);
+          if (recentGames.length === 0) return null;
+          const results = recentGames.map(m => {
+            const inA = (m.teamA ?? [m.aId]).includes(MY_ID);
+            return inA ? m.scoreA! > m.scoreB! : m.scoreB! > m.scoreA!;
+          });
+          return (
+            <Card>
+              <Text style={styles.sectionTitle}>Forma recente</Text>
+              <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                {results.map((w, i) => (
+                  <View key={i} style={{
+                    width: 32, height: 32, borderRadius: 8,
+                    backgroundColor: w ? Colors.teal + '33' : Colors.coral + '33',
+                    borderWidth: 1, borderColor: w ? Colors.teal + '66' : Colors.coral + '66',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 12, color: w ? Colors.teal : Colors.coral }}>
+                      {w ? 'V' : 'D'}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </Card>
+          );
+        })()}
 
         {/* Quebra de pontos */}
         <Card>
@@ -148,16 +184,18 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   scroll: { padding: Spacing.md, gap: Spacing.md },
-  hero: { alignItems: 'center', paddingVertical: Spacing.lg, gap: Spacing.sm },
+  heroBanner: { position: 'relative', overflow: 'hidden', borderRadius: Radius.lg, marginBottom: Spacing.sm },
+  heroBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 120 },
+  heroInner: { alignItems: 'center', paddingTop: Spacing.xl, paddingBottom: Spacing.lg, gap: Spacing.sm },
   name: { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text },
-  title: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted },
+  titleText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted },
   badges: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
   ptsCard: { alignItems: 'center', gap: 4 },
   ptsLabel: { fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted, letterSpacing: 2 },
   ptsVal: { fontFamily: FontFamily.titleBold, fontSize: 52, color: Colors.gold, lineHeight: 60 },
   ptsEq: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  cell: { width: '47%', alignItems: 'center', gap: 2, padding: Spacing.md },
+  cell: { width: '47%', alignItems: 'center', gap: 2, padding: Spacing.md, backgroundColor: Colors.surf, borderRadius: Radius.md },
   cellVal: { fontFamily: FontFamily.titleBold, fontSize: 26 },
   cellLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
   sectionTitle: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.text, marginBottom: Spacing.sm },

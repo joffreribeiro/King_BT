@@ -42,14 +42,9 @@ export default function RankingScreen() {
         {/* Pódio */}
         {ranking.length >= 3 && (
           <View style={styles.podium}>
-            {/* 2° lugar — esquerda */}
-            <PodiumSlot player={second} pos={2} rank={ranking.findIndex(r => r.id === second.id) + 1} isMe={second.id === MY_ID} />
-
-            {/* 1° lugar — centro (maior) */}
-            <PodiumSlot player={first} pos={1} rank={1} isMe={first.id === MY_ID} center />
-
-            {/* 3° lugar — direita */}
-            <PodiumSlot player={third} pos={3} rank={ranking.findIndex(r => r.id === third.id) + 1} isMe={third.id === MY_ID} />
+            <PodiumSlot player={second} pos={2} isMe={second.id === MY_ID} />
+            <PodiumSlot player={first} pos={1} isMe={first.id === MY_ID} center />
+            <PodiumSlot player={third} pos={3} isMe={third.id === MY_ID} />
           </View>
         )}
 
@@ -146,41 +141,56 @@ export default function RankingScreen() {
   );
 }
 
-function PodiumSlot({ player, pos, rank, isMe, center = false }: {
+const MEDAL = {
+  1: { color: '#F3C544', bg: '#F3C54422', blockH: 130, avatarSize: 72 },
+  2: { color: '#C7D4E0', bg: '#C7D4E018', blockH: 92,  avatarSize: 54 },
+  3: { color: '#D89A6A', bg: '#D89A6A18', blockH: 64,  avatarSize: 46 },
+} as Record<number, { color: string; bg: string; blockH: number; avatarSize: number }>;
+
+function PodiumSlot({ player, pos, isMe, center = false }: {
   player: ReturnType<typeof buildRanking>[0];
-  pos: number; rank: number; isMe: boolean; center?: boolean;
+  pos: number; isMe: boolean; center?: boolean;
 }) {
   const pl = PLAYERS.find(p => p.id === player.id)!;
-  const size = center ? 64 : 50;
-  const bgColor = pos === 1 ? Colors.gold + '33' : Colors.surf2;
-  const borderColor = pos === 1 ? Colors.gold : Colors.surf2;
+  const medal = MEDAL[pos];
 
   return (
     <View style={[pod.col, center && pod.colCenter]}>
-      <Avatar name={pl.name} color={pl.color} size={size} showCrown={pos === 1} />
+      <Avatar name={pl.name} color={pl.color} size={medal.avatarSize} showCrown={pos === 1} />
       <Text style={[pod.name, center && pod.nameCenter, isMe && { color: Colors.gold }]} numberOfLines={1}>
-        {pl.name}
+        {pl.name.split(' ')[0]}
       </Text>
-      <Text style={[pod.pts, center && pod.ptsCenter]}>{player.points.toFixed(2)}</Text>
-      <View style={[pod.block, { backgroundColor: bgColor, borderTopColor: borderColor }]}>
-        <Text style={[pod.pos, pos === 1 && { color: Colors.gold }]}>{pos}</Text>
+      <Text style={[pod.pts, { color: medal.color, fontSize: pos === 1 ? 20 : 14 }]}>
+        {player.points.toFixed(1)}
+      </Text>
+      <View style={[pod.block, {
+        height: medal.blockH,
+        backgroundColor: medal.bg,
+        borderTopColor: medal.color,
+        shadowColor: medal.color,
+        shadowOffset: { width: 0, height: pos === 1 ? 8 : 0 },
+        shadowOpacity: pos === 1 ? 0.35 : 0,
+        shadowRadius: 16,
+        elevation: pos === 1 ? 8 : 0,
+      }]}>
+        <Text style={[pod.pos, { color: medal.color, fontSize: pos === 1 ? 28 : 22 }]}>{pos}</Text>
       </View>
     </View>
   );
 }
 
 const pod = StyleSheet.create({
-  col: { alignItems: 'center', width: 100, gap: 4, paddingTop: Spacing.xl },
+  col: { alignItems: 'center', flex: 1, paddingTop: 48 },
   colCenter: { paddingTop: 0 },
-  name: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, textAlign: 'center' },
-  nameCenter: { fontSize: 14 },
-  pts: { fontFamily: FontFamily.numberBold, fontSize: 14, color: Colors.muted },
-  ptsCenter: { fontSize: 20, color: Colors.gold },
+  name: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, textAlign: 'center', maxWidth: 80 },
+  nameCenter: { fontSize: 15, fontFamily: FontFamily.title },
+  pts: { fontFamily: FontFamily.numberBold, textAlign: 'center', marginBottom: 4 },
   block: {
-    width: '100%', height: 56, borderTopWidth: 2,
-    borderRadius: Radius.sm, alignItems: 'center', justifyContent: 'center',
+    width: '100%', borderTopWidth: 2.5,
+    borderRadius: 6, alignItems: 'center', justifyContent: 'center',
+    marginTop: 6,
   },
-  pos: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.muted },
+  pos: { fontFamily: FontFamily.titleBold },
 });
 
 const styles = StyleSheet.create({
@@ -208,7 +218,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 11 },
   rowHeader: { paddingVertical: 7 },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.line },
-  rowMe: { backgroundColor: Colors.gold + '0A' },
+  rowMe: { backgroundColor: Colors.gold + '14', borderLeftWidth: 3, borderLeftColor: Colors.gold },
 
   c0: { width: 26 },
   cName: { flex: 1 },

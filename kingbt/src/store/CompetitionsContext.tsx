@@ -14,8 +14,9 @@ type Action =
   | { type: 'SET'; competitions: Competition[] }
   | { type: 'ADD'; comp: Competition }
   | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number }
-  | { type: 'CORRECT_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number } // admin only
-  | { type: 'DELETE'; compId: string }; // admin only
+  | { type: 'CORRECT_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number }
+  | { type: 'CLEAR_SCORE'; compId: string; matchId: string }
+  | { type: 'DELETE'; compId: string };
 
 function applyScore(comp: Competition, matchId: string, scoreA: number, scoreB: number): Competition {
   const updated = {
@@ -49,6 +50,21 @@ function reducer(state: State, action: Action): State {
           c.id !== action.compId ? c : applyScore(c, action.matchId, action.scoreA, action.scoreB)
         ),
       };
+    case 'CLEAR_SCORE': {
+      return {
+        ...state,
+        competitions: state.competitions.map(c => {
+          if (c.id !== action.compId) return c;
+          const updated = { ...c, matches: c.matches.map(m =>
+            m.id === action.matchId ? { ...m, scoreA: null, scoreB: null } : m
+          )};
+          resolveCompetition(updated);
+          const scoreable = updated.matches.filter(m => (m.aId != null && m.bId != null) || (m.teamA && m.teamB));
+          updated.status = scoreable.length > 0 && scoreable.every(m => m.scoreA != null) ? 'done' : 'active';
+          return updated;
+        }),
+      };
+    }
   }
 }
 
@@ -99,10 +115,25 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    if (action.type === 'DELETE') {
-      // Soft delete — marca como arquivada
+    if (action.type === 'CLEAR_SCORE') {
       const comp = state.competitions.find(c => c.id === action.compId);
-      if (comp) await fsUpdateComp(group.id, { ...comp, status: 'done' });
+      if (comp) {
+        const cleared = { ...comp, matches: comp.matches.map(m =>
+          m.id === action.matchId ? { ...m, scoreA: null, scoreB: null } : m
+        )};
+        resolveCompetition(cleared);
+        await fsUpdateComp(group.id, cleared);
+      }
+    }
+
+    if (action.type === 'DELETE') {
+      const comp = state.competitions.find(c => c.id === action.compId);
+      if (comp) {
+        const { id, ...data } = comp;
+        const { updateDoc, doc } = await import('firebase/firestore');
+        const { db } = await import('@/firebase/config');
+        await updateDoc(doc(db, 'groups', group.id, 'competitions', id), { status: 'done' });
+      }
     }
   };
 

@@ -48,6 +48,11 @@ export default function LoginScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
+          {/* Glow decorativo */}
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            <View style={deco.glow} />
+          </View>
+
           {/* Logo */}
           <View style={styles.logoWrap}>
             <Image source={require('../../assets/kingbt-logo.png')} style={styles.logo} resizeMode="contain" />
@@ -162,11 +167,19 @@ export default function LoginScreen() {
   );
 }
 
+const deco = StyleSheet.create({
+  glow: {
+    position: 'absolute', top: 60, alignSelf: 'center',
+    width: 280, height: 280, borderRadius: 140,
+    backgroundColor: Colors.gold, opacity: 0.07,
+  },
+});
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   scroll: { flexGrow: 1, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
   logoWrap: { alignItems: 'center', paddingTop: Spacing.lg, paddingBottom: Spacing.sm },
-  logo: { width: 220, height: 220 },
+  logo: { width: 260, height: 260 },
   form: { gap: Spacing.md },
   title: { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text },
   errorBox: { backgroundColor: Colors.coral + '22', borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.coral + '44', marginBottom: Spacing.xs },
@@ -176,7 +189,7 @@ const styles = StyleSheet.create({
   passwordInput: { flex: 1, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, fontFamily: FontFamily.body, fontSize: 15, color: Colors.text },
   eyeBtn: { paddingHorizontal: Spacing.md },
   eyeText: { fontSize: 18 },
-  btnGoogle: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md + 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 54 },
+  btnGoogle: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md + 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 54, shadowColor: Colors.gold, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 10 },
   btnEmail: { borderWidth: 1.5, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', backgroundColor: Colors.surf, minHeight: 52 },
   btnEmailText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
   btnPrimary: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md + 2, alignItems: 'center', minHeight: 54 },
