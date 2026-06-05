@@ -155,40 +155,49 @@ function PodiumSlot({ player, pos, isMe, center = false }: {
   const medal = MEDAL[pos];
 
   return (
-    <View style={[pod.col, center && pod.colCenter]}>
+    <View style={pod.col}>
+      {/* Avatar + nome + pontos — alinhados acima do bloco */}
       <Avatar name={pl.name} color={pl.color} size={medal.avatarSize} showCrown={pos === 1} />
-      <Text style={[pod.name, center && pod.nameCenter, isMe && { color: Colors.gold }]} numberOfLines={1}>
+      <Text style={[pod.name, pos === 1 && pod.nameCenter, isMe && { color: Colors.gold }]} numberOfLines={1}>
         {pl.name.split(' ')[0]}
       </Text>
       <Text style={[pod.pts, { color: medal.color, fontSize: pos === 1 ? 20 : 14 }]}>
-        {player.points.toFixed(1)}
+        {player.points.toFixed(2)}
       </Text>
+      {/* Bloco do pódio */}
       <View style={[pod.block, {
         height: medal.blockH,
         backgroundColor: medal.bg,
         borderTopColor: medal.color,
         shadowColor: medal.color,
         shadowOffset: { width: 0, height: pos === 1 ? 8 : 0 },
-        shadowOpacity: pos === 1 ? 0.35 : 0,
+        shadowOpacity: pos === 1 ? 0.4 : 0,
         shadowRadius: 16,
-        elevation: pos === 1 ? 8 : 0,
+        elevation: pos === 1 ? 10 : 0,
       }]}>
-        <Text style={[pod.pos, { color: medal.color, fontSize: pos === 1 ? 28 : 22 }]}>{pos}</Text>
+        <Text style={[pod.pos, { color: medal.color, fontSize: pos === 1 ? 32 : 24 }]}>{pos}</Text>
       </View>
     </View>
   );
 }
 
 const pod = StyleSheet.create({
-  col: { alignItems: 'center', flex: 1, paddingTop: 48 },
-  colCenter: { paddingTop: 0 },
-  name: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, textAlign: 'center', maxWidth: 80 },
+  col: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  name: {
+    fontFamily: FontFamily.bodyMed, fontSize: 12,
+    color: Colors.text, textAlign: 'center', maxWidth: 90,
+    marginTop: 4,
+  },
   nameCenter: { fontSize: 15, fontFamily: FontFamily.title },
   pts: { fontFamily: FontFamily.numberBold, textAlign: 'center', marginBottom: 4 },
   block: {
-    width: '100%', borderTopWidth: 2.5,
-    borderRadius: 6, alignItems: 'center', justifyContent: 'center',
-    marginTop: 6,
+    width: '100%', borderTopWidth: 3,
+    borderTopLeftRadius: 6, borderTopRightRadius: 6,
+    alignItems: 'center', justifyContent: 'center',
   },
   pos: { fontFamily: FontFamily.titleBold },
 });
@@ -210,8 +219,12 @@ const styles = StyleSheet.create({
   formulaBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal },
 
   podium: {
-    flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center',
-    paddingHorizontal: Spacing.md, gap: 0,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.md,
+    height: 280,
+    gap: 0,
   },
 
   table: { marginTop: Spacing.md },
