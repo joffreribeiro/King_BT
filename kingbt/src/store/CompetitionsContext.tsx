@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
-import type { Competition } from '@/logic/types';
+import type { Competition, SetScore } from '@/logic/types';
 import { resolveCompetition } from '@/logic/formats';
 import { MOCK_COMPETITIONS } from '@/mocks/competitions';
 import { subscribeCompetitions, createCompetition, updateCompetition as fsUpdateComp } from '@/firebase/competitions';
@@ -10,19 +10,26 @@ type State = {
   synced: boolean;
 };
 
+type ScoreDetail = { sets?: SetScore[] | null; playedAt?: string | null; note?: string | null };
+
 type Action =
   | { type: 'SET'; competitions: Competition[] }
   | { type: 'ADD'; comp: Competition }
-  | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number }
-  | { type: 'CORRECT_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number }
+  | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; detail?: ScoreDetail }
+  | { type: 'CORRECT_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; detail?: ScoreDetail }
   | { type: 'CLEAR_SCORE'; compId: string; matchId: string }
   | { type: 'DELETE'; compId: string };
 
-function applyScore(comp: Competition, matchId: string, scoreA: number, scoreB: number): Competition {
+function applyScore(comp: Competition, matchId: string, scoreA: number, scoreB: number, detail?: ScoreDetail): Competition {
   const updated = {
     ...comp,
     matches: comp.matches.map(m =>
-      m.id === matchId ? { ...m, scoreA, scoreB } : m
+      m.id === matchId ? {
+        ...m, scoreA, scoreB,
+        ...(detail?.sets !== undefined ? { sets: detail.sets } : {}),
+        ...(detail?.playedAt !== undefined ? { playedAt: detail.playedAt } : {}),
+        ...(detail?.note !== undefined ? { note: detail.note } : {}),
+      } : m
     ),
   };
   resolveCompetition(updated);
@@ -47,7 +54,7 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         competitions: state.competitions.map(c =>
-          c.id !== action.compId ? c : applyScore(c, action.matchId, action.scoreA, action.scoreB)
+          c.id !== action.compId ? c : applyScore(c, action.matchId, action.scoreA, action.scoreB, action.detail)
         ),
       };
     case 'CLEAR_SCORE': {
@@ -56,7 +63,7 @@ function reducer(state: State, action: Action): State {
         competitions: state.competitions.map(c => {
           if (c.id !== action.compId) return c;
           const updated = { ...c, matches: c.matches.map(m =>
-            m.id === action.matchId ? { ...m, scoreA: null, scoreB: null } : m
+            m.id === action.matchId ? { ...m, scoreA: null, scoreB: null, sets: null } : m
           )};
           resolveCompetition(updated);
           const scoreable = updated.matches.filter(m => (m.aId != null && m.bId != null) || (m.teamA && m.teamB));
@@ -110,7 +117,7 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
     if (action.type === 'SAVE_SCORE' || action.type === 'CORRECT_SCORE') {
       const comp = state.competitions.find(c => c.id === action.compId);
       if (comp) {
-        const updated = applyScore(comp, action.matchId, action.scoreA, action.scoreB);
+        const updated = applyScore(comp, action.matchId, action.scoreA, action.scoreB, action.detail);
         await fsUpdateComp(group.id, updated);
       }
     }
@@ -119,7 +126,7 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
       const comp = state.competitions.find(c => c.id === action.compId);
       if (comp) {
         const cleared = { ...comp, matches: comp.matches.map(m =>
-          m.id === action.matchId ? { ...m, scoreA: null, scoreB: null } : m
+          m.id === action.matchId ? { ...m, scoreA: null, scoreB: null, sets: null } : m
         )};
         resolveCompetition(cleared);
         await fsUpdateComp(group.id, cleared);

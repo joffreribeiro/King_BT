@@ -10,13 +10,21 @@ import { PLAYERS } from '@/mocks/data';
 import { standings, groupComplete, matchWinner, matchLoser, koRoundName } from '@/logic/formats';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
-import type { Match, Competition } from '@/logic/types';
+import type { Match, Competition, SetScore } from '@/logic/types';
+
+type ScoreDetailInput = { sets?: SetScore[] | null; playedAt?: string | null; note?: string | null };
 
 function getPlayer(id: string) {
   return PLAYERS.find(p => p.id === id);
 }
 function getCompetitor(comp: Competition, id: string) {
   return comp.competitors.find(c => c.id === id);
+}
+
+/** "6-4  3-6  10-7" — detalhe set a set, ou null se não houver. */
+function fmtSets(m: Match): string | null {
+  if (!m.sets || m.sets.length === 0) return null;
+  return m.sets.map(s => `${s.a}-${s.b}`).join('  ');
 }
 
 // ─── Standings Table ──────────────────────────────────────────────────────────
@@ -107,6 +115,12 @@ function GameRow({ match: m, index, comp, onPress, onLongPress }: {
             </Text>
           </View>
         </View>
+        {has && fmtSets(m) && <Text style={gRow.setLine}>{fmtSets(m)}</Text>}
+        {has && (m.playedAt || m.note) ? (
+          <Text style={gRow.meta} numberOfLines={2}>
+            {[m.playedAt, m.note].filter(Boolean).join(' · ')}
+          </Text>
+        ) : null}
         {!has && <Text style={gRow.hint}>Toque para registrar placar</Text>}
       </Card>
     </TouchableOpacity>
@@ -124,6 +138,8 @@ const gRow = StyleSheet.create({
   lose: { color: Colors.muted },
   pending: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
   hint: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center', marginTop: Spacing.xs, borderTopWidth: 1, borderTopColor: Colors.line, paddingTop: Spacing.xs },
+  setLine: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted, textAlign: 'center', marginTop: Spacing.xs },
+  meta: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center', marginTop: 2 },
 });
 
 // ─── Match Row (liga/grupos/mata-mata) ────────────────────────────────────────
@@ -159,6 +175,12 @@ function MatchRow({ match: m, comp, onPress, onLongPress }: {
             {pB && <Avatar name={pB.name} color={pB.color} size={28} />}
           </View>
         </View>
+        {has && fmtSets(m) && <Text style={mRow.setLine}>{fmtSets(m)}</Text>}
+        {has && (m.playedAt || m.note) ? (
+          <Text style={mRow.meta} numberOfLines={2}>
+            {[m.playedAt, m.note].filter(Boolean).join(' · ')}
+          </Text>
+        ) : null}
       </Card>
     </TouchableOpacity>
   );
@@ -171,6 +193,8 @@ const mRow = StyleSheet.create({
   sideRight: { justifyContent: 'flex-end' },
   name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
   vs: { fontFamily: FontFamily.numberBold, fontSize: 15, color: Colors.muted, minWidth: 56, textAlign: 'center' },
+  setLine: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted, textAlign: 'center', marginTop: Spacing.xs },
+  meta: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center', marginTop: 2 },
 });
 
 // ─── Views por formato ────────────────────────────────────────────────────────
@@ -378,18 +402,42 @@ const tabs = StyleSheet.create({
 
 // ─── Scorer Modal ─────────────────────────────────────────────────────────────
 
+function StepBox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <View style={sc.stepper}>
+      <TouchableOpacity style={sc.btn} onPress={() => onChange(String(Math.max(0, parseInt(value || '0', 10) - 1)))}>
+        <Text style={sc.btnText}>−</Text>
+      </TouchableOpacity>
+      <TextInput style={sc.input} value={value} onChangeText={onChange} keyboardType="number-pad" maxLength={2} />
+      <TouchableOpacity style={sc.btn} onPress={() => onChange(String(parseInt(value || '0', 10) + 1))}>
+        <Text style={sc.btnText}>+</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 function ScorerModal({ match, comp, onClose, onSave, isAdmin = false }: {
   match: Match | null; comp: Competition;
   onClose: () => void;
-  onSave: (id: string, a: number, b: number) => void;
+  onSave: (id: string, a: number, b: number, detail: ScoreDetailInput) => void;
   isAdmin?: boolean;
 }) {
-  const [sA, setSA] = useState(match?.scoreA != null ? String(match.scoreA) : '');
-  const [sB, setSB] = useState(match?.scoreB != null ? String(match.scoreB) : '');
+  const wr = comp.config?.winRule ?? {};
+  const nSets = wr.sets ?? 0;
+  const useSets = nSets > 0;
+
+  const [setRows, setSetRows] = useState<{ a: string; b: string }[]>(() => {
+    const base = Array.from({ length: Math.max(1, nSets) }, () => ({ a: '', b: '' }));
+    if (match?.sets) match.sets.forEach((s, i) => { if (i < base.length) base[i] = { a: String(s.a), b: String(s.b) }; });
+    return base;
+  });
+  const [sA, setSA] = useState(!useSets && match?.scoreA != null ? String(match.scoreA) : '');
+  const [sB, setSB] = useState(!useSets && match?.scoreB != null ? String(match.scoreB) : '');
+  const [playedAt, setPlayedAt] = useState(match?.playedAt ?? '');
+  const [note, setNote] = useState(match?.note ?? '');
+
   if (!match) return null;
-  const a = parseInt(sA), b = parseInt(sB);
-  const valid = !isNaN(a) && !isNaN(b) && a >= 0 && b >= 0 && a !== b;
-  const draw = !isNaN(a) && !isNaN(b) && a === b;
+
   const alreadyScored = match.scoreA != null;
   const canEdit = !alreadyScored || isAdmin;
 
@@ -400,47 +448,110 @@ function ScorerModal({ match, comp, onClose, onSave, isAdmin = false }: {
     ? match.teamB.map(id => getPlayer(id)?.name.split(' ')[0]).join(' / ')
     : (match.bId ? getCompetitor(comp, match.bId)?.name : '?') ?? '?';
 
+  // Cálculo do resultado
+  let valid = false, draw = false, setsA = 0, setsB = 0, legacyA = 0, legacyB = 0;
+  const filledSets: SetScore[] = [];
+  if (useSets) {
+    setRows.forEach(r => {
+      const ra = parseInt(r.a, 10), rb = parseInt(r.b, 10);
+      if (!isNaN(ra) && !isNaN(rb)) {
+        filledSets.push({ a: ra, b: rb });
+        if (ra > rb) setsA++; else if (rb > ra) setsB++;
+      }
+    });
+    draw = filledSets.length > 0 && setsA === setsB;
+    valid = filledSets.length > 0 && setsA !== setsB;
+  } else {
+    legacyA = parseInt(sA, 10); legacyB = parseInt(sB, 10);
+    valid = !isNaN(legacyA) && !isNaN(legacyB) && legacyA >= 0 && legacyB >= 0 && legacyA !== legacyB;
+    draw = !isNaN(legacyA) && !isNaN(legacyB) && legacyA === legacyB;
+  }
+
+  const detail: ScoreDetailInput = {
+    playedAt: playedAt.trim() || null,
+    note: note.trim() || null,
+    ...(useSets ? { sets: filledSets } : {}),
+  };
+
+  function submit() {
+    if (!valid || !canEdit || !match) return;
+    if (useSets) onSave(match.id, setsA, setsB, detail);
+    else onSave(match.id, legacyA, legacyB, detail);
+  }
+
+  const updateSet = (i: number, side: 'a' | 'b', v: string) =>
+    setSetRows(rows => rows.map((r, idx) => idx === i ? { ...r, [side]: v } : r));
+
   return (
     <Modal visible transparent animationType="slide">
       <View style={sc.overlay}>
         <View style={sc.sheet}>
-          <Text style={sc.title}>Registrar Placar</Text>
-          <Text style={sc.sub}>{nameA}{'\nvs\n'}{nameB}</Text>
-          <View style={sc.inputRow}>
-            {[{ val: sA, set: setSA, label: nameA }, { val: sB, set: setSB, label: nameB }].map(({ val, set, label }, idx) => (
-              <View key={idx} style={sc.inputBlock}>
-                <Text style={sc.inputLabel} numberOfLines={1}>{label}</Text>
-                <View style={sc.stepper}>
-                  <TouchableOpacity style={sc.btn} onPress={() => set(s => String(Math.max(0, parseInt(s || '0') - 1)))}>
-                    <Text style={sc.btnText}>−</Text>
-                  </TouchableOpacity>
-                  <TextInput style={sc.input} value={val} onChangeText={set} keyboardType="number-pad" maxLength={2} />
-                  <TouchableOpacity style={sc.btn} onPress={() => set(s => String(parseInt(s || '0') + 1))}>
-                    <Text style={sc.btnText}>+</Text>
-                  </TouchableOpacity>
-                </View>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: Spacing.md }}>
+            <Text style={sc.title}>Registrar Placar</Text>
+            <Text style={sc.sub}>{nameA}{'  vs  '}{nameB}</Text>
+
+            {useSets ? (
+              <>
+                {setRows.map((r, i) => (
+                  <View key={i} style={sc.setRow}>
+                    <Text style={sc.setLabel}>Set {i + 1}</Text>
+                    <View style={sc.setInputs}>
+                      <StepBox value={r.a} onChange={(v) => updateSet(i, 'a', v)} />
+                      <Text style={sc.dash}>–</Text>
+                      <StepBox value={r.b} onChange={(v) => updateSet(i, 'b', v)} />
+                    </View>
+                  </View>
+                ))}
+                {filledSets.length > 0 && (
+                  <Text style={sc.setsTotal}>Sets: {setsA} – {setsB}</Text>
+                )}
+              </>
+            ) : (
+              <View style={sc.inputRow}>
+                {[{ val: sA, set: setSA, label: nameA }, { val: sB, set: setSB, label: nameB }].map(({ val, set, label }, idx) => (
+                  <View key={idx} style={sc.inputBlock}>
+                    <Text style={sc.inputLabel} numberOfLines={1}>{label}</Text>
+                    <StepBox value={val} onChange={set} />
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
-          {draw && <Text style={sc.warn}>⚠️ Empate não permitido</Text>}
-          {alreadyScored && !isAdmin && (
-            <Text style={sc.lockedText}>🔒 Placar já registrado. Apenas admin pode corrigir.</Text>
-          )}
-          {isAdmin && alreadyScored && (
-            <Text style={sc.adminNote}>⚙️ Admin — você pode corrigir este placar.</Text>
-          )}
-          <View style={sc.btns}>
-            <TouchableOpacity onPress={onClose} style={sc.cancel}>
-              <Text style={sc.cancelText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => { if (valid && canEdit) onSave(match.id, a, b); }}
-              style={[sc.save, (!valid || !canEdit) && sc.saveOff]}
-              disabled={!valid || !canEdit}
-            >
-              <Text style={sc.saveText}>{alreadyScored && isAdmin ? 'Corrigir' : 'Salvar'}</Text>
-            </TouchableOpacity>
-          </View>
+            )}
+
+            <TextInput
+              style={sc.metaInput}
+              value={playedAt}
+              onChangeText={setPlayedAt}
+              placeholder="Data e horário (opcional) — ex: 14/06 16:30"
+              placeholderTextColor={Colors.faint}
+            />
+            <TextInput
+              style={sc.metaInput}
+              value={note}
+              onChangeText={setNote}
+              placeholder="Observações (opcional)"
+              placeholderTextColor={Colors.faint}
+            />
+
+            {draw && <Text style={sc.warn}>⚠️ Empate não permitido</Text>}
+            {alreadyScored && !isAdmin && (
+              <Text style={sc.lockedText}>🔒 Placar já registrado. Apenas admin pode corrigir.</Text>
+            )}
+            {isAdmin && alreadyScored && (
+              <Text style={sc.adminNote}>⚙️ Admin — você pode corrigir este placar.</Text>
+            )}
+            <View style={sc.btns}>
+              <TouchableOpacity onPress={onClose} style={sc.cancel}>
+                <Text style={sc.cancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={submit}
+                style={[sc.save, (!valid || !canEdit) && sc.saveOff]}
+                disabled={!valid || !canEdit}
+              >
+                <Text style={sc.saveText}>{alreadyScored && isAdmin ? 'Corrigir' : 'Salvar'}</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -448,9 +559,15 @@ function ScorerModal({ match, comp, onClose, onSave, isAdmin = false }: {
 }
 const sc = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.xl, gap: Spacing.md },
+  sheet: { backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.xl, maxHeight: '90%' },
   title: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text, textAlign: 'center' },
   sub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
+  setRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  setLabel: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
+  setInputs: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  dash: { fontFamily: FontFamily.numberBold, fontSize: 18, color: Colors.muted },
+  setsTotal: { fontFamily: FontFamily.numberBold, fontSize: 15, color: Colors.gold, textAlign: 'center' },
+  metaInput: { backgroundColor: Colors.surf2, borderRadius: Radius.sm, borderWidth: 1, borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, fontFamily: FontFamily.body, fontSize: 14, color: Colors.text },
   inputRow: { flexDirection: 'row', justifyContent: 'space-around', gap: Spacing.md },
   inputBlock: { alignItems: 'center', gap: Spacing.sm, flex: 1 },
   inputLabel: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, textAlign: 'center' },
@@ -487,13 +604,13 @@ export default function CompetitionDetail() {
     );
   }
 
-  function handleSave(matchId: string, a: number, b: number) {
-    dispatch({ type: 'SAVE_SCORE', compId: id!, matchId, scoreA: a, scoreB: b });
+  function handleSave(matchId: string, a: number, b: number, detail?: ScoreDetailInput) {
+    dispatch({ type: 'SAVE_SCORE', compId: id!, matchId, scoreA: a, scoreB: b, detail });
     setScoring(null);
   }
 
-  function handleCorrect(matchId: string, a: number, b: number) {
-    dispatch({ type: 'CORRECT_SCORE', compId: id!, matchId, scoreA: a, scoreB: b });
+  function handleCorrect(matchId: string, a: number, b: number, detail?: ScoreDetailInput) {
+    dispatch({ type: 'CORRECT_SCORE', compId: id!, matchId, scoreA: a, scoreB: b, detail });
     setScoring(null);
   }
 
@@ -560,6 +677,14 @@ export default function CompetitionDetail() {
         </View>
       )}
 
+      {/* Local / observações da competição */}
+      {(comp.location || comp.notes) ? (
+        <View style={main.infoBar}>
+          {comp.location ? <Text style={main.infoText}>📍 {comp.location}</Text> : null}
+          {comp.notes ? <Text style={main.infoNote}>{comp.notes}</Text> : null}
+        </View>
+      ) : null}
+
       {/* Conteúdo por formato */}
       {comp.format === 'grupos'
         ? <GroupsView comp={comp} onScore={setScoring} onClear={handleClear} />
@@ -571,6 +696,7 @@ export default function CompetitionDetail() {
       }
 
       <ScorerModal
+        key={scoring?.id ?? 'none'}
         match={scoring}
         comp={comp}
         onClose={() => setScoring(null)}
@@ -594,4 +720,7 @@ const main = StyleSheet.create({
   adminMenuClose: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   adminMenuAction: { paddingVertical: Spacing.xs },
   adminMenuDanger: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.coral },
+  infoBar: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, gap: 2, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  infoText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
+  infoNote: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
 });

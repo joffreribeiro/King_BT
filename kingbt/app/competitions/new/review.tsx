@@ -26,7 +26,9 @@ const FORMAT_ICON_COLOR: Record<Format, string> = {
 
 type Params = {
   format: Format; name: string; unit: string; rounds: string;
-  winMode: string; target: string; groups: string; qualifiers: string;
+  sets: string; games: string; tiebreak: string;
+  location?: string; notes?: string;
+  groups: string; qualifiers: string;
   thirdPlace: string; playerIds: string; guestData?: string;
 };
 
@@ -35,9 +37,12 @@ export default function ReviewStep() {
   const p = useLocalSearchParams<Params>();
 
   const isDuplas = p.unit === 'duplas';
-  const winLabel: Record<string, string> = { games: 'Games', sets: 'Sets', points: 'Tie-break' };
   const roundsLabel = p.rounds === 'double' ? 'Ida e volta' : 'Turno único';
-  const winRule = `Melhor de ${p.target} ${winLabel[p.winMode] ?? p.winMode}`;
+  const setsN = parseInt(p.sets ?? '1', 10) || 1;
+  const gamesN = parseInt(p.games ?? '6', 10) || 6;
+  const tiebreakN = parseInt(p.tiebreak ?? '7', 10) || 7;
+  const setsLabel = setsN <= 1 ? '1 set' : `Melhor de ${setsN} sets`;
+  const winRule = `${setsLabel} · até ${gamesN} games · TB ${tiebreakN} pts`;
 
   // Jogadores + convidados
   const guests: { id: string; name: string; color: string }[] = p.guestData ? JSON.parse(p.guestData) : [];
@@ -76,12 +81,14 @@ export default function ReviewStep() {
     format: p.format,
     unit: isDuplas ? 'duplas' : 'individual',
     competitors,
+    location: p.location?.trim() || undefined,
+    notes: p.notes?.trim() || undefined,
     config: {
       rounds: p.rounds === 'double' ? 'double' : 'single',
       groups: parseInt(p.groups ?? '2'),
       qualifiers: parseInt(p.qualifiers ?? '2'),
       thirdPlace: p.thirdPlace === 'true',
-      winRule: { mode: (p.winMode ?? 'games') as 'games' | 'sets' | 'points', target: parseInt(p.target ?? '6') },
+      winRule: { sets: setsN, games: gamesN, tiebreak: tiebreakN },
     },
   });
 
@@ -143,6 +150,8 @@ export default function ReviewStep() {
             <SummaryRow label="Turnos" value={roundsLabel} />
           )}
           <SummaryRow label="Cada jogo" value={winRule} />
+          {p.location?.trim() ? <SummaryRow label="Local" value={p.location.trim()} /> : null}
+          {p.notes?.trim() ? <SummaryRow label="Observações" value={p.notes.trim()} /> : null}
           <SummaryRow label="Jogos gerados" value={String(comp.matches.length)} last />
         </View>
 

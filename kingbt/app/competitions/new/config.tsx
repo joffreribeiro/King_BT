@@ -14,7 +14,6 @@ const FORMAT_DEFAULT_NAME: Record<Format, string> = {
 
 type Unit = 'individual' | 'duplas';
 type Rounds = 'single' | 'double';
-type WinMode = 'games' | 'sets' | 'points';
 
 function SegmentControl<T extends string>({
   options, value, onChange, descriptions,
@@ -87,14 +86,13 @@ export default function ConfigStep() {
   const isRotativo = format === 'avulso' || format === 'super8';
   const [unit, setUnit]       = useState<Unit>('individual');
   const [rounds, setRounds]   = useState<Rounds>('single');
-  const [winMode, setWinMode] = useState<WinMode>('games');
-  const [target, setTarget]   = useState(6);
+  const [sets, setSets]       = useState(1);
+  const [games, setGames]     = useState(6);
+  const [tiebreak, setTiebreak] = useState(7);
   const [groups, setGroups]   = useState(2);
   const [qualifiers, setQualifiers] = useState(2);
-
-  const winLabel: Record<WinMode, string> = {
-    games: 'games', sets: 'sets', points: 'pontos',
-  };
+  const [location, setLocation] = useState('');
+  const [notes, setNotes]     = useState('');
 
   function next() {
     router.push({
@@ -104,8 +102,11 @@ export default function ConfigStep() {
         name,
         unit: isRotativo ? 'individual' : unit,
         rounds,
-        winMode,
-        target: String(target),
+        sets: String(sets),
+        games: String(games),
+        tiebreak: String(tiebreak),
+        location,
+        notes,
         groups: String(groups),
         qualifiers: String(qualifiers),
         thirdPlace: 'false',
@@ -199,28 +200,51 @@ export default function ConfigStep() {
           </>
         )}
 
-        {/* Como vencer */}
+        {/* Como vencer — sets, games e tie-break independentes */}
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>Como vencer cada jogo</Text>
           <SegmentControl
             options={[
-              { value: 'games', label: 'Games' },
-              { value: 'sets', label: 'Sets' },
-              { value: 'points', label: 'Tie-break' },
+              { value: '1', label: '1 set' },
+              { value: '3', label: 'Melhor de 3' },
+              { value: '5', label: 'Melhor de 5' },
             ]}
-            value={winMode}
-            onChange={setWinMode}
+            value={String(sets)}
+            onChange={(v) => setSets(parseInt(v, 10))}
+            descriptions={{
+              '1': 'Jogo único: vence quem ganhar o set.',
+              '3': 'Melhor de 3 sets: vence quem ganhar 2.',
+              '5': 'Melhor de 5 sets: vence quem ganhar 3.',
+            }}
           />
         </View>
-
-        {/* Target */}
         <View style={styles.field}>
-          <Stepper
-            label={`${winMode === 'sets' ? 'Melhor de quantos' : 'Até quantos'} ${winLabel[winMode]}`}
-            value={target}
-            min={1}
-            max={winMode === 'sets' ? 5 : 21}
-            onChange={setTarget}
+          <Stepper label="Games por set" value={games} min={1} max={9} onChange={setGames} />
+        </View>
+        <View style={styles.field}>
+          <Stepper label="Pontos do tie-break" value={tiebreak} min={5} max={15} onChange={setTiebreak} />
+        </View>
+
+        {/* Informações (opcional) */}
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>Local / quadras (opcional)</Text>
+          <TextInput
+            style={styles.input}
+            value={location}
+            onChangeText={setLocation}
+            placeholder="Ex: Arena Beach — quadras 1 e 2"
+            placeholderTextColor={Colors.faint}
+          />
+        </View>
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>Regras / observações (opcional)</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="Ex: critério de desempate, premiação, horários…"
+            placeholderTextColor={Colors.faint}
+            multiline
           />
         </View>
 
@@ -254,6 +278,7 @@ const styles = StyleSheet.create({
   fieldLabel: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
   required: { color: Colors.coral },
   input: { backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, fontFamily: FontFamily.body, fontSize: 15, color: Colors.text },
+  textArea: { minHeight: 80, textAlignVertical: 'top' },
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: Spacing.md, paddingBottom: Spacing.lg, backgroundColor: Colors.bg, borderTopWidth: 1, borderTopColor: Colors.line },
   btnContinue: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' },
   btnText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg },

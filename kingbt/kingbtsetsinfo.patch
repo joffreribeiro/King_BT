@@ -1,0 +1,680 @@
+diff --git a/kingbt/app/competitions/[id].tsx b/kingbt/app/competitions/[id].tsx
+index 51bc1f3..84b7935 100644
+--- a/kingbt/app/competitions/[id].tsx
++++ b/kingbt/app/competitions/[id].tsx
+@@ -10,7 +10,9 @@ import { PLAYERS } from '@/mocks/data';
+ import { standings, groupComplete, matchWinner, matchLoser, koRoundName } from '@/logic/formats';
+ import { useCompetitions } from '@/store/CompetitionsContext';
+ import { useAuth } from '@/store/AuthContext';
+-import type { Match, Competition } from '@/logic/types';
++import type { Match, Competition, SetScore } from '@/logic/types';
++
++type ScoreDetailInput = { sets?: SetScore[] | null; playedAt?: string | null; note?: string | null };
+ 
+ function getPlayer(id: string) {
+   return PLAYERS.find(p => p.id === id);
+@@ -19,6 +21,12 @@ function getCompetitor(comp: Competition, id: string) {
+   return comp.competitors.find(c => c.id === id);
+ }
+ 
++/** "6-4  3-6  10-7" — detalhe set a set, ou null se não houver. */
++function fmtSets(m: Match): string | null {
++  if (!m.sets || m.sets.length === 0) return null;
++  return m.sets.map(s => `${s.a}-${s.b}`).join('  ');
++}
++
+ // ─── Standings Table ──────────────────────────────────────────────────────────
+ 
+ function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
+@@ -107,6 +115,12 @@ function GameRow({ match: m, index, comp, onPress, onLongPress }: {
+             </Text>
+           </View>
+         </View>
++        {has && fmtSets(m) && <Text style={gRow.setLine}>{fmtSets(m)}</Text>}
++        {has && (m.playedAt || m.note) ? (
++          <Text style={gRow.meta} numberOfLines={2}>
++            {[m.playedAt, m.note].filter(Boolean).join(' · ')}
++          </Text>
++        ) : null}
+         {!has && <Text style={gRow.hint}>Toque para registrar placar</Text>}
+       </Card>
+     </TouchableOpacity>
+@@ -124,6 +138,8 @@ const gRow = StyleSheet.create({
+   lose: { color: Colors.muted },
+   pending: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
+   hint: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center', marginTop: Spacing.xs, borderTopWidth: 1, borderTopColor: Colors.line, paddingTop: Spacing.xs },
++  setLine: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted, textAlign: 'center', marginTop: Spacing.xs },
++  meta: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center', marginTop: 2 },
+ });
+ 
+ // ─── Match Row (liga/grupos/mata-mata) ────────────────────────────────────────
+@@ -159,6 +175,12 @@ function MatchRow({ match: m, comp, onPress, onLongPress }: {
+             {pB && <Avatar name={pB.name} color={pB.color} size={28} />}
+           </View>
+         </View>
++        {has && fmtSets(m) && <Text style={mRow.setLine}>{fmtSets(m)}</Text>}
++        {has && (m.playedAt || m.note) ? (
++          <Text style={mRow.meta} numberOfLines={2}>
++            {[m.playedAt, m.note].filter(Boolean).join(' · ')}
++          </Text>
++        ) : null}
+       </Card>
+     </TouchableOpacity>
+   );
+@@ -171,6 +193,8 @@ const mRow = StyleSheet.create({
+   sideRight: { justifyContent: 'flex-end' },
+   name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
+   vs: { fontFamily: FontFamily.numberBold, fontSize: 15, color: Colors.muted, minWidth: 56, textAlign: 'center' },
++  setLine: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted, textAlign: 'center', marginTop: Spacing.xs },
++  meta: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center', marginTop: 2 },
+ });
+ 
+ // ─── Views por formato ────────────────────────────────────────────────────────
+@@ -378,18 +402,42 @@ const tabs = StyleSheet.create({
+ 
+ // ─── Scorer Modal ─────────────────────────────────────────────────────────────
+ 
++function StepBox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
++  return (
++    <View style={sc.stepper}>
++      <TouchableOpacity style={sc.btn} onPress={() => onChange(String(Math.max(0, parseInt(value || '0', 10) - 1)))}>
++        <Text style={sc.btnText}>−</Text>
++      </TouchableOpacity>
++      <TextInput style={sc.input} value={value} onChangeText={onChange} keyboardType="number-pad" maxLength={2} />
++      <TouchableOpacity style={sc.btn} onPress={() => onChange(String(parseInt(value || '0', 10) + 1))}>
++        <Text style={sc.btnText}>+</Text>
++      </TouchableOpacity>
++    </View>
++  );
++}
++
+ function ScorerModal({ match, comp, onClose, onSave, isAdmin = false }: {
+   match: Match | null; comp: Competition;
+   onClose: () => void;
+-  onSave: (id: string, a: number, b: number) => void;
++  onSave: (id: string, a: number, b: number, detail: ScoreDetailInput) => void;
+   isAdmin?: boolean;
+ }) {
+-  const [sA, setSA] = useState(match?.scoreA != null ? String(match.scoreA) : '');
+-  const [sB, setSB] = useState(match?.scoreB != null ? String(match.scoreB) : '');
++  const wr = comp.config?.winRule ?? {};
++  const nSets = wr.sets ?? 0;
++  const useSets = nSets > 0;
++
++  const [setRows, setSetRows] = useState<{ a: string; b: string }[]>(() => {
++    const base = Array.from({ length: Math.max(1, nSets) }, () => ({ a: '', b: '' }));
++    if (match?.sets) match.sets.forEach((s, i) => { if (i < base.length) base[i] = { a: String(s.a), b: String(s.b) }; });
++    return base;
++  });
++  const [sA, setSA] = useState(!useSets && match?.scoreA != null ? String(match.scoreA) : '');
++  const [sB, setSB] = useState(!useSets && match?.scoreB != null ? String(match.scoreB) : '');
++  const [playedAt, setPlayedAt] = useState(match?.playedAt ?? '');
++  const [note, setNote] = useState(match?.note ?? '');
++
+   if (!match) return null;
+-  const a = parseInt(sA), b = parseInt(sB);
+-  const valid = !isNaN(a) && !isNaN(b) && a >= 0 && b >= 0 && a !== b;
+-  const draw = !isNaN(a) && !isNaN(b) && a === b;
++
+   const alreadyScored = match.scoreA != null;
+   const canEdit = !alreadyScored || isAdmin;
+ 
+@@ -400,47 +448,110 @@ function ScorerModal({ match, comp, onClose, onSave, isAdmin = false }: {
+     ? match.teamB.map(id => getPlayer(id)?.name.split(' ')[0]).join(' / ')
+     : (match.bId ? getCompetitor(comp, match.bId)?.name : '?') ?? '?';
+ 
++  // Cálculo do resultado
++  let valid = false, draw = false, setsA = 0, setsB = 0, legacyA = 0, legacyB = 0;
++  const filledSets: SetScore[] = [];
++  if (useSets) {
++    setRows.forEach(r => {
++      const ra = parseInt(r.a, 10), rb = parseInt(r.b, 10);
++      if (!isNaN(ra) && !isNaN(rb)) {
++        filledSets.push({ a: ra, b: rb });
++        if (ra > rb) setsA++; else if (rb > ra) setsB++;
++      }
++    });
++    draw = filledSets.length > 0 && setsA === setsB;
++    valid = filledSets.length > 0 && setsA !== setsB;
++  } else {
++    legacyA = parseInt(sA, 10); legacyB = parseInt(sB, 10);
++    valid = !isNaN(legacyA) && !isNaN(legacyB) && legacyA >= 0 && legacyB >= 0 && legacyA !== legacyB;
++    draw = !isNaN(legacyA) && !isNaN(legacyB) && legacyA === legacyB;
++  }
++
++  const detail: ScoreDetailInput = {
++    playedAt: playedAt.trim() || null,
++    note: note.trim() || null,
++    ...(useSets ? { sets: filledSets } : {}),
++  };
++
++  function submit() {
++    if (!valid || !canEdit || !match) return;
++    if (useSets) onSave(match.id, setsA, setsB, detail);
++    else onSave(match.id, legacyA, legacyB, detail);
++  }
++
++  const updateSet = (i: number, side: 'a' | 'b', v: string) =>
++    setSetRows(rows => rows.map((r, idx) => idx === i ? { ...r, [side]: v } : r));
++
+   return (
+     <Modal visible transparent animationType="slide">
+       <View style={sc.overlay}>
+         <View style={sc.sheet}>
+-          <Text style={sc.title}>Registrar Placar</Text>
+-          <Text style={sc.sub}>{nameA}{'\nvs\n'}{nameB}</Text>
+-          <View style={sc.inputRow}>
+-            {[{ val: sA, set: setSA, label: nameA }, { val: sB, set: setSB, label: nameB }].map(({ val, set, label }, idx) => (
+-              <View key={idx} style={sc.inputBlock}>
+-                <Text style={sc.inputLabel} numberOfLines={1}>{label}</Text>
+-                <View style={sc.stepper}>
+-                  <TouchableOpacity style={sc.btn} onPress={() => set(s => String(Math.max(0, parseInt(s || '0') - 1)))}>
+-                    <Text style={sc.btnText}>−</Text>
+-                  </TouchableOpacity>
+-                  <TextInput style={sc.input} value={val} onChangeText={set} keyboardType="number-pad" maxLength={2} />
+-                  <TouchableOpacity style={sc.btn} onPress={() => set(s => String(parseInt(s || '0') + 1))}>
+-                    <Text style={sc.btnText}>+</Text>
+-                  </TouchableOpacity>
+-                </View>
++          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: Spacing.md }}>
++            <Text style={sc.title}>Registrar Placar</Text>
++            <Text style={sc.sub}>{nameA}{'  vs  '}{nameB}</Text>
++
++            {useSets ? (
++              <>
++                {setRows.map((r, i) => (
++                  <View key={i} style={sc.setRow}>
++                    <Text style={sc.setLabel}>Set {i + 1}</Text>
++                    <View style={sc.setInputs}>
++                      <StepBox value={r.a} onChange={(v) => updateSet(i, 'a', v)} />
++                      <Text style={sc.dash}>–</Text>
++                      <StepBox value={r.b} onChange={(v) => updateSet(i, 'b', v)} />
++                    </View>
++                  </View>
++                ))}
++                {filledSets.length > 0 && (
++                  <Text style={sc.setsTotal}>Sets: {setsA} – {setsB}</Text>
++                )}
++              </>
++            ) : (
++              <View style={sc.inputRow}>
++                {[{ val: sA, set: setSA, label: nameA }, { val: sB, set: setSB, label: nameB }].map(({ val, set, label }, idx) => (
++                  <View key={idx} style={sc.inputBlock}>
++                    <Text style={sc.inputLabel} numberOfLines={1}>{label}</Text>
++                    <StepBox value={val} onChange={set} />
++                  </View>
++                ))}
+               </View>
+-            ))}
+-          </View>
+-          {draw && <Text style={sc.warn}>⚠️ Empate não permitido</Text>}
+-          {alreadyScored && !isAdmin && (
+-            <Text style={sc.lockedText}>🔒 Placar já registrado. Apenas admin pode corrigir.</Text>
+-          )}
+-          {isAdmin && alreadyScored && (
+-            <Text style={sc.adminNote}>⚙️ Admin — você pode corrigir este placar.</Text>
+-          )}
+-          <View style={sc.btns}>
+-            <TouchableOpacity onPress={onClose} style={sc.cancel}>
+-              <Text style={sc.cancelText}>Cancelar</Text>
+-            </TouchableOpacity>
+-            <TouchableOpacity
+-              onPress={() => { if (valid && canEdit) onSave(match.id, a, b); }}
+-              style={[sc.save, (!valid || !canEdit) && sc.saveOff]}
+-              disabled={!valid || !canEdit}
+-            >
+-              <Text style={sc.saveText}>{alreadyScored && isAdmin ? 'Corrigir' : 'Salvar'}</Text>
+-            </TouchableOpacity>
+-          </View>
++            )}
++
++            <TextInput
++              style={sc.metaInput}
++              value={playedAt}
++              onChangeText={setPlayedAt}
++              placeholder="Data e horário (opcional) — ex: 14/06 16:30"
++              placeholderTextColor={Colors.faint}
++            />
++            <TextInput
++              style={sc.metaInput}
++              value={note}
++              onChangeText={setNote}
++              placeholder="Observações (opcional)"
++              placeholderTextColor={Colors.faint}
++            />
++
++            {draw && <Text style={sc.warn}>⚠️ Empate não permitido</Text>}
++            {alreadyScored && !isAdmin && (
++              <Text style={sc.lockedText}>🔒 Placar já registrado. Apenas admin pode corrigir.</Text>
++            )}
++            {isAdmin && alreadyScored && (
++              <Text style={sc.adminNote}>⚙️ Admin — você pode corrigir este placar.</Text>
++            )}
++            <View style={sc.btns}>
++              <TouchableOpacity onPress={onClose} style={sc.cancel}>
++                <Text style={sc.cancelText}>Cancelar</Text>
++              </TouchableOpacity>
++              <TouchableOpacity
++                onPress={submit}
++                style={[sc.save, (!valid || !canEdit) && sc.saveOff]}
++                disabled={!valid || !canEdit}
++              >
++                <Text style={sc.saveText}>{alreadyScored && isAdmin ? 'Corrigir' : 'Salvar'}</Text>
++              </TouchableOpacity>
++            </View>
++          </ScrollView>
+         </View>
+       </View>
+     </Modal>
+@@ -448,9 +559,15 @@ function ScorerModal({ match, comp, onClose, onSave, isAdmin = false }: {
+ }
+ const sc = StyleSheet.create({
+   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+-  sheet: { backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.xl, gap: Spacing.md },
++  sheet: { backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.xl, maxHeight: '90%' },
+   title: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text, textAlign: 'center' },
+   sub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
++  setRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
++  setLabel: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
++  setInputs: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
++  dash: { fontFamily: FontFamily.numberBold, fontSize: 18, color: Colors.muted },
++  setsTotal: { fontFamily: FontFamily.numberBold, fontSize: 15, color: Colors.gold, textAlign: 'center' },
++  metaInput: { backgroundColor: Colors.surf2, borderRadius: Radius.sm, borderWidth: 1, borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, fontFamily: FontFamily.body, fontSize: 14, color: Colors.text },
+   inputRow: { flexDirection: 'row', justifyContent: 'space-around', gap: Spacing.md },
+   inputBlock: { alignItems: 'center', gap: Spacing.sm, flex: 1 },
+   inputLabel: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, textAlign: 'center' },
+@@ -487,13 +604,13 @@ export default function CompetitionDetail() {
+     );
+   }
+ 
+-  function handleSave(matchId: string, a: number, b: number) {
+-    dispatch({ type: 'SAVE_SCORE', compId: id!, matchId, scoreA: a, scoreB: b });
++  function handleSave(matchId: string, a: number, b: number, detail?: ScoreDetailInput) {
++    dispatch({ type: 'SAVE_SCORE', compId: id!, matchId, scoreA: a, scoreB: b, detail });
+     setScoring(null);
+   }
+ 
+-  function handleCorrect(matchId: string, a: number, b: number) {
+-    dispatch({ type: 'CORRECT_SCORE', compId: id!, matchId, scoreA: a, scoreB: b });
++  function handleCorrect(matchId: string, a: number, b: number, detail?: ScoreDetailInput) {
++    dispatch({ type: 'CORRECT_SCORE', compId: id!, matchId, scoreA: a, scoreB: b, detail });
+     setScoring(null);
+   }
+ 
+@@ -560,6 +677,14 @@ export default function CompetitionDetail() {
+         </View>
+       )}
+ 
++      {/* Local / observações da competição */}
++      {(comp.location || comp.notes) ? (
++        <View style={main.infoBar}>
++          {comp.location ? <Text style={main.infoText}>📍 {comp.location}</Text> : null}
++          {comp.notes ? <Text style={main.infoNote}>{comp.notes}</Text> : null}
++        </View>
++      ) : null}
++
+       {/* Conteúdo por formato */}
+       {comp.format === 'grupos'
+         ? <GroupsView comp={comp} onScore={setScoring} onClear={handleClear} />
+@@ -571,6 +696,7 @@ export default function CompetitionDetail() {
+       }
+ 
+       <ScorerModal
++        key={scoring?.id ?? 'none'}
+         match={scoring}
+         comp={comp}
+         onClose={() => setScoring(null)}
+@@ -594,4 +720,7 @@ const main = StyleSheet.create({
+   adminMenuClose: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
+   adminMenuAction: { paddingVertical: Spacing.xs },
+   adminMenuDanger: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.coral },
++  infoBar: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, gap: 2, borderBottomWidth: 1, borderBottomColor: Colors.line },
++  infoText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
++  infoNote: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+ });
+diff --git a/kingbt/app/competitions/new/config.tsx b/kingbt/app/competitions/new/config.tsx
+index accf4b2..94d5646 100644
+--- a/kingbt/app/competitions/new/config.tsx
++++ b/kingbt/app/competitions/new/config.tsx
+@@ -14,7 +14,6 @@ const FORMAT_DEFAULT_NAME: Record<Format, string> = {
+ 
+ type Unit = 'individual' | 'duplas';
+ type Rounds = 'single' | 'double';
+-type WinMode = 'games' | 'sets' | 'points';
+ 
+ function SegmentControl<T extends string>({
+   options, value, onChange, descriptions,
+@@ -87,14 +86,13 @@ export default function ConfigStep() {
+   const isRotativo = format === 'avulso' || format === 'super8';
+   const [unit, setUnit]       = useState<Unit>('individual');
+   const [rounds, setRounds]   = useState<Rounds>('single');
+-  const [winMode, setWinMode] = useState<WinMode>('games');
+-  const [target, setTarget]   = useState(6);
++  const [sets, setSets]       = useState(1);
++  const [games, setGames]     = useState(6);
++  const [tiebreak, setTiebreak] = useState(7);
+   const [groups, setGroups]   = useState(2);
+   const [qualifiers, setQualifiers] = useState(2);
+-
+-  const winLabel: Record<WinMode, string> = {
+-    games: 'games', sets: 'sets', points: 'pontos',
+-  };
++  const [location, setLocation] = useState('');
++  const [notes, setNotes]     = useState('');
+ 
+   function next() {
+     router.push({
+@@ -104,8 +102,11 @@ export default function ConfigStep() {
+         name,
+         unit: isRotativo ? 'individual' : unit,
+         rounds,
+-        winMode,
+-        target: String(target),
++        sets: String(sets),
++        games: String(games),
++        tiebreak: String(tiebreak),
++        location,
++        notes,
+         groups: String(groups),
+         qualifiers: String(qualifiers),
+         thirdPlace: 'false',
+@@ -199,28 +200,51 @@ export default function ConfigStep() {
+           </>
+         )}
+ 
+-        {/* Como vencer */}
++        {/* Como vencer — sets, games e tie-break independentes */}
+         <View style={styles.field}>
+           <Text style={styles.fieldLabel}>Como vencer cada jogo</Text>
+           <SegmentControl
+             options={[
+-              { value: 'games', label: 'Games' },
+-              { value: 'sets', label: 'Sets' },
+-              { value: 'points', label: 'Tie-break' },
++              { value: '1', label: '1 set' },
++              { value: '3', label: 'Melhor de 3' },
++              { value: '5', label: 'Melhor de 5' },
+             ]}
+-            value={winMode}
+-            onChange={setWinMode}
++            value={String(sets)}
++            onChange={(v) => setSets(parseInt(v, 10))}
++            descriptions={{
++              '1': 'Jogo único: vence quem ganhar o set.',
++              '3': 'Melhor de 3 sets: vence quem ganhar 2.',
++              '5': 'Melhor de 5 sets: vence quem ganhar 3.',
++            }}
+           />
+         </View>
++        <View style={styles.field}>
++          <Stepper label="Games por set" value={games} min={1} max={9} onChange={setGames} />
++        </View>
++        <View style={styles.field}>
++          <Stepper label="Pontos do tie-break" value={tiebreak} min={5} max={15} onChange={setTiebreak} />
++        </View>
+ 
+-        {/* Target */}
++        {/* Informações (opcional) */}
+         <View style={styles.field}>
+-          <Stepper
+-            label={`${winMode === 'sets' ? 'Melhor de quantos' : 'Até quantos'} ${winLabel[winMode]}`}
+-            value={target}
+-            min={1}
+-            max={winMode === 'sets' ? 5 : 21}
+-            onChange={setTarget}
++          <Text style={styles.fieldLabel}>Local / quadras (opcional)</Text>
++          <TextInput
++            style={styles.input}
++            value={location}
++            onChangeText={setLocation}
++            placeholder="Ex: Arena Beach — quadras 1 e 2"
++            placeholderTextColor={Colors.faint}
++          />
++        </View>
++        <View style={styles.field}>
++          <Text style={styles.fieldLabel}>Regras / observações (opcional)</Text>
++          <TextInput
++            style={[styles.input, styles.textArea]}
++            value={notes}
++            onChangeText={setNotes}
++            placeholder="Ex: critério de desempate, premiação, horários…"
++            placeholderTextColor={Colors.faint}
++            multiline
+           />
+         </View>
+ 
+@@ -254,6 +278,7 @@ const styles = StyleSheet.create({
+   fieldLabel: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
+   required: { color: Colors.coral },
+   input: { backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, fontFamily: FontFamily.body, fontSize: 15, color: Colors.text },
++  textArea: { minHeight: 80, textAlignVertical: 'top' },
+   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: Spacing.md, paddingBottom: Spacing.lg, backgroundColor: Colors.bg, borderTopWidth: 1, borderTopColor: Colors.line },
+   btnContinue: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' },
+   btnText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg },
+diff --git a/kingbt/app/competitions/new/review.tsx b/kingbt/app/competitions/new/review.tsx
+index dbfabf3..d267720 100644
+--- a/kingbt/app/competitions/new/review.tsx
++++ b/kingbt/app/competitions/new/review.tsx
+@@ -26,7 +26,9 @@ const FORMAT_ICON_COLOR: Record<Format, string> = {
+ 
+ type Params = {
+   format: Format; name: string; unit: string; rounds: string;
+-  winMode: string; target: string; groups: string; qualifiers: string;
++  sets: string; games: string; tiebreak: string;
++  location?: string; notes?: string;
++  groups: string; qualifiers: string;
+   thirdPlace: string; playerIds: string; guestData?: string;
+ };
+ 
+@@ -35,9 +37,12 @@ export default function ReviewStep() {
+   const p = useLocalSearchParams<Params>();
+ 
+   const isDuplas = p.unit === 'duplas';
+-  const winLabel: Record<string, string> = { games: 'Games', sets: 'Sets', points: 'Tie-break' };
+   const roundsLabel = p.rounds === 'double' ? 'Ida e volta' : 'Turno único';
+-  const winRule = `Melhor de ${p.target} ${winLabel[p.winMode] ?? p.winMode}`;
++  const setsN = parseInt(p.sets ?? '1', 10) || 1;
++  const gamesN = parseInt(p.games ?? '6', 10) || 6;
++  const tiebreakN = parseInt(p.tiebreak ?? '7', 10) || 7;
++  const setsLabel = setsN <= 1 ? '1 set' : `Melhor de ${setsN} sets`;
++  const winRule = `${setsLabel} · até ${gamesN} games · TB ${tiebreakN} pts`;
+ 
+   // Jogadores + convidados
+   const guests: { id: string; name: string; color: string }[] = p.guestData ? JSON.parse(p.guestData) : [];
+@@ -76,12 +81,14 @@ export default function ReviewStep() {
+     format: p.format,
+     unit: isDuplas ? 'duplas' : 'individual',
+     competitors,
++    location: p.location?.trim() || undefined,
++    notes: p.notes?.trim() || undefined,
+     config: {
+       rounds: p.rounds === 'double' ? 'double' : 'single',
+       groups: parseInt(p.groups ?? '2'),
+       qualifiers: parseInt(p.qualifiers ?? '2'),
+       thirdPlace: p.thirdPlace === 'true',
+-      winRule: { mode: (p.winMode ?? 'games') as 'games' | 'sets' | 'points', target: parseInt(p.target ?? '6') },
++      winRule: { sets: setsN, games: gamesN, tiebreak: tiebreakN },
+     },
+   });
+ 
+@@ -143,6 +150,8 @@ export default function ReviewStep() {
+             <SummaryRow label="Turnos" value={roundsLabel} />
+           )}
+           <SummaryRow label="Cada jogo" value={winRule} />
++          {p.location?.trim() ? <SummaryRow label="Local" value={p.location.trim()} /> : null}
++          {p.notes?.trim() ? <SummaryRow label="Observações" value={p.notes.trim()} /> : null}
+           <SummaryRow label="Jogos gerados" value={String(comp.matches.length)} last />
+         </View>
+ 
+diff --git a/kingbt/src/logic/formats.ts b/kingbt/src/logic/formats.ts
+index 2e64a99..0a681d7 100644
+--- a/kingbt/src/logic/formats.ts
++++ b/kingbt/src/logic/formats.ts
+@@ -261,11 +261,15 @@ export function buildCompetition(spec: {
+   unit: Unit;
+   competitors: Competitor[];
+   config: CompetitionConfig;
++  location?: string;
++  notes?: string;
+ }): Competition {
+   const id = 'comp_' + Date.now();
+   const comp: Competition = {
+     id, name: spec.name, format: spec.format, unit: spec.unit,
+     status: 'active', date: new Date().toISOString().slice(0, 10),
++    ...(spec.location ? { location: spec.location } : {}),
++    ...(spec.notes ? { notes: spec.notes } : {}),
+     config: spec.config, competitors: spec.competitors, matches: [],
+   };
+   const ids = spec.competitors.map(c => c.id);
+diff --git a/kingbt/src/logic/types.ts b/kingbt/src/logic/types.ts
+index 7596363..3c4bee1 100644
+--- a/kingbt/src/logic/types.ts
++++ b/kingbt/src/logic/types.ts
+@@ -24,6 +24,11 @@ export interface MatchSource {
+   pos?: number;
+ }
+ 
++export interface SetScore {
++  a: number;
++  b: number;
++}
++
+ export interface Match {
+   id: string;
+   stage: Stage;
+@@ -31,8 +36,15 @@ export interface Match {
+   bId?: string | null;
+   aSrc?: MatchSource | null;
+   bSrc?: MatchSource | null;
++  /** Resultado decisivo do jogo. Com modelo de sets, = sets vencidos por lado. */
+   scoreA: number | null;
+   scoreB: number | null;
++  /** Detalhe set a set (games de cada set), quando o jogo usa sets. */
++  sets?: SetScore[] | null;
++  /** Data/horário do jogo (ISO). */
++  playedAt?: string | null;
++  /** Observações do jogo (W.O., lesão, etc.). */
++  note?: string | null;
+   round?: number;
+   groupIdx?: number;
+   koRound?: number;
+@@ -49,12 +61,29 @@ export interface GroupDef {
+   ids: string[];
+ }
+ 
++/**
++ * Regra de vitória do jogo. Modelo novo: sets + games por set + tie-break,
++ * configurados de forma independente. Os campos `mode`/`target` são mantidos
++ * apenas para compatibilidade com competições antigas.
++ */
++export interface WinRule {
++  /** Melhor de N sets (1, 3, 5). */
++  sets?: number;
++  /** Games para vencer um set. */
++  games?: number;
++  /** Pontos do tie-break. */
++  tiebreak?: number;
++  // legado
++  mode?: 'games' | 'sets' | 'points';
++  target?: number;
++}
++
+ export interface CompetitionConfig {
+   rounds: 'single' | 'double';
+   groups: number;
+   qualifiers: number;
+   thirdPlace: boolean;
+-  winRule: { mode: 'games' | 'sets' | 'points'; target: number };
++  winRule: WinRule;
+ }
+ 
+ export interface Competition {
+@@ -64,6 +93,10 @@ export interface Competition {
+   unit: Unit;
+   status: 'setup' | 'active' | 'done';
+   date: string;
++  /** Local / quadras (opcional). */
++  location?: string;
++  /** Regras / observações gerais (opcional). */
++  notes?: string;
+   config: CompetitionConfig;
+   competitors: Competitor[];
+   groupDefs?: GroupDef[];
+diff --git a/kingbt/src/store/CompetitionsContext.tsx b/kingbt/src/store/CompetitionsContext.tsx
+index 10e2718..e95c3a3 100644
+--- a/kingbt/src/store/CompetitionsContext.tsx
++++ b/kingbt/src/store/CompetitionsContext.tsx
+@@ -1,5 +1,5 @@
+ import React, { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
+-import type { Competition } from '@/logic/types';
++import type { Competition, SetScore } from '@/logic/types';
+ import { resolveCompetition } from '@/logic/formats';
+ import { MOCK_COMPETITIONS } from '@/mocks/competitions';
+ import { subscribeCompetitions, createCompetition, updateCompetition as fsUpdateComp } from '@/firebase/competitions';
+@@ -10,19 +10,26 @@ type State = {
+   synced: boolean;
+ };
+ 
++type ScoreDetail = { sets?: SetScore[] | null; playedAt?: string | null; note?: string | null };
++
+ type Action =
+   | { type: 'SET'; competitions: Competition[] }
+   | { type: 'ADD'; comp: Competition }
+-  | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number }
+-  | { type: 'CORRECT_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number }
++  | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; detail?: ScoreDetail }
++  | { type: 'CORRECT_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; detail?: ScoreDetail }
+   | { type: 'CLEAR_SCORE'; compId: string; matchId: string }
+   | { type: 'DELETE'; compId: string };
+ 
+-function applyScore(comp: Competition, matchId: string, scoreA: number, scoreB: number): Competition {
++function applyScore(comp: Competition, matchId: string, scoreA: number, scoreB: number, detail?: ScoreDetail): Competition {
+   const updated = {
+     ...comp,
+     matches: comp.matches.map(m =>
+-      m.id === matchId ? { ...m, scoreA, scoreB } : m
++      m.id === matchId ? {
++        ...m, scoreA, scoreB,
++        ...(detail?.sets !== undefined ? { sets: detail.sets } : {}),
++        ...(detail?.playedAt !== undefined ? { playedAt: detail.playedAt } : {}),
++        ...(detail?.note !== undefined ? { note: detail.note } : {}),
++      } : m
+     ),
+   };
+   resolveCompetition(updated);
+@@ -47,7 +54,7 @@ function reducer(state: State, action: Action): State {
+       return {
+         ...state,
+         competitions: state.competitions.map(c =>
+-          c.id !== action.compId ? c : applyScore(c, action.matchId, action.scoreA, action.scoreB)
++          c.id !== action.compId ? c : applyScore(c, action.matchId, action.scoreA, action.scoreB, action.detail)
+         ),
+       };
+     case 'CLEAR_SCORE': {
+@@ -56,7 +63,7 @@ function reducer(state: State, action: Action): State {
+         competitions: state.competitions.map(c => {
+           if (c.id !== action.compId) return c;
+           const updated = { ...c, matches: c.matches.map(m =>
+-            m.id === action.matchId ? { ...m, scoreA: null, scoreB: null } : m
++            m.id === action.matchId ? { ...m, scoreA: null, scoreB: null, sets: null } : m
+           )};
+           resolveCompetition(updated);
+           const scoreable = updated.matches.filter(m => (m.aId != null && m.bId != null) || (m.teamA && m.teamB));
+@@ -110,7 +117,7 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
+     if (action.type === 'SAVE_SCORE' || action.type === 'CORRECT_SCORE') {
+       const comp = state.competitions.find(c => c.id === action.compId);
+       if (comp) {
+-        const updated = applyScore(comp, action.matchId, action.scoreA, action.scoreB);
++        const updated = applyScore(comp, action.matchId, action.scoreA, action.scoreB, action.detail);
+         await fsUpdateComp(group.id, updated);
+       }
+     }
+@@ -119,7 +126,7 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
+       const comp = state.competitions.find(c => c.id === action.compId);
+       if (comp) {
+         const cleared = { ...comp, matches: comp.matches.map(m =>
+-          m.id === action.matchId ? { ...m, scoreA: null, scoreB: null } : m
++          m.id === action.matchId ? { ...m, scoreA: null, scoreB: null, sets: null } : m
+         )};
+         resolveCompetition(cleared);
+         await fsUpdateComp(group.id, cleared);

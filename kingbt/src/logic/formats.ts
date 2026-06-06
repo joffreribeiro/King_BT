@@ -261,11 +261,15 @@ export function buildCompetition(spec: {
   unit: Unit;
   competitors: Competitor[];
   config: CompetitionConfig;
+  location?: string;
+  notes?: string;
 }): Competition {
   const id = 'comp_' + Date.now();
   const comp: Competition = {
     id, name: spec.name, format: spec.format, unit: spec.unit,
     status: 'active', date: new Date().toISOString().slice(0, 10),
+    ...(spec.location ? { location: spec.location } : {}),
+    ...(spec.notes ? { notes: spec.notes } : {}),
     config: spec.config, competitors: spec.competitors, matches: [],
   };
   const ids = spec.competitors.map(c => c.id);
