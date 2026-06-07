@@ -9,7 +9,7 @@ import { Card } from '@/components';
 import { useAuth } from '@/store/AuthContext';
 import { useSettings } from '@/store/SettingsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
-import { removeGuestPlayer } from '@/firebase/groupPlayers';
+import { removeGuestPlayer, deleteGroup } from '@/firebase/groupPlayers';
 import type { Format } from '@/logic/types';
 
 const MAX_SCORE_OPTIONS = [4, 6, 7, 8, 10];
@@ -26,7 +26,7 @@ const FORMAT_OPTIONS: { key: Format | ''; label: string }[] = [
 const version = Constants.expoConfig?.version ?? '1.0.0';
 
 export default function SettingsScreen() {
-  const { group, isAdmin, leaveGroup, user } = useAuth();
+  const { group, isAdmin, leaveGroup, user, removeFromGroup, promoteToAdmin } = useAuth();
   const { groupPlayers } = useGroupPlayers();
   const { defaultMaxScore, setDefaultMaxScore, defaultFormat, setDefaultFormat } = useSettings();
 
@@ -41,16 +41,56 @@ export default function SettingsScreen() {
     Share.share({ message: group.code, title: 'Código do grupo King BT' }).catch(() => {});
   }
 
-  function handleRemoveGuest(playerId: string, name: string) {
+  function handleRemovePlayer(playerId: string, playerUid: string | null | undefined, name: string) {
     if (!group) return;
-    const doRemove = () => removeGuestPlayer(group.id, playerId);
+    if (playerUid && playerUid === user?.uid) {
+      Alert.alert('Ação inválida', 'Você não pode remover a si mesmo do grupo.');
+      return;
+    }
+    const doRemove = async () => {
+      await removeGuestPlayer(group.id, playerId);
+      if (playerUid) await removeFromGroup(playerUid);
+    };
     if (Platform.OS === 'web') {
       if (window.confirm(`Remover ${name} do grupo?`)) doRemove();
     } else {
-      Alert.alert('Remover convidado', `Remover ${name} do grupo?`, [
+      Alert.alert('Remover jogador', `Remover ${name} do grupo?\n\nEle não poderá mais ver as competições.`, [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Remover', style: 'destructive', onPress: doRemove },
       ]);
+    }
+  }
+
+  function handlePromoteToAdmin(playerUid: string, name: string) {
+    const doPr = () => promoteToAdmin(playerUid);
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Promover ${name} a admin?`)) doPr();
+    } else {
+      Alert.alert('Promover a admin', `${name} terá acesso completo ao grupo.`, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Promover', onPress: doPr },
+      ]);
+    }
+  }
+
+  function handleDeleteGroup() {
+    if (!group) return;
+    const doDelete = async () => {
+      await deleteGroup(group.id);
+      await leaveGroup();
+      router.replace('/(auth)/join');
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm(`EXCLUIR "${group.name}"? Isso apaga o grupo e TODAS as competições permanentemente.`)) doDelete();
+    } else {
+      Alert.alert(
+        'EXCLUIR GRUPO',
+        `Isso apaga "${group.name}" e TODAS as competições permanentemente. Ação irreversível.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Excluir tudo', style: 'destructive', onPress: doDelete },
+        ]
+      );
     }
   }
 
@@ -165,22 +205,37 @@ export default function SettingsScreen() {
               {groupPlayers.length === 0 && (
                 <Text style={s.emptyPlayers}>Nenhum jogador cadastrado.</Text>
               )}
-              {groupPlayers.map((p, i) => (
-                <View key={p.id} style={[s.playerRow, i < groupPlayers.length - 1 && s.playerBorder]}>
-                  <View style={[s.playerDot, { backgroundColor: p.color }]} />
-                  <Text style={s.playerName} numberOfLines={1}>{p.name}</Text>
-                  <View style={p.guest ? s.guestBadge : s.memberBadge}>
-                    <Text style={p.guest ? s.guestText : s.memberText}>
-                      {p.guest ? 'convidado' : 'membro'}
-                    </Text>
+              {groupPlayers.map((p, i) => {
+                const isSelf = p.uid != null && p.uid === user?.uid;
+                const isPlayerAdmin = !p.guest && p.uid != null && group?.admins?.includes(p.uid);
+                const canPromote = !p.guest && p.uid != null && !isPlayerAdmin && !isSelf;
+                return (
+                  <View key={p.id} style={[s.playerRow, i < groupPlayers.length - 1 && s.playerBorder]}>
+                    <View style={[s.playerDot, { backgroundColor: p.color }]} />
+                    <Text style={s.playerName} numberOfLines={1}>{p.name}</Text>
+                    {isPlayerAdmin && (
+                      <View style={s.adminBadge}><Text style={s.adminText}>👑 admin</Text></View>
+                    )}
+                    {!isPlayerAdmin && (
+                      <View style={p.guest ? s.guestBadge : s.memberBadge}>
+                        <Text style={p.guest ? s.guestText : s.memberText}>
+                          {p.guest ? 'convidado' : 'membro'}
+                        </Text>
+                      </View>
+                    )}
+                    {canPromote && (
+                      <TouchableOpacity style={s.promoteBtn} onPress={() => handlePromoteToAdmin(p.uid!, p.name)} hitSlop={8}>
+                        <Text style={s.promoteBtnText}>👑</Text>
+                      </TouchableOpacity>
+                    )}
+                    {!isSelf && (
+                      <TouchableOpacity onPress={() => handleRemovePlayer(p.id, p.uid, p.name)} hitSlop={8}>
+                        <Text style={s.removeBtn}>×</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
-                  {p.guest && (
-                    <TouchableOpacity onPress={() => handleRemoveGuest(p.id, p.name)} hitSlop={8}>
-                      <Text style={s.removeBtn}>×</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
+                );
+              })}
             </Card>
           </View>
         )}
@@ -193,6 +248,9 @@ export default function SettingsScreen() {
               <Text style={s.dangerHint}>Ações irreversíveis. Use com cautela.</Text>
               <TouchableOpacity style={s.dangerBtn} onPress={handleLeaveGroup}>
                 <Text style={s.dangerBtnText}>🚪 Sair do grupo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[s.dangerBtn, s.dangerBtnRed]} onPress={handleDeleteGroup}>
+                <Text style={[s.dangerBtnText, s.dangerBtnTextRed]}>🗑️ Excluir grupo permanentemente</Text>
               </TouchableOpacity>
             </Card>
           </View>
@@ -275,11 +333,17 @@ const s = StyleSheet.create({
   memberBadge: { backgroundColor: Colors.teal + '22', borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 2 },
   memberText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.teal },
   removeBtn: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.coral, lineHeight: 20, paddingHorizontal: 4 },
+  adminBadge: { backgroundColor: Colors.gold + '33', borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 2 },
+  adminText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold },
+  promoteBtn: { paddingHorizontal: 6, paddingVertical: 2 },
+  promoteBtnText: { fontSize: 14 },
 
   dangerCard: { gap: Spacing.sm },
   dangerHint: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
   dangerBtn: { borderWidth: 1, borderColor: Colors.coral + '66', borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
   dangerBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.coral },
+  dangerBtnRed: { borderColor: '#e53935', backgroundColor: '#e5393511' },
+  dangerBtnTextRed: { color: '#e53935' },
 
   accountEmail: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', marginBottom: Spacing.sm },
   leaveBtn: { borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
