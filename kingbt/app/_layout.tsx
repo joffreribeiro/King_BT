@@ -19,6 +19,7 @@ import {
 import { Colors } from '@/theme';
 import { AuthProvider } from '@/store/AuthContext';
 import { CompetitionsProvider } from '@/store/CompetitionsContext';
+import { GroupPlayersProvider } from '@/store/GroupPlayersContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -44,6 +45,7 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
+    <GroupPlayersProvider>
     <CompetitionsProvider>
       <StatusBar style="light" />
       <Stack
@@ -54,6 +56,7 @@ export default function RootLayout() {
         }}
       />
     </CompetitionsProvider>
+    </GroupPlayersProvider>
     </AuthProvider>
   );
 }

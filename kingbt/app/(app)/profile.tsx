@@ -1,13 +1,18 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
 import { router } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
 import { PLAYERS } from '@/mocks/data';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
+import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { addGuestPlayer, removeGuestPlayer } from '@/firebase/groupPlayers';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
+
+const GUEST_COLORS = ['#FFD166', '#2DD4BF', '#A78BFA', '#34D399', '#F472B6', '#94A3B8', '#FB923C', '#60A5FA'];
 
 const MY_ID = 'p1';
 
@@ -33,7 +38,11 @@ const bar = StyleSheet.create({
 export default function ProfileScreen() {
   const player = PLAYERS.find(p => p.id === MY_ID)!;
   const { state } = useCompetitions();
-  const { logout, leaveGroup, group, user } = useAuth();
+  const { logout, leaveGroup, group, user, isAdmin } = useAuth();
+  const { groupPlayers } = useGroupPlayers();
+  const [showAddGuest, setShowAddGuest] = useState(false);
+  const [guestName, setGuestName] = useState('');
+  const [guestColor, setGuestColor] = useState(GUEST_COLORS[0]);
 
   async function handleLeaveGroup() {
     const doLeave = async () => {
@@ -61,6 +70,27 @@ export default function ProfileScreen() {
       Alert.alert('Sair', 'Deseja sair da sua conta?', [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Sair', style: 'destructive', onPress: doLogout },
+      ]);
+    }
+  }
+
+  async function handleAddGuest() {
+    if (!guestName.trim() || !group) return;
+    await addGuestPlayer(group.id, guestName.trim(), guestColor);
+    setGuestName('');
+    setGuestColor(GUEST_COLORS[0]);
+    setShowAddGuest(false);
+  }
+
+  function handleRemoveGuest(playerId: string, name: string) {
+    if (!group) return;
+    const doRemove = () => removeGuestPlayer(group.id, playerId);
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Remover ${name} do grupo?`)) doRemove();
+    } else {
+      Alert.alert('Remover convidado', `Remover ${name} do grupo?`, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Remover', style: 'destructive', onPress: doRemove },
       ]);
     }
   }
@@ -223,6 +253,67 @@ export default function ProfileScreen() {
           </Card>
         )}
 
+        {/* Jogadores do grupo (admin) */}
+        {isAdmin && group && (
+          <Card>
+            <View style={guest.header}>
+              <Text style={styles.sectionTitle}>Jogadores do grupo</Text>
+              <TouchableOpacity onPress={() => setShowAddGuest(v => !v)} style={guest.addBtn}>
+                <Text style={guest.addBtnText}>{showAddGuest ? '− Cancelar' : '+ Convidado'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {groupPlayers.length === 0 && (
+              <Text style={guest.empty}>Nenhum jogador cadastrado ainda.</Text>
+            )}
+
+            {groupPlayers.map((p, i) => (
+              <View key={p.id} style={[guest.playerRow, i < groupPlayers.length - 1 && guest.border]}>
+                <Avatar name={p.name} color={p.color} size={30} />
+                <Text style={guest.playerName}>{p.name}</Text>
+                {p.guest
+                  ? <View style={guest.guestBadge}><Text style={guest.guestText}>convidado</Text></View>
+                  : <View style={guest.memberBadge}><Text style={guest.memberText}>membro</Text></View>
+                }
+                {p.guest && (
+                  <TouchableOpacity onPress={() => handleRemoveGuest(p.id, p.name)} hitSlop={8}>
+                    <Text style={guest.removeBtn}>×</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+
+            {showAddGuest && (
+              <View style={guest.form}>
+                <TextInput
+                  style={guest.input}
+                  value={guestName}
+                  onChangeText={setGuestName}
+                  placeholder="Nome do convidado"
+                  placeholderTextColor={Colors.faint}
+                  autoFocus
+                />
+                <View style={guest.colorRow}>
+                  {GUEST_COLORS.map(c => (
+                    <TouchableOpacity
+                      key={c}
+                      onPress={() => setGuestColor(c)}
+                      style={[guest.colorDot, { backgroundColor: c }, guestColor === c && guest.colorDotSel]}
+                    />
+                  ))}
+                </View>
+                <TouchableOpacity
+                  style={[guest.confirmBtn, !guestName.trim() && { opacity: 0.4 }]}
+                  onPress={handleAddGuest}
+                  disabled={!guestName.trim()}
+                >
+                  <Text style={guest.confirmText}>Adicionar convidado</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </Card>
+        )}
+
         {/* Conta */}
         <Card style={styles.accountCard}>
           <Text style={styles.accountEmail}>{user?.email ?? user?.displayName}</Text>
@@ -287,4 +378,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl, alignItems: 'center',
   },
   logoutText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.coral },
+});
+
+const guest = StyleSheet.create({
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
+  addBtn: { paddingHorizontal: Spacing.sm, paddingVertical: 3, backgroundColor: Colors.surf2, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.line },
+  addBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.teal },
+  empty: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center', paddingVertical: Spacing.sm },
+  playerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
+  border: { borderBottomWidth: 1, borderBottomColor: Colors.line },
+  playerName: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
+  guestBadge: { backgroundColor: Colors.gold + '22', borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 2 },
+  guestText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold },
+  memberBadge: { backgroundColor: Colors.teal + '22', borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 2 },
+  memberText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.teal },
+  removeBtn: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.coral, lineHeight: 20, paddingHorizontal: 4 },
+  form: { borderTopWidth: 1, borderTopColor: Colors.line, paddingTop: Spacing.md, gap: Spacing.sm, marginTop: Spacing.sm },
+  input: {
+    backgroundColor: Colors.bg, borderRadius: Radius.md, borderWidth: 1.5,
+    borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: 10,
+    fontFamily: FontFamily.body, fontSize: 15, color: Colors.text,
+  },
+  colorRow: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
+  colorDot: { width: 28, height: 28, borderRadius: 14 },
+  colorDotSel: { borderWidth: 3, borderColor: Colors.text },
+  confirmBtn: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
+  confirmText: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.bg },
 });
