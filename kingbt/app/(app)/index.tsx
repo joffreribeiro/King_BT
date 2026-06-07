@@ -1,12 +1,13 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Platform, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { PLAYERS } from '@/mocks/data';
-import type { Competition } from '@/logic/types';
+import type { Competition, Format } from '@/logic/types';
 import { standings } from '@/logic/formats';
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -25,6 +26,22 @@ const FORMAT_ICON_COLOR: Record<string, string> = {
 const FORMAT_ACCENT: Record<string, string> = {
   avulso: '#38BDF8', liga: '#54B981', grupos: '#6B7FD7', mata: '#E5483D', super8: '#F472B6',
 };
+
+const STATUS_FILTERS = [
+  { key: 'all',    label: 'Todas' },
+  { key: 'active', label: 'Em andamento' },
+  { key: 'done',   label: 'Encerradas' },
+] as const;
+type StatusFilter = typeof STATUS_FILTERS[number]['key'];
+
+const FORMAT_FILTERS: { key: Format | 'all'; label: string }[] = [
+  { key: 'all',    label: 'Todos' },
+  { key: 'avulso', label: 'Avulso' },
+  { key: 'liga',   label: 'Liga' },
+  { key: 'grupos', label: 'Grupos' },
+  { key: 'mata',   label: 'Mata-mata' },
+  { key: 'super8', label: 'Super 8' },
+];
 
 function formatDate(iso: string) {
   const d = new Date(iso + 'T12:00:00');
@@ -111,7 +128,6 @@ function CompCard({ comp, onDelete }: { comp: Competition; onDelete: (id: string
         shadowRadius: 12,
         elevation: isActive ? 4 : 0,
       }]}>
-        {/* Barra colorida lateral */}
         <View style={{ width: 4, backgroundColor: accent, borderRadius: 2, alignSelf: 'stretch' }} />
 
         <View style={{ flex: 1, padding: Spacing.sm, gap: 6 }}>
@@ -150,17 +166,31 @@ function CompCard({ comp, onDelete }: { comp: Competition; onDelete: (id: string
 
 export default function HubScreen() {
   const { state, dispatch } = useCompetitions();
-  const { group, user, isAdmin } = useAuth();
-  const all    = state.competitions;
-  const active = all.filter(c => c.status === 'active');
-  const done   = all.filter(c => c.status === 'done');
-
+  const { group, isAdmin } = useAuth();
   const me = PLAYERS[0];
+
+  const [search, setSearch]           = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [formatFilter, setFormatFilter] = useState<Format | 'all'>('all');
+  const [showSearch, setShowSearch]   = useState(false);
+
+  const filtered = state.competitions.filter(c => {
+    if (statusFilter !== 'all' && c.status !== statusFilter) return false;
+    if (formatFilter !== 'all' && c.format !== formatFilter) return false;
+    if (search.trim() && !c.name.toLowerCase().includes(search.trim().toLowerCase())) return false;
+    return true;
+  });
+
+  const active = filtered.filter(c => c.status === 'active');
+  const done   = filtered.filter(c => c.status === 'done');
+  const listData = [...active, ...done];
+
+  const hasFilter = statusFilter !== 'all' || formatFilter !== 'all' || search.trim().length > 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <FlatList
-        data={[...active, ...done]}
+        data={listData}
         keyExtractor={c => c.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
@@ -181,9 +211,74 @@ export default function HubScreen() {
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity onPress={() => router.push('/(app)/profile')}>
-                <Avatar name={me.name} color={me.color} size={40} />
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                {!state.synced && (
+                  <View style={styles.syncDot}>
+                    <View style={styles.syncDotInner} />
+                  </View>
+                )}
+                <TouchableOpacity onPress={() => { setShowSearch(v => !v); if (showSearch) setSearch(''); }}>
+                  <View style={[styles.iconBtn, showSearch && styles.iconBtnActive]}>
+                    <Text style={styles.iconBtnText}>⌕</Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/(app)/profile')}>
+                  <Avatar name={me.name} color={me.color} size={40} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Offline indicator */}
+            {!state.synced && (
+              <View style={styles.offlineBanner}>
+                <Text style={styles.offlineText}>⟳  Sincronizando com o servidor…</Text>
+              </View>
+            )}
+
+            {/* Search bar */}
+            {showSearch && (
+              <View style={styles.searchBar}>
+                <TextInput
+                  style={styles.searchInput}
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Buscar competição..."
+                  placeholderTextColor={Colors.faint}
+                  autoFocus
+                  returnKeyType="search"
+                />
+                {search.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearch('')} style={styles.searchClear}>
+                    <Text style={styles.searchClearText}>✕</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {/* Filter chips — status */}
+            <View style={styles.filterRow}>
+              {STATUS_FILTERS.map(f => (
+                <TouchableOpacity
+                  key={f.key}
+                  style={[styles.chip, statusFilter === f.key && styles.chipActive]}
+                  onPress={() => setStatusFilter(f.key)}
+                >
+                  <Text style={[styles.chipText, statusFilter === f.key && styles.chipTextActive]}>{f.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Filter chips — format */}
+            <View style={[styles.filterRow, { marginBottom: Spacing.md }]}>
+              {FORMAT_FILTERS.map(f => (
+                <TouchableOpacity
+                  key={f.key}
+                  style={[styles.chip, formatFilter === f.key && styles.chipActive]}
+                  onPress={() => setFormatFilter(f.key)}
+                >
+                  <Text style={[styles.chipText, formatFilter === f.key && styles.chipTextActive]}>{f.label}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
             {/* Botão criar */}
@@ -199,7 +294,7 @@ export default function HubScreen() {
           </View>
         }
         renderItem={({ item, index }) => {
-          const isFirstDone = item.status === 'done' && (index === 0 || all[index - 1]?.status === 'active');
+          const isFirstDone = item.status === 'done' && (index === 0 || listData[index - 1]?.status === 'active');
           return (
             <View>
               {isFirstDone && <SectionHeader label="Encerradas" color={Colors.teal} />}
@@ -210,8 +305,19 @@ export default function HubScreen() {
         ItemSeparatorComponent={() => <View style={{ height: Spacing.xs }} />}
         ListEmptyComponent={
           <Card style={styles.empty}>
-            <Text style={styles.emptyText}>Nenhuma competição ainda.</Text>
-            <Text style={styles.emptyHint}>Toque em "+ Criar competição" para começar.</Text>
+            {hasFilter ? (
+              <>
+                <Text style={styles.emptyText}>Nenhum resultado.</Text>
+                <TouchableOpacity onPress={() => { setStatusFilter('all'); setFormatFilter('all'); setSearch(''); }}>
+                  <Text style={[styles.emptyHint, { color: Colors.teal }]}>Limpar filtros</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.emptyText}>Nenhuma competição ainda.</Text>
+                <Text style={styles.emptyHint}>Toque em "+ Criar competição" para começar.</Text>
+              </>
+            )}
           </Card>
         }
       />
@@ -223,22 +329,18 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   list: { padding: Spacing.md, paddingTop: Spacing.sm },
 
-  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
   },
-  logo: {
-    width: 52,
-    height: 52,
-  },
+  logo: { width: 52, height: 52 },
   headerGroup: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
   headerTitle: {
     fontFamily: FontFamily.titleBold,
@@ -248,7 +350,64 @@ const styles = StyleSheet.create({
     maxWidth: 200,
   },
 
-  // Botão criar
+  syncDot: {
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: Colors.gold + '44',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  syncDotInner: {
+    width: 5, height: 5, borderRadius: 3,
+    backgroundColor: Colors.gold,
+  },
+
+  offlineBanner: {
+    backgroundColor: Colors.surf2,
+    borderRadius: Radius.sm,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    marginBottom: Spacing.sm,
+    alignItems: 'center',
+  },
+  offlineText: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+
+  iconBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: Colors.surf2,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'transparent',
+  },
+  iconBtnActive: { borderColor: Colors.gold },
+  iconBtnText: { fontSize: 20, color: Colors.muted },
+
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.surf, borderRadius: Radius.md,
+    borderWidth: 1, borderColor: Colors.line,
+    paddingHorizontal: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: Spacing.sm,
+    fontFamily: FontFamily.body, fontSize: 15, color: Colors.text,
+  },
+  searchClear: { padding: Spacing.xs },
+  searchClearText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.coral },
+
+  filterRow: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    gap: Spacing.xs, marginBottom: Spacing.xs,
+  },
+  chip: {
+    paddingHorizontal: Spacing.sm, paddingVertical: 5,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.surf2,
+    borderWidth: 1, borderColor: Colors.line,
+  },
+  chipActive: { backgroundColor: Colors.gold + '22', borderColor: Colors.gold },
+  chipText: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted },
+  chipTextActive: { color: Colors.gold },
+
   createBtn: {
     backgroundColor: Colors.gold,
     borderRadius: Radius.md,
@@ -271,11 +430,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.line,
   },
   fmtIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: Radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 40, height: 40, borderRadius: Radius.sm,
+    alignItems: 'center', justifyContent: 'center',
   },
   fmtIconText: { fontSize: 18 },
   cardName: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
@@ -287,7 +443,6 @@ const styles = StyleSheet.create({
   progressText: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted },
   dateText: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
 
-  // Empty
   empty: { alignItems: 'center', padding: Spacing.xl, gap: Spacing.sm, marginTop: Spacing.lg },
   emptyText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.muted },
   emptyHint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center' },

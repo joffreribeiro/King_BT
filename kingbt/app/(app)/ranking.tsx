@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
+import { router } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Card } from '@/components';
 import { PLAYERS } from '@/mocks/data';
@@ -43,14 +44,13 @@ export default function RankingScreen() {
         {ranking.length >= 3 && (
           <View style={styles.podium}>
             <PodiumSlot player={second} pos={2} isMe={second.id === MY_ID} />
-            <PodiumSlot player={first} pos={1} isMe={first.id === MY_ID} center />
-            <PodiumSlot player={third} pos={3} isMe={third.id === MY_ID} />
+            <PodiumSlot player={first}  pos={1} isMe={first.id  === MY_ID} center />
+            <PodiumSlot player={third}  pos={3} isMe={third.id  === MY_ID} />
           </View>
         )}
 
         {/* Tabela */}
         <View style={styles.table}>
-          {/* Cabeçalho */}
           <View style={[styles.row, styles.rowHeader]}>
             <Text style={[styles.c0, styles.th]}>#</Text>
             <Text style={[styles.cName, styles.th]}>JOGADOR</Text>
@@ -67,9 +67,11 @@ export default function RankingScreen() {
             const sgColor = s.sg > 0 ? Colors.teal : s.sg < 0 ? Colors.coral : Colors.muted;
 
             return (
-              <View
+              <TouchableOpacity
                 key={s.id}
                 style={[styles.row, i < ranking.length - 1 && styles.rowBorder, isMe && styles.rowMe]}
+                onPress={() => router.push({ pathname: '/player/[id]', params: { id: s.id } })}
+                activeOpacity={0.7}
               >
                 <Text style={[styles.c0, styles.posText, isMe && { color: Colors.gold }]}>{i + 1}</Text>
 
@@ -92,7 +94,7 @@ export default function RankingScreen() {
                 </Text>
                 <Text style={[styles.cStat, styles.statText]}>{s.ga.toFixed(2)}</Text>
                 <Text style={[styles.cPts, styles.ptsText]}>{s.points.toFixed(2)}</Text>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -155,8 +157,11 @@ function PodiumSlot({ player, pos, isMe, center = false }: {
   const medal = MEDAL[pos];
 
   return (
-    <View style={pod.col}>
-      {/* Avatar + nome + pontos — alinhados acima do bloco */}
+    <TouchableOpacity
+      style={pod.col}
+      onPress={() => router.push({ pathname: '/player/[id]', params: { id: player.id } })}
+      activeOpacity={0.8}
+    >
       <Avatar name={pl.name} color={pl.color} size={medal.avatarSize} showCrown={pos === 1} />
       <Text style={[pod.name, pos === 1 && pod.nameCenter, isMe && { color: Colors.gold }]} numberOfLines={1}>
         {pl.name.split(' ')[0]}
@@ -164,7 +169,6 @@ function PodiumSlot({ player, pos, isMe, center = false }: {
       <Text style={[pod.pts, { color: medal.color, fontSize: pos === 1 ? 20 : 14 }]}>
         {player.points.toFixed(2)}
       </Text>
-      {/* Bloco do pódio */}
       <View style={[pod.block, {
         height: medal.blockH,
         backgroundColor: medal.bg,
@@ -177,16 +181,12 @@ function PodiumSlot({ player, pos, isMe, center = false }: {
       }]}>
         <Text style={[pod.pos, { color: medal.color, fontSize: pos === 1 ? 32 : 24 }]}>{pos}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 const pod = StyleSheet.create({
-  col: {
-    alignItems: 'center',
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
+  col: { alignItems: 'center', flex: 1, justifyContent: 'flex-end' },
   name: {
     fontFamily: FontFamily.bodyMed, fontSize: 12,
     color: Colors.text, textAlign: 'center', maxWidth: 90,

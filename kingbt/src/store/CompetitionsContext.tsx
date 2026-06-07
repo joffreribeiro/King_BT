@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
-import type { Competition, SetScore } from '@/logic/types';
+import type { Competition } from '@/logic/types';
 import { resolveCompetition } from '@/logic/formats';
 import { MOCK_COMPETITIONS } from '@/mocks/competitions';
 import { subscribeCompetitions, createCompetition, updateCompetition as fsUpdateComp } from '@/firebase/competitions';
@@ -10,26 +10,20 @@ type State = {
   synced: boolean;
 };
 
-type ScoreDetail = { sets?: SetScore[] | null; playedAt?: string | null; note?: string | null };
-
 type Action =
   | { type: 'SET'; competitions: Competition[] }
   | { type: 'ADD'; comp: Competition }
-  | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; detail?: ScoreDetail }
-  | { type: 'CORRECT_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; detail?: ScoreDetail }
+  | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number }
+  | { type: 'CORRECT_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number }
   | { type: 'CLEAR_SCORE'; compId: string; matchId: string }
-  | { type: 'DELETE'; compId: string };
+  | { type: 'DELETE'; compId: string }
+  | { type: 'RENAME'; compId: string; name: string };
 
-function applyScore(comp: Competition, matchId: string, scoreA: number, scoreB: number, detail?: ScoreDetail): Competition {
+function applyScore(comp: Competition, matchId: string, scoreA: number, scoreB: number): Competition {
   const updated = {
     ...comp,
     matches: comp.matches.map(m =>
-      m.id === matchId ? {
-        ...m, scoreA, scoreB,
-        ...(detail?.sets !== undefined ? { sets: detail.sets } : {}),
-        ...(detail?.playedAt !== undefined ? { playedAt: detail.playedAt } : {}),
-        ...(detail?.note !== undefined ? { note: detail.note } : {}),
-      } : m
+      m.id === matchId ? { ...m, scoreA, scoreB } : m
     ),
   };
   resolveCompetition(updated);
@@ -49,12 +43,19 @@ function reducer(state: State, action: Action): State {
       return { ...state, competitions: [action.comp, ...state.competitions] };
     case 'DELETE':
       return { ...state, competitions: state.competitions.filter(c => c.id !== action.compId) };
+    case 'RENAME':
+      return {
+        ...state,
+        competitions: state.competitions.map(c =>
+          c.id !== action.compId ? c : { ...c, name: action.name }
+        ),
+      };
     case 'SAVE_SCORE':
     case 'CORRECT_SCORE':
       return {
         ...state,
         competitions: state.competitions.map(c =>
-          c.id !== action.compId ? c : applyScore(c, action.matchId, action.scoreA, action.scoreB, action.detail)
+          c.id !== action.compId ? c : applyScore(c, action.matchId, action.scoreA, action.scoreB)
         ),
       };
     case 'CLEAR_SCORE': {
@@ -63,7 +64,7 @@ function reducer(state: State, action: Action): State {
         competitions: state.competitions.map(c => {
           if (c.id !== action.compId) return c;
           const updated = { ...c, matches: c.matches.map(m =>
-            m.id === action.matchId ? { ...m, scoreA: null, scoreB: null, sets: null } : m
+            m.id === action.matchId ? { ...m, scoreA: null, scoreB: null } : m
           )};
           resolveCompetition(updated);
           const scoreable = updated.matches.filter(m => (m.aId != null && m.bId != null) || (m.teamA && m.teamB));
@@ -90,7 +91,6 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
     synced: false,
   });
 
-  // Escuta Firestore em tempo real quando autenticado
   useEffect(() => {
     if (!user || !group) return;
     const unsub = subscribeCompetitions(group.id, (comps) => {
@@ -100,9 +100,9 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
   }, [user, group]);
 
   const wrappedDispatch: React.Dispatch<Action> = async (action) => {
-    // Proteção admin
     if (action.type === 'DELETE' && !isAdmin) return;
     if (action.type === 'CORRECT_SCORE' && !isAdmin) return;
+    if (action.type === 'RENAME' && !isAdmin) return;
 
     dispatch(action);
 
@@ -111,13 +111,12 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
     if (action.type === 'ADD') {
       const { id, ...data } = action.comp;
       await createCompetition(group.id, data);
-      // ID real vem pelo subscribeCompetitions
     }
 
     if (action.type === 'SAVE_SCORE' || action.type === 'CORRECT_SCORE') {
       const comp = state.competitions.find(c => c.id === action.compId);
       if (comp) {
-        const updated = applyScore(comp, action.matchId, action.scoreA, action.scoreB, action.detail);
+        const updated = applyScore(comp, action.matchId, action.scoreA, action.scoreB);
         await fsUpdateComp(group.id, updated);
       }
     }
@@ -126,17 +125,24 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
       const comp = state.competitions.find(c => c.id === action.compId);
       if (comp) {
         const cleared = { ...comp, matches: comp.matches.map(m =>
-          m.id === action.matchId ? { ...m, scoreA: null, scoreB: null, sets: null } : m
+          m.id === action.matchId ? { ...m, scoreA: null, scoreB: null } : m
         )};
         resolveCompetition(cleared);
         await fsUpdateComp(group.id, cleared);
       }
     }
 
+    if (action.type === 'RENAME') {
+      const comp = state.competitions.find(c => c.id === action.compId);
+      if (comp) {
+        await fsUpdateComp(group.id, { ...comp, name: action.name });
+      }
+    }
+
     if (action.type === 'DELETE') {
       const comp = state.competitions.find(c => c.id === action.compId);
       if (comp) {
-        const { id, ...data } = comp;
+        const { id } = comp;
         const { updateDoc, doc } = await import('firebase/firestore');
         const { db } = await import('@/firebase/config');
         await updateDoc(doc(db, 'groups', group.id, 'competitions', id), { status: 'done' });

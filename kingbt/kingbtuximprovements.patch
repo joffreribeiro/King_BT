@@ -1,0 +1,1497 @@
+From d390d024556b688753189e7ab63f4236eca59227 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 7 Jun 2026 19:20:11 +0000
+Subject: [PATCH] =?UTF-8?q?feat:=2010=20UX=20improvements=20=E2=80=94=20se?=
+ =?UTF-8?q?arch/filter,=20player=20profiles,=20match=20history,=20share,?=
+ =?UTF-8?q?=20and=20more?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Home screen: search bar (by name) + filter chips (status/format) + offline sync indicator
+- Ranking: all rows now tappable, navigate to player detail screen
+- New player/[id].tsx screen: full stats, match history, head-to-head breakdown
+- Profile screen: full match history section (vs, score, competition, V/D badge)
+- Competition detail: share button (React Native Share API — text summary)
+- Competition detail: admin can rename via long-press on title or ⚙️ menu
+- Competition detail: "PRÓXIMO" badge highlights first unplayed match in all view types
+- Competition detail: admin "🗑 Apagar placar" button inside ScorerModal (undo score)
+- CompetitionsContext: new RENAME action with Firestore sync
+- Home: delete confirmation already existed via long-press (unchanged, kept consistent)
+
+https://claude.ai/code/session_01QbL8FtJvLDhVnctxCMvZQB
+---
+ kingbt/app/(app)/index.tsx               | 213 ++++++++++++---
+ kingbt/app/(app)/profile.tsx             |  97 ++++++-
+ kingbt/app/(app)/ranking.tsx             |  28 +-
+ kingbt/app/competitions/[id].tsx         | 252 +++++++++++++++---
+ kingbt/app/player/[id].tsx               | 319 +++++++++++++++++++++++
+ kingbt/src/store/CompetitionsContext.tsx |  23 +-
+ 6 files changed, 831 insertions(+), 101 deletions(-)
+ create mode 100644 kingbt/app/player/[id].tsx
+
+diff --git a/kingbt/app/(app)/index.tsx b/kingbt/app/(app)/index.tsx
+index 890a7bf..16836af 100644
+--- a/kingbt/app/(app)/index.tsx
++++ b/kingbt/app/(app)/index.tsx
+@@ -1,12 +1,14 @@
+-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Platform } from 'react-native';
++import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Platform, TextInput } from 'react-native';
+ import { SafeAreaView } from 'react-native-safe-area-context';
+ import { router } from 'expo-router';
++import { useState } from 'react';
+ import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+ import { Avatar, Badge, Card } from '@/components';
+ import { useCompetitions } from '@/store/CompetitionsContext';
+ import { useAuth } from '@/store/AuthContext';
+ import { PLAYERS } from '@/mocks/data';
+-import type { Competition } from '@/logic/types';
++import type { Competition, Format } from '@/logic/types';
++import { standings } from '@/logic/formats';
+ 
+ const FORMAT_LABEL: Record<string, string> = {
+   avulso: 'Avulso', liga: 'Liga', grupos: 'Grupos + Eliminatórias',
+@@ -25,6 +27,22 @@ const FORMAT_ACCENT: Record<string, string> = {
+   avulso: '#38BDF8', liga: '#54B981', grupos: '#6B7FD7', mata: '#E5483D', super8: '#F472B6',
+ };
+ 
++const STATUS_FILTERS = [
++  { key: 'all',    label: 'Todas' },
++  { key: 'active', label: 'Em andamento' },
++  { key: 'done',   label: 'Encerradas' },
++] as const;
++type StatusFilter = typeof STATUS_FILTERS[number]['key'];
++
++const FORMAT_FILTERS: { key: Format | 'all'; label: string }[] = [
++  { key: 'all',    label: 'Todos' },
++  { key: 'avulso', label: 'Avulso' },
++  { key: 'liga',   label: 'Liga' },
++  { key: 'grupos', label: 'Grupos' },
++  { key: 'mata',   label: 'Mata-mata' },
++  { key: 'super8', label: 'Super 8' },
++];
++
+ function formatDate(iso: string) {
+   const d = new Date(iso + 'T12:00:00');
+   const today = new Date();
+@@ -37,7 +55,6 @@ function formatDate(iso: string) {
+ function competitionChampion(comp: Competition): { name: string } | null {
+   if (comp.status !== 'done') return null;
+   if (comp.format === 'liga') {
+-    const { standings } = require('@/logic/formats');
+     const st = standings(comp.competitors.map((c: any) => c.id), comp.matches);
+     if (!st.length) return null;
+     const winner = comp.competitors.find((c: any) => c.id === st[0].id);
+@@ -111,7 +128,6 @@ function CompCard({ comp, onDelete }: { comp: Competition; onDelete: (id: string
+         shadowRadius: 12,
+         elevation: isActive ? 4 : 0,
+       }]}>
+-        {/* Barra colorida lateral */}
+         <View style={{ width: 4, backgroundColor: accent, borderRadius: 2, alignSelf: 'stretch' }} />
+ 
+         <View style={{ flex: 1, padding: Spacing.sm, gap: 6 }}>
+@@ -150,17 +166,31 @@ function CompCard({ comp, onDelete }: { comp: Competition; onDelete: (id: string
+ 
+ export default function HubScreen() {
+   const { state, dispatch } = useCompetitions();
+-  const { group, user, isAdmin } = useAuth();
+-  const all    = state.competitions;
+-  const active = all.filter(c => c.status === 'active');
+-  const done   = all.filter(c => c.status === 'done');
+-
++  const { group, isAdmin } = useAuth();
+   const me = PLAYERS[0];
+ 
++  const [search, setSearch]           = useState('');
++  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
++  const [formatFilter, setFormatFilter] = useState<Format | 'all'>('all');
++  const [showSearch, setShowSearch]   = useState(false);
++
++  const filtered = state.competitions.filter(c => {
++    if (statusFilter !== 'all' && c.status !== statusFilter) return false;
++    if (formatFilter !== 'all' && c.format !== formatFilter) return false;
++    if (search.trim() && !c.name.toLowerCase().includes(search.trim().toLowerCase())) return false;
++    return true;
++  });
++
++  const active = filtered.filter(c => c.status === 'active');
++  const done   = filtered.filter(c => c.status === 'done');
++  const listData = [...active, ...done];
++
++  const hasFilter = statusFilter !== 'all' || formatFilter !== 'all' || search.trim().length > 0;
++
+   return (
+     <SafeAreaView style={styles.container} edges={['top']}>
+       <FlatList
+-        data={[...active, ...done]}
++        data={listData}
+         keyExtractor={c => c.id}
+         contentContainerStyle={styles.list}
+         showsVerticalScrollIndicator={false}
+@@ -181,9 +211,74 @@ export default function HubScreen() {
+                   </Text>
+                 </View>
+               </View>
+-              <TouchableOpacity onPress={() => router.push('/(app)/profile')}>
+-                <Avatar name={me.name} color={me.color} size={40} />
+-              </TouchableOpacity>
++              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
++                {!state.synced && (
++                  <View style={styles.syncDot}>
++                    <View style={styles.syncDotInner} />
++                  </View>
++                )}
++                <TouchableOpacity onPress={() => { setShowSearch(v => !v); if (showSearch) setSearch(''); }}>
++                  <View style={[styles.iconBtn, showSearch && styles.iconBtnActive]}>
++                    <Text style={styles.iconBtnText}>⌕</Text>
++                  </View>
++                </TouchableOpacity>
++                <TouchableOpacity onPress={() => router.push('/(app)/profile')}>
++                  <Avatar name={me.name} color={me.color} size={40} />
++                </TouchableOpacity>
++              </View>
++            </View>
++
++            {/* Offline indicator */}
++            {!state.synced && (
++              <View style={styles.offlineBanner}>
++                <Text style={styles.offlineText}>⟳  Sincronizando com o servidor…</Text>
++              </View>
++            )}
++
++            {/* Search bar */}
++            {showSearch && (
++              <View style={styles.searchBar}>
++                <TextInput
++                  style={styles.searchInput}
++                  value={search}
++                  onChangeText={setSearch}
++                  placeholder="Buscar competição..."
++                  placeholderTextColor={Colors.faint}
++                  autoFocus
++                  returnKeyType="search"
++                />
++                {search.length > 0 && (
++                  <TouchableOpacity onPress={() => setSearch('')} style={styles.searchClear}>
++                    <Text style={styles.searchClearText}>✕</Text>
++                  </TouchableOpacity>
++                )}
++              </View>
++            )}
++
++            {/* Filter chips — status */}
++            <View style={styles.filterRow}>
++              {STATUS_FILTERS.map(f => (
++                <TouchableOpacity
++                  key={f.key}
++                  style={[styles.chip, statusFilter === f.key && styles.chipActive]}
++                  onPress={() => setStatusFilter(f.key)}
++                >
++                  <Text style={[styles.chipText, statusFilter === f.key && styles.chipTextActive]}>{f.label}</Text>
++                </TouchableOpacity>
++              ))}
++            </View>
++
++            {/* Filter chips — format */}
++            <View style={[styles.filterRow, { marginBottom: Spacing.md }]}>
++              {FORMAT_FILTERS.map(f => (
++                <TouchableOpacity
++                  key={f.key}
++                  style={[styles.chip, formatFilter === f.key && styles.chipActive]}
++                  onPress={() => setFormatFilter(f.key)}
++                >
++                  <Text style={[styles.chipText, formatFilter === f.key && styles.chipTextActive]}>{f.label}</Text>
++                </TouchableOpacity>
++              ))}
+             </View>
+ 
+             {/* Botão criar */}
+@@ -199,7 +294,7 @@ export default function HubScreen() {
+           </View>
+         }
+         renderItem={({ item, index }) => {
+-          const isFirstDone = item.status === 'done' && (index === 0 || all[index - 1]?.status === 'active');
++          const isFirstDone = item.status === 'done' && (index === 0 || listData[index - 1]?.status === 'active');
+           return (
+             <View>
+               {isFirstDone && <SectionHeader label="Encerradas" color={Colors.teal} />}
+@@ -210,8 +305,19 @@ export default function HubScreen() {
+         ItemSeparatorComponent={() => <View style={{ height: Spacing.xs }} />}
+         ListEmptyComponent={
+           <Card style={styles.empty}>
+-            <Text style={styles.emptyText}>Nenhuma competição ainda.</Text>
+-            <Text style={styles.emptyHint}>Toque em "+ Criar competição" para começar.</Text>
++            {hasFilter ? (
++              <>
++                <Text style={styles.emptyText}>Nenhum resultado.</Text>
++                <TouchableOpacity onPress={() => { setStatusFilter('all'); setFormatFilter('all'); setSearch(''); }}>
++                  <Text style={[styles.emptyHint, { color: Colors.teal }]}>Limpar filtros</Text>
++                </TouchableOpacity>
++              </>
++            ) : (
++              <>
++                <Text style={styles.emptyText}>Nenhuma competição ainda.</Text>
++                <Text style={styles.emptyHint}>Toque em "+ Criar competição" para começar.</Text>
++              </>
++            )}
+           </Card>
+         }
+       />
+@@ -223,22 +329,18 @@ const styles = StyleSheet.create({
+   container: { flex: 1, backgroundColor: Colors.bg },
+   list: { padding: Spacing.md, paddingTop: Spacing.sm },
+ 
+-  // Header
+   header: {
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'center',
+-    paddingBottom: Spacing.md,
++    paddingBottom: Spacing.sm,
+   },
+   headerLeft: {
+     flexDirection: 'row',
+     alignItems: 'center',
+     gap: Spacing.sm,
+   },
+-  logo: {
+-    width: 52,
+-    height: 52,
+-  },
++  logo: { width: 52, height: 52 },
+   headerGroup: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+   headerTitle: {
+     fontFamily: FontFamily.titleBold,
+@@ -248,7 +350,64 @@ const styles = StyleSheet.create({
+     maxWidth: 200,
+   },
+ 
+-  // Botão criar
++  syncDot: {
++    width: 10, height: 10, borderRadius: 5,
++    backgroundColor: Colors.gold + '44',
++    alignItems: 'center', justifyContent: 'center',
++  },
++  syncDotInner: {
++    width: 5, height: 5, borderRadius: 3,
++    backgroundColor: Colors.gold,
++  },
++
++  offlineBanner: {
++    backgroundColor: Colors.surf2,
++    borderRadius: Radius.sm,
++    paddingVertical: Spacing.xs,
++    paddingHorizontal: Spacing.sm,
++    marginBottom: Spacing.sm,
++    alignItems: 'center',
++  },
++  offlineText: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
++
++  iconBtn: {
++    width: 36, height: 36, borderRadius: 18,
++    backgroundColor: Colors.surf2,
++    alignItems: 'center', justifyContent: 'center',
++    borderWidth: 1, borderColor: 'transparent',
++  },
++  iconBtnActive: { borderColor: Colors.gold },
++  iconBtnText: { fontSize: 20, color: Colors.muted },
++
++  searchBar: {
++    flexDirection: 'row', alignItems: 'center',
++    backgroundColor: Colors.surf, borderRadius: Radius.md,
++    borderWidth: 1, borderColor: Colors.line,
++    paddingHorizontal: Spacing.md,
++    marginBottom: Spacing.sm,
++  },
++  searchInput: {
++    flex: 1,
++    paddingVertical: Spacing.sm,
++    fontFamily: FontFamily.body, fontSize: 15, color: Colors.text,
++  },
++  searchClear: { padding: Spacing.xs },
++  searchClearText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.coral },
++
++  filterRow: {
++    flexDirection: 'row', flexWrap: 'wrap',
++    gap: Spacing.xs, marginBottom: Spacing.xs,
++  },
++  chip: {
++    paddingHorizontal: Spacing.sm, paddingVertical: 5,
++    borderRadius: Radius.full,
++    backgroundColor: Colors.surf2,
++    borderWidth: 1, borderColor: Colors.line,
++  },
++  chipActive: { backgroundColor: Colors.gold + '22', borderColor: Colors.gold },
++  chipText: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted },
++  chipTextActive: { color: Colors.gold },
++
+   createBtn: {
+     backgroundColor: Colors.gold,
+     borderRadius: Radius.md,
+@@ -271,11 +430,8 @@ const styles = StyleSheet.create({
+     borderColor: Colors.line,
+   },
+   fmtIcon: {
+-    width: 40,
+-    height: 40,
+-    borderRadius: Radius.sm,
+-    alignItems: 'center',
+-    justifyContent: 'center',
++    width: 40, height: 40, borderRadius: Radius.sm,
++    alignItems: 'center', justifyContent: 'center',
+   },
+   fmtIconText: { fontSize: 18 },
+   cardName: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
+@@ -287,7 +443,6 @@ const styles = StyleSheet.create({
+   progressText: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted },
+   dateText: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
+ 
+-  // Empty
+   empty: { alignItems: 'center', padding: Spacing.xl, gap: Spacing.sm, marginTop: Spacing.lg },
+   emptyText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.muted },
+   emptyHint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center' },
+diff --git a/kingbt/app/(app)/profile.tsx b/kingbt/app/(app)/profile.tsx
+index e68ba81..0496fda 100644
+--- a/kingbt/app/(app)/profile.tsx
++++ b/kingbt/app/(app)/profile.tsx
+@@ -9,6 +9,8 @@ import { useAuth } from '@/store/AuthContext';
+ import { buildRanking } from '@/logic/scoring';
+ import { extractPlayerGames } from '@/logic/formats';
+ 
++const MY_ID = 'p1';
++
+ function Bar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+   return (
+     <View style={bar.row}>
+@@ -29,7 +31,6 @@ const bar = StyleSheet.create({
+ });
+ 
+ export default function ProfileScreen() {
+-  const MY_ID = 'p1';
+   const player = PLAYERS.find(p => p.id === MY_ID)!;
+   const { state } = useCompetitions();
+   const { logout, leaveGroup, group, user } = useAuth();
+@@ -63,6 +64,7 @@ export default function ProfileScreen() {
+       ]);
+     }
+   }
++
+   const allGames = state.competitions.flatMap(extractPlayerGames);
+   const ranking = buildRanking(
+     PLAYERS.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0,3).toUpperCase(), color: p.color })),
+@@ -75,6 +77,43 @@ export default function ProfileScreen() {
+   const jPts = Math.round(me.played * 0.5 * 10) / 10;
+   const gaPts = Math.round(me.ga * 2 * 100) / 100;
+ 
++  // Full match history for MY_ID
++  const matchHistory: Array<{
++    compName: string;
++    opponents: string;
++    myScore: number;
++    oppScore: number;
++    won: boolean;
++  }> = [];
++
++  state.competitions.forEach(comp => {
++    comp.matches.forEach(m => {
++      if (m.scoreA == null || m.scoreB == null) return;
++      const inA = m.teamA ? m.teamA.includes(MY_ID) : m.aId === MY_ID;
++      const inB = m.teamB ? m.teamB.includes(MY_ID) : m.bId === MY_ID;
++      if (!inA && !inB) return;
++
++      const myScore  = inA ? m.scoreA : m.scoreB;
++      const oppScore = inA ? m.scoreB : m.scoreA;
++      const won = myScore > oppScore;
++
++      let opponents = '?';
++      if (m.teamA && m.teamB) {
++        const oppTeam = inA ? m.teamB : m.teamA;
++        opponents = oppTeam.map(pid => PLAYERS.find(p => p.id === pid)?.name.split(' ')[0] ?? pid).join(' / ');
++      } else {
++        const oppId = inA ? m.bId : m.aId;
++        if (oppId) {
++          const oppComp = comp.competitors.find(c => c.id === oppId);
++          opponents = oppComp?.name ?? PLAYERS.find(p => p.id === oppId)?.name ?? oppId;
++        }
++      }
++
++      matchHistory.push({ compName: comp.name, opponents, myScore, oppScore, won });
++    });
++  });
++  matchHistory.reverse();
++
+   return (
+     <SafeAreaView style={styles.container} edges={['top']}>
+       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+@@ -104,14 +143,14 @@ export default function ProfileScreen() {
+         {/* Grid de stats */}
+         <View style={styles.grid}>
+           {[
+-            { l: 'Vitórias',     v: me.wins,             c: Colors.teal },
+-            { l: 'Derrotas',     v: me.losses,            c: Colors.coral },
+-            { l: 'Partidas',     v: me.played,            c: Colors.text },
+-            { l: 'Game Avg',     v: me.ga.toFixed(2),    c: Colors.gold },
+-            { l: 'Games Pró',   v: me.gamesPro,          c: Colors.teal },
+-            { l: 'Games Contra', v: me.gamesCon,          c: Colors.coral },
+-            { l: 'Saldo',        v: (me.sg >= 0 ? '+' : '') + me.sg, c: me.sg >= 0 ? Colors.teal : Colors.coral },
+-            { l: 'Win Rate',     v: `${winRate}%`,        c: Colors.goldBright },
++            { l: 'Vitórias',      v: me.wins,                         c: Colors.teal },
++            { l: 'Derrotas',      v: me.losses,                       c: Colors.coral },
++            { l: 'Partidas',      v: me.played,                       c: Colors.text },
++            { l: 'Game Avg',      v: me.ga.toFixed(2),                c: Colors.gold },
++            { l: 'Games Pró',    v: me.gamesPro,                      c: Colors.teal },
++            { l: 'Games Contra', v: me.gamesCon,                      c: Colors.coral },
++            { l: 'Saldo',         v: (me.sg >= 0 ? '+' : '') + me.sg, c: me.sg >= 0 ? Colors.teal : Colors.coral },
++            { l: 'Win Rate',      v: `${winRate}%`,                    c: Colors.goldBright },
+           ].map(item => (
+             <View key={item.l} style={[styles.cell, { borderLeftWidth: 3, borderLeftColor: item.c + '88' }]}>
+               <Text style={[styles.cellVal, { color: item.c }]}>{item.v}</Text>
+@@ -156,11 +195,34 @@ export default function ProfileScreen() {
+         {/* Quebra de pontos */}
+         <Card>
+           <Text style={styles.sectionTitle}>Quebra dos Pontos</Text>
+-          <Bar label="Vitórias ×3" value={wPts} max={me.points} color={Colors.teal} />
+-          <Bar label="Partidas ×0,5" value={jPts} max={me.points} color={Colors.text} />
+-          <Bar label="GA ×2" value={gaPts} max={me.points} color={Colors.gold} />
++          <Bar label="Vitórias ×3"   value={wPts}  max={me.points} color={Colors.teal} />
++          <Bar label="Partidas ×0,5" value={jPts}  max={me.points} color={Colors.text} />
++          <Bar label="GA ×2"         value={gaPts} max={me.points} color={Colors.gold} />
+         </Card>
+ 
++        {/* Histórico de partidas */}
++        {matchHistory.length > 0 && (
++          <Card>
++            <Text style={styles.sectionTitle}>Histórico de partidas</Text>
++            {matchHistory.map((h, i) => (
++              <View key={i} style={[hist.row, i < matchHistory.length - 1 && hist.border]}>
++                <View style={[hist.badge, { backgroundColor: h.won ? Colors.teal + '33' : Colors.coral + '33' }]}>
++                  <Text style={[hist.badgeText, { color: h.won ? Colors.teal : Colors.coral }]}>
++                    {h.won ? 'V' : 'D'}
++                  </Text>
++                </View>
++                <View style={hist.info}>
++                  <Text style={hist.opp} numberOfLines={1}>vs {h.opponents}</Text>
++                  <Text style={hist.compName} numberOfLines={1}>{h.compName}</Text>
++                </View>
++                <Text style={[hist.score, { color: h.won ? Colors.teal : Colors.coral }]}>
++                  {h.myScore}–{h.oppScore}
++                </Text>
++              </View>
++            ))}
++          </Card>
++        )}
++
+         {/* Conta */}
+         <Card style={styles.accountCard}>
+           <Text style={styles.accountEmail}>{user?.email ?? user?.displayName}</Text>
+@@ -181,6 +243,17 @@ export default function ProfileScreen() {
+   );
+ }
+ 
++const hist = StyleSheet.create({
++  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
++  border: { borderBottomWidth: 1, borderBottomColor: Colors.line },
++  badge: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
++  badgeText: { fontFamily: FontFamily.numberBold, fontSize: 12 },
++  info: { flex: 1, gap: 2 },
++  opp: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
++  compName: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
++  score: { fontFamily: FontFamily.numberBold, fontSize: 15 },
++});
++
+ const styles = StyleSheet.create({
+   container: { flex: 1, backgroundColor: Colors.bg },
+   scroll: { padding: Spacing.md, gap: Spacing.md },
+diff --git a/kingbt/app/(app)/ranking.tsx b/kingbt/app/(app)/ranking.tsx
+index f5ef7dc..5d5941d 100644
+--- a/kingbt/app/(app)/ranking.tsx
++++ b/kingbt/app/(app)/ranking.tsx
+@@ -1,6 +1,7 @@
+ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
+ import { SafeAreaView } from 'react-native-safe-area-context';
+ import { useState } from 'react';
++import { router } from 'expo-router';
+ import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+ import { Avatar, Card } from '@/components';
+ import { PLAYERS } from '@/mocks/data';
+@@ -43,14 +44,13 @@ export default function RankingScreen() {
+         {ranking.length >= 3 && (
+           <View style={styles.podium}>
+             <PodiumSlot player={second} pos={2} isMe={second.id === MY_ID} />
+-            <PodiumSlot player={first} pos={1} isMe={first.id === MY_ID} center />
+-            <PodiumSlot player={third} pos={3} isMe={third.id === MY_ID} />
++            <PodiumSlot player={first}  pos={1} isMe={first.id  === MY_ID} center />
++            <PodiumSlot player={third}  pos={3} isMe={third.id  === MY_ID} />
+           </View>
+         )}
+ 
+         {/* Tabela */}
+         <View style={styles.table}>
+-          {/* Cabeçalho */}
+           <View style={[styles.row, styles.rowHeader]}>
+             <Text style={[styles.c0, styles.th]}>#</Text>
+             <Text style={[styles.cName, styles.th]}>JOGADOR</Text>
+@@ -67,9 +67,11 @@ export default function RankingScreen() {
+             const sgColor = s.sg > 0 ? Colors.teal : s.sg < 0 ? Colors.coral : Colors.muted;
+ 
+             return (
+-              <View
++              <TouchableOpacity
+                 key={s.id}
+                 style={[styles.row, i < ranking.length - 1 && styles.rowBorder, isMe && styles.rowMe]}
++                onPress={() => router.push({ pathname: '/player/[id]', params: { id: s.id } })}
++                activeOpacity={0.7}
+               >
+                 <Text style={[styles.c0, styles.posText, isMe && { color: Colors.gold }]}>{i + 1}</Text>
+ 
+@@ -92,7 +94,7 @@ export default function RankingScreen() {
+                 </Text>
+                 <Text style={[styles.cStat, styles.statText]}>{s.ga.toFixed(2)}</Text>
+                 <Text style={[styles.cPts, styles.ptsText]}>{s.points.toFixed(2)}</Text>
+-              </View>
++              </TouchableOpacity>
+             );
+           })}
+         </View>
+@@ -155,8 +157,11 @@ function PodiumSlot({ player, pos, isMe, center = false }: {
+   const medal = MEDAL[pos];
+ 
+   return (
+-    <View style={pod.col}>
+-      {/* Avatar + nome + pontos — alinhados acima do bloco */}
++    <TouchableOpacity
++      style={pod.col}
++      onPress={() => router.push({ pathname: '/player/[id]', params: { id: player.id } })}
++      activeOpacity={0.8}
++    >
+       <Avatar name={pl.name} color={pl.color} size={medal.avatarSize} showCrown={pos === 1} />
+       <Text style={[pod.name, pos === 1 && pod.nameCenter, isMe && { color: Colors.gold }]} numberOfLines={1}>
+         {pl.name.split(' ')[0]}
+@@ -164,7 +169,6 @@ function PodiumSlot({ player, pos, isMe, center = false }: {
+       <Text style={[pod.pts, { color: medal.color, fontSize: pos === 1 ? 20 : 14 }]}>
+         {player.points.toFixed(2)}
+       </Text>
+-      {/* Bloco do pódio */}
+       <View style={[pod.block, {
+         height: medal.blockH,
+         backgroundColor: medal.bg,
+@@ -177,16 +181,12 @@ function PodiumSlot({ player, pos, isMe, center = false }: {
+       }]}>
+         <Text style={[pod.pos, { color: medal.color, fontSize: pos === 1 ? 32 : 24 }]}>{pos}</Text>
+       </View>
+-    </View>
++    </TouchableOpacity>
+   );
+ }
+ 
+ const pod = StyleSheet.create({
+-  col: {
+-    alignItems: 'center',
+-    flex: 1,
+-    justifyContent: 'flex-end',
+-  },
++  col: { alignItems: 'center', flex: 1, justifyContent: 'flex-end' },
+   name: {
+     fontFamily: FontFamily.bodyMed, fontSize: 12,
+     color: Colors.text, textAlign: 'center', maxWidth: 90,
+diff --git a/kingbt/app/competitions/[id].tsx b/kingbt/app/competitions/[id].tsx
+index 51bc1f3..61a960a 100644
+--- a/kingbt/app/competitions/[id].tsx
++++ b/kingbt/app/competitions/[id].tsx
+@@ -1,5 +1,6 @@
+ import {
+-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert, Platform,
++  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert, Platform, Share,
++  type ViewStyle,
+ } from 'react-native';
+ import { SafeAreaView } from 'react-native-safe-area-context';
+ import { useLocalSearchParams, router } from 'expo-router';
+@@ -69,8 +70,9 @@ const stRow = StyleSheet.create({
+ 
+ // ─── Game Row (avulso/super8) ─────────────────────────────────────────────────
+ 
+-function GameRow({ match: m, index, comp, onPress, onLongPress }: {
+-  match: Match; index: number; comp: Competition; onPress: () => void; onLongPress?: () => void;
++function GameRow({ match: m, index, comp, isNext, onPress, onLongPress }: {
++  match: Match; index: number; comp: Competition; isNext: boolean;
++  onPress: () => void; onLongPress?: () => void;
+ }) {
+   const pA = [getPlayer(m.teamA?.[0] ?? ''), getPlayer(m.teamA?.[1] ?? '')];
+   const pB = [getPlayer(m.teamB?.[0] ?? ''), getPlayer(m.teamB?.[1] ?? '')];
+@@ -78,7 +80,12 @@ function GameRow({ match: m, index, comp, onPress, onLongPress }: {
+   const aWon = has && m.scoreA! > m.scoreB!;
+   return (
+     <TouchableOpacity onPress={onPress} onLongPress={onLongPress} activeOpacity={0.8}>
+-      <Card style={gRow.card}>
++      <Card style={isNext ? { ...gRow.card, ...gRow.nextCard } as ViewStyle : gRow.card}>
++        {isNext && (
++          <View style={gRow.nextBadge}>
++            <Text style={gRow.nextBadgeText}>PRÓXIMO</Text>
++          </View>
++        )}
+         <View style={gRow.row}>
+           <View style={gRow.team}>
+             <View style={gRow.pair}>
+@@ -114,6 +121,16 @@ function GameRow({ match: m, index, comp, onPress, onLongPress }: {
+ }
+ const gRow = StyleSheet.create({
+   card: { marginBottom: 0 },
++  nextCard: { borderColor: Colors.gold, borderWidth: 1.5 },
++  nextBadge: {
++    alignSelf: 'flex-start',
++    backgroundColor: Colors.gold + '22',
++    borderRadius: Radius.full,
++    paddingHorizontal: Spacing.sm,
++    paddingVertical: 2,
++    marginBottom: 6,
++  },
++  nextBadgeText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold, letterSpacing: 1 },
+   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+   team: { flex: 1, gap: 4 },
+   pair: { flexDirection: 'row', gap: -6 },
+@@ -128,8 +145,9 @@ const gRow = StyleSheet.create({
+ 
+ // ─── Match Row (liga/grupos/mata-mata) ────────────────────────────────────────
+ 
+-function MatchRow({ match: m, comp, onPress, onLongPress }: {
+-  match: Match; comp: Competition; onPress: () => void; onLongPress?: () => void;
++function MatchRow({ match: m, comp, isNext, onPress, onLongPress }: {
++  match: Match; comp: Competition; isNext: boolean;
++  onPress: () => void; onLongPress?: () => void;
+ }) {
+   const cA = m.aId ? getCompetitor(comp, m.aId) : null;
+   const cB = m.bId ? getCompetitor(comp, m.bId) : null;
+@@ -141,7 +159,12 @@ function MatchRow({ match: m, comp, onPress, onLongPress }: {
+ 
+   return (
+     <TouchableOpacity onPress={onPress} onLongPress={onLongPress} disabled={pending} activeOpacity={0.8}>
+-      <Card style={pending ? { ...mRow.card, ...mRow.disabled } : mRow.card}>
++      <Card style={{ ...mRow.card, ...(pending ? mRow.disabled : {}), ...(isNext ? mRow.nextCard : {}) } as ViewStyle}>
++        {isNext && (
++          <View style={mRow.nextBadge}>
++            <Text style={mRow.nextBadgeText}>PRÓXIMO</Text>
++          </View>
++        )}
+         <View style={mRow.row}>
+           <View style={mRow.side}>
+             {pA && <Avatar name={pA.name} color={pA.color} size={28} />}
+@@ -165,6 +188,16 @@ function MatchRow({ match: m, comp, onPress, onLongPress }: {
+ }
+ const mRow = StyleSheet.create({
+   card: { marginBottom: 0 },
++  nextCard: { borderColor: Colors.gold, borderWidth: 1.5 },
++  nextBadge: {
++    alignSelf: 'flex-start',
++    backgroundColor: Colors.gold + '22',
++    borderRadius: Radius.full,
++    paddingHorizontal: Spacing.sm,
++    paddingVertical: 2,
++    marginBottom: 6,
++  },
++  nextBadgeText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold, letterSpacing: 1 },
+   disabled: { opacity: 0.45 },
+   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+   side: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
+@@ -175,12 +208,17 @@ const mRow = StyleSheet.create({
+ 
+ // ─── Views por formato ────────────────────────────────────────────────────────
+ 
++function firstUnscored(matches: Match[]): string | null {
++  const m = matches.find(m => m.scoreA == null && ((m.aId && m.bId) || (m.teamA && m.teamB)));
++  return m?.id ?? null;
++}
++
+ function RotatingView({ comp, onScore, onClear }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void }) {
+   const [tab, setTab] = useState<'ranking' | 'jogos'>('ranking');
+   const done  = comp.matches.filter(m => m.scoreA != null).length;
+   const total = comp.matches.length;
++  const nextId = firstUnscored(comp.matches);
+ 
+-  // Ranking dos jogadores baseado nos placares
+   const playerIds = [...new Set(comp.matches.flatMap(m => [...(m.teamA ?? []), ...(m.teamB ?? [])]))];
+   const rankingStats = playerIds.map(pid => {
+     let wins = 0, losses = 0, gf = 0, gc = 0;
+@@ -198,7 +236,6 @@ function RotatingView({ comp, onScore, onClear }: { comp: Competition; onScore:
+ 
+   return (
+     <View style={{ flex: 1 }}>
+-      {/* Abas */}
+       <View style={tabs.bar}>
+         {(['ranking', 'jogos'] as const).map(t => (
+           <TouchableOpacity key={t} style={[tabs.tab, tab === t && tabs.active]} onPress={() => setTab(t)}>
+@@ -210,7 +247,6 @@ function RotatingView({ comp, onScore, onClear }: { comp: Competition; onScore:
+       </View>
+ 
+       <ScrollView contentContainerStyle={vw.scroll}>
+-        {/* Progresso */}
+         <Card style={vw.prog}>
+           <View style={vw.progRow}>
+             <Text style={vw.progLabel}>Progresso</Text>
+@@ -250,7 +286,8 @@ function RotatingView({ comp, onScore, onClear }: { comp: Competition; onScore:
+         )}
+ 
+         {tab === 'jogos' && comp.matches.map((m, i) => (
+-          <GameRow key={m.id} match={m} index={i} comp={comp} onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
++          <GameRow key={m.id} match={m} index={i} comp={comp} isNext={m.id === nextId}
++            onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
+         ))}
+ 
+         <View style={{ height: Spacing.xl }} />
+@@ -261,6 +298,7 @@ function RotatingView({ comp, onScore, onClear }: { comp: Competition; onScore:
+ 
+ function LeagueView({ comp, onScore, onClear }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void }) {
+   const rounds = [...new Set(comp.matches.map(m => m.round))].sort((a, b) => (a ?? 0) - (b ?? 0));
++  const nextId = firstUnscored(comp.matches);
+   return (
+     <ScrollView contentContainerStyle={vw.scroll}>
+       <Text style={vw.section}>Classificação</Text>
+@@ -269,7 +307,8 @@ function LeagueView({ comp, onScore, onClear }: { comp: Competition; onScore: (m
+         <View key={r}>
+           <Text style={vw.section}>Rodada {r}</Text>
+           {comp.matches.filter(m => m.round === r).map(m => (
+-            <MatchRow key={m.id} match={m} comp={comp} onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
++            <MatchRow key={m.id} match={m} comp={comp} isNext={m.id === nextId}
++              onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
+           ))}
+         </View>
+       ))}
+@@ -282,10 +321,10 @@ function GroupsView({ comp, onScore, onClear }: { comp: Competition; onScore: (m
+   const [tab, setTab] = useState<'grupos' | 'jogos' | 'chave'>('grupos');
+   const allGroupsDone = comp.groupDefs?.every((_, gi) => groupComplete(comp.matches, gi)) ?? false;
+   const groupMatches = (gi: number) => comp.matches.filter(m => m.stage === 'group' && m.groupIdx === gi);
++  const nextId = firstUnscored(comp.matches);
+ 
+   return (
+     <View style={{ flex: 1 }}>
+-      {/* Tab selector */}
+       <View style={tabs.bar}>
+         {(['grupos', 'jogos', 'chave'] as const).map(t => (
+           <TouchableOpacity key={t} style={[tabs.tab, tab === t && tabs.active]} onPress={() => setTab(t)}>
+@@ -308,7 +347,8 @@ function GroupsView({ comp, onScore, onClear }: { comp: Competition; onScore: (m
+           <View key={gi}>
+             <Text style={vw.section}>{gd.name}</Text>
+             {groupMatches(gi).map(m => (
+-              <MatchRow key={m.id} match={m} comp={comp} onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
++              <MatchRow key={m.id} match={m} comp={comp} isNext={m.id === nextId}
++                onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
+             ))}
+           </View>
+         ))}
+@@ -329,21 +369,24 @@ function GroupsView({ comp, onScore, onClear }: { comp: Competition; onScore: (m
+ function KOView({ comp, onScore, onClear }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void }) {
+   const rounds = [...new Set(comp.matches.filter(m => m.stage === 'ko').map(m => m.koRound))]
+     .sort((a, b) => (a ?? 0) - (b ?? 0));
++  const nextId = firstUnscored(comp.matches.filter(m => m.stage === 'ko'));
+   return (
+     <ScrollView contentContainerStyle={vw.scroll}>
+       {rounds.map(r => {
+         const rMatches = comp.matches.filter(m => m.koRound === r);
+-        const main = rMatches.filter(m => !m.third);
++        const main  = rMatches.filter(m => !m.third);
+         const third = rMatches.filter(m => m.third);
+         const cnt = main[0]?.cnt ?? 0;
+         return (
+           <View key={r}>
+             <Text style={vw.section}>{koRoundName(cnt)}</Text>
+-            {main.map(m => <MatchRow key={m.id} match={m} comp={comp} onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />)}
++            {main.map(m => <MatchRow key={m.id} match={m} comp={comp} isNext={m.id === nextId}
++              onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />)}
+             {third.map(m => (
+               <View key={m.id}>
+                 <Text style={vw.section}>Disputa de 3º Lugar</Text>
+-                <MatchRow match={m} comp={comp} onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
++                <MatchRow match={m} comp={comp} isNext={m.id === nextId}
++                  onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
+               </View>
+             ))}
+           </View>
+@@ -378,10 +421,11 @@ const tabs = StyleSheet.create({
+ 
+ // ─── Scorer Modal ─────────────────────────────────────────────────────────────
+ 
+-function ScorerModal({ match, comp, onClose, onSave, isAdmin = false }: {
++function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }: {
+   match: Match | null; comp: Competition;
+   onClose: () => void;
+   onSave: (id: string, a: number, b: number) => void;
++  onClear: (matchId: string) => void;
+   isAdmin?: boolean;
+ }) {
+   const [sA, setSA] = useState(match?.scoreA != null ? String(match.scoreA) : '');
+@@ -400,6 +444,17 @@ function ScorerModal({ match, comp, onClose, onSave, isAdmin = false }: {
+     ? match.teamB.map(id => getPlayer(id)?.name.split(' ')[0]).join(' / ')
+     : (match.bId ? getCompetitor(comp, match.bId)?.name : '?') ?? '?';
+ 
++  function confirmClear() {
++    if (Platform.OS === 'web') {
++      if (window.confirm('Apagar placar? O resultado será removido.')) { onClear(match!.id); onClose(); }
++    } else {
++      Alert.alert('Apagar placar?', 'O resultado será removido.', [
++        { text: 'Cancelar', style: 'cancel' },
++        { text: 'Apagar', style: 'destructive', onPress: () => { onClear(match!.id); onClose(); } },
++      ]);
++    }
++  }
++
+   return (
+     <Modal visible transparent animationType="slide">
+       <View style={sc.overlay}>
+@@ -427,7 +482,7 @@ function ScorerModal({ match, comp, onClose, onSave, isAdmin = false }: {
+             <Text style={sc.lockedText}>🔒 Placar já registrado. Apenas admin pode corrigir.</Text>
+           )}
+           {isAdmin && alreadyScored && (
+-            <Text style={sc.adminNote}>⚙️ Admin — você pode corrigir este placar.</Text>
++            <Text style={sc.adminNote}>⚙️ Admin — você pode corrigir ou apagar este placar.</Text>
+           )}
+           <View style={sc.btns}>
+             <TouchableOpacity onPress={onClose} style={sc.cancel}>
+@@ -441,6 +496,11 @@ function ScorerModal({ match, comp, onClose, onSave, isAdmin = false }: {
+               <Text style={sc.saveText}>{alreadyScored && isAdmin ? 'Corrigir' : 'Salvar'}</Text>
+             </TouchableOpacity>
+           </View>
++          {isAdmin && alreadyScored && (
++            <TouchableOpacity onPress={confirmClear} style={sc.clearBtn}>
++              <Text style={sc.clearBtnText}>🗑  Apagar placar</Text>
++            </TouchableOpacity>
++          )}
+         </View>
+       </View>
+     </Modal>
+@@ -467,8 +527,99 @@ const sc = StyleSheet.create({
+   saveText: { fontFamily: FontFamily.title, color: Colors.bg },
+   lockedText: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint, textAlign: 'center' },
+   adminNote: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.gold, textAlign: 'center' },
++  clearBtn: { alignItems: 'center', paddingVertical: Spacing.xs },
++  clearBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.coral },
+ });
+ 
++// ─── Edit Name Modal ──────────────────────────────────────────────────────────
++
++function EditNameModal({ current, onClose, onSave }: {
++  current: string; onClose: () => void; onSave: (name: string) => void;
++}) {
++  const [name, setName] = useState(current);
++  const valid = name.trim().length > 0 && name.trim() !== current;
++  return (
++    <Modal visible transparent animationType="fade">
++      <TouchableOpacity style={en.overlay} activeOpacity={1} onPress={onClose}>
++        <TouchableOpacity style={en.box} activeOpacity={1}>
++          <Text style={en.title}>Renomear competição</Text>
++          <TextInput
++            style={en.input}
++            value={name}
++            onChangeText={setName}
++            autoFocus
++            selectTextOnFocus
++            placeholderTextColor={Colors.faint}
++          />
++          <View style={en.btns}>
++            <TouchableOpacity style={en.cancel} onPress={onClose}>
++              <Text style={en.cancelText}>Cancelar</Text>
++            </TouchableOpacity>
++            <TouchableOpacity
++              style={[en.save, !valid && en.saveOff]}
++              onPress={() => { if (valid) { onSave(name.trim()); onClose(); } }}
++              disabled={!valid}
++            >
++              <Text style={en.saveText}>Salvar</Text>
++            </TouchableOpacity>
++          </View>
++        </TouchableOpacity>
++      </TouchableOpacity>
++    </Modal>
++  );
++}
++const en = StyleSheet.create({
++  overlay: { flex: 1, backgroundColor: '#000000aa', justifyContent: 'center', alignItems: 'center', padding: Spacing.xl },
++  box: { backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.lg, width: '100%', gap: Spacing.md },
++  title: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
++  input: {
++    backgroundColor: Colors.bg, borderRadius: Radius.md, borderWidth: 1.5,
++    borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md,
++    fontFamily: FontFamily.body, fontSize: 16, color: Colors.text,
++  },
++  btns: { flexDirection: 'row', gap: Spacing.sm },
++  cancel: { flex: 1, borderWidth: 1.5, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' },
++  cancelText: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.muted },
++  save: { flex: 1, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' },
++  saveOff: { opacity: 0.4 },
++  saveText: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg },
++});
++
++// ─── Share helper ──────────────────────────────────────────────────────────────
++
++function buildShareText(comp: Competition): string {
++  const lines: string[] = [`🏆 ${comp.name}\n`];
++
++  if (comp.format === 'liga') {
++    lines.push('CLASSIFICAÇÃO:');
++    const st = standings(comp.competitors.map(c => c.id), comp.matches);
++    st.forEach((s, i) => {
++      const c = comp.competitors.find(x => x.id === s.id);
++      lines.push(`${i + 1}. ${c?.name ?? s.id}  ${s.pts}pts  ${s.wins}V/${s.losses}D`);
++    });
++  } else if (comp.format === 'avulso' || comp.format === 'super8') {
++    lines.push('RESULTADOS:');
++    comp.matches.filter(m => m.scoreA != null).forEach(m => {
++      const nA = m.teamA?.map(id => getPlayer(id)?.name.split(' ')[0]).join('/') ?? '?';
++      const nB = m.teamB?.map(id => getPlayer(id)?.name.split(' ')[0]).join('/') ?? '?';
++      lines.push(`${nA} ${m.scoreA}–${m.scoreB} ${nB}`);
++    });
++  } else {
++    const done = comp.matches.filter(m => m.scoreA != null);
++    lines.push(`JOGOS CONCLUÍDOS (${done.length}/${comp.matches.length}):`);
++    done.forEach(m => {
++      const nA = m.aId ? (getCompetitor(comp, m.aId)?.name ?? '?') : '?';
++      const nB = m.bId ? (getCompetitor(comp, m.bId)?.name ?? '?') : '?';
++      lines.push(`${nA} ${m.scoreA}–${m.scoreB} ${nB}`);
++    });
++  }
++
++  const done = comp.matches.filter(m => m.scoreA != null).length;
++  lines.push(`\n${done}/${comp.matches.length} jogos registrados`);
++  lines.push('Enviado pelo King BT 👑');
++  return lines.join('\n');
++}
++
+ // ─── Main screen ──────────────────────────────────────────────────────────────
+ 
+ export default function CompetitionDetail() {
+@@ -476,8 +627,9 @@ export default function CompetitionDetail() {
+   const { state, dispatch } = useCompetitions();
+   const { isAdmin } = useAuth();
+   const comp = state.competitions.find(c => c.id === id);
+-  const [scoring, setScoring] = useState<Match | null>(null);
++  const [scoring, setScoring]         = useState<Match | null>(null);
+   const [showAdminMenu, setShowAdminMenu] = useState(false);
++  const [showEditName, setShowEditName]   = useState(false);
+ 
+   if (!comp) {
+     return (
+@@ -498,19 +650,10 @@ export default function CompetitionDetail() {
+   }
+ 
+   function handleClear(matchId: string) {
+-    const doClear = () => dispatch({ type: 'CLEAR_SCORE', compId: id!, matchId });
+-    if (Platform.OS === 'web') {
+-      if (window.confirm('Apagar placar? O resultado será removido.')) doClear();
+-    } else {
+-      Alert.alert('Apagar placar?', 'O resultado será removido.', [
+-        { text: 'Cancelar', style: 'cancel' },
+-        { text: 'Apagar', style: 'destructive', onPress: doClear },
+-      ]);
+-    }
++    dispatch({ type: 'CLEAR_SCORE', compId: id!, matchId });
+   }
+ 
+   function handleDelete() {
+-    const { Platform } = require('react-native');
+     const doDelete = () => {
+       dispatch({ type: 'DELETE', compId: id! });
+       router.replace('/(app)');
+@@ -518,14 +661,18 @@ export default function CompetitionDetail() {
+     if (Platform.OS === 'web') {
+       if (window.confirm('Excluir competição? Esta ação não pode ser desfeita.')) doDelete();
+     } else {
+-      const { Alert } = require('react-native');
+-      Alert.alert('Excluir competição', 'Tem certeza?', [
++      Alert.alert('Excluir competição', 'Tem certeza? Esta ação não pode ser desfeita.', [
+         { text: 'Cancelar', style: 'cancel' },
+         { text: 'Excluir', style: 'destructive', onPress: doDelete },
+       ]);
+     }
+   }
+ 
++  function handleShare() {
++    const text = buildShareText(comp!);
++    Share.share({ message: text, title: comp!.name }).catch(() => {});
++  }
++
+   return (
+     <SafeAreaView style={main.container} edges={['top']}>
+       {/* Header */}
+@@ -534,26 +681,38 @@ export default function CompetitionDetail() {
+           <Text style={main.back}>←</Text>
+         </TouchableOpacity>
+         <View style={main.headerInfo}>
+-          <Text style={main.compName} numberOfLines={1}>{comp.name}</Text>
++          <TouchableOpacity onLongPress={isAdmin ? () => setShowEditName(true) : undefined} activeOpacity={isAdmin ? 0.7 : 1}>
++            <Text style={main.compName} numberOfLines={1}>{comp.name}</Text>
++          </TouchableOpacity>
+           <Badge
+             label={comp.status === 'done' ? 'Concluída' : 'Ativa'}
+             variant={comp.status === 'done' ? 'teal' : 'gold'}
+             small
+           />
+         </View>
+-        {isAdmin && (
+-          <TouchableOpacity onPress={() => setShowAdminMenu(true)} style={main.adminBtn}>
+-            <Text style={main.adminBtnText}>⚙️</Text>
++        <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
++          <TouchableOpacity onPress={handleShare} style={main.iconBtn}>
++            <Text style={main.iconBtnText}>↑</Text>
+           </TouchableOpacity>
+-        )}
++          {isAdmin && (
++            <TouchableOpacity onPress={() => setShowAdminMenu(true)} style={main.iconBtn}>
++              <Text style={main.iconBtnText}>⚙️</Text>
++            </TouchableOpacity>
++          )}
++        </View>
+       </View>
+ 
++      {isAdmin && <Text style={main.editHint}>Segure o nome para renomear</Text>}
++
+       {/* Menu admin */}
+       {showAdminMenu && (
+         <View style={main.adminMenu}>
+           <TouchableOpacity style={main.adminMenuItem} onPress={() => setShowAdminMenu(false)}>
+             <Text style={main.adminMenuClose}>✕ Fechar</Text>
+           </TouchableOpacity>
++          <TouchableOpacity style={main.adminMenuAction} onPress={() => { setShowAdminMenu(false); setShowEditName(true); }}>
++            <Text style={main.adminMenuText}>✏️ Renomear competição</Text>
++          </TouchableOpacity>
+           <TouchableOpacity style={main.adminMenuAction} onPress={() => { setShowAdminMenu(false); handleDelete(); }}>
+             <Text style={main.adminMenuDanger}>🗑️ Excluir competição</Text>
+           </TouchableOpacity>
+@@ -575,23 +734,34 @@ export default function CompetitionDetail() {
+         comp={comp}
+         onClose={() => setScoring(null)}
+         onSave={isAdmin && scoring?.scoreA != null ? handleCorrect : handleSave}
++        onClear={handleClear}
+         isAdmin={isAdmin}
+       />
++
++      {showEditName && (
++        <EditNameModal
++          current={comp.name}
++          onClose={() => setShowEditName(false)}
++          onSave={(name) => dispatch({ type: 'RENAME', compId: id!, name })}
++        />
++      )}
+     </SafeAreaView>
+   );
+ }
+ 
+ const main = StyleSheet.create({
+   container: { flex: 1, backgroundColor: Colors.bg },
+-  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line },
++  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line },
+   back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
+   headerInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
+-  compName: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text, flex: 1 },
+-  adminBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
+-  adminBtnText: { fontSize: 18 },
++  compName: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
++  editHint: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint, textAlign: 'center', paddingVertical: 2 },
++  iconBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
++  iconBtnText: { fontSize: 18, color: Colors.muted },
+   adminMenu: { backgroundColor: Colors.surf2, borderBottomWidth: 1, borderBottomColor: Colors.line, padding: Spacing.sm, gap: Spacing.xs },
+   adminMenuItem: { alignSelf: 'flex-end' },
+   adminMenuClose: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
+   adminMenuAction: { paddingVertical: Spacing.xs },
++  adminMenuText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+   adminMenuDanger: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.coral },
+ });
+diff --git a/kingbt/app/player/[id].tsx b/kingbt/app/player/[id].tsx
+new file mode 100644
+index 0000000..5b8a3e0
+--- /dev/null
++++ b/kingbt/app/player/[id].tsx
+@@ -0,0 +1,319 @@
++import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
++import { SafeAreaView } from 'react-native-safe-area-context';
++import { router, useLocalSearchParams } from 'expo-router';
++import { Colors, FontFamily, Spacing, Radius } from '@/theme';
++import { Avatar, Badge, Card } from '@/components';
++import { PLAYERS } from '@/mocks/data';
++import { useCompetitions } from '@/store/CompetitionsContext';
++import { buildRanking, type RankedPlayer } from '@/logic/scoring';
++import { extractPlayerGames } from '@/logic/formats';
++
++function Bar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
++  return (
++    <View style={bar.row}>
++      <Text style={bar.label}>{label}</Text>
++      <View style={bar.track}>
++        <View style={[bar.fill, { width: `${Math.min(value / Math.max(max, 1), 1) * 100}%`, backgroundColor: color }]} />
++      </View>
++      <Text style={bar.val}>{typeof value === 'number' && !Number.isInteger(value) ? value.toFixed(2) : value}</Text>
++    </View>
++  );
++}
++const bar = StyleSheet.create({
++  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
++  label: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, width: 80 },
++  track: { flex: 1, height: 5, borderRadius: 3, backgroundColor: Colors.line },
++  fill: { height: 5, borderRadius: 3 },
++  val: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.text, width: 40, textAlign: 'right' },
++});
++
++export default function PlayerDetailScreen() {
++  const { id } = useLocalSearchParams<{ id: string }>();
++  const { state } = useCompetitions();
++
++  const player = PLAYERS.find(p => p.id === id);
++  if (!player) {
++    return (
++      <SafeAreaView style={styles.container} edges={['top']}>
++        <TouchableOpacity style={styles.backRow} onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/ranking')}>
++          <Text style={styles.backText}>←</Text>
++        </TouchableOpacity>
++        <Text style={{ color: Colors.coral, padding: Spacing.md }}>Jogador não encontrado.</Text>
++      </SafeAreaView>
++    );
++  }
++
++  const allGames = state.competitions.flatMap(extractPlayerGames);
++  const ranking = buildRanking(
++    PLAYERS.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color })),
++    allGames
++  );
++  const me = ranking.find(r => r.id === id) ?? ranking[0];
++  const myPos = ranking.findIndex(r => r.id === id) + 1;
++  const winRate = me.played > 0 ? Math.round((me.wins / me.played) * 100) : 0;
++  const wPts  = me.wins * 3;
++  const jPts  = Math.round(me.played * 0.5 * 10) / 10;
++  const gaPts = Math.round(me.ga * 2 * 100) / 100;
++
++  // Match history — find all matches involving this player
++  const matchHistory: Array<{
++    compName: string;
++    opponents: string;
++    scoreA: number;
++    scoreB: number;
++    won: boolean;
++    date?: string;
++  }> = [];
++
++  state.competitions.forEach(comp => {
++    comp.matches.forEach(m => {
++      if (m.scoreA == null || m.scoreB == null) return;
++      const inA = m.teamA ? m.teamA.includes(id!) : m.aId === id;
++      const inB = m.teamB ? m.teamB.includes(id!) : m.bId === id;
++      if (!inA && !inB) return;
++
++      const myScore = inA ? m.scoreA : m.scoreB;
++      const oppScore = inA ? m.scoreB : m.scoreA;
++      const won = myScore > oppScore;
++
++      let opponents = '?';
++      if (m.teamA && m.teamB) {
++        const oppTeam = inA ? m.teamB : m.teamA;
++        opponents = oppTeam.map(pid => PLAYERS.find(p => p.id === pid)?.name.split(' ')[0] ?? pid).join(' / ');
++      } else {
++        const oppId = inA ? m.bId : m.aId;
++        if (oppId) {
++          const oppComp = comp.competitors.find(c => c.id === oppId);
++          opponents = oppComp?.name ?? PLAYERS.find(p => p.id === oppId)?.name ?? oppId;
++        }
++      }
++
++      matchHistory.push({
++        compName: comp.name,
++        opponents,
++        scoreA: myScore,
++        scoreB: oppScore,
++        won,
++        date: comp.date,
++      });
++    });
++  });
++  matchHistory.reverse();
++
++  // Head-to-head stats (against each other player)
++  const h2h: Record<string, { wins: number; losses: number }> = {};
++  state.competitions.forEach(comp => {
++    comp.matches.forEach(m => {
++      if (m.scoreA == null || m.scoreB == null) return;
++      const inA = m.aId === id;
++      const inB = m.bId === id;
++      if (!inA && !inB) return;
++      const oppId = inA ? m.bId : m.aId;
++      if (!oppId) return;
++      const myScore = inA ? m.scoreA : m.scoreB;
++      const oppScore = inA ? m.scoreB : m.scoreA;
++      if (!h2h[oppId]) h2h[oppId] = { wins: 0, losses: 0 };
++      if (myScore > oppScore) h2h[oppId].wins++;
++      else h2h[oppId].losses++;
++    });
++  });
++  const h2hList = Object.entries(h2h)
++    .map(([oppId, r]) => ({ oppId, ...r, total: r.wins + r.losses }))
++    .filter(x => x.total > 0)
++    .sort((a, b) => b.total - a.total);
++
++  return (
++    <SafeAreaView style={styles.container} edges={['top']}>
++      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
++
++        {/* Back */}
++        <TouchableOpacity style={styles.backRow} onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/ranking')}>
++          <Text style={styles.backText}>←  Ranking</Text>
++        </TouchableOpacity>
++
++        {/* Hero */}
++        <View style={styles.heroBanner}>
++          <View style={[styles.heroBg, { backgroundColor: player.color + '22' }]} />
++          <View style={styles.heroInner}>
++            <Avatar name={player.name} color={player.color} size={88} showCrown={myPos === 1} />
++            <Text style={styles.name}>{player.name}</Text>
++            <Text style={styles.titleText}>{(player as any).titleEmoji} {(player as any).title}</Text>
++            <View style={styles.badges}>
++              <Badge label={`${myPos}° lugar`} variant="gold" />
++              <Badge label={`${winRate}% aproveit.`} variant="teal" />
++            </View>
++          </View>
++        </View>
++
++        {/* Pontuação */}
++        <Card elevated style={styles.ptsCard}>
++          <Text style={styles.ptsLabel}>PONTUAÇÃO KING BT</Text>
++          <Text style={styles.ptsVal}>{me.points.toFixed(2)}</Text>
++          <Text style={styles.ptsEq}>
++            ({me.wins}×3) + ({me.played}×0,5) + ({me.ga.toFixed(2)}×2)
++          </Text>
++        </Card>
++
++        {/* Grid stats */}
++        <View style={styles.grid}>
++          {[
++            { l: 'Vitórias',      v: me.wins,                        c: Colors.teal },
++            { l: 'Derrotas',      v: me.losses,                      c: Colors.coral },
++            { l: 'Partidas',      v: me.played,                      c: Colors.text },
++            { l: 'Game Avg',      v: me.ga.toFixed(2),               c: Colors.gold },
++            { l: 'Games Pró',    v: me.gamesPro,                     c: Colors.teal },
++            { l: 'Games Contra', v: me.gamesCon,                     c: Colors.coral },
++            { l: 'Saldo',         v: (me.sg >= 0 ? '+' : '') + me.sg, c: me.sg >= 0 ? Colors.teal : Colors.coral },
++            { l: 'Win Rate',      v: `${winRate}%`,                   c: Colors.goldBright },
++          ].map(item => (
++            <View key={item.l} style={[styles.cell, { borderLeftWidth: 3, borderLeftColor: item.c + '88' }]}>
++              <Text style={[styles.cellVal, { color: item.c }]}>{item.v}</Text>
++              <Text style={styles.cellLabel}>{item.l}</Text>
++            </View>
++          ))}
++        </View>
++
++        {/* Quebra de pontos */}
++        <Card>
++          <Text style={styles.sectionTitle}>Quebra dos Pontos</Text>
++          <Bar label="Vitórias ×3"   value={wPts}  max={me.points} color={Colors.teal} />
++          <Bar label="Partidas ×0,5" value={jPts}  max={me.points} color={Colors.text} />
++          <Bar label="GA ×2"         value={gaPts} max={me.points} color={Colors.gold} />
++        </Card>
++
++        {/* Forma recente */}
++        {(() => {
++          const recentGames = state.competitions
++            .flatMap(c => c.matches)
++            .filter(m => m.scoreA != null && m.scoreB != null)
++            .filter(m => (m.teamA ?? [m.aId]).includes(id!) || (m.teamB ?? [m.bId]).includes(id!))
++            .slice(-6);
++          if (recentGames.length === 0) return null;
++          const results = recentGames.map(m => {
++            const inA = (m.teamA ?? [m.aId]).includes(id!);
++            return inA ? m.scoreA! > m.scoreB! : m.scoreB! > m.scoreA!;
++          });
++          return (
++            <Card>
++              <Text style={styles.sectionTitle}>Forma recente</Text>
++              <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
++                {results.map((w, i) => (
++                  <View key={i} style={{
++                    width: 32, height: 32, borderRadius: 8,
++                    backgroundColor: w ? Colors.teal + '33' : Colors.coral + '33',
++                    borderWidth: 1, borderColor: w ? Colors.teal + '66' : Colors.coral + '66',
++                    alignItems: 'center', justifyContent: 'center',
++                  }}>
++                    <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 12, color: w ? Colors.teal : Colors.coral }}>
++                      {w ? 'V' : 'D'}
++                    </Text>
++                  </View>
++                ))}
++              </View>
++            </Card>
++          );
++        })()}
++
++        {/* Head-to-head */}
++        {h2hList.length > 0 && (
++          <Card>
++            <Text style={styles.sectionTitle}>Confronto direto</Text>
++            {h2hList.map(h => {
++              const opp = PLAYERS.find(p => p.id === h.oppId);
++              const oppName = opp?.name ?? h.oppId;
++              const oppColor = opp?.color ?? Colors.muted;
++              const rate = h.total > 0 ? Math.round((h.wins / h.total) * 100) : 0;
++              return (
++                <View key={h.oppId} style={h2hRow.row}>
++                  <Avatar name={oppName} color={oppColor} size={28} />
++                  <Text style={h2hRow.name} numberOfLines={1}>{oppName}</Text>
++                  <Text style={[h2hRow.wins, { color: Colors.teal }]}>{h.wins}V</Text>
++                  <Text style={h2hRow.sep}> · </Text>
++                  <Text style={[h2hRow.wins, { color: Colors.coral }]}>{h.losses}D</Text>
++                  <Text style={h2hRow.rate}>{rate}%</Text>
++                </View>
++              );
++            })}
++          </Card>
++        )}
++
++        {/* Histórico de partidas */}
++        {matchHistory.length > 0 && (
++          <Card>
++            <Text style={styles.sectionTitle}>Histórico de partidas</Text>
++            {matchHistory.map((h, i) => (
++              <View key={i} style={[hist.row, i < matchHistory.length - 1 && hist.border]}>
++                <View style={[hist.result, { backgroundColor: h.won ? Colors.teal + '33' : Colors.coral + '33' }]}>
++                  <Text style={[hist.resultText, { color: h.won ? Colors.teal : Colors.coral }]}>
++                    {h.won ? 'V' : 'D'}
++                  </Text>
++                </View>
++                <View style={hist.info}>
++                  <Text style={hist.opp} numberOfLines={1}>vs {h.opponents}</Text>
++                  <Text style={hist.comp} numberOfLines={1}>{h.compName}</Text>
++                </View>
++                <Text style={[hist.score, { color: h.won ? Colors.teal : Colors.coral }]}>
++                  {h.scoreA}–{h.scoreB}
++                </Text>
++              </View>
++            ))}
++          </Card>
++        )}
++
++        {matchHistory.length === 0 && (
++          <Card style={{ alignItems: 'center', padding: Spacing.lg }}>
++            <Text style={{ fontFamily: FontFamily.body, fontSize: 14, color: Colors.faint }}>
++              Nenhuma partida registrada ainda.
++            </Text>
++          </Card>
++        )}
++
++        <View style={{ height: Spacing.xl }} />
++      </ScrollView>
++    </SafeAreaView>
++  );
++}
++
++const h2hRow = StyleSheet.create({
++  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.xs },
++  name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
++  wins: { fontFamily: FontFamily.numberBold, fontSize: 13 },
++  sep: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint },
++  rate: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted, width: 36, textAlign: 'right' },
++});
++
++const hist = StyleSheet.create({
++  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
++  border: { borderBottomWidth: 1, borderBottomColor: Colors.line },
++  result: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
++  resultText: { fontFamily: FontFamily.numberBold, fontSize: 12 },
++  info: { flex: 1, gap: 2 },
++  opp: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
++  comp: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
++  score: { fontFamily: FontFamily.numberBold, fontSize: 15 },
++});
++
++const styles = StyleSheet.create({
++  container: { flex: 1, backgroundColor: Colors.bg },
++  scroll: { padding: Spacing.md, gap: Spacing.md },
++  backRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs },
++  backText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.teal },
++
++  heroBanner: { position: 'relative', overflow: 'hidden', borderRadius: Radius.lg, marginBottom: Spacing.sm },
++  heroBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 120 },
++  heroInner: { alignItems: 'center', paddingTop: Spacing.xl, paddingBottom: Spacing.lg, gap: Spacing.sm },
++  name: { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text },
++  titleText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted },
++  badges: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
++
++  ptsCard: { alignItems: 'center', gap: 4 },
++  ptsLabel: { fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted, letterSpacing: 2 },
++  ptsVal: { fontFamily: FontFamily.titleBold, fontSize: 52, color: Colors.gold, lineHeight: 60 },
++  ptsEq: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted },
++
++  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
++  cell: { width: '47%', alignItems: 'center', gap: 2, padding: Spacing.md, backgroundColor: Colors.surf, borderRadius: Radius.md },
++  cellVal: { fontFamily: FontFamily.titleBold, fontSize: 26 },
++  cellLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
++  sectionTitle: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.text, marginBottom: Spacing.sm },
++});
+diff --git a/kingbt/src/store/CompetitionsContext.tsx b/kingbt/src/store/CompetitionsContext.tsx
+index 10e2718..55db927 100644
+--- a/kingbt/src/store/CompetitionsContext.tsx
++++ b/kingbt/src/store/CompetitionsContext.tsx
+@@ -16,7 +16,8 @@ type Action =
+   | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number }
+   | { type: 'CORRECT_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number }
+   | { type: 'CLEAR_SCORE'; compId: string; matchId: string }
+-  | { type: 'DELETE'; compId: string };
++  | { type: 'DELETE'; compId: string }
++  | { type: 'RENAME'; compId: string; name: string };
+ 
+ function applyScore(comp: Competition, matchId: string, scoreA: number, scoreB: number): Competition {
+   const updated = {
+@@ -42,6 +43,13 @@ function reducer(state: State, action: Action): State {
+       return { ...state, competitions: [action.comp, ...state.competitions] };
+     case 'DELETE':
+       return { ...state, competitions: state.competitions.filter(c => c.id !== action.compId) };
++    case 'RENAME':
++      return {
++        ...state,
++        competitions: state.competitions.map(c =>
++          c.id !== action.compId ? c : { ...c, name: action.name }
++        ),
++      };
+     case 'SAVE_SCORE':
+     case 'CORRECT_SCORE':
+       return {
+@@ -83,7 +91,6 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
+     synced: false,
+   });
+ 
+-  // Escuta Firestore em tempo real quando autenticado
+   useEffect(() => {
+     if (!user || !group) return;
+     const unsub = subscribeCompetitions(group.id, (comps) => {
+@@ -93,9 +100,9 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
+   }, [user, group]);
+ 
+   const wrappedDispatch: React.Dispatch<Action> = async (action) => {
+-    // Proteção admin
+     if (action.type === 'DELETE' && !isAdmin) return;
+     if (action.type === 'CORRECT_SCORE' && !isAdmin) return;
++    if (action.type === 'RENAME' && !isAdmin) return;
+ 
+     dispatch(action);
+ 
+@@ -104,7 +111,6 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
+     if (action.type === 'ADD') {
+       const { id, ...data } = action.comp;
+       await createCompetition(group.id, data);
+-      // ID real vem pelo subscribeCompetitions
+     }
+ 
+     if (action.type === 'SAVE_SCORE' || action.type === 'CORRECT_SCORE') {
+@@ -126,10 +132,17 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
+       }
+     }
+ 
++    if (action.type === 'RENAME') {
++      const comp = state.competitions.find(c => c.id === action.compId);
++      if (comp) {
++        await fsUpdateComp(group.id, { ...comp, name: action.name });
++      }
++    }
++
+     if (action.type === 'DELETE') {
+       const comp = state.competitions.find(c => c.id === action.compId);
+       if (comp) {
+-        const { id, ...data } = comp;
++        const { id } = comp;
+         const { updateDoc, doc } = await import('firebase/firestore');
+         const { db } = await import('@/firebase/config');
+         await updateDoc(doc(db, 'groups', group.id, 'competitions', id), { status: 'done' });
+-- 
+2.43.0
+

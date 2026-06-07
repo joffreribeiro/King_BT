@@ -1,15 +1,12 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
 import { PLAYERS } from '@/mocks/data';
 import { useCompetitions } from '@/store/CompetitionsContext';
-import { useAuth } from '@/store/AuthContext';
-import { buildRanking } from '@/logic/scoring';
+import { buildRanking, type RankedPlayer } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
-
-const MY_ID = 'p1';
 
 function Bar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
   return (
@@ -30,70 +27,52 @@ const bar = StyleSheet.create({
   val: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.text, width: 40, textAlign: 'right' },
 });
 
-export default function ProfileScreen() {
-  const player = PLAYERS.find(p => p.id === MY_ID)!;
+export default function PlayerDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const { state } = useCompetitions();
-  const { logout, leaveGroup, group, user } = useAuth();
 
-  async function handleLeaveGroup() {
-    const doLeave = async () => {
-      await leaveGroup();
-      router.replace('/(auth)/join');
-    };
-    if (Platform.OS === 'web') {
-      if (window.confirm('Sair do grupo atual? Você poderá entrar em outro grupo.')) await doLeave();
-    } else {
-      Alert.alert('Trocar de grupo', 'Sair do grupo atual?', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Sair do grupo', style: 'destructive', onPress: doLeave },
-      ]);
-    }
-  }
-
-  async function handleLogout() {
-    const doLogout = async () => {
-      await logout();
-      router.replace('/(auth)/login');
-    };
-    if (Platform.OS === 'web') {
-      if (window.confirm('Deseja sair da sua conta?')) await doLogout();
-    } else {
-      Alert.alert('Sair', 'Deseja sair da sua conta?', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Sair', style: 'destructive', onPress: doLogout },
-      ]);
-    }
+  const player = PLAYERS.find(p => p.id === id);
+  if (!player) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <TouchableOpacity style={styles.backRow} onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/ranking')}>
+          <Text style={styles.backText}>←</Text>
+        </TouchableOpacity>
+        <Text style={{ color: Colors.coral, padding: Spacing.md }}>Jogador não encontrado.</Text>
+      </SafeAreaView>
+    );
   }
 
   const allGames = state.competitions.flatMap(extractPlayerGames);
   const ranking = buildRanking(
-    PLAYERS.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0,3).toUpperCase(), color: p.color })),
+    PLAYERS.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color })),
     allGames
   );
-  const me = ranking.find(r => r.id === MY_ID) ?? ranking[0];
-  const myPos = ranking.findIndex(r => r.id === MY_ID) + 1;
+  const me = ranking.find(r => r.id === id) ?? ranking[0];
+  const myPos = ranking.findIndex(r => r.id === id) + 1;
   const winRate = me.played > 0 ? Math.round((me.wins / me.played) * 100) : 0;
-  const wPts = me.wins * 3;
-  const jPts = Math.round(me.played * 0.5 * 10) / 10;
+  const wPts  = me.wins * 3;
+  const jPts  = Math.round(me.played * 0.5 * 10) / 10;
   const gaPts = Math.round(me.ga * 2 * 100) / 100;
 
-  // Full match history for MY_ID
+  // Match history — find all matches involving this player
   const matchHistory: Array<{
     compName: string;
     opponents: string;
-    myScore: number;
-    oppScore: number;
+    scoreA: number;
+    scoreB: number;
     won: boolean;
+    date?: string;
   }> = [];
 
   state.competitions.forEach(comp => {
     comp.matches.forEach(m => {
       if (m.scoreA == null || m.scoreB == null) return;
-      const inA = m.teamA ? m.teamA.includes(MY_ID) : m.aId === MY_ID;
-      const inB = m.teamB ? m.teamB.includes(MY_ID) : m.bId === MY_ID;
+      const inA = m.teamA ? m.teamA.includes(id!) : m.aId === id;
+      const inB = m.teamB ? m.teamB.includes(id!) : m.bId === id;
       if (!inA && !inB) return;
 
-      const myScore  = inA ? m.scoreA : m.scoreB;
+      const myScore = inA ? m.scoreA : m.scoreB;
       const oppScore = inA ? m.scoreB : m.scoreA;
       const won = myScore > oppScore;
 
@@ -109,21 +88,56 @@ export default function ProfileScreen() {
         }
       }
 
-      matchHistory.push({ compName: comp.name, opponents, myScore, oppScore, won });
+      matchHistory.push({
+        compName: comp.name,
+        opponents,
+        scoreA: myScore,
+        scoreB: oppScore,
+        won,
+        date: comp.date,
+      });
     });
   });
   matchHistory.reverse();
+
+  // Head-to-head stats (against each other player)
+  const h2h: Record<string, { wins: number; losses: number }> = {};
+  state.competitions.forEach(comp => {
+    comp.matches.forEach(m => {
+      if (m.scoreA == null || m.scoreB == null) return;
+      const inA = m.aId === id;
+      const inB = m.bId === id;
+      if (!inA && !inB) return;
+      const oppId = inA ? m.bId : m.aId;
+      if (!oppId) return;
+      const myScore = inA ? m.scoreA : m.scoreB;
+      const oppScore = inA ? m.scoreB : m.scoreA;
+      if (!h2h[oppId]) h2h[oppId] = { wins: 0, losses: 0 };
+      if (myScore > oppScore) h2h[oppId].wins++;
+      else h2h[oppId].losses++;
+    });
+  });
+  const h2hList = Object.entries(h2h)
+    .map(([oppId, r]) => ({ oppId, ...r, total: r.wins + r.losses }))
+    .filter(x => x.total > 0)
+    .sort((a, b) => b.total - a.total);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
+        {/* Back */}
+        <TouchableOpacity style={styles.backRow} onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/ranking')}>
+          <Text style={styles.backText}>←  Ranking</Text>
+        </TouchableOpacity>
+
+        {/* Hero */}
         <View style={styles.heroBanner}>
           <View style={[styles.heroBg, { backgroundColor: player.color + '22' }]} />
           <View style={styles.heroInner}>
             <Avatar name={player.name} color={player.color} size={88} showCrown={myPos === 1} />
             <Text style={styles.name}>{player.name}</Text>
-            <Text style={styles.titleText}>{player.titleEmoji} {player.title}</Text>
+            <Text style={styles.titleText}>{(player as any).titleEmoji} {(player as any).title}</Text>
             <View style={styles.badges}>
               <Badge label={`${myPos}° lugar`} variant="gold" />
               <Badge label={`${winRate}% aproveit.`} variant="teal" />
@@ -140,17 +154,17 @@ export default function ProfileScreen() {
           </Text>
         </Card>
 
-        {/* Grid de stats */}
+        {/* Grid stats */}
         <View style={styles.grid}>
           {[
-            { l: 'Vitórias',      v: me.wins,                         c: Colors.teal },
-            { l: 'Derrotas',      v: me.losses,                       c: Colors.coral },
-            { l: 'Partidas',      v: me.played,                       c: Colors.text },
-            { l: 'Game Avg',      v: me.ga.toFixed(2),                c: Colors.gold },
-            { l: 'Games Pró',    v: me.gamesPro,                      c: Colors.teal },
-            { l: 'Games Contra', v: me.gamesCon,                      c: Colors.coral },
+            { l: 'Vitórias',      v: me.wins,                        c: Colors.teal },
+            { l: 'Derrotas',      v: me.losses,                      c: Colors.coral },
+            { l: 'Partidas',      v: me.played,                      c: Colors.text },
+            { l: 'Game Avg',      v: me.ga.toFixed(2),               c: Colors.gold },
+            { l: 'Games Pró',    v: me.gamesPro,                     c: Colors.teal },
+            { l: 'Games Contra', v: me.gamesCon,                     c: Colors.coral },
             { l: 'Saldo',         v: (me.sg >= 0 ? '+' : '') + me.sg, c: me.sg >= 0 ? Colors.teal : Colors.coral },
-            { l: 'Win Rate',      v: `${winRate}%`,                    c: Colors.goldBright },
+            { l: 'Win Rate',      v: `${winRate}%`,                   c: Colors.goldBright },
           ].map(item => (
             <View key={item.l} style={[styles.cell, { borderLeftWidth: 3, borderLeftColor: item.c + '88' }]}>
               <Text style={[styles.cellVal, { color: item.c }]}>{item.v}</Text>
@@ -159,16 +173,24 @@ export default function ProfileScreen() {
           ))}
         </View>
 
+        {/* Quebra de pontos */}
+        <Card>
+          <Text style={styles.sectionTitle}>Quebra dos Pontos</Text>
+          <Bar label="Vitórias ×3"   value={wPts}  max={me.points} color={Colors.teal} />
+          <Bar label="Partidas ×0,5" value={jPts}  max={me.points} color={Colors.text} />
+          <Bar label="GA ×2"         value={gaPts} max={me.points} color={Colors.gold} />
+        </Card>
+
         {/* Forma recente */}
         {(() => {
           const recentGames = state.competitions
             .flatMap(c => c.matches)
             .filter(m => m.scoreA != null && m.scoreB != null)
-            .filter(m => (m.teamA ?? [m.aId]).includes(MY_ID) || (m.teamB ?? [m.bId]).includes(MY_ID))
+            .filter(m => (m.teamA ?? [m.aId]).includes(id!) || (m.teamB ?? [m.bId]).includes(id!))
             .slice(-6);
           if (recentGames.length === 0) return null;
           const results = recentGames.map(m => {
-            const inA = (m.teamA ?? [m.aId]).includes(MY_ID);
+            const inA = (m.teamA ?? [m.aId]).includes(id!);
             return inA ? m.scoreA! > m.scoreB! : m.scoreB! > m.scoreA!;
           });
           return (
@@ -192,13 +214,28 @@ export default function ProfileScreen() {
           );
         })()}
 
-        {/* Quebra de pontos */}
-        <Card>
-          <Text style={styles.sectionTitle}>Quebra dos Pontos</Text>
-          <Bar label="Vitórias ×3"   value={wPts}  max={me.points} color={Colors.teal} />
-          <Bar label="Partidas ×0,5" value={jPts}  max={me.points} color={Colors.text} />
-          <Bar label="GA ×2"         value={gaPts} max={me.points} color={Colors.gold} />
-        </Card>
+        {/* Head-to-head */}
+        {h2hList.length > 0 && (
+          <Card>
+            <Text style={styles.sectionTitle}>Confronto direto</Text>
+            {h2hList.map(h => {
+              const opp = PLAYERS.find(p => p.id === h.oppId);
+              const oppName = opp?.name ?? h.oppId;
+              const oppColor = opp?.color ?? Colors.muted;
+              const rate = h.total > 0 ? Math.round((h.wins / h.total) * 100) : 0;
+              return (
+                <View key={h.oppId} style={h2hRow.row}>
+                  <Avatar name={oppName} color={oppColor} size={28} />
+                  <Text style={h2hRow.name} numberOfLines={1}>{oppName}</Text>
+                  <Text style={[h2hRow.wins, { color: Colors.teal }]}>{h.wins}V</Text>
+                  <Text style={h2hRow.sep}> · </Text>
+                  <Text style={[h2hRow.wins, { color: Colors.coral }]}>{h.losses}D</Text>
+                  <Text style={h2hRow.rate}>{rate}%</Text>
+                </View>
+              );
+            })}
+          </Card>
+        )}
 
         {/* Histórico de partidas */}
         {matchHistory.length > 0 && (
@@ -206,36 +243,30 @@ export default function ProfileScreen() {
             <Text style={styles.sectionTitle}>Histórico de partidas</Text>
             {matchHistory.map((h, i) => (
               <View key={i} style={[hist.row, i < matchHistory.length - 1 && hist.border]}>
-                <View style={[hist.badge, { backgroundColor: h.won ? Colors.teal + '33' : Colors.coral + '33' }]}>
-                  <Text style={[hist.badgeText, { color: h.won ? Colors.teal : Colors.coral }]}>
+                <View style={[hist.result, { backgroundColor: h.won ? Colors.teal + '33' : Colors.coral + '33' }]}>
+                  <Text style={[hist.resultText, { color: h.won ? Colors.teal : Colors.coral }]}>
                     {h.won ? 'V' : 'D'}
                   </Text>
                 </View>
                 <View style={hist.info}>
                   <Text style={hist.opp} numberOfLines={1}>vs {h.opponents}</Text>
-                  <Text style={hist.compName} numberOfLines={1}>{h.compName}</Text>
+                  <Text style={hist.comp} numberOfLines={1}>{h.compName}</Text>
                 </View>
                 <Text style={[hist.score, { color: h.won ? Colors.teal : Colors.coral }]}>
-                  {h.myScore}–{h.oppScore}
+                  {h.scoreA}–{h.scoreB}
                 </Text>
               </View>
             ))}
           </Card>
         )}
 
-        {/* Conta */}
-        <Card style={styles.accountCard}>
-          <Text style={styles.accountEmail}>{user?.email ?? user?.displayName}</Text>
-          {group && (
-            <Text style={styles.groupInfo}>Grupo: {group.name} · {group.code}</Text>
-          )}
-          <TouchableOpacity style={styles.leaveGroupBtn} onPress={() => router.push('/(auth)/groups')} activeOpacity={0.8}>
-            <Text style={styles.leaveGroupText}>Trocar de grupo</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-            <Text style={styles.logoutText}>Sair da conta</Text>
-          </TouchableOpacity>
-        </Card>
+        {matchHistory.length === 0 && (
+          <Card style={{ alignItems: 'center', padding: Spacing.lg }}>
+            <Text style={{ fontFamily: FontFamily.body, fontSize: 14, color: Colors.faint }}>
+              Nenhuma partida registrada ainda.
+            </Text>
+          </Card>
+        )}
 
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
@@ -243,48 +274,46 @@ export default function ProfileScreen() {
   );
 }
 
+const h2hRow = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.xs },
+  name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
+  wins: { fontFamily: FontFamily.numberBold, fontSize: 13 },
+  sep: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint },
+  rate: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted, width: 36, textAlign: 'right' },
+});
+
 const hist = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
   border: { borderBottomWidth: 1, borderBottomColor: Colors.line },
-  badge: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  badgeText: { fontFamily: FontFamily.numberBold, fontSize: 12 },
+  result: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  resultText: { fontFamily: FontFamily.numberBold, fontSize: 12 },
   info: { flex: 1, gap: 2 },
   opp: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
-  compName: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+  comp: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
   score: { fontFamily: FontFamily.numberBold, fontSize: 15 },
 });
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   scroll: { padding: Spacing.md, gap: Spacing.md },
+  backRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs },
+  backText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.teal },
+
   heroBanner: { position: 'relative', overflow: 'hidden', borderRadius: Radius.lg, marginBottom: Spacing.sm },
   heroBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 120 },
   heroInner: { alignItems: 'center', paddingTop: Spacing.xl, paddingBottom: Spacing.lg, gap: Spacing.sm },
   name: { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text },
   titleText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted },
   badges: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
+
   ptsCard: { alignItems: 'center', gap: 4 },
   ptsLabel: { fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted, letterSpacing: 2 },
   ptsVal: { fontFamily: FontFamily.titleBold, fontSize: 52, color: Colors.gold, lineHeight: 60 },
   ptsEq: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted },
+
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   cell: { width: '47%', alignItems: 'center', gap: 2, padding: Spacing.md, backgroundColor: Colors.surf, borderRadius: Radius.md },
   cellVal: { fontFamily: FontFamily.titleBold, fontSize: 26 },
   cellLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
   sectionTitle: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.text, marginBottom: Spacing.sm },
-  accountCard: { gap: Spacing.sm, alignItems: 'center' },
-  accountEmail: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
-  groupInfo: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.gold },
-  leaveGroupBtn: {
-    borderWidth: 1, borderColor: Colors.line,
-    borderRadius: Radius.md, paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.xl, alignItems: 'center',
-  },
-  leaveGroupText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
-  logoutBtn: {
-    borderWidth: 1, borderColor: Colors.coral + '66',
-    borderRadius: Radius.md, paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.xl, alignItems: 'center',
-  },
-  logoutText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.coral },
 });
