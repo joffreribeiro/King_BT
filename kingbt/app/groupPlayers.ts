@@ -1,5 +1,5 @@
 import { collection, onSnapshot, addDoc, deleteDoc, doc, getDocs } from 'firebase/firestore';
-import { db } from './config';
+import { db } from '@/firebase/config';
 
 export type GroupPlayer = {
   id: string;
