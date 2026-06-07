@@ -2,8 +2,6 @@ import React, { createContext, useContext, useEffect, useState, type ReactNode }
 import {
   onAuthStateChanged,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
@@ -54,18 +52,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError]   = useState<string | null>(null);
 
-  // Captura resultado do redirect do Google
+  // Captura resultado do redirect do Google (web only)
   useEffect(() => {
-    getRedirectResult(auth).then(async (result) => {
-      if (result?.user) {
-        await setDoc(doc(db, 'users', result.user.uid), {
-          name: result.user.displayName,
-          email: result.user.email,
-          photoURL: result.user.photoURL,
-          updatedAt: new Date().toISOString(),
-        }, { merge: true });
-      }
-    }).catch(() => {});
+    if (Platform.OS !== 'web') return;
+    import('firebase/auth').then(({ getRedirectResult }) => {
+      getRedirectResult(auth).then(async (result) => {
+        if (result?.user) {
+          await setDoc(doc(db, 'users', result.user.uid), {
+            name: result.user.displayName,
+            email: result.user.email,
+            photoURL: result.user.photoURL,
+            updatedAt: new Date().toISOString(),
+          }, { merge: true });
+        }
+      }).catch(() => {});
+    });
   }, []);
 
   // Escuta mudanças de auth
@@ -77,18 +78,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userDoc = await getDoc(doc(db, 'users', u.uid));
         console.log('[Auth] userDoc exists:', userDoc.exists(), userDoc.data());
         if (userDoc.exists()) {
-          const { groupId } = userDoc.data();
-          console.log('[Auth] groupId:', groupId);
+          const { groupId, groupIds } = userDoc.data();
+          // Garante que o grupo atual está salvo no histórico
           if (groupId) {
+            const prevIds: string[] = groupIds ?? [];
+            if (!prevIds.includes(groupId)) {
+              await setDoc(doc(db, 'users', u.uid), { groupIds: [...prevIds, groupId] }, { merge: true });
+            }
             const groupDoc = await getDoc(doc(db, 'groups', groupId));
-            console.log('[Auth] groupDoc exists:', groupDoc.exists());
             if (groupDoc.exists()) {
               const gData = groupDoc.data();
               const g = { id: groupDoc.id, ...gData } as Group;
               setGroup(g);
               const admins: string[] = gData.admins ?? [];
               setIsAdmin(admins.includes(u.uid));
-              console.log('[Auth] group set:', g.name, 'isAdmin:', admins.includes(u.uid));
             }
           }
         }
@@ -102,34 +105,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function signInWithGoogle() {
+    if (Platform.OS !== 'web') return; // Google login só disponível na web
     try {
       setError(null);
       const provider = new GoogleAuthProvider();
       provider.addScope('email');
       provider.addScope('profile');
-      if (Platform.OS === 'web') {
-        const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-        if (isMobile) {
-          await signInWithRedirect(auth, provider);
-        } else {
-          try {
-            const result = await signInWithPopup(auth, provider);
-            await setDoc(doc(db, 'users', result.user.uid), {
-              name: result.user.displayName,
-              email: result.user.email,
-              photoURL: result.user.photoURL,
-              updatedAt: new Date().toISOString(),
-            }, { merge: true });
-          } catch (popupErr: any) {
-            if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user') {
-              await signInWithRedirect(auth, provider);
-            } else {
-              throw popupErr;
-            }
+      const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+      if (isMobile) {
+        const { signInWithRedirect } = await import('firebase/auth');
+        await signInWithRedirect(auth, provider);
+      } else {
+        try {
+          const result = await signInWithPopup(auth, provider);
+          await setDoc(doc(db, 'users', result.user.uid), {
+            name: result.user.displayName,
+            email: result.user.email,
+            photoURL: result.user.photoURL,
+            updatedAt: new Date().toISOString(),
+          }, { merge: true });
+        } catch (popupErr: any) {
+          if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user') {
+            const { signInWithRedirect } = await import('firebase/auth');
+            await signInWithRedirect(auth, provider);
+          } else {
+            throw popupErr;
           }
         }
-      } else {
-        await signInWithRedirect(auth, provider);
       }
     } catch (e: any) {
       if (e.code !== 'auth/popup-closed-by-user') {
