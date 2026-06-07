@@ -12,6 +12,25 @@ import {
 import { Platform } from 'react-native';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '@/firebase/config';
+import * as Device from 'expo-device';
+import * as Localization from 'expo-localization';
+
+function collectDeviceInfo(via: 'email' | 'google' | 'invite') {
+  return {
+    registeredAt: new Date().toISOString(),
+    registeredVia: via,
+    platform: Platform.OS,
+    platformVersion: Platform.Version,
+    deviceBrand: Device.brand ?? null,
+    deviceModel: Device.modelName ?? null,
+    deviceType: Device.deviceType === 1 ? 'phone' : Device.deviceType === 2 ? 'tablet' : 'unknown',
+    osName: Device.osName ?? null,
+    osVersion: Device.osVersion ?? null,
+    locale: Localization.getLocales()[0]?.languageTag ?? null,
+    region: Localization.getLocales()[0]?.regionCode ?? null,
+    timezone: Localization.getCalendars()[0]?.timeZone ?? null,
+  };
+}
 
 export type Group = {
   id: string;
@@ -63,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: result.user.email,
             photoURL: result.user.photoURL,
             updatedAt: new Date().toISOString(),
+            ...collectDeviceInfo('google'),
           }, { merge: true });
         }
       }).catch(() => {});
@@ -123,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             email: result.user.email,
             photoURL: result.user.photoURL,
             updatedAt: new Date().toISOString(),
+            ...collectDeviceInfo('google'),
           }, { merge: true });
         } catch (popupErr: any) {
           if (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/popup-closed-by-user') {
@@ -156,6 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await updateProfile(result.user, { displayName: name });
       await setDoc(doc(db, 'users', result.user.uid), {
         name, email, updatedAt: new Date().toISOString(),
+        ...collectDeviceInfo('email'),
       }, { merge: true });
     } catch (e: any) {
       if (e.code === 'auth/email-already-in-use') setError('E-mail já cadastrado.');
@@ -199,7 +221,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userSnap = await getDoc(doc(db, 'users', user.uid));
       const prevGroupIds: string[] = userSnap.data()?.groupIds ?? [];
       const groupIds = prevGroupIds.includes(groupDoc.id) ? prevGroupIds : [...prevGroupIds, groupDoc.id];
-      await setDoc(doc(db, 'users', user.uid), { groupId: groupDoc.id, groupIds }, { merge: true });
+      await setDoc(doc(db, 'users', user.uid), {
+        groupId: groupDoc.id, groupIds,
+        lastJoinedGroupAt: new Date().toISOString(),
+        ...collectDeviceInfo('invite'),
+      }, { merge: true });
       const g = { id: groupDoc.id, ...groupData } as Group;
       setGroup(g);
       const admins: string[] = groupData.admins ?? [];
