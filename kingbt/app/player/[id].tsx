@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
@@ -122,6 +122,29 @@ export default function PlayerDetailScreen() {
     .filter(x => x.total > 0)
     .sort((a, b) => b.total - a.total);
 
+  // Competitions history
+  const competitionHistory = state.competitions
+    .filter(comp => {
+      if (comp.format === 'avulso' || comp.format === 'super8')
+        return comp.matches.some(m => m.teamA?.includes(id!) || m.teamB?.includes(id!));
+      return comp.competitors.some(c => c.members.includes(id!) || c.id === id);
+    })
+    .map(comp => {
+      let wins = 0, losses = 0;
+      comp.matches.forEach(m => {
+        if (m.scoreA == null || m.scoreB == null) return;
+        const inA = m.teamA ? m.teamA.includes(id!) : m.aId === id;
+        const inB = m.teamB ? m.teamB.includes(id!) : m.bId === id;
+        if (!inA && !inB) return;
+        const ms = inA ? m.scoreA : m.scoreB;
+        const os = inA ? m.scoreB : m.scoreA;
+        if (ms > os) wins++; else losses++;
+      });
+      return { comp, wins, losses };
+    })
+    .filter(x => x.wins + x.losses > 0)
+    .reverse();
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
@@ -224,16 +247,44 @@ export default function PlayerDetailScreen() {
               const oppColor = opp?.color ?? Colors.muted;
               const rate = h.total > 0 ? Math.round((h.wins / h.total) * 100) : 0;
               return (
-                <View key={h.oppId} style={h2hRow.row}>
+                <TouchableOpacity
+                  key={h.oppId}
+                  style={h2hRow.row}
+                  onPress={() => router.push({ pathname: '/player/[id]', params: { id: h.oppId } })}
+                  activeOpacity={0.7}
+                >
                   <Avatar name={oppName} color={oppColor} size={28} />
                   <Text style={h2hRow.name} numberOfLines={1}>{oppName}</Text>
                   <Text style={[h2hRow.wins, { color: Colors.teal }]}>{h.wins}V</Text>
                   <Text style={h2hRow.sep}> · </Text>
                   <Text style={[h2hRow.wins, { color: Colors.coral }]}>{h.losses}D</Text>
                   <Text style={h2hRow.rate}>{rate}%</Text>
-                </View>
+                </TouchableOpacity>
               );
             })}
+          </Card>
+        )}
+
+        {/* Competições */}
+        {competitionHistory.length > 0 && (
+          <Card>
+            <Text style={styles.sectionTitle}>Competições</Text>
+            {competitionHistory.map((item, i) => (
+              <TouchableOpacity
+                key={item.comp.id}
+                style={[compHist.row, i < competitionHistory.length - 1 && compHist.border]}
+                onPress={() => router.push({ pathname: '/competitions/[id]', params: { id: item.comp.id } })}
+                activeOpacity={0.7}
+              >
+                <View style={compHist.info}>
+                  <Text style={compHist.name} numberOfLines={1}>{item.comp.name}</Text>
+                  <Text style={compHist.meta}>{item.comp.format.toUpperCase()} · {item.comp.date}</Text>
+                </View>
+                <Text style={[compHist.record, { color: item.wins > item.losses ? Colors.teal : Colors.muted }]}>
+                  {item.wins}V–{item.losses}D
+                </Text>
+              </TouchableOpacity>
+            ))}
           </Card>
         )}
 
@@ -291,6 +342,15 @@ const hist = StyleSheet.create({
   opp: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
   comp: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
   score: { fontFamily: FontFamily.numberBold, fontSize: 15 },
+});
+
+const compHist = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
+  border: { borderBottomWidth: 1, borderBottomColor: Colors.line },
+  info: { flex: 1, gap: 2 },
+  name: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
+  meta: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+  record: { fontFamily: FontFamily.numberBold, fontSize: 14 },
 });
 
 const styles = StyleSheet.create({

@@ -11,9 +11,38 @@ import { extractPlayerGames } from '@/logic/formats';
 
 const MY_ID = 'p1';
 
+function h2hBetween(
+  state: ReturnType<typeof import('@/store/CompetitionsContext').useCompetitions>['state'],
+  idA: string,
+  idB: string
+) {
+  let wA = 0, wB = 0;
+  state.competitions.forEach(comp => {
+    comp.matches.forEach(m => {
+      if (m.scoreA == null || m.scoreB == null) return;
+      const aInA = m.aId === idA || m.teamA?.includes(idA);
+      const bInA = m.aId === idB || m.teamA?.includes(idB);
+      const aInB = m.bId === idA || m.teamB?.includes(idA);
+      const bInB = m.bId === idB || m.teamB?.includes(idB);
+      const together = (aInA && bInA) || (aInB && bInB);
+      if (together) return;
+      const aWonGame = m.scoreA > m.scoreB;
+      if ((aInA && !aInB) && (bInB && !bInA)) {
+        if (aWonGame) wA++; else wB++;
+      } else if ((aInB && !aInA) && (bInA && !bInB)) {
+        if (!aWonGame) wA++; else wB++;
+      }
+    });
+  });
+  return { wA, wB };
+}
+
 export default function RankingScreen() {
   const { state } = useCompetitions();
   const [showFormula, setShowFormula] = useState(false);
+  const [compareA, setCompareA] = useState<string | null>(null);
+  const [compareB, setCompareB] = useState<string | null>(null);
+  const [showCompare, setShowCompare] = useState(false);
 
   const allGames = state.competitions.flatMap(extractPlayerGames);
   const ranking = buildRanking(
@@ -35,9 +64,14 @@ export default function RankingScreen() {
             <Text style={styles.title}>Ranking</Text>
             <Text style={styles.subtitle}>Temporada 2026 · BT na Quadra</Text>
           </View>
-          <TouchableOpacity style={styles.formulaBtn} onPress={() => setShowFormula(true)}>
-            <Text style={styles.formulaBtnText}>Como pontua?</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+            <TouchableOpacity style={styles.formulaBtn} onPress={() => setShowCompare(true)}>
+              <Text style={styles.formulaBtnText}>Comparar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.formulaBtn} onPress={() => setShowFormula(true)}>
+              <Text style={styles.formulaBtnText}>Como pontua?</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Pódio */}
@@ -101,6 +135,83 @@ export default function RankingScreen() {
 
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
+
+      {/* Modal comparar jogadores */}
+      <Modal visible={showCompare} transparent animationType="slide">
+        <TouchableOpacity style={modal.overlay} onPress={() => setShowCompare(false)} activeOpacity={1}>
+          <View style={modal.sheet}>
+            <Text style={modal.title}>Comparar jogadores</Text>
+            <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+              {([compareA, compareB] as const).map((sel, side) => (
+                <View key={side} style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, marginBottom: 4, textAlign: 'center' }}>
+                    Jogador {side + 1}
+                  </Text>
+                  <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled>
+                    {ranking.map(r => {
+                      const pl = PLAYERS.find(p => p.id === r.id)!;
+                      const selected = sel === r.id;
+                      return (
+                        <TouchableOpacity
+                          key={r.id}
+                          style={[cmp.playerOpt, selected && cmp.playerOptActive]}
+                          onPress={() => side === 0 ? setCompareA(r.id) : setCompareB(r.id)}
+                        >
+                          <Avatar name={pl.name} color={pl.color} size={22} />
+                          <Text style={[cmp.playerOptText, selected && { color: Colors.gold }]} numberOfLines={1}>
+                            {pl.name.split(' ')[0]}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              ))}
+            </View>
+
+            {compareA && compareB && compareA !== compareB && (() => {
+              const pA = ranking.find(r => r.id === compareA)!;
+              const pB = ranking.find(r => r.id === compareB)!;
+              const plA = PLAYERS.find(p => p.id === compareA)!;
+              const plB = PLAYERS.find(p => p.id === compareB)!;
+              const { wA, wB } = h2hBetween(state, compareA, compareB);
+              const stats: { label: string; a: string | number; b: string | number }[] = [
+                { label: 'Pontos', a: pA.points.toFixed(2), b: pB.points.toFixed(2) },
+                { label: 'Vitórias', a: pA.wins, b: pB.wins },
+                { label: 'Derrotas', a: pA.losses, b: pB.losses },
+                { label: 'GA', a: pA.ga.toFixed(2), b: pB.ga.toFixed(2) },
+                { label: 'H2H', a: `${wA}V`, b: `${wB}V` },
+              ];
+              return (
+                <View style={cmp.compareCard}>
+                  <View style={cmp.compareHeader}>
+                    <View style={{ alignItems: 'center', flex: 1 }}>
+                      <Avatar name={plA.name} color={plA.color} size={36} />
+                      <Text style={cmp.compareName} numberOfLines={1}>{plA.name.split(' ')[0]}</Text>
+                    </View>
+                    <Text style={cmp.compareVs}>vs</Text>
+                    <View style={{ alignItems: 'center', flex: 1 }}>
+                      <Avatar name={plB.name} color={plB.color} size={36} />
+                      <Text style={cmp.compareName} numberOfLines={1}>{plB.name.split(' ')[0]}</Text>
+                    </View>
+                  </View>
+                  {stats.map(st => (
+                    <View key={st.label} style={cmp.statRow}>
+                      <Text style={[cmp.statVal, { textAlign: 'right' }]}>{st.a}</Text>
+                      <Text style={cmp.statLabel}>{st.label}</Text>
+                      <Text style={[cmp.statVal, { textAlign: 'left' }]}>{st.b}</Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })()}
+
+            <TouchableOpacity style={modal.closeBtn} onPress={() => setShowCompare(false)}>
+              <Text style={modal.closeBtnText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Modal fórmula */}
       <Modal visible={showFormula} transparent animationType="slide">
@@ -251,6 +362,19 @@ const styles = StyleSheet.create({
   youText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold },
   statText: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.text, textAlign: 'center' },
   ptsText: { fontFamily: FontFamily.numberBold, fontSize: 14, color: Colors.gold, textAlign: 'right' },
+});
+
+const cmp = StyleSheet.create({
+  playerOpt: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 5, paddingHorizontal: Spacing.xs, borderRadius: Radius.sm },
+  playerOptActive: { backgroundColor: Colors.gold + '22' },
+  playerOptText: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, flex: 1 },
+  compareCard: { backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm, marginTop: Spacing.sm },
+  compareHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xs },
+  compareName: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, marginTop: 4 },
+  compareVs: { fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.faint },
+  statRow: { flexDirection: 'row', alignItems: 'center' },
+  statVal: { flex: 1, fontFamily: FontFamily.numberBold, fontSize: 14, color: Colors.text },
+  statLabel: { width: 64, textAlign: 'center', fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
 });
 
 const modal = StyleSheet.create({

@@ -320,6 +320,9 @@ export default function ProfileScreen() {
           {group && (
             <Text style={styles.groupInfo}>Grupo: {group.name} · {group.code}</Text>
           )}
+          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/settings')} activeOpacity={0.8}>
+            <Text style={styles.settingsBtnText}>⚙️  Configurações</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.leaveGroupBtn} onPress={() => router.push('/(auth)/groups')} activeOpacity={0.8}>
             <Text style={styles.leaveGroupText}>Trocar de grupo</Text>
           </TouchableOpacity>
@@ -366,6 +369,12 @@ const styles = StyleSheet.create({
   accountCard: { gap: Spacing.sm, alignItems: 'center' },
   accountEmail: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   groupInfo: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.gold },
+  settingsBtn: {
+    borderWidth: 1, borderColor: Colors.line,
+    borderRadius: Radius.md, paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xl, alignItems: 'center',
+  },
+  settingsBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
   leaveGroupBtn: {
     borderWidth: 1, borderColor: Colors.line,
     borderRadius: Radius.md, paddingVertical: Spacing.sm,

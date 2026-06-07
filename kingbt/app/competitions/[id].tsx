@@ -8,10 +8,11 @@ import { useState } from 'react';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
 import { PLAYERS } from '@/mocks/data';
-import { standings, groupComplete, matchWinner, matchLoser, koRoundName } from '@/logic/formats';
+import { standings, groupComplete, matchWinner, matchLoser, koRoundName, competitionChampion } from '@/logic/formats';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { useSettings } from '@/store/SettingsContext';
 import type { Match, Competition } from '@/logic/types';
 
 function getPlayer(id: string) {
@@ -594,6 +595,15 @@ function GroupsView({ comp, onScore, onClear }: { comp: Competition; onScore: (m
             </View>
           ))}
 
+          {tab === 'grupos' && allGroupsDone && (
+            <View style={vw.groupsDoneBanner}>
+              <Text style={vw.groupsDoneTitle}>✅ Fase de grupos concluída!</Text>
+              <TouchableOpacity style={vw.groupsDoneBtn} onPress={() => setTab('chave')}>
+                <Text style={vw.groupsDoneBtnText}>Ver Mata-mata →</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {tab === 'jogos' && comp.groupDefs?.map((gd, gi) => (
             <View key={gi}>
               <Text style={vw.section}>{gd.name}</Text>
@@ -609,6 +619,33 @@ function GroupsView({ comp, onScore, onClear }: { comp: Competition; onScore: (m
       )}
     </View>
   );
+}
+
+function buildBracketShareText(comp: Competition): string {
+  const lines: string[] = [`🏆 ${comp.name} — CHAVEAMENTO\n`];
+  const roundNums = [...new Set(
+    comp.matches.filter(m => m.stage === 'ko' && !m.third).map(m => m.koRound ?? 0)
+  )].sort((a, b) => a - b);
+  roundNums.forEach(r => {
+    const rMatches = comp.matches.filter(m => m.koRound === r && !m.third);
+    lines.push(koRoundName(rMatches[0]?.cnt ?? 0) + ':');
+    rMatches.forEach(m => {
+      const nA = m.aId ? comp.competitors.find(c => c.id === m.aId)?.name ?? '?' : '?';
+      const nB = m.bId ? comp.competitors.find(c => c.id === m.bId)?.name ?? '?' : '?';
+      if (m.scoreA != null) lines.push(`  ${nA} ${m.scoreA}–${m.scoreB} ${nB}`);
+      else lines.push(`  ${nA} vs ${nB}`);
+    });
+  });
+  const third = comp.matches.find(m => m.stage === 'ko' && m.third);
+  if (third?.scoreA != null) {
+    const nA = third.aId ? comp.competitors.find(c => c.id === third.aId)?.name ?? '?' : '?';
+    const nB = third.bId ? comp.competitors.find(c => c.id === third.bId)?.name ?? '?' : '?';
+    lines.push(`\n3º Lugar:\n  ${nA} ${third.scoreA}–${third.scoreB} ${nB}`);
+  }
+  const champ = competitionChampion(comp);
+  if (champ) lines.push(`\n🥇 Campeão: ${champ.name}`);
+  lines.push('\nEnviado pelo King BT 👑');
+  return lines.join('\n');
 }
 
 function KOView({ comp, onScore, onClear }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void }) {
@@ -627,6 +664,12 @@ function KOView({ comp, onScore, onClear }: { comp: Competition; onScore: (m: Ma
             </Text>
           </TouchableOpacity>
         ))}
+        <TouchableOpacity
+          style={[tabs.tab, { flex: 0, paddingHorizontal: Spacing.md }]}
+          onPress={() => Share.share({ message: buildBracketShareText(comp) }).catch(() => {})}
+        >
+          <Text style={[tabs.text, { fontSize: 16 }]}>↑</Text>
+        </TouchableOpacity>
       </View>
 
       {viewMode === 'chave' && <BracketView comp={comp} onScore={onScore} onClear={onClear} />}
@@ -672,6 +715,10 @@ const vw = StyleSheet.create({
   section: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.muted, letterSpacing: 1, marginTop: Spacing.sm, marginBottom: Spacing.xs },
   locked: { alignItems: 'center', padding: Spacing.xl },
   lockedText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, textAlign: 'center' },
+  groupsDoneBanner: { backgroundColor: Colors.teal + '18', borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center', gap: Spacing.sm, borderWidth: 1, borderColor: Colors.teal + '44', marginTop: Spacing.sm },
+  groupsDoneTitle: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.teal },
+  groupsDoneBtn: { backgroundColor: Colors.teal, borderRadius: Radius.md, paddingVertical: Spacing.xs + 2, paddingHorizontal: Spacing.md },
+  groupsDoneBtnText: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.bg },
 });
 
 const tabs = StyleSheet.create({
@@ -692,6 +739,7 @@ function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }:
   isAdmin?: boolean;
 }) {
   const { findPlayer } = useGroupPlayers();
+  const { defaultMaxScore } = useSettings();
   const [sA, setSA] = useState(match?.scoreA != null ? String(match.scoreA) : '');
   const [sB, setSB] = useState(match?.scoreB != null ? String(match.scoreB) : '');
   if (!match) return null;
@@ -741,6 +789,19 @@ function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }:
               </View>
             ))}
           </View>
+          {/* Quick score chips */}
+          {!alreadyScored && (
+            <View style={sc.quickRow}>
+              <Text style={sc.quickLabel}>Placar rápido:</Text>
+              <View style={sc.quickChips}>
+                {Array.from({ length: defaultMaxScore }, (_, i) => i).map(v => (
+                  <TouchableOpacity key={v} style={sc.quickChip} onPress={() => { setSA(String(defaultMaxScore)); setSB(String(v)); }}>
+                    <Text style={sc.quickChipText}>{defaultMaxScore}-{v}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
           {draw && <Text style={sc.warn}>⚠️ Empate não permitido</Text>}
           {alreadyScored && !isAdmin && (
             <Text style={sc.lockedText}>🔒 Placar já registrado. Apenas admin pode corrigir.</Text>
@@ -793,6 +854,11 @@ const sc = StyleSheet.create({
   adminNote: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.gold, textAlign: 'center' },
   clearBtn: { alignItems: 'center', paddingVertical: Spacing.xs },
   clearBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.coral },
+  quickRow: { gap: 6 },
+  quickLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center' },
+  quickChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' },
+  quickChip: { backgroundColor: Colors.surf2, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: Colors.line },
+  quickChipText: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.teal },
 });
 
 // ─── Edit Name Modal ──────────────────────────────────────────────────────────
