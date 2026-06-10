@@ -1,7 +1,7 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Platform, TextInput } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Platform, TextInput, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -42,6 +42,40 @@ const FORMAT_FILTERS: { key: Format | 'all'; label: string }[] = [
   { key: 'mata',   label: 'Mata-mata' },
   { key: 'super8', label: 'Super 8' },
 ];
+
+function Skeleton({ width = '100%' as number | string, height = 16, radius = 8 }: {
+  width?: number | string; height?: number; radius?: number;
+}) {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.7, duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.3, duration: 700, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return <Animated.View style={{ width, height, borderRadius: radius, backgroundColor: Colors.surf2, opacity }} />;
+}
+
+function SkeletonCard() {
+  return (
+    <View style={{ backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm, marginHorizontal: Spacing.md }}>
+      <View style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }}>
+        <Skeleton width={36} height={36} radius={8} />
+        <View style={{ flex: 1, gap: 6 }}>
+          <Skeleton width="60%" height={14} />
+          <Skeleton width="40%" height={10} />
+        </View>
+      </View>
+      <Skeleton height={1} radius={1} />
+      <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+        <Skeleton width="30%" height={10} />
+        <Skeleton width="20%" height={10} />
+      </View>
+    </View>
+  );
+}
 
 function formatDate(iso: string) {
   const d = new Date(iso + 'T12:00:00');
@@ -304,21 +338,29 @@ export default function HubScreen() {
         }}
         ItemSeparatorComponent={() => <View style={{ height: Spacing.xs }} />}
         ListEmptyComponent={
-          <Card style={styles.empty}>
-            {hasFilter ? (
-              <>
-                <Text style={styles.emptyText}>Nenhum resultado.</Text>
-                <TouchableOpacity onPress={() => { setStatusFilter('all'); setFormatFilter('all'); setSearch(''); }}>
-                  <Text style={[styles.emptyHint, { color: Colors.teal }]}>Limpar filtros</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <>
-                <Text style={styles.emptyText}>Nenhuma competição ainda.</Text>
-                <Text style={styles.emptyHint}>Toque em "+ Criar competição" para começar.</Text>
-              </>
-            )}
-          </Card>
+          !state.synced ? (
+            <View style={{ gap: Spacing.sm, paddingTop: Spacing.xs }}>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </View>
+          ) : (
+            <Card style={styles.empty}>
+              {hasFilter ? (
+                <>
+                  <Text style={styles.emptyText}>Nenhum resultado.</Text>
+                  <TouchableOpacity onPress={() => { setStatusFilter('all'); setFormatFilter('all'); setSearch(''); }}>
+                    <Text style={[styles.emptyHint, { color: Colors.teal }]}>Limpar filtros</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.emptyText}>Nenhuma competição ainda.</Text>
+                  <Text style={styles.emptyHint}>Toque em "+ Criar competição" para começar.</Text>
+                </>
+              )}
+            </Card>
+          )
         }
       />
     </SafeAreaView>

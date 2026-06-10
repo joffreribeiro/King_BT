@@ -1,15 +1,20 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { router } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Card } from '@/components';
-import { PLAYERS } from '@/mocks/data';
+import { GROUP } from '@/mocks/data';
 import { useCompetitions } from '@/store/CompetitionsContext';
+import { useAuth } from '@/store/AuthContext';
+import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
+import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print';
+import { generateRankingHtml } from '@/logic/rankingHtml';
+import type { PlayerInfo } from '@/store/GroupPlayersContext';
 
-const MY_ID = 'p1';
 
 function h2hBetween(
   state: ReturnType<typeof import('@/store/CompetitionsContext').useCompetitions>['state'],
@@ -39,14 +44,54 @@ function h2hBetween(
 
 export default function RankingScreen() {
   const { state } = useCompetitions();
+  const { myPlayerId } = useAuth();
+  const { groupPlayers, findPlayer } = useGroupPlayers();
   const [showFormula, setShowFormula] = useState(false);
   const [compareA, setCompareA] = useState<string | null>(null);
   const [compareB, setCompareB] = useState<string | null>(null);
   const [showCompare, setShowCompare] = useState(false);
 
-  const allGames = state.competitions.flatMap(extractPlayerGames);
+  const MY_ID = myPlayerId;
+  const [period, setPeriod] = useState<'mes' | 'ano' | 'geral'>('geral');
+  const [showExport, setShowExport] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  function getHtml() {
+    const mockPlayers = groupPlayers.map(p => ({
+      id: p.id, name: p.name, color: p.color,
+      title: '', titleEmoji: '', guest: p.guest ?? false,
+    }));
+    return generateRankingHtml(
+      ranking, mockPlayers, GROUP.name, GROUP.season,
+      GROUP.roundsDone, GROUP.location,
+      new Date().toLocaleDateString('pt-BR'),
+    );
+  }
+
+  async function shareAsPDF() {
+    try {
+      setExporting(true);
+      const { uri } = await Print.printToFileAsync({ html: getHtml(), base64: false, width: 800, height: 1200 });
+      setExporting(false);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Ranking King BT' });
+      }
+    } catch {
+      setExporting(false);
+      Alert.alert('Erro', 'Não foi possível gerar o PDF.');
+    }
+  }
+
+  const filteredComps = state.competitions.filter(c => {
+    if (period === 'geral') return true;
+    const d = new Date(c.date + 'T12:00:00');
+    const now = new Date();
+    if (period === 'mes') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    return d.getFullYear() === now.getFullYear();
+  });
+  const allGames = filteredComps.flatMap(extractPlayerGames);
   const ranking = buildRanking(
-    PLAYERS.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color })),
+    groupPlayers.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color })),
     allGames
   );
 
@@ -71,15 +116,35 @@ export default function RankingScreen() {
             <TouchableOpacity style={styles.formulaBtn} onPress={() => setShowFormula(true)}>
               <Text style={styles.formulaBtnText}>Como pontua?</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={[styles.formulaBtn, { borderColor: Colors.gold + '66' }]} onPress={() => setShowExport(true)}>
+              <Text style={[styles.formulaBtnText, { color: Colors.gold }]}>PDF</Text>
+            </TouchableOpacity>
           </View>
+        </View>
+
+        {/* Filtro de período */}
+        <View style={{ flexDirection: 'row', backgroundColor: Colors.surf2, borderRadius: Radius.md, margin: Spacing.md, marginTop: 0, padding: 3 }}>
+          {(['mes', 'ano', 'geral'] as const).map(p => (
+            <TouchableOpacity
+              key={p}
+              style={{ flex: 1, paddingVertical: 7, borderRadius: Radius.sm, alignItems: 'center',
+                backgroundColor: period === p ? Colors.surf : 'transparent' }}
+              onPress={() => setPeriod(p)}
+            >
+              <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12,
+                color: period === p ? Colors.gold : Colors.faint }}>
+                {{ mes: 'Este mês', ano: 'Este ano', geral: 'Geral' }[p]}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Pódio */}
         {ranking.length >= 3 && (
           <View style={styles.podium}>
-            <PodiumSlot player={second} pos={2} isMe={second.id === MY_ID} />
-            <PodiumSlot player={first}  pos={1} isMe={first.id  === MY_ID} center />
-            <PodiumSlot player={third}  pos={3} isMe={third.id  === MY_ID} />
+            <PodiumSlot player={second} pos={2} isMe={second.id === MY_ID} findPlayer={findPlayer} />
+            <PodiumSlot player={first}  pos={1} isMe={first.id  === MY_ID} center findPlayer={findPlayer} />
+            <PodiumSlot player={third}  pos={3} isMe={third.id  === MY_ID} findPlayer={findPlayer} />
           </View>
         )}
 
@@ -96,7 +161,7 @@ export default function RankingScreen() {
           </View>
 
           {ranking.map((s, i) => {
-            const pl = PLAYERS.find(p => p.id === s.id)!;
+            const pl = findPlayer(s.id);
             const isMe = s.id === MY_ID;
             const sgColor = s.sg > 0 ? Colors.teal : s.sg < 0 ? Colors.coral : Colors.muted;
 
@@ -110,11 +175,11 @@ export default function RankingScreen() {
                 <Text style={[styles.c0, styles.posText, isMe && { color: Colors.gold }]}>{i + 1}</Text>
 
                 <View style={[styles.cName, styles.rowPlayer]}>
-                  <Avatar name={pl.name} color={pl.color} size={30} />
+                  <Avatar name={pl?.name ?? '?'} color={pl?.color ?? '#888'} size={30} />
                   <View style={styles.nameBlock}>
                     <View style={styles.nameRow}>
                       <Text style={[styles.playerName, isMe && { color: Colors.gold }]} numberOfLines={1}>
-                        {pl.name}
+                        {pl?.name ?? s.id}
                       </Text>
                       {isMe && <View style={styles.youBadge}><Text style={styles.youText}>você</Text></View>}
                     </View>
@@ -149,7 +214,7 @@ export default function RankingScreen() {
                   </Text>
                   <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled>
                     {ranking.map(r => {
-                      const pl = PLAYERS.find(p => p.id === r.id)!;
+                      const pl = findPlayer(r.id);
                       const selected = sel === r.id;
                       return (
                         <TouchableOpacity
@@ -172,8 +237,8 @@ export default function RankingScreen() {
             {compareA && compareB && compareA !== compareB && (() => {
               const pA = ranking.find(r => r.id === compareA)!;
               const pB = ranking.find(r => r.id === compareB)!;
-              const plA = PLAYERS.find(p => p.id === compareA)!;
-              const plB = PLAYERS.find(p => p.id === compareB)!;
+              const plA = findPlayer(compareA);
+              const plB = findPlayer(compareB);
               const { wA, wB } = h2hBetween(state, compareA, compareB);
               const stats: { label: string; a: string | number; b: string | number }[] = [
                 { label: 'Pontos', a: pA.points.toFixed(2), b: pB.points.toFixed(2) },
@@ -186,13 +251,13 @@ export default function RankingScreen() {
                 <View style={cmp.compareCard}>
                   <View style={cmp.compareHeader}>
                     <View style={{ alignItems: 'center', flex: 1 }}>
-                      <Avatar name={plA.name} color={plA.color} size={36} />
-                      <Text style={cmp.compareName} numberOfLines={1}>{plA.name.split(' ')[0]}</Text>
+                      <Avatar name={plA?.name ?? '?'} color={plA?.color ?? '#888'} size={36} />
+                      <Text style={cmp.compareName} numberOfLines={1}>{(plA?.name ?? '?').split(' ')[0]}</Text>
                     </View>
                     <Text style={cmp.compareVs}>vs</Text>
                     <View style={{ alignItems: 'center', flex: 1 }}>
-                      <Avatar name={plB.name} color={plB.color} size={36} />
-                      <Text style={cmp.compareName} numberOfLines={1}>{plB.name.split(' ')[0]}</Text>
+                      <Avatar name={plB?.name ?? '?'} color={plB?.color ?? '#888'} size={36} />
+                      <Text style={cmp.compareName} numberOfLines={1}>{(plB?.name ?? '?').split(' ')[0]}</Text>
                     </View>
                   </View>
                   {stats.map(st => (
@@ -214,6 +279,35 @@ export default function RankingScreen() {
       </Modal>
 
       {/* Modal fórmula */}
+      {/* Modal exportar PDF */}
+      <Modal visible={showExport} transparent animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md }}>
+            <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text, textAlign: 'center' }}>Exportar Ranking</Text>
+            <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' }}>
+              Gera PDF com o layout oficial do Ranking Geral King BT.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+              <TouchableOpacity
+                style={{ flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' }}
+                onPress={() => setShowExport(false)}
+              >
+                <Text style={{ fontFamily: FontFamily.body, color: Colors.muted }}>Fechar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 2, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' }}
+                onPress={shareAsPDF}
+                disabled={exporting}
+              >
+                <Text style={{ fontFamily: FontFamily.title, color: Colors.bg }}>
+                  {exporting ? '⏳ Gerando...' : '📄 Gerar e Compartilhar'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={showFormula} transparent animationType="slide">
         <TouchableOpacity style={modal.overlay} onPress={() => setShowFormula(false)} activeOpacity={1}>
           <View style={modal.sheet}>
@@ -260,11 +354,12 @@ const MEDAL = {
   3: { color: '#D89A6A', bg: '#D89A6A18', blockH: 64,  avatarSize: 46 },
 } as Record<number, { color: string; bg: string; blockH: number; avatarSize: number }>;
 
-function PodiumSlot({ player, pos, isMe, center = false }: {
+function PodiumSlot({ player, pos, isMe, center = false, findPlayer }: {
   player: ReturnType<typeof buildRanking>[0];
   pos: number; isMe: boolean; center?: boolean;
+  findPlayer: (id: string) => PlayerInfo | undefined;
 }) {
-  const pl = PLAYERS.find(p => p.id === player.id)!;
+  const pl = findPlayer(player.id);
   const medal = MEDAL[pos];
 
   return (
@@ -273,9 +368,9 @@ function PodiumSlot({ player, pos, isMe, center = false }: {
       onPress={() => router.push({ pathname: '/player/[id]', params: { id: player.id } })}
       activeOpacity={0.8}
     >
-      <Avatar name={pl.name} color={pl.color} size={medal.avatarSize} showCrown={pos === 1} />
+      <Avatar name={pl?.name ?? '?'} color={pl?.color ?? '#888'} size={medal.avatarSize} showCrown={pos === 1} />
       <Text style={[pod.name, pos === 1 && pod.nameCenter, isMe && { color: Colors.gold }]} numberOfLines={1}>
-        {pl.name.split(' ')[0]}
+        {(pl?.name ?? '?').split(' ')[0]}
       </Text>
       <Text style={[pod.pts, { color: medal.color, fontSize: pos === 1 ? 20 : 14 }]}>
         {player.points.toFixed(2)}

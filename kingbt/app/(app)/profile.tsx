@@ -4,17 +4,15 @@ import { useState } from 'react';
 import { router } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
-import { PLAYERS } from '@/mocks/data';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { addGuestPlayer, removeGuestPlayer } from '@/firebase/groupPlayers';
+import QRCode from 'react-native-qrcode-svg';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 
 const GUEST_COLORS = ['#FFD166', '#2DD4BF', '#A78BFA', '#34D399', '#F472B6', '#94A3B8', '#FB923C', '#60A5FA'];
-
-const MY_ID = 'p1';
 
 function Bar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
   return (
@@ -36,11 +34,13 @@ const bar = StyleSheet.create({
 });
 
 export default function ProfileScreen() {
-  const player = PLAYERS.find(p => p.id === MY_ID)!;
   const { state } = useCompetitions();
-  const { logout, leaveGroup, group, user, isAdmin } = useAuth();
-  const { groupPlayers } = useGroupPlayers();
+  const { logout, leaveGroup, group, user, isAdmin, myPlayerId } = useAuth();
+  const { groupPlayers, findPlayer } = useGroupPlayers();
+  const MY_ID = myPlayerId ?? groupPlayers[0]?.id ?? '';
+  const player = groupPlayers.find(p => p.id === MY_ID) ?? groupPlayers[0];
   const [showAddGuest, setShowAddGuest] = useState(false);
+  const [showQR, setShowQR] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [guestColor, setGuestColor] = useState(GUEST_COLORS[0]);
 
@@ -97,7 +97,7 @@ export default function ProfileScreen() {
 
   const allGames = state.competitions.flatMap(extractPlayerGames);
   const ranking = buildRanking(
-    PLAYERS.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0,3).toUpperCase(), color: p.color })),
+    groupPlayers.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0,3).toUpperCase(), color: p.color })),
     allGames
   );
   const me = ranking.find(r => r.id === MY_ID) ?? ranking[0];
@@ -130,12 +130,12 @@ export default function ProfileScreen() {
       let opponents = '?';
       if (m.teamA && m.teamB) {
         const oppTeam = inA ? m.teamB : m.teamA;
-        opponents = oppTeam.map(pid => PLAYERS.find(p => p.id === pid)?.name.split(' ')[0] ?? pid).join(' / ');
+        opponents = oppTeam.map(pid => findPlayer(pid)?.name.split(' ')[0] ?? pid).join(' / ');
       } else {
         const oppId = inA ? m.bId : m.aId;
         if (oppId) {
           const oppComp = comp.competitors.find(c => c.id === oppId);
-          opponents = oppComp?.name ?? PLAYERS.find(p => p.id === oppId)?.name ?? oppId;
+          opponents = oppComp?.name ?? findPlayer(oppId)?.name ?? oppId;
         }
       }
 
@@ -149,11 +149,11 @@ export default function ProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
         <View style={styles.heroBanner}>
-          <View style={[styles.heroBg, { backgroundColor: player.color + '22' }]} />
+          <View style={[styles.heroBg, { backgroundColor: (player?.color ?? '#FFD166') + '22' }]} />
           <View style={styles.heroInner}>
-            <Avatar name={player.name} color={player.color} size={88} showCrown={myPos === 1} />
-            <Text style={styles.name}>{player.name}</Text>
-            <Text style={styles.titleText}>{player.titleEmoji} {player.title}</Text>
+            <Avatar name={player?.name ?? '?'} color={player?.color ?? '#FFD166'} size={88} showCrown={myPos === 1} />
+            <Text style={styles.name}>{player?.name ?? user?.displayName ?? 'Jogador'}</Text>
+            <Text style={styles.titleText}>{user?.email ?? ''}</Text>
             <View style={styles.badges}>
               <Badge label={`${myPos}° lugar`} variant="gold" />
               <Badge label={`${winRate}% aproveit.`} variant="teal" />
@@ -318,7 +318,10 @@ export default function ProfileScreen() {
         <Card style={styles.accountCard}>
           <Text style={styles.accountEmail}>{user?.email ?? user?.displayName}</Text>
           {group && (
-            <Text style={styles.groupInfo}>Grupo: {group.name} · {group.code}</Text>
+            <TouchableOpacity onPress={() => setShowQR(true)} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.groupInfo}>Grupo: {group.name} · {group.code}</Text>
+              <Text style={{ fontSize: 14 }}>⊞</Text>
+            </TouchableOpacity>
           )}
           <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/settings')} activeOpacity={0.8}>
             <Text style={styles.settingsBtnText}>⚙️  Configurações</Text>
@@ -333,6 +336,44 @@ export default function ProfileScreen() {
 
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
+
+      {/* Modal QR Code de convite */}
+      <Modal visible={showQR} transparent animationType="fade">
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', alignItems: 'center', justifyContent: 'center' }}
+          onPress={() => setShowQR(false)}
+          activeOpacity={1}
+        >
+          <View style={{ backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.xl, alignItems: 'center', gap: Spacing.md, margin: Spacing.xl }}>
+            <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text }}>
+              Convidar para o grupo
+            </Text>
+            <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' }}>
+              {group?.name}
+            </Text>
+            <View style={{ backgroundColor: '#fff', padding: 16, borderRadius: 12 }}>
+              <QRCode
+                value={group?.code ?? ''}
+                size={200}
+                color="#0B0B0D"
+                backgroundColor="#ffffff"
+              />
+            </View>
+            <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 26, color: Colors.gold, letterSpacing: 6 }}>
+              {group?.code}
+            </Text>
+            <Text style={{ fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, textAlign: 'center' }}>
+              Mostre este código ou peça para digitar em{'\n'}"Entrar com código"
+            </Text>
+            <TouchableOpacity
+              style={{ paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xl }}
+              onPress={() => setShowQR(false)}
+            >
+              <Text style={{ fontFamily: FontFamily.bodyMed, color: Colors.coral }}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }

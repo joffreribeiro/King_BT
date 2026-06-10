@@ -117,7 +117,8 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
       const comp = state.competitions.find(c => c.id === action.compId);
       if (comp) {
         const updated = applyScore(comp, action.matchId, action.scoreA, action.scoreB);
-        await fsUpdateComp(group.id, updated);
+        try { await fsUpdateComp(group.id, updated); }
+        catch { console.error('[KingBT] Sync error: SAVE_SCORE'); }
       }
     }
 
@@ -128,24 +129,28 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
           m.id === action.matchId ? { ...m, scoreA: null, scoreB: null } : m
         )};
         resolveCompetition(cleared);
-        await fsUpdateComp(group.id, cleared);
+        try { await fsUpdateComp(group.id, cleared); }
+        catch { console.error('[KingBT] Sync error: CLEAR_SCORE'); }
       }
     }
 
     if (action.type === 'RENAME') {
       const comp = state.competitions.find(c => c.id === action.compId);
       if (comp) {
-        await fsUpdateComp(group.id, { ...comp, name: action.name });
+        try { await fsUpdateComp(group.id, { ...comp, name: action.name }); }
+        catch { console.error('[KingBT] Sync error: RENAME'); }
       }
     }
 
     if (action.type === 'DELETE') {
       const comp = state.competitions.find(c => c.id === action.compId);
       if (comp) {
-        const { id } = comp;
-        const { updateDoc, doc } = await import('firebase/firestore');
-        const { db } = await import('@/firebase/config');
-        await updateDoc(doc(db, 'groups', group.id, 'competitions', id), { status: 'done' });
+        try {
+          const { id } = comp;
+          const { updateDoc, doc } = await import('firebase/firestore');
+          const { db } = await import('@/firebase/config');
+          await updateDoc(doc(db, 'groups', group.id, 'competitions', id), { status: 'done' });
+        } catch { console.error('[KingBT] Sync error: DELETE'); }
       }
     }
   };

@@ -48,6 +48,7 @@ type AuthState = {
 };
 
 type AuthContextType = AuthState & {
+  myPlayerId: string | null;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (name: string, email: string, password: string) => Promise<void>;
@@ -65,11 +66,12 @@ type AuthContextType = AuthState & {
 const Ctx = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser]     = useState<User | null>(null);
-  const [group, setGroup]   = useState<Group | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState<string | null>(null);
+  const [user, setUser]         = useState<User | null>(null);
+  const [group, setGroup]       = useState<Group | null>(null);
+  const [isAdmin, setIsAdmin]   = useState(false);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState<string | null>(null);
+  const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
 
   // Captura resultado do redirect do Google (web only)
   useEffect(() => {
@@ -112,12 +114,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setGroup(g);
               const admins: string[] = gData.admins ?? [];
               setIsAdmin(admins.includes(u.uid));
+              // Resolve o playerId do usuário no grupo
+              const playersSnap = await getDocs(collection(db, 'groups', groupId, 'players'));
+              const myPlayer = playersSnap.docs.find(d => d.data().uid === u.uid);
+              setMyPlayerId(myPlayer?.id ?? null);
             }
           }
         }
         setLoading(false);
       } else {
         setGroup(null);
+        setMyPlayerId(null);
         setLoading(false);
       }
     });
@@ -334,7 +341,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Ctx.Provider value={{ user, group, isAdmin, loading, error, signInWithGoogle, signInWithEmail, signUpWithEmail, joinGroup, createGroup, leaveGroup, switchGroup, getMyGroups, logout, clearError: () => setError(null), promoteToAdmin, removeFromGroup }}>
+    <Ctx.Provider value={{ user, group, isAdmin, loading, error, myPlayerId, signInWithGoogle, signInWithEmail, signUpWithEmail, joinGroup, createGroup, leaveGroup, switchGroup, getMyGroups, logout, clearError: () => setError(null), promoteToAdmin, removeFromGroup }}>
       {children}
     </Ctx.Provider>
   );
