@@ -27,6 +27,14 @@ export default function AppLayout() {
       }}
     >
       <Tabs.Screen
+        name="feed"
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <TabIcon label="Feed" focused={focused} icon="📰" />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="index"
         options={{
           tabBarIcon: ({ focused }) => (

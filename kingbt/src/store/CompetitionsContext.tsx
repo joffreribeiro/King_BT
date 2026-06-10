@@ -1,9 +1,13 @@
 import React, { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
 import type { Competition } from '@/logic/types';
-import { resolveCompetition } from '@/logic/formats';
+import { resolveCompetition, extractPlayerGames } from '@/logic/formats';
 import { MOCK_COMPETITIONS } from '@/mocks/competitions';
 import { subscribeCompetitions, createCompetition, updateCompetition as fsUpdateComp } from '@/firebase/competitions';
+import { createFeedItem } from '@/firebase/feed';
+import { Timestamp } from 'firebase/firestore';
+import { buildRanking } from '@/logic/scoring';
 import { useAuth } from './AuthContext';
+import { useGroupPlayers } from './GroupPlayersContext';
 
 type State = {
   competitions: Competition[];
@@ -86,6 +90,7 @@ const Ctx = createContext<CtxType | null>(null);
 
 export function CompetitionsProvider({ children }: { children: ReactNode }) {
   const { user, group, isAdmin } = useAuth();
+  const { groupPlayers, findPlayer } = useGroupPlayers();
   const [state, dispatch] = useReducer(reducer, {
     competitions: [...MOCK_COMPETITIONS],
     synced: false,
@@ -119,6 +124,98 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
         const updated = applyScore(comp, action.matchId, action.scoreA, action.scoreB);
         try { await fsUpdateComp(group.id, updated); }
         catch { console.error('[KingBT] Sync error: SAVE_SCORE'); }
+      }
+    }
+
+    // Gerar feed item apenas no SAVE_SCORE (primeiro registro, não correção)
+    if (action.type === 'SAVE_SCORE') {
+      const comp = state.competitions.find(c => c.id === action.compId);
+      if (comp) {
+        const match = comp.matches.find(m => m.id === action.matchId);
+        if (match) {
+          const resolvePlayerName = (id: string) =>
+            findPlayer(id)?.name ?? id;
+
+          const nameA = match.teamA
+            ? match.teamA.map(resolvePlayerName).join(' / ')
+            : (comp.competitors.find(c => c.id === match.aId)?.name ?? '?');
+          const nameB = match.teamB
+            ? match.teamB.map(resolvePlayerName).join(' / ')
+            : (comp.competitors.find(c => c.id === match.bId)?.name ?? '?');
+
+          try {
+            await createFeedItem(group.id, {
+              type: 'match_result',
+              compId: comp.id,
+              compName: comp.name,
+              matchId: match.id,
+              format: comp.format,
+              sideA: {
+                ids: match.teamA ?? (match.aId ? [match.aId] : []),
+                name: nameA,
+                score: action.scoreA,
+              },
+              sideB: {
+                ids: match.teamB ?? (match.bId ? [match.bId] : []),
+                name: nameB,
+                score: action.scoreB,
+              },
+              timestamp: Timestamp.now(),
+              reactions: { '👑': [], '🔥': [], '💪': [] },
+              comments: [],
+            });
+          } catch { console.error('[KingBT] Feed error: match_result'); }
+
+          // Detectar subida de posição no ranking e gerar rank_change
+          try {
+            const rankPlayers = groupPlayers.map(p => ({
+              id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color,
+            }));
+            const allGamesBefore = state.competitions.flatMap(extractPlayerGames);
+            const rankBefore = buildRanking(rankPlayers, allGamesBefore);
+
+            const updatedComp = applyScore(comp, action.matchId, action.scoreA, action.scoreB);
+            const compsAfter = state.competitions.map(c => c.id === comp.id ? updatedComp : c);
+            const allGamesAfter = compsAfter.flatMap(extractPlayerGames);
+            const rankAfter = buildRanking(rankPlayers, allGamesAfter);
+
+            const involvedIds = [
+              ...(match.teamA ?? []),
+              ...(match.teamB ?? []),
+              ...(match.aId ? [match.aId] : []),
+              ...(match.bId ? [match.bId] : []),
+            ].filter((v, i, a) => v && a.indexOf(v) === i) as string[];
+
+            // Expandir ids de competitors para member ids
+            const playerIds = involvedIds.flatMap(id => {
+              const competitor = comp.competitors.find(c => c.id === id);
+              return competitor ? competitor.members : [id];
+            }).filter((v, i, a) => a.indexOf(v) === i);
+
+            for (const pid of playerIds) {
+              const oldPos = rankBefore.findIndex(r => r.id === pid) + 1;
+              const newPos = rankAfter.findIndex(r => r.id === pid) + 1;
+              if (oldPos > 0 && newPos > 0 && newPos < oldPos) {
+                const pl = groupPlayers.find(p => p.id === pid);
+                if (pl) {
+                  await createFeedItem(group.id, {
+                    type: 'rank_change',
+                    compId: comp.id,
+                    compName: comp.name,
+                    timestamp: Timestamp.now(),
+                    reactions: { '👑': [], '🔥': [], '💪': [] },
+                    comments: [],
+                    playerId: pid,
+                    playerName: pl.name,
+                    oldPos,
+                    newPos,
+                    newPoints: rankAfter.find(r => r.id === pid)?.points ?? 0,
+                  });
+                }
+              }
+            }
+          } catch { console.error('[KingBT] Feed error: rank_change'); }
+        }
       }
     }
 
