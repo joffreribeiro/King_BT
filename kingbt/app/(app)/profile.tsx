@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, TextInput, Modal, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
 import { router } from 'expo-router';
@@ -10,7 +10,9 @@ import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { addGuestPlayer, removeGuestPlayer } from '@/firebase/groupPlayers';
 import QRCode from 'react-native-qrcode-svg';
 import { buildRanking } from '@/logic/scoring';
-import { extractPlayerGames } from '@/logic/formats';
+import { extractPlayerGames, competitionChampion } from '@/logic/formats';
+import { computeBadges } from '@/logic/badges';
+import Svg, { Polyline, Line, Circle, Text as SvgText } from 'react-native-svg';
 
 const GUEST_COLORS = ['#FFD166', '#2DD4BF', '#A78BFA', '#34D399', '#F472B6', '#94A3B8', '#FB923C', '#60A5FA'];
 
@@ -144,6 +146,57 @@ export default function ProfileScreen() {
   });
   matchHistory.reverse();
 
+  // Evolution chart: pontos do jogador por competição
+  const screenW = Dimensions.get('window').width - Spacing.md * 2 - Spacing.md * 2 - 32;
+  const evoPoints: { label: string; pts: number }[] = state.competitions
+    .filter(c => c.status === 'done' || c.matches.some(m => m.scoreA != null))
+    .map(comp => {
+      const games = extractPlayerGames(comp);
+      const myGames = games.filter(g => g.teamA.includes(MY_ID) || g.teamB.includes(MY_ID));
+      if (myGames.length === 0) return null;
+      let wins = 0, played = 0, gp = 0, gc = 0;
+      myGames.forEach(g => {
+        const inA = g.teamA.includes(MY_ID);
+        played++;
+        if (inA) { gp += g.scoreA; gc += g.scoreB; if (g.scoreA > g.scoreB) wins++; }
+        else { gp += g.scoreB; gc += g.scoreA; if (g.scoreB > g.scoreA) wins++; }
+      });
+      const ga = gc > 0 ? gp / gc : gp > 0 ? 999 : 0;
+      const pts = Math.round((wins * 3 + played * 0.5 + ga * 2) * 100) / 100;
+      const label = comp.name.slice(0, 8);
+      return { label, pts };
+    })
+    .filter(Boolean) as { label: string; pts: number }[];
+
+  // Best partnerships
+  type PairInfo = { partnerId: string; wins: number; losses: number; played: number };
+  const partnerMap = new Map<string, PairInfo>();
+  state.competitions.forEach(comp => {
+    comp.matches.forEach(m => {
+      if (m.scoreA == null || !m.teamA || !m.teamB) return;
+      const inA = m.teamA.includes(MY_ID);
+      const inB = m.teamB.includes(MY_ID);
+      if (!inA && !inB) return;
+      const myTeam = inA ? m.teamA : m.teamB;
+      const partner = myTeam.find(id => id !== MY_ID);
+      if (!partner) return;
+      const myScore = inA ? m.scoreA! : m.scoreB!;
+      const oppScore = inA ? m.scoreB! : m.scoreA!;
+      const won = myScore > oppScore;
+      if (!partnerMap.has(partner)) partnerMap.set(partner, { partnerId: partner, wins: 0, losses: 0, played: 0 });
+      const ps = partnerMap.get(partner)!;
+      ps.played++;
+      if (won) ps.wins++; else ps.losses++;
+    });
+  });
+  const partnerships = [...partnerMap.values()]
+    .filter(p => p.played >= 2)
+    .sort((a, b) => b.wins - a.wins || (b.wins / b.played) - (a.wins / a.played))
+    .slice(0, 5);
+
+  const badges = computeBadges(MY_ID, state.competitions);
+  const unlockedBadges = badges.filter(b => b.unlocked);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
@@ -222,6 +275,22 @@ export default function ProfileScreen() {
           );
         })()}
 
+        {/* Conquistas */}
+        <Card>
+          <Text style={styles.sectionTitle}>Conquistas</Text>
+          <View style={bdg.grid}>
+            {badges.map(b => (
+              <View key={b.id} style={[bdg.item, !b.unlocked && bdg.locked]}>
+                <Text style={[bdg.emoji, !b.unlocked && bdg.emojiLocked]}>{b.emoji}</Text>
+                <Text style={[bdg.name, !b.unlocked && bdg.nameLocked]} numberOfLines={2}>{b.name}</Text>
+              </View>
+            ))}
+          </View>
+          {unlockedBadges.length === 0 && (
+            <Text style={bdg.empty}>Dispute partidas para desbloquear conquistas.</Text>
+          )}
+        </Card>
+
         {/* Quebra de pontos */}
         <Card>
           <Text style={styles.sectionTitle}>Quebra dos Pontos</Text>
@@ -250,6 +319,57 @@ export default function ProfileScreen() {
                 </Text>
               </View>
             ))}
+          </Card>
+        )}
+
+        {/* Gráfico de evolução */}
+        {evoPoints.length >= 2 && (() => {
+          const chartH = 100;
+          const chartW = screenW;
+          const maxPts = Math.max(...evoPoints.map(p => p.pts));
+          const minPts = Math.min(...evoPoints.map(p => p.pts));
+          const range = Math.max(maxPts - minPts, 1);
+          const pad = 12;
+          const xStep = evoPoints.length > 1 ? (chartW - pad * 2) / (evoPoints.length - 1) : chartW - pad * 2;
+          const toY = (pts: number) => pad + ((maxPts - pts) / range) * (chartH - pad * 2);
+          const pts = evoPoints.map((p, i) => `${pad + i * xStep},${toY(p.pts)}`).join(' ');
+          return (
+            <Card>
+              <Text style={styles.sectionTitle}>Evolução de pontos</Text>
+              <Svg width={chartW} height={chartH}>
+                <Line x1={pad} y1={chartH - pad} x2={chartW - pad} y2={chartH - pad} stroke={Colors.line} strokeWidth={1} />
+                <Polyline points={pts} fill="none" stroke={Colors.gold} strokeWidth={2} />
+                {evoPoints.map((p, i) => (
+                  <Circle key={i} cx={pad + i * xStep} cy={toY(p.pts)} r={4} fill={Colors.gold} />
+                ))}
+                {evoPoints.map((p, i) => (
+                  <SvgText key={i} x={pad + i * xStep} y={chartH - 2} fontSize={9} fill={Colors.faint} textAnchor="middle">
+                    {p.label}
+                  </SvgText>
+                ))}
+              </Svg>
+            </Card>
+          );
+        })()}
+
+        {/* Melhores parcerias */}
+        {partnerships.length > 0 && (
+          <Card>
+            <Text style={styles.sectionTitle}>Melhores parcerias</Text>
+            {partnerships.map((ps, i) => {
+              const p = findPlayer(ps.partnerId);
+              const wr = Math.round((ps.wins / ps.played) * 100);
+              return (
+                <View key={ps.partnerId} style={[pship.row, i < partnerships.length - 1 && pship.border]}>
+                  <Avatar name={p?.name ?? '?'} color={p?.color ?? Colors.gold} size={30} />
+                  <Text style={pship.name} numberOfLines={1}>{p?.name ?? ps.partnerId}</Text>
+                  <Text style={pship.rec}>{ps.wins}V / {ps.losses}D</Text>
+                  <Text style={[pship.wr, { color: wr >= 60 ? Colors.teal : wr >= 40 ? Colors.text : Colors.coral }]}>
+                    {wr}%
+                  </Text>
+                </View>
+              );
+            })}
           </Card>
         )}
 
@@ -323,6 +443,12 @@ export default function ProfileScreen() {
               <Text style={{ fontSize: 14 }}>⊞</Text>
             </TouchableOpacity>
           )}
+          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/hall')} activeOpacity={0.8}>
+            <Text style={styles.settingsBtnText}>👑  Hall dos Campeões</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/court')} activeOpacity={0.8}>
+            <Text style={styles.settingsBtnText}>🏓  Modo Quadra ao Vivo</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/settings')} activeOpacity={0.8}>
             <Text style={styles.settingsBtnText}>⚙️  Configurações</Text>
           </TouchableOpacity>
@@ -428,6 +554,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl, alignItems: 'center',
   },
   logoutText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.coral },
+});
+
+const bdg = StyleSheet.create({
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: 4 },
+  item: {
+    width: '22%', alignItems: 'center', gap: 4, padding: Spacing.sm,
+    backgroundColor: Colors.gold + '18', borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.gold + '44',
+  },
+  locked: { backgroundColor: Colors.surf2, borderColor: Colors.line, opacity: 0.5 },
+  emoji: { fontSize: 24 },
+  emojiLocked: { opacity: 0.4 },
+  name: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.gold, textAlign: 'center' },
+  nameLocked: { color: Colors.faint },
+  empty: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint, textAlign: 'center', paddingVertical: Spacing.sm },
+});
+
+const pship = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
+  border: { borderBottomWidth: 1, borderBottomColor: Colors.line },
+  name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
+  rec: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted },
+  wr: { fontFamily: FontFamily.numberBold, fontSize: 13, width: 38, textAlign: 'right' },
 });
 
 const guest = StyleSheet.create({

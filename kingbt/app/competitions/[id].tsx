@@ -1,10 +1,11 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert, Platform, Share,
+  Animated, Dimensions,
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
 import { PLAYERS } from '@/mocks/data';
@@ -14,6 +15,9 @@ import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useSettings } from '@/store/SettingsContext';
 import type { Match, Competition } from '@/logic/types';
+import ConfettiCannon from 'react-native-confetti-cannon';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 
 function getPlayer(id: string) {
   return PLAYERS.find(p => p.id === id);
@@ -958,9 +962,35 @@ export default function CompetitionDetail() {
   const { isAdmin } = useAuth();
   const { findPlayer } = useGroupPlayers();
   const comp = state.competitions.find(c => c.id === id);
-  const [scoring, setScoring]         = useState<Match | null>(null);
+  const [scoring, setScoring]             = useState<Match | null>(null);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showEditName, setShowEditName]   = useState(false);
+  const [showConfetti, setShowConfetti]   = useState(false);
+  const [showChampion, setShowChampion]   = useState(false);
+  const champAnim  = useRef(new Animated.Value(0)).current;
+  const viewShotRef = useRef<View>(null);
+  const screenW = Dimensions.get('window').width;
+
+  // Dispara animação quando competição fica concluída
+  useEffect(() => {
+    if (comp?.status === 'done' && competitionChampion(comp)) {
+      setShowConfetti(true);
+      setShowChampion(true);
+      Animated.spring(champAnim, { toValue: 1, useNativeDriver: true, tension: 60, friction: 7 }).start();
+      const t = setTimeout(() => setShowConfetti(false), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [comp?.status]);
+
+  async function shareChampionImage() {
+    try {
+      if (!viewShotRef.current) return;
+      const uri = await captureRef(viewShotRef, { format: 'png', quality: 0.95 });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Compartilhar resultado' });
+      }
+    } catch { /* ignore */ }
+  }
 
   if (!comp) {
     return (
@@ -969,6 +999,11 @@ export default function CompetitionDetail() {
       </SafeAreaView>
     );
   }
+
+  const champion = competitionChampion(comp);
+  const champPlayer = champion
+    ? findPlayer(champion.members[0]) ?? { name: champion.name, color: Colors.gold }
+    : null;
 
   function handleSave(matchId: string, a: number, b: number) {
     dispatch({ type: 'SAVE_SCORE', compId: id!, matchId, scoreA: a, scoreB: b });
@@ -1006,6 +1041,41 @@ export default function CompetitionDetail() {
 
   return (
     <SafeAreaView style={main.container} edges={['top']}>
+      {/* Confetti */}
+      {showConfetti && (
+        <ConfettiCannon
+          count={120}
+          origin={{ x: screenW / 2, y: -20 }}
+          autoStart
+          fadeOut
+          colors={[Colors.gold, Colors.teal, '#FF6B6B', '#FFFFFF', '#A8DADC']}
+        />
+      )}
+
+      {/* Champion banner */}
+      {showChampion && champPlayer && (
+        <Animated.View style={[main.champBanner, {
+          opacity: champAnim,
+          transform: [{ scale: champAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }],
+        }]}>
+          <View ref={viewShotRef} style={main.champCard}>
+            <Text style={main.champCrown}>👑</Text>
+            <Avatar name={champPlayer.name} color={champPlayer.color} size={60} />
+            <Text style={main.champTitle}>CAMPEÃO</Text>
+            <Text style={main.champName}>{champion!.name}</Text>
+            <Text style={main.champComp}>{comp.name}</Text>
+          </View>
+          <View style={main.champActions}>
+            <TouchableOpacity style={main.champBtn} onPress={shareChampionImage}>
+              <Text style={main.champBtnText}>📤 Compartilhar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={main.champClose} onPress={() => setShowChampion(false)}>
+              <Text style={main.champCloseText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      )}
+
       {/* Header */}
       <View style={main.header}>
         <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)')}>
@@ -1022,6 +1092,11 @@ export default function CompetitionDetail() {
           />
         </View>
         <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+          {comp.status === 'done' && champPlayer && (
+            <TouchableOpacity onPress={() => setShowChampion(true)} style={main.iconBtn}>
+              <Text style={main.iconBtnText}>👑</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={handleShare} style={main.iconBtn}>
             <Text style={main.iconBtnText}>↑</Text>
           </TouchableOpacity>
@@ -1095,4 +1170,23 @@ const main = StyleSheet.create({
   adminMenuAction: { paddingVertical: Spacing.xs },
   adminMenuText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
   adminMenuDanger: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.coral },
+  // Champion banner
+  champBanner: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100,
+    backgroundColor: 'rgba(0,0,0,0.82)', justifyContent: 'center', alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  champCard: {
+    backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.xl,
+    alignItems: 'center', gap: Spacing.md, width: '100%', borderWidth: 2, borderColor: Colors.gold,
+  },
+  champCrown: { fontSize: 48 },
+  champTitle: { fontFamily: FontFamily.titleBold, fontSize: 13, color: Colors.gold, letterSpacing: 3 },
+  champName: { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text, textAlign: 'center' },
+  champComp: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
+  champActions: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.md },
+  champBtn: { flex: 1, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' },
+  champBtnText: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.bg },
+  champClose: { flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' },
+  champCloseText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted },
 });
