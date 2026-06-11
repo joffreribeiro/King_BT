@@ -970,10 +970,12 @@ export default function CompetitionDetail() {
   const champAnim  = useRef(new Animated.Value(0)).current;
   const viewShotRef = useRef<View>(null);
   const screenW = Dimensions.get('window').width;
+  const confettiFired = useRef(false);
 
-  // Dispara animação quando competição fica concluída
+  // Dispara animação ao entrar ou quando competição fica concluída
   useEffect(() => {
-    if (comp?.status === 'done' && competitionChampion(comp)) {
+    if (comp?.status === 'done' && competitionChampion(comp) && !confettiFired.current) {
+      confettiFired.current = true;
       setShowConfetti(true);
       setShowChampion(true);
       Animated.spring(champAnim, { toValue: 1, useNativeDriver: true, tension: 60, friction: 7 }).start();

@@ -1,5 +1,5 @@
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState } from 'react';
@@ -32,22 +32,10 @@ function timeAgo(ts: any): string {
 
 // ─── Card de resultado de partida ────────────────────────────────────────────
 
-function MatchResultCard({ item }: { item: FeedItem }) {
+function CommentsModal({ item, visible, onClose }: { item: FeedItem; visible: boolean; onClose: () => void }) {
   const { user, group } = useAuth();
-  const { findPlayer } = useGroupPlayers();
-  const [showComments, setShowComments] = useState(false);
   const [comment, setComment] = useState('');
   const [sending, setSending] = useState(false);
-
-  const aWon = (item.sideA?.score ?? 0) > (item.sideB?.score ?? 0);
-  const accent = FORMAT_COLOR[item.format ?? ''] ?? Colors.gold;
-
-  async function handleReaction(emoji: string) {
-    if (!user || !group) return;
-    const has = (item.reactions[emoji] ?? []).includes(user.uid);
-    try { await toggleReaction(group.id, item.id, emoji, user.uid, has); }
-    catch { /* ignore */ }
-  }
 
   async function handleComment() {
     if (!user || !group || !comment.trim() || sending) return;
@@ -57,6 +45,89 @@ function MatchResultCard({ item }: { item: FeedItem }) {
       setComment('');
     } catch { /* ignore */ }
     finally { setSending(false); }
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <TouchableOpacity style={cm.overlay} activeOpacity={1} onPress={onClose} />
+        <View style={cm.sheet}>
+          <View style={cm.handle} />
+          <Text style={cm.title}>Comentários</Text>
+          <ScrollView style={cm.list} contentContainerStyle={{ gap: Spacing.sm, paddingBottom: Spacing.sm }}>
+            {item.comments.length === 0 && (
+              <Text style={cm.empty}>Seja o primeiro a comentar.</Text>
+            )}
+            {item.comments.map((c, i) => (
+              <View key={i} style={cm.commentRow}>
+                <View style={cm.commentDot} />
+                <View style={{ flex: 1 }}>
+                  <Text style={cm.commentAuthor}>{c.name.split(' ')[0]}</Text>
+                  <Text style={cm.commentText}>{c.text}</Text>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+          <View style={cm.inputRow}>
+            <TextInput
+              style={cm.input}
+              value={comment}
+              onChangeText={setComment}
+              placeholder="Adicionar comentário..."
+              placeholderTextColor={Colors.faint}
+              returnKeyType="send"
+              onSubmitEditing={handleComment}
+              editable={!sending}
+              autoFocus
+            />
+            <TouchableOpacity
+              onPress={handleComment}
+              disabled={!comment.trim() || sending}
+              style={[cm.sendBtn, (!comment.trim() || sending) && cm.sendBtnOff]}
+            >
+              <Text style={cm.sendTxt}>↑</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const cm = StyleSheet.create({
+  overlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
+  sheet:       { backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.md, maxHeight: '70%' },
+  handle:      { width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.line, alignSelf: 'center', marginBottom: Spacing.sm },
+  title:       { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text, marginBottom: Spacing.sm },
+  list:        { maxHeight: 300 },
+  empty:       { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center', paddingVertical: Spacing.md },
+  commentRow:  { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start' },
+  commentDot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.gold, marginTop: 6 },
+  commentAuthor: { fontFamily: FontFamily.title, fontSize: 12, color: Colors.gold },
+  commentText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.text },
+  inputRow:    { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.line, paddingTop: Spacing.sm },
+  input:       { flex: 1, backgroundColor: Colors.surf2, borderRadius: Radius.sm, paddingHorizontal: 12, paddingVertical: 8, fontFamily: FontFamily.body, fontSize: 13, color: Colors.text, borderWidth: 1, borderColor: Colors.line },
+  sendBtn:     { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
+  sendBtnOff:  { opacity: 0.35 },
+  sendTxt:     { fontSize: 18, color: Colors.bg },
+});
+
+function MatchResultCard({ item }: { item: FeedItem }) {
+  const { user, group } = useAuth();
+  const { findPlayer } = useGroupPlayers();
+  const [showComments, setShowComments] = useState(false);
+
+  const aWon = (item.sideA?.score ?? 0) > (item.sideB?.score ?? 0);
+  const accent = FORMAT_COLOR[item.format ?? ''] ?? Colors.gold;
+
+  async function handleReaction(emoji: string) {
+    if (!user || !group) return;
+    const has = (item.reactions[emoji] ?? []).includes(user.uid);
+    try { await toggleReaction(group.id, item.id, emoji, user.uid, has); }
+    catch { /* ignore */ }
   }
 
   return (
@@ -137,49 +208,20 @@ function MatchResultCard({ item }: { item: FeedItem }) {
 
           <TouchableOpacity
             style={mc.commentToggle}
-            onPress={() => setShowComments(v => !v)}
+            onPress={() => setShowComments(true)}
           >
             <Text style={mc.commentToggleTxt}>
-              {item.comments.length > 0 ? `💬 ${item.comments.length}` : 'Comentar'}
+              {item.comments.length > 0 ? `💬 ${item.comments.length}` : '💬'}
             </Text>
           </TouchableOpacity>
         </View>
-
-        {/* Comentários */}
-        {showComments && (
-          <View style={mc.commentsArea}>
-            {item.comments.length > 0 && (
-              <View style={mc.commentsList}>
-                {item.comments.map((c, i) => (
-                  <View key={i} style={mc.commentRow}>
-                    <Text style={mc.commentAuthor}>{c.name.split(' ')[0]}:</Text>
-                    <Text style={mc.commentText}>{c.text}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-            <View style={mc.commentInput}>
-              <TextInput
-                style={mc.input}
-                value={comment}
-                onChangeText={setComment}
-                placeholder="Adicionar comentário..."
-                placeholderTextColor={Colors.faint}
-                returnKeyType="send"
-                onSubmitEditing={handleComment}
-                editable={!sending}
-              />
-              <TouchableOpacity
-                onPress={handleComment}
-                disabled={!comment.trim() || sending}
-                style={[mc.sendBtn, (!comment.trim() || sending) && mc.sendBtnOff]}
-              >
-                <Text style={mc.sendTxt}>↑</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
       </View>
+
+      <CommentsModal
+        item={item}
+        visible={showComments}
+        onClose={() => setShowComments(false)}
+      />
     </Card>
   );
 }
@@ -208,18 +250,8 @@ const mc = StyleSheet.create({
   reactEmoji:      { fontSize: 14 },
   reactCount:      { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted },
   reactCountActive:{ color: Colors.gold },
-  commentToggle:   { marginLeft: 'auto' as any },
-  commentToggleTxt:{ fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint },
-  commentsArea:    { gap: 8, borderTopWidth: 1, borderTopColor: Colors.line, paddingTop: Spacing.sm },
-  commentsList:    { gap: 4 },
-  commentRow:      { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  commentAuthor:   { fontFamily: FontFamily.title, fontSize: 12, color: Colors.gold },
-  commentText:     { fontFamily: FontFamily.body, fontSize: 12, color: Colors.text, flex: 1 },
-  commentInput:    { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  input:           { flex: 1, backgroundColor: Colors.surf2, borderRadius: Radius.sm, paddingHorizontal: 10, paddingVertical: 7, fontFamily: FontFamily.body, fontSize: 13, color: Colors.text, borderWidth: 1, borderColor: Colors.line },
-  sendBtn:         { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
-  sendBtnOff:      { opacity: 0.35 },
-  sendTxt:         { fontSize: 18, color: Colors.bg },
+  commentToggle:    { marginLeft: 'auto' as any },
+  commentToggleTxt: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.faint },
 });
 
 // ─── Card de mudança de ranking ───────────────────────────────────────────────

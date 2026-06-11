@@ -34,7 +34,7 @@ export function FeedProvider({ children }: { children: ReactNode }) {
       },
       err => {
         console.error('[KingBT] Feed subscribe error:', err.code);
-        setLoaded(true); // para o skeleton parar
+        setLoaded(true);
         setError(err.code === 'permission-denied'
           ? 'Atualize as regras do Firestore para incluir a coleção feed.'
           : err.message);
