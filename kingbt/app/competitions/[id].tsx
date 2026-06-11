@@ -62,16 +62,20 @@ function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
   );
 }
 const stRow = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.sm, paddingVertical: 8 },
-  header: { backgroundColor: Colors.surf2, paddingVertical: 6 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.sm, paddingVertical: 7 },
+  header: { backgroundColor: Colors.surf2, paddingVertical: 5 },
   border: { borderBottomWidth: 1, borderBottomColor: Colors.line },
   classified: { borderLeftWidth: 3, borderLeftColor: Colors.teal },
-  c0: { width: 24 },
+  legend: { paddingHorizontal: Spacing.sm, paddingVertical: 6, borderTopWidth: 1, borderTopColor: Colors.line },
+  legendText: { fontFamily: FontFamily.body, fontSize: 9, color: Colors.faint, textAlign: 'center' },
+  c0: { width: 20 },
   cName: { flex: 1 },
-  cN: { width: 32, textAlign: 'center', fontFamily: FontFamily.number, fontSize: 12, color: Colors.text },
-  th: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.faint, letterSpacing: 0.5 },
-  pos: { fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.muted },
-  name: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, flex: 1 },
+  cN: { width: 28, textAlign: 'center', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
+  cNw: { width: 34, textAlign: 'center', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
+  cPts: { width: 38, textAlign: 'right', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
+  th: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 0.3 },
+  pos: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted },
+  name: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.text, flex: 1 },
 });
 
 // ─── Game Row (avulso/super8) ─────────────────────────────────────────────────
@@ -397,7 +401,7 @@ function RotatingView({ comp, onScore, onClear }: { comp: Competition; onScore: 
   const rankingStats = playerIds.map(pid => {
     let wins = 0, losses = 0, gf = 0, gc = 0;
     comp.matches.forEach(m => {
-      if (m.scoreA == null) return;
+      if (m.scoreA == null || m.scoreA === m.scoreB) return;
       const inA = m.teamA?.includes(pid);
       const inB = m.teamB?.includes(pid);
       if (inA) { gf += m.scoreA!; gc += m.scoreB!; if (m.scoreA! > m.scoreB!) wins++; else losses++; }
@@ -405,8 +409,10 @@ function RotatingView({ comp, onScore, onClear }: { comp: Competition; onScore: 
     });
     const played = wins + losses;
     const ga = gc > 0 ? gf / gc : gf > 0 ? 999 : 0;
-    return { pid, wins, losses, played, gf, gc, ga };
-  }).sort((a, b) => b.wins - a.wins || b.ga - a.ga);
+    const sg = gf - gc;
+    const pts = wins * 3 + played * 0.5 + ga * 2;
+    return { pid, wins, losses, played, gf, gc, ga, sg, pts };
+  }).sort((a, b) => b.pts - a.pts || b.ga - a.ga || b.sg - a.sg || b.wins - a.wins);
 
   // Duplas partnership stats
   type PairStat = { key: string; ids: [string, string]; wins: number; losses: number; played: number; gf: number; gc: number };
@@ -462,27 +468,45 @@ function RotatingView({ comp, onScore, onClear }: { comp: Competition; onScore: 
         {tab === 'ranking' && (
           <Card padding={0} style={{ overflow: 'hidden' }}>
             <View style={[stRow.row, stRow.header]}>
-              {['#', 'JOGADOR', 'J', 'V', 'GA'].map(h => (
-                <Text key={h} style={[h === 'JOGADOR' ? stRow.cName : h === '#' ? stRow.c0 : stRow.cN, stRow.th]}>{h}</Text>
-              ))}
+              <Text style={[stRow.c0, stRow.th]}>#</Text>
+              <Text style={[stRow.cName, stRow.th]}>JOGADOR</Text>
+              <Text style={[stRow.cN, stRow.th]}>V</Text>
+              <Text style={[stRow.cN, stRow.th]}>D</Text>
+              <Text style={[stRow.cN, stRow.th]}>J</Text>
+              <Text style={[stRow.cN, stRow.th]}>GP</Text>
+              <Text style={[stRow.cN, stRow.th]}>GC</Text>
+              <Text style={[stRow.cNw, stRow.th]}>SG</Text>
+              <Text style={[stRow.cN, stRow.th]}>GA</Text>
+              <Text style={[stRow.cPts, stRow.th]}>PTS</Text>
             </View>
             {rankingStats.map((s, i) => {
               const pl = findPlayer(s.pid);
+              const sgColor = s.sg > 0 ? Colors.teal : s.sg < 0 ? Colors.coral : Colors.muted;
               return (
                 <View key={s.pid} style={[stRow.row, i < rankingStats.length - 1 && stRow.border]}>
                   <Text style={[stRow.c0, stRow.pos]}>{i + 1}</Text>
-                  <View style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
-                    {pl && <Avatar name={pl.name} color={pl.color} size={22} />}
+                  <View style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 5 }]}>
+                    {pl && <Avatar name={pl.name} color={pl.color} size={20} />}
                     <Text style={stRow.name} numberOfLines={1}>{pl?.name ?? s.pid}</Text>
                   </View>
-                  <Text style={stRow.cN}>{s.played}</Text>
                   <Text style={stRow.cN}>{s.wins}</Text>
-                  <Text style={[stRow.cN, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>
-                    {s.gc > 0 ? s.ga.toFixed(2) : '0,00'}
+                  <Text style={stRow.cN}>{s.losses}</Text>
+                  <Text style={stRow.cN}>{s.played}</Text>
+                  <Text style={stRow.cN}>{s.gf}</Text>
+                  <Text style={stRow.cN}>{s.gc}</Text>
+                  <Text style={[stRow.cNw, { color: sgColor }]}>{s.sg > 0 ? '+' : ''}{s.sg}</Text>
+                  <Text style={stRow.cN}>{s.ga.toFixed(2)}</Text>
+                  <Text style={[stRow.cPts, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>
+                    {s.pts.toFixed(2)}
                   </Text>
                 </View>
               );
             })}
+            {rankingStats.length > 0 && (
+              <View style={stRow.legend}>
+                <Text style={stRow.legendText}>GP: Games Pró · GC: Games Contra · SG: Saldo · GA: GP÷GC · PTS = V×3 + J×0,5 + GA×2</Text>
+              </View>
+            )}
           </Card>
         )}
 
@@ -647,7 +671,10 @@ function buildBracketShareText(comp: Competition): string {
     lines.push(`\n3º Lugar:\n  ${nA} ${third.scoreA}–${third.scoreB} ${nB}`);
   }
   const champ = competitionChampion(comp);
-  if (champ) lines.push(`\n🥇 Campeão: ${champ.name}`);
+  if (champ) {
+    const champP = findPlayer(champ.members[0]);
+    lines.push(`\n🥇 Campeão: ${(champ as any).name ?? champP?.name ?? champ.members[0]}`);
+  }
   lines.push('\nEnviado pelo King BT 👑');
   return lines.join('\n');
 }
@@ -972,17 +999,25 @@ export default function CompetitionDetail() {
   const screenW = Dimensions.get('window').width;
   const confettiFired = useRef(false);
 
-  // Dispara animação ao entrar ou quando competição fica concluída
+  function triggerChampion() {
+    if (confettiFired.current) return;
+    confettiFired.current = true;
+    setShowConfetti(true);
+    setShowChampion(true);
+    champAnim.setValue(0);
+    Animated.spring(champAnim, { toValue: 1, useNativeDriver: true, tension: 60, friction: 7 }).start();
+    setTimeout(() => setShowConfetti(false), 4000);
+  }
+
+  // Dispara quando o status muda para 'done' em tempo real
   useEffect(() => {
-    if (comp?.status === 'done' && competitionChampion(comp) && !confettiFired.current) {
-      confettiFired.current = true;
-      setShowConfetti(true);
-      setShowChampion(true);
-      Animated.spring(champAnim, { toValue: 1, useNativeDriver: true, tension: 60, friction: 7 }).start();
-      const t = setTimeout(() => setShowConfetti(false), 4000);
-      return () => clearTimeout(t);
-    }
+    if (comp?.status === 'done' && competitionChampion(comp)) triggerChampion();
   }, [comp?.status]);
+
+  // Dispara ao entrar numa competição já concluída (comp carrega após montagem)
+  useEffect(() => {
+    if (comp?.status === 'done' && competitionChampion(comp)) triggerChampion();
+  }, [!!comp]);
 
   async function shareChampionImage() {
     try {
@@ -1004,8 +1039,9 @@ export default function CompetitionDetail() {
 
   const champion = competitionChampion(comp);
   const champPlayer = champion
-    ? findPlayer(champion.members[0]) ?? { name: champion.name, color: Colors.gold }
+    ? findPlayer(champion.members[0]) ?? { name: (champion as any).name ?? champion.members[0], color: Colors.gold }
     : null;
+  const champDisplayName = champPlayer?.name ?? '';
 
   function handleSave(matchId: string, a: number, b: number) {
     dispatch({ type: 'SAVE_SCORE', compId: id!, matchId, scoreA: a, scoreB: b });
@@ -1064,7 +1100,7 @@ export default function CompetitionDetail() {
             <Text style={main.champCrown}>👑</Text>
             <Avatar name={champPlayer.name} color={champPlayer.color} size={60} />
             <Text style={main.champTitle}>CAMPEÃO</Text>
-            <Text style={main.champName}>{champion!.name}</Text>
+            <Text style={main.champName}>{champDisplayName}</Text>
             <Text style={main.champComp}>{comp.name}</Text>
           </View>
           <View style={main.champActions}>

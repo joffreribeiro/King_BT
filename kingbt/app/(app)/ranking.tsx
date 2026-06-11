@@ -155,7 +155,10 @@ export default function RankingScreen() {
             <Text style={[styles.cName, styles.th]}>JOGADOR</Text>
             <Text style={[styles.cStat, styles.th]}>V</Text>
             <Text style={[styles.cStat, styles.th]}>D</Text>
-            <Text style={[styles.cStat, styles.th]}>SG</Text>
+            <Text style={[styles.cStat, styles.th]}>J</Text>
+            <Text style={[styles.cStat, styles.th]}>GP</Text>
+            <Text style={[styles.cStat, styles.th]}>GC</Text>
+            <Text style={[styles.cStatWide, styles.th]}>SG</Text>
             <Text style={[styles.cStat, styles.th]}>GA</Text>
             <Text style={[styles.cPts, styles.th]}>PTS</Text>
           </View>
@@ -175,7 +178,7 @@ export default function RankingScreen() {
                 <Text style={[styles.c0, styles.posText, isMe && { color: Colors.gold }]}>{i + 1}</Text>
 
                 <View style={[styles.cName, styles.rowPlayer]}>
-                  <Avatar name={pl?.name ?? '?'} color={pl?.color ?? '#888'} size={30} />
+                  <Avatar name={pl?.name ?? '?'} color={pl?.color ?? '#888'} size={28} />
                   <View style={styles.nameBlock}>
                     <View style={styles.nameRow}>
                       <Text style={[styles.playerName, isMe && { color: Colors.gold }]} numberOfLines={1}>
@@ -188,7 +191,10 @@ export default function RankingScreen() {
 
                 <Text style={[styles.cStat, styles.statText]}>{s.wins}</Text>
                 <Text style={[styles.cStat, styles.statText]}>{s.losses}</Text>
-                <Text style={[styles.cStat, styles.statText, { color: sgColor }]}>
+                <Text style={[styles.cStat, styles.statText]}>{s.played}</Text>
+                <Text style={[styles.cStat, styles.statText]}>{s.gamesPro}</Text>
+                <Text style={[styles.cStat, styles.statText]}>{s.gamesCon}</Text>
+                <Text style={[styles.cStatWide, styles.statText, { color: sgColor }]}>
                   {s.sg > 0 ? '+' : ''}{s.sg}
                 </Text>
                 <Text style={[styles.cStat, styles.statText]}>{s.ga.toFixed(2)}</Text>
@@ -196,6 +202,11 @@ export default function RankingScreen() {
               </TouchableOpacity>
             );
           })}
+        </View>
+
+        {/* Legenda */}
+        <View style={styles.legend}>
+          <Text style={styles.legendText}>V: Vitórias · D: Derrotas · J: Partidas · GP: Games Pró · GC: Games Contra · SG: Saldo de Games · GA: Game Average (GP ÷ GC)</Text>
         </View>
 
         <View style={{ height: Spacing.xl }} />
@@ -433,30 +444,34 @@ const styles = StyleSheet.create({
     gap: 0,
   },
 
+  legend: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
+  legendText: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint, textAlign: 'center', lineHeight: 16 },
+
   table: { marginTop: Spacing.md },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 11 },
   rowHeader: { paddingVertical: 7 },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.line },
   rowMe: { backgroundColor: Colors.gold + '14', borderLeftWidth: 3, borderLeftColor: Colors.gold },
 
-  c0: { width: 26 },
+  c0: { width: 22 },
   cName: { flex: 1 },
-  cStat: { width: 38, textAlign: 'center' },
-  cPts: { width: 50, textAlign: 'right' },
+  cStat: { width: 30, textAlign: 'center' },
+  cStatWide: { width: 36, textAlign: 'center' },
+  cPts: { width: 44, textAlign: 'right' },
 
-  th: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.faint, letterSpacing: 0.5 },
-  posText: { fontFamily: FontFamily.numberBold, fontSize: 14, color: Colors.muted },
-  rowPlayer: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  th: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 0.5 },
+  posText: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted },
+  rowPlayer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   nameBlock: { flex: 1 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  playerName: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  playerName: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text },
   youBadge: {
     backgroundColor: Colors.gold + '33', borderRadius: Radius.full,
-    paddingHorizontal: 6, paddingVertical: 1,
+    paddingHorizontal: 5, paddingVertical: 1,
   },
-  youText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold },
-  statText: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.text, textAlign: 'center' },
-  ptsText: { fontFamily: FontFamily.numberBold, fontSize: 14, color: Colors.gold, textAlign: 'right' },
+  youText: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.gold },
+  statText: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.text, textAlign: 'center' },
+  ptsText: { fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.gold, textAlign: 'right' },
 });
 
 const cmp = StyleSheet.create({

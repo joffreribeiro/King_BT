@@ -92,13 +92,14 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
   const { user, group, isAdmin } = useAuth();
   const { groupPlayers, findPlayer } = useGroupPlayers();
   const [state, dispatch] = useReducer(reducer, {
-    competitions: [...MOCK_COMPETITIONS],
+    competitions: [],
     synced: false,
   });
 
   useEffect(() => {
     if (!user || !group) return;
     const unsub = subscribeCompetitions(group.id, (comps) => {
+      console.log('[Comps] Firestore retornou:', comps.length, 'competições');
       dispatch({ type: 'SET', competitions: comps });
     });
     return unsub;

@@ -214,7 +214,36 @@ export function resolveCompetition(comp: Competition): Competition {
 
 // ─── Campeão ──────────────────────────────────────────────────────────────────
 
-export function competitionChampion(comp: Competition): Competitor | null {
+export type AvulsoChampion = { id: string; members: string[]; name?: string };
+
+export function competitionChampion(comp: Competition): Competitor | AvulsoChampion | null {
+  // Avulso / Super8: calcula ranking dos teamA/teamB diretos
+  if (comp.format === 'avulso' || comp.format === 'super8') {
+    const scored = comp.matches.filter(m => m.scoreA != null && m.scoreB != null && m.scoreA !== m.scoreB && m.teamA?.length && m.teamB?.length);
+    if (!scored.length) return null;
+    const stats: Record<string, { wins: number; played: number; pro: number; con: number }> = {};
+    for (const m of scored) {
+      const aWin = m.scoreA! > m.scoreB!;
+      for (const id of m.teamA!) {
+        if (!stats[id]) stats[id] = { wins: 0, played: 0, pro: 0, con: 0 };
+        stats[id].played++; stats[id].pro += m.scoreA!; stats[id].con += m.scoreB!;
+        if (aWin) stats[id].wins++;
+      }
+      for (const id of m.teamB!) {
+        if (!stats[id]) stats[id] = { wins: 0, played: 0, pro: 0, con: 0 };
+        stats[id].played++; stats[id].pro += m.scoreB!; stats[id].con += m.scoreA!;
+        if (!aWin) stats[id].wins++;
+      }
+    }
+    const sorted = Object.entries(stats).sort(([, a], [, b]) => {
+      const ptA = a.wins * 3 + a.played * 0.5 + a.pro / Math.max(1, a.con) * 2;
+      const ptB = b.wins * 3 + b.played * 0.5 + b.pro / Math.max(1, b.con) * 2;
+      return ptB - ptA;
+    });
+    if (!sorted.length) return null;
+    const [champId] = sorted[0];
+    return { id: champId, members: [champId] };
+  }
   if (comp.format === 'liga') {
     const st = standings(comp.competitors.map(c => c.id), comp.matches);
     const allDone = comp.matches.every(m => m.scoreA != null);
