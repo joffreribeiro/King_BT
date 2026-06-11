@@ -2,6 +2,21 @@ import type { Player, PlayerStat, RankedPlayer } from './types';
 
 export type { PlayerStat, RankedPlayer };
 
+const HANDICAP_FACTOR: Record<number, number> = {
+  [-3]: 1.5,
+  [-2]: 1.3,
+  [-1]: 1.1,
+  [0]:  1.0,
+  [1]:  0.9,
+  [2]:  0.7,
+  [3]:  0.5,
+};
+
+function handicapFactor(player: Player): number {
+  const h = player.handicap ?? 0;
+  return HANDICAP_FACTOR[h] ?? 1.0;
+}
+
 export function blankStat(): PlayerStat {
   return { id: '', played: 0, wins: 0, losses: 0, gamesPro: 0, gamesCon: 0 };
 }
@@ -48,10 +63,11 @@ export function buildRanking(
       const s = map[p.id];
       const sg = s.gamesPro - s.gamesCon;
       const ga = gameAverage(s);
+      const factor = handicapFactor(p);
       return {
         ...p, ...s, sg, ga,
         winRate: s.played ? Math.round((s.wins / s.played) * 100) : 0,
-        points: Math.round(statPoints(s) * 100) / 100,
+        points: Math.round(statPoints(s) * factor * 100) / 100,
       } as RankedPlayer;
     })
     .sort((a, b) => b.points - a.points || b.ga - a.ga || b.sg - a.sg || b.wins - a.wins);

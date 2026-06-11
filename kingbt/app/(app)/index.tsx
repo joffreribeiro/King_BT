@@ -128,7 +128,9 @@ function SectionHeader({ label, color }: { label: string; color: string }) {
   );
 }
 
-function CompCard({ comp, onDelete }: { comp: Competition; onDelete: (id: string) => void }) {
+function CompCard({ comp, onDelete, onClone }: {
+  comp: Competition; onDelete: (id: string) => void; onClone: (id: string) => void;
+}) {
   const done  = comp.matches.filter(m => m.scoreA != null).length;
   const total = comp.matches.length;
   const pct   = total > 0 ? done / total : 0;
@@ -138,12 +140,14 @@ function CompCard({ comp, onDelete }: { comp: Competition; onDelete: (id: string
 
   function handleLongPress() {
     const doDelete = () => onDelete(comp.id);
+    const doClone  = () => onClone(comp.id);
     if (Platform.OS === 'web') {
       if (window.confirm(`Apagar "${comp.name}"?`)) doDelete();
     } else {
-      Alert.alert('Apagar competição?', `"${comp.name}" será removida permanentemente.`, [
+      Alert.alert(comp.name, 'O que deseja fazer?', [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Apagar', style: 'destructive', onPress: doDelete },
+        { text: '🔁 Criar igual', onPress: doClone },
+        { text: '🗑 Apagar', style: 'destructive', onPress: doDelete },
       ]);
     }
   }
@@ -180,8 +184,15 @@ function CompCard({ comp, onDelete }: { comp: Competition; onDelete: (id: string
           {champ ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={{ fontSize: 14 }}>👑</Text>
-              <Text style={{ fontFamily: FontFamily.title, fontSize: 13, color: Colors.gold }}>{champ.name}</Text>
+              <Text style={{ fontFamily: FontFamily.title, fontSize: 13, color: Colors.gold, flex: 1 }}>{champ.name}</Text>
               <Text style={styles.dateText}>{formatDate(comp.date)}</Text>
+              <TouchableOpacity
+                onPress={() => onClone(comp.id)}
+                hitSlop={8}
+                style={{ padding: 4 }}
+              >
+                <Text style={{ fontSize: 15 }}>🔁</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.progressRow}>
@@ -332,7 +343,11 @@ export default function HubScreen() {
           return (
             <View>
               {isFirstDone && <SectionHeader label="Encerradas" color={Colors.teal} />}
-              <CompCard comp={item} onDelete={isAdmin ? (id) => dispatch({ type: 'DELETE', compId: id }) : () => {}} />
+              <CompCard
+                comp={item}
+                onDelete={isAdmin ? (id) => dispatch({ type: 'DELETE', compId: id }) : () => {}}
+                onClone={isAdmin ? (id) => dispatch({ type: 'CLONE', compId: id }) : () => {}}
+              />
             </View>
           );
         }}

@@ -93,6 +93,7 @@ export default function ConfigStep() {
   const [qualifiers, setQualifiers] = useState(2);
   const [location, setLocation] = useState('');
   const [notes, setNotes]     = useState('');
+  const [useOfficialRules, setUseOfficialRules] = useState(true);
 
   function next() {
     router.push({
@@ -107,6 +108,7 @@ export default function ConfigStep() {
         tiebreak: String(tiebreak),
         location,
         notes,
+        useOfficialRules: String(useOfficialRules),
         groups: String(groups),
         qualifiers: String(qualifiers),
         thirdPlace: 'false',
@@ -225,6 +227,23 @@ export default function ConfigStep() {
           <Stepper label="Pontos do tie-break" value={tiebreak} min={5} max={15} onChange={setTiebreak} />
         </View>
 
+        {/* Regras oficiais BT */}
+        <View style={styles.field}>
+          <TouchableOpacity
+            style={tog.row}
+            onPress={() => setUseOfficialRules(v => !v)}
+            activeOpacity={0.8}
+          >
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={tog.label}>Usar regras oficiais BT</Text>
+              <Text style={tog.desc}>Valida placares: 6-0..6-4, 7-5, 7-6 (TB)</Text>
+            </View>
+            <View style={[tog.track, useOfficialRules && tog.trackOn]}>
+              <View style={[tog.thumb, useOfficialRules && tog.thumbOn]} />
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* Informações (opcional) */}
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>Local / quadras (opcional)</Text>
@@ -260,6 +279,16 @@ export default function ConfigStep() {
     </SafeAreaView>
   );
 }
+
+const tog = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xs },
+  label: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  desc: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  track: { width: 46, height: 26, borderRadius: 13, backgroundColor: Colors.surf2, borderWidth: 1, borderColor: Colors.line, justifyContent: 'center', paddingHorizontal: 3 },
+  trackOn: { backgroundColor: Colors.teal + '44', borderColor: Colors.teal },
+  thumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: Colors.muted },
+  thumbOn: { backgroundColor: Colors.teal, alignSelf: 'flex-end' },
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },

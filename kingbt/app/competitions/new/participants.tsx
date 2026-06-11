@@ -1,11 +1,16 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar } from '@/components';
 import { PLAYERS } from '@/mocks/data';
 import type { Format } from '@/logic/types';
+import { useCompetitions } from '@/store/CompetitionsContext';
+import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { buildRanking } from '@/logic/scoring';
+import { extractPlayerGames } from '@/logic/formats';
+import { balancedPairs } from '@/logic/roundRobin';
 
 const STEPS = ['Formato', 'Ajustes', 'Quem joga', 'Revisar'];
 
@@ -21,10 +26,13 @@ const GUEST_COLORS = ['#94A3B8', '#FB923C', '#A78BFA', '#34D399', '#F472B6', '#2
 export default function ParticipantsStep() {
   const params = useLocalSearchParams<Params>();
   const isDuplas = params.unit === 'duplas';
+  const { state } = useCompetitions();
+  const { groupPlayers, findPlayer } = useGroupPlayers();
 
   const [selected, setSelected] = useState<string[]>([]);
   const [pairs, setPairs] = useState<[string, string][]>([]);
   const [pairBuf, setPairBuf] = useState<string | null>(null);
+  const [balanced, setBalanced] = useState(false);
 
   // Convidados
   const [guests, setGuests] = useState<GuestPlayer[]>([]);
@@ -35,6 +43,17 @@ export default function ParticipantsStep() {
     ...PLAYERS.map(p => ({ ...p, guest: false as const })),
     ...guests,
   ];
+
+  // Sugestão de duplas equilibradas pelo ranking histórico
+  const suggestedPairs = useMemo(() => {
+    if (!balanced || !isDuplas || selected.length < 4) return null;
+    const allGames = state.competitions.flatMap(extractPlayerGames);
+    const ranking = buildRanking(
+      groupPlayers.map(p => ({ id: p.id, name: p.name, short: '', color: p.color })),
+      allGames
+    );
+    return balancedPairs(selected.map(id => ({ id })), ranking);
+  }, [balanced, selected, isDuplas, state.competitions, groupPlayers]);
 
   function addGuest() {
     const name = guestName.trim();
@@ -205,6 +224,69 @@ export default function ParticipantsStep() {
           </View>
         )}
 
+        {/* Toggle duplas equilibradas — só para avulso/super8 duplas com ≥4 selecionados */}
+        {isDuplas && (params.format === 'avulso' || params.format === 'super8') && selected.length >= 4 && pairs.length === 0 && (
+          <View style={{ gap: Spacing.sm }}>
+            <TouchableOpacity
+              style={[styles.balanceToggle, balanced && styles.balanceToggleActive]}
+              onPress={() => setBalanced(v => !v)}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 20 }}>⚖️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.balanceToggleTitle, balanced && { color: Colors.gold }]}>
+                  Duplas equilibradas
+                </Text>
+                <Text style={styles.balanceToggleSub}>
+                  1° com o último, 2° com o penúltimo…
+                </Text>
+              </View>
+              <View style={[styles.balanceCheck, balanced && styles.balanceCheckActive]}>
+                {balanced && <Text style={{ fontSize: 12, color: Colors.bg }}>✓</Text>}
+              </View>
+            </TouchableOpacity>
+
+            {balanced && suggestedPairs && (
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted, letterSpacing: 1.5 }}>
+                  SUGESTÃO DE DUPLAS
+                </Text>
+                {suggestedPairs.map(([idA, idB], i) => {
+                  const pA = allPlayers.find(p => p.id === idA) ?? findPlayer(idA);
+                  const pB = allPlayers.find(p => p.id === idB) ?? findPlayer(idB);
+                  return (
+                    <TouchableOpacity
+                      key={i}
+                      style={styles.suggestionRow}
+                      onPress={() => {
+                        setPairs(prev => [...prev, [idA, idB]]);
+                        setSelected(prev => prev.filter(x => x !== idA && x !== idB));
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.faint, width: 20 }}>
+                        {i + 1}
+                      </Text>
+                      {pA && <Avatar name={pA.name} color={pA.color} size={24} />}
+                      <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text }}>
+                        {pA?.name.split(' ')[0]}
+                      </Text>
+                      <Text style={{ color: Colors.faint }}>+</Text>
+                      {pB && <Avatar name={pB.name} color={pB.color} size={24} />}
+                      <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text }}>
+                        {pB?.name.split(' ')[0]}
+                      </Text>
+                      <Text style={{ fontFamily: FontFamily.body, fontSize: 11, color: Colors.teal, marginLeft: 'auto' }}>
+                        + adicionar
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        )}
+
         <View style={{ height: 100 }} />
       </ScrollView>
 
@@ -339,6 +421,25 @@ const styles = StyleSheet.create({
 
   bufHint: { backgroundColor: Colors.teal + '22', borderRadius: Radius.sm, padding: Spacing.sm, alignItems: 'center' },
   bufHintText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.teal },
+
+  balanceToggle: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.md,
+    borderWidth: 1, borderColor: Colors.line,
+  },
+  balanceToggleActive: { backgroundColor: Colors.gold + '15', borderColor: Colors.gold + '44' },
+  balanceToggleTitle: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.text },
+  balanceToggleSub: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  balanceCheck: {
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  balanceCheckActive: { backgroundColor: Colors.gold, borderColor: Colors.gold },
+  suggestionRow: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.sm,
+  },
 
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: Spacing.md, paddingBottom: Spacing.lg, backgroundColor: Colors.bg, borderTopWidth: 1, borderTopColor: Colors.line },
   btnContinue: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' },

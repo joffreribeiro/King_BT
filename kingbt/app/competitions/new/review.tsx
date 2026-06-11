@@ -28,6 +28,7 @@ type Params = {
   format: Format; name: string; unit: string; rounds: string;
   sets: string; games: string; tiebreak: string;
   location?: string; notes?: string;
+  useOfficialRules?: string;
   groups: string; qualifiers: string;
   thirdPlace: string; playerIds: string; guestData?: string;
 };
@@ -89,6 +90,7 @@ export default function ReviewStep() {
       qualifiers: parseInt(p.qualifiers ?? '2'),
       thirdPlace: p.thirdPlace === 'true',
       winRule: { sets: setsN, games: gamesN, tiebreak: tiebreakN },
+      useOfficialRules: p.useOfficialRules !== 'false',
     },
   });
 

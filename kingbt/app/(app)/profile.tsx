@@ -7,7 +7,7 @@ import { Avatar, Badge, Card } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
-import { addGuestPlayer, removeGuestPlayer } from '@/firebase/groupPlayers';
+import { addGuestPlayer, removeGuestPlayer, updatePlayerHandicap } from '@/firebase/groupPlayers';
 import QRCode from 'react-native-qrcode-svg';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames, competitionChampion } from '@/logic/formats';
@@ -45,7 +45,6 @@ export default function ProfileScreen() {
   const [showQR, setShowQR] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [guestColor, setGuestColor] = useState(GUEST_COLORS[0]);
-
   async function handleLeaveGroup() {
     const doLeave = async () => {
       await leaveGroup();
@@ -99,7 +98,7 @@ export default function ProfileScreen() {
 
   const allGames = state.competitions.flatMap(extractPlayerGames);
   const ranking = buildRanking(
-    groupPlayers.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0,3).toUpperCase(), color: p.color })),
+    groupPlayers.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0,3).toUpperCase(), color: p.color, handicap: p.handicap })),
     allGames
   );
   const me = ranking.find(r => r.id === MY_ID) ?? ranking[0];
@@ -204,7 +203,12 @@ export default function ProfileScreen() {
         <View style={styles.heroBanner}>
           <View style={[styles.heroBg, { backgroundColor: (player?.color ?? '#FFD166') + '22' }]} />
           <View style={styles.heroInner}>
-            <Avatar name={player?.name ?? '?'} color={player?.color ?? '#FFD166'} size={88} showCrown={myPos === 1} />
+            <Avatar
+              name={player?.name ?? '?'}
+              color={player?.color ?? '#FFD166'}
+              size={88}
+              showCrown={myPos === 1}
+            />
             <Text style={styles.name}>{player?.name ?? user?.displayName ?? 'Jogador'}</Text>
             <Text style={styles.titleText}>{user?.email ?? ''}</Text>
             <View style={styles.badges}>
@@ -387,21 +391,44 @@ export default function ProfileScreen() {
               <Text style={guest.empty}>Nenhum jogador cadastrado ainda.</Text>
             )}
 
-            {groupPlayers.map((p, i) => (
-              <View key={p.id} style={[guest.playerRow, i < groupPlayers.length - 1 && guest.border]}>
-                <Avatar name={p.name} color={p.color} size={30} />
-                <Text style={guest.playerName}>{p.name}</Text>
-                {p.guest
-                  ? <View style={guest.guestBadge}><Text style={guest.guestText}>convidado</Text></View>
-                  : <View style={guest.memberBadge}><Text style={guest.memberText}>membro</Text></View>
-                }
-                {p.guest && (
-                  <TouchableOpacity onPress={() => handleRemoveGuest(p.id, p.name)} hitSlop={8}>
-                    <Text style={guest.removeBtn}>×</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ))}
+            {groupPlayers.map((p, i) => {
+              const h = p.handicap ?? 0;
+              return (
+                <View key={p.id} style={[guest.playerRow, i < groupPlayers.length - 1 && guest.border]}>
+                  <Avatar name={p.name} color={p.color} size={30} />
+                  <Text style={guest.playerName} numberOfLines={1}>{p.name}</Text>
+                  {/* Handicap controls */}
+                  <View style={guest.hcRow}>
+                    <TouchableOpacity
+                      onPress={() => group && updatePlayerHandicap(group.id, p.id, Math.max(-3, h - 1))}
+                      hitSlop={6}
+                      style={guest.hcBtn}
+                    >
+                      <Text style={guest.hcBtnText}>−</Text>
+                    </TouchableOpacity>
+                    <Text style={[guest.hcVal, { color: h > 0 ? Colors.teal : h < 0 ? Colors.coral : Colors.faint }]}>
+                      {h > 0 ? `+${h}` : h === 0 ? '0' : h}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => group && updatePlayerHandicap(group.id, p.id, Math.min(3, h + 1))}
+                      hitSlop={6}
+                      style={guest.hcBtn}
+                    >
+                      <Text style={guest.hcBtnText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                  {p.guest
+                    ? <View style={guest.guestBadge}><Text style={guest.guestText}>conv.</Text></View>
+                    : null
+                  }
+                  {p.guest && (
+                    <TouchableOpacity onPress={() => handleRemoveGuest(p.id, p.name)} hitSlop={8}>
+                      <Text style={guest.removeBtn}>×</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })}
 
             {showAddGuest && (
               <View style={guest.form}>
@@ -602,4 +629,8 @@ const guest = StyleSheet.create({
   colorDotSel: { borderWidth: 3, borderColor: Colors.text },
   confirmBtn: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
   confirmText: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.bg },
+  hcRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  hcBtn: { width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.line },
+  hcBtnText: { fontFamily: FontFamily.titleBold, fontSize: 14, color: Colors.text, lineHeight: 18 },
+  hcVal: { fontFamily: FontFamily.numberBold, fontSize: 13, width: 24, textAlign: 'center' },
 });

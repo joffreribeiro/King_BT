@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
+import ViewShot from 'react-native-view-shot';
 import { router } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Card } from '@/components';
@@ -14,6 +15,7 @@ import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
 import { generateRankingHtml } from '@/logic/rankingHtml';
 import type { PlayerInfo } from '@/store/GroupPlayersContext';
+import RankingCard from '@/components/RankingCard';
 
 
 function h2hBetween(
@@ -55,6 +57,8 @@ export default function RankingScreen() {
   const [period, setPeriod] = useState<'mes' | 'ano' | 'geral'>('geral');
   const [showExport, setShowExport] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [sharingImg, setSharingImg] = useState(false);
+  const viewShotRef = useRef<ViewShot>(null);
 
   function getHtml() {
     const mockPlayers = groupPlayers.map(p => ({
@@ -66,6 +70,21 @@ export default function RankingScreen() {
       GROUP.roundsDone, GROUP.location,
       new Date().toLocaleDateString('pt-BR'),
     );
+  }
+
+  async function handleShareImage() {
+    if (!viewShotRef.current) return;
+    try {
+      setSharingImg(true);
+      const uri = await (viewShotRef.current as any).capture();
+      setSharingImg(false);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Compartilhar ranking' });
+      }
+    } catch {
+      setSharingImg(false);
+      Alert.alert('Erro', 'Não foi possível gerar a imagem.');
+    }
   }
 
   async function shareAsPDF() {
@@ -91,7 +110,7 @@ export default function RankingScreen() {
   });
   const allGames = filteredComps.flatMap(extractPlayerGames);
   const ranking = buildRanking(
-    groupPlayers.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color })),
+    groupPlayers.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color, handicap: p.handicap })),
     allGames
   );
 
@@ -118,6 +137,15 @@ export default function RankingScreen() {
             </TouchableOpacity>
             <TouchableOpacity style={[styles.formulaBtn, { borderColor: Colors.gold + '66' }]} onPress={() => setShowExport(true)}>
               <Text style={[styles.formulaBtnText, { color: Colors.gold }]}>PDF</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.formulaBtn, { borderColor: Colors.teal + '66' }]}
+              onPress={handleShareImage}
+              disabled={sharingImg}
+            >
+              <Text style={[styles.formulaBtnText, { color: Colors.teal }]}>
+                {sharingImg ? '⏳' : '📤'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -212,6 +240,21 @@ export default function RankingScreen() {
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
 
+      {/* Card oculto para captura de imagem */}
+      <View style={{ position: 'absolute', top: -9999, left: -9999 }}>
+        <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }}>
+          <RankingCard
+            ranking={ranking}
+            players={groupPlayers.map(p => ({ id: p.id, name: p.name, color: p.color, short: p.name.slice(0, 3).toUpperCase(), title: '', titleEmoji: '', guest: p.guest ?? false }))}
+            groupName={GROUP.name}
+            season={GROUP.season}
+            roundsDone={GROUP.roundsDone}
+            location={GROUP.location}
+            date={new Date().toLocaleDateString('pt-BR')}
+          />
+        </ViewShot>
+      </View>
+
       {/* Modal comparar jogadores */}
       <Modal visible={showCompare} transparent animationType="slide">
         <TouchableOpacity style={modal.overlay} onPress={() => setShowCompare(false)} activeOpacity={1}>
@@ -233,9 +276,9 @@ export default function RankingScreen() {
                           style={[cmp.playerOpt, selected && cmp.playerOptActive]}
                           onPress={() => side === 0 ? setCompareA(r.id) : setCompareB(r.id)}
                         >
-                          <Avatar name={pl.name} color={pl.color} size={22} />
+                          <Avatar name={pl?.name ?? '?'} color={pl?.color ?? '#888'} size={22} />
                           <Text style={[cmp.playerOptText, selected && { color: Colors.gold }]} numberOfLines={1}>
-                            {pl.name.split(' ')[0]}
+                            {(pl?.name ?? r.id).split(' ')[0]}
                           </Text>
                         </TouchableOpacity>
                       );

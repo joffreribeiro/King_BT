@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
 import { Colors, FontFamily } from '@/theme';
+import { useSyncQueue } from '@/store/SyncQueueContext';
 
 type TabIconProps = { label: string; focused: boolean; icon: string };
 
@@ -15,8 +16,25 @@ function TabIcon({ label, focused, icon }: TabIconProps) {
   );
 }
 
+function OfflineBanner() {
+  const { isOnline, pendingCount } = useSyncQueue();
+  if (isOnline) return null;
+  return (
+    <View style={styles.offlineBanner}>
+      <Text style={{ fontSize: 11 }}>📶</Text>
+      <Text style={styles.offlineText}>
+        {pendingCount > 0
+          ? `Offline · ${pendingCount} pendente${pendingCount > 1 ? 's' : ''}`
+          : 'Offline'}
+      </Text>
+    </View>
+  );
+}
+
 export default function AppLayout() {
   return (
+    <>
+    <OfflineBanner />
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -51,6 +69,14 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen
+        name="dashboard"
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <TabIcon label="Grupo" focused={focused} icon="🏟️" />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="fab"
         options={{ href: null }}
       />
@@ -63,6 +89,7 @@ export default function AppLayout() {
         }}
       />
     </Tabs>
+    </>
   );
 }
 
@@ -78,4 +105,10 @@ const styles = StyleSheet.create({
   iconWrap: { alignItems: 'center', gap: 2, width: 80 },
   iconEmoji: { fontSize: 22 },
   iconLabel: { fontFamily: FontFamily.body, fontSize: 10, textAlign: 'center' },
+  offlineBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: Colors.coral + '22', borderBottomWidth: 1, borderBottomColor: Colors.coral + '44',
+    paddingVertical: 5,
+  },
+  offlineText: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.coral },
 });

@@ -11,14 +11,10 @@ export default function HallScreen() {
   const { state } = useCompetitions();
   const { findPlayer } = useGroupPlayers();
 
-  console.log('[Hall] total comps:', state.competitions.length);
-  state.competitions.forEach(c => console.log(`  [Hall] comp: ${c.name} status=${c.status} format=${c.format} matches=${c.matches?.length} teamA0=`, c.matches?.[0]?.teamA));
-
   const champions = state.competitions
     .filter(c => c.status === 'done')
     .map(c => {
       const champ = competitionChampion(c);
-      console.log(`  [Hall] champion for ${c.name}:`, champ);
       if (!champ) return null;
       const player = findPlayer(champ.members[0]);
       const champName = (champ as any).name ?? player?.name ?? champ.members[0];

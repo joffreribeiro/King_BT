@@ -22,6 +22,7 @@ import { CompetitionsProvider } from '@/store/CompetitionsContext';
 import { GroupPlayersProvider } from '@/store/GroupPlayersContext';
 import { SettingsProvider } from '@/store/SettingsContext';
 import { FeedProvider } from '@/store/FeedContext';
+import { SyncQueueProvider } from '@/store/SyncQueueContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -51,6 +52,7 @@ export default function RootLayout() {
     <GroupPlayersProvider>
     <CompetitionsProvider>
     <FeedProvider>
+    <SyncQueueProvider>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -59,6 +61,7 @@ export default function RootLayout() {
           animation: 'slide_from_right',
         }}
       />
+    </SyncQueueProvider>
     </FeedProvider>
     </CompetitionsProvider>
     </GroupPlayersProvider>

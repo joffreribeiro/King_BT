@@ -7,6 +7,7 @@ export interface Player {
   name: string;
   short: string;
   color: string;
+  handicap?: number;
 }
 
 export interface Competitor {
@@ -84,6 +85,14 @@ export interface CompetitionConfig {
   qualifiers: number;
   thirdPlace: boolean;
   winRule: WinRule;
+  useOfficialRules?: boolean;
+}
+
+export interface Substitution {
+  originalId: string;
+  substituteId: string;
+  fromMatchId: string;
+  timestamp: string;
 }
 
 export interface Competition {
@@ -101,6 +110,7 @@ export interface Competition {
   competitors: Competitor[];
   groupDefs?: GroupDef[];
   matches: Match[];
+  substitutions?: Substitution[];
 }
 
 export interface PlayerStat {

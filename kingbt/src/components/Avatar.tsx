@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { FontFamily, Radius } from '@/theme';
+import { FontFamily } from '@/theme';
 
 type Props = {
   name: string;

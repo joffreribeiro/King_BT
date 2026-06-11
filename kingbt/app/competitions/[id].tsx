@@ -18,6 +18,7 @@ import type { Match, Competition } from '@/logic/types';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
+import { getBeachTennisScoreState, getScoreHint, isValidFinalScore } from '@/logic/btScoring';
 
 function getPlayer(id: string) {
   return PLAYERS.find(p => p.id === id);
@@ -389,8 +390,8 @@ function firstUnscored(matches: Match[]): string | null {
   return m?.id ?? null;
 }
 
-function RotatingView({ comp, onScore, onClear }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void }) {
-  const { findPlayer } = useGroupPlayers();
+function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void; onSubstitute?: (match: Match, playerId: string) => void }) {
+  const { findPlayer, groupPlayers: gp } = useGroupPlayers();
   const isDuplas = comp.unit === 'duplas';
   const [tab, setTab] = useState<'ranking' | 'jogos' | 'duplas'>('ranking');
   const done  = comp.matches.filter(m => m.scoreA != null).length;
@@ -553,7 +554,21 @@ function RotatingView({ comp, onScore, onClear }: { comp: Competition; onScore: 
 
         {tab === 'jogos' && comp.matches.map((m, i) => (
           <GameRow key={m.id} match={m} index={i} comp={comp} isNext={m.id === nextId}
-            onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
+            onPress={() => onScore(m)}
+            onLongPress={() => {
+              if (m.scoreA != null) {
+                onClear(m.id);
+              } else if (onSubstitute) {
+                const ids = [...(m.teamA ?? []), ...(m.teamB ?? [])].filter(Boolean);
+                Alert.alert('Substituir jogador', 'Qual jogador deseja substituir?', [
+                  { text: 'Cancelar', style: 'cancel' },
+                  ...ids.slice(0, 5).map(pid => ({
+                    text: findPlayer(pid)?.name ?? pid,
+                    onPress: () => onSubstitute(m, pid),
+                  })),
+                ]);
+              }
+            }} />
         ))}
 
         <View style={{ height: Spacing.xl }} />
@@ -562,7 +577,7 @@ function RotatingView({ comp, onScore, onClear }: { comp: Competition; onScore: 
   );
 }
 
-function LeagueView({ comp, onScore, onClear }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void }) {
+function LeagueView({ comp, onScore, onClear, onSubstitute }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void; onSubstitute?: (match: Match, playerId: string) => void }) {
   const rounds = [...new Set(comp.matches.map(m => m.round))].sort((a, b) => (a ?? 0) - (b ?? 0));
   const nextId = firstUnscored(comp.matches);
   return (
@@ -672,8 +687,8 @@ function buildBracketShareText(comp: Competition): string {
   }
   const champ = competitionChampion(comp);
   if (champ) {
-    const champP = findPlayer(champ.members[0]);
-    lines.push(`\n🥇 Campeão: ${(champ as any).name ?? champP?.name ?? champ.members[0]}`);
+    const champName = (champ as any).name ?? comp.competitors.find(c => c.id === champ.members[0])?.name ?? champ.members[0];
+    lines.push(`\n🥇 Campeão: ${champName}`);
   }
   lines.push('\nEnviado pelo King BT 👑');
   return lines.join('\n');
@@ -775,8 +790,12 @@ function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }:
   const [sB, setSB] = useState(match?.scoreB != null ? String(match.scoreB) : '');
   if (!match) return null;
   const a = parseInt(sA), b = parseInt(sB);
-  const valid = !isNaN(a) && !isNaN(b) && a >= 0 && b >= 0 && a !== b;
-  const draw = !isNaN(a) && !isNaN(b) && a === b;
+  const hasNumbers = !isNaN(a) && !isNaN(b) && a >= 0 && b >= 0;
+  const draw = hasNumbers && a === b;
+  const useOfficialRules = comp.config.useOfficialRules !== false;
+  const scoreState = hasNumbers && !draw ? getBeachTennisScoreState(a, b) : 'normal';
+  const hint = hasNumbers ? getScoreHint(a, b) : null;
+  const valid = hasNumbers && !draw && (useOfficialRules ? isValidFinalScore(a, b) : true);
   const alreadyScored = match.scoreA != null;
   const canEdit = !alreadyScored || isAdmin;
 
@@ -804,6 +823,37 @@ function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }:
         <View style={sc.sheet}>
           <Text style={sc.title}>Registrar Placar</Text>
           <Text style={sc.sub}>{nameA}{'\nvs\n'}{nameB}</Text>
+          {useOfficialRules && scoreState !== 'normal' && (
+            <View style={[sc.stateBadge, {
+              backgroundColor:
+                scoreState === 'tiebreak'  ? Colors.coral  + '22' :
+                scoreState === 'advantage' ? Colors.gold   + '22' :
+                scoreState === 'done'      ? Colors.teal   + '22' :
+                Colors.surf2,
+              borderColor:
+                scoreState === 'tiebreak'  ? Colors.coral  + '55' :
+                scoreState === 'advantage' ? Colors.gold   + '55' :
+                scoreState === 'done'      ? Colors.teal   + '55' :
+                Colors.line,
+            }]}>
+              <Text style={{ fontSize: 14 }}>
+                {scoreState === 'tiebreak'  ? '⚡' :
+                 scoreState === 'advantage' ? '⚠️' :
+                 scoreState === 'done'      ? '✅' : '❌'}
+              </Text>
+              <Text style={[sc.stateText, {
+                color:
+                  scoreState === 'tiebreak'  ? Colors.coral  :
+                  scoreState === 'advantage' ? Colors.gold   :
+                  scoreState === 'done'      ? Colors.teal   :
+                  Colors.muted,
+              }]}>
+                {scoreState === 'tiebreak'  ? 'TIE-BREAK'  :
+                 scoreState === 'advantage' ? 'ADVANTAGE'  :
+                 scoreState === 'done'      ? 'VÁLIDO'      : 'INVÁLIDO'}
+              </Text>
+            </View>
+          )}
           <View style={sc.inputRow}>
             {[{ val: sA, set: setSA, label: nameA }, { val: sB, set: setSB, label: nameB }].map(({ val, set, label }, idx) => (
               <View key={idx} style={sc.inputBlock}>
@@ -820,6 +870,9 @@ function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }:
               </View>
             ))}
           </View>
+          {useOfficialRules && hint && (
+            <Text style={sc.hint}>{hint}</Text>
+          )}
           {/* Quick score chips */}
           {!alreadyScored && (
             <View style={sc.quickRow}>
@@ -890,6 +943,9 @@ const sc = StyleSheet.create({
   quickChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' },
   quickChip: { backgroundColor: Colors.surf2, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: Colors.line },
   quickChipText: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.teal },
+  stateBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
+  stateText: { fontFamily: FontFamily.title, fontSize: 12 },
+  hint: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, textAlign: 'center', marginTop: 2 },
 });
 
 // ─── Edit Name Modal ──────────────────────────────────────────────────────────
@@ -987,7 +1043,7 @@ export default function CompetitionDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state, dispatch } = useCompetitions();
   const { isAdmin } = useAuth();
-  const { findPlayer } = useGroupPlayers();
+  const { findPlayer, groupPlayers } = useGroupPlayers();
   const comp = state.competitions.find(c => c.id === id);
   const [scoring, setScoring]             = useState<Match | null>(null);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
@@ -1075,6 +1131,32 @@ export default function CompetitionDetail() {
   function handleShare() {
     const text = buildShareText(comp!, findPlayer);
     Share.share({ message: text, title: comp!.name }).catch(() => {});
+  }
+
+  function handleSubstitute(match: Match, originalId: string) {
+    if (!isAdmin) return;
+    const options = groupPlayers
+      .filter(p => p.id !== originalId)
+      .slice(0, 6)
+      .map(p => ({
+        text: p.name,
+        onPress: () => {
+          dispatch({
+            type: 'SUBSTITUTE_PLAYER',
+            compId: comp!.id,
+            sub: {
+              originalId,
+              substituteId: p.id,
+              fromMatchId: match.id,
+              timestamp: new Date().toISOString(),
+            },
+          });
+        },
+      }));
+    Alert.alert('Substituir jogador', 'Escolha quem vai entrar:', [
+      { text: 'Cancelar', style: 'cancel' },
+      ...options,
+    ]);
   }
 
   return (
@@ -1167,10 +1249,12 @@ export default function CompetitionDetail() {
       {comp.format === 'grupos'
         ? <GroupsView comp={comp} onScore={setScoring} onClear={handleClear} />
         : comp.format === 'liga'
-          ? <LeagueView comp={comp} onScore={setScoring} onClear={handleClear} />
+          ? <LeagueView comp={comp} onScore={setScoring} onClear={handleClear}
+              onSubstitute={isAdmin ? handleSubstitute : undefined} />
           : comp.format === 'mata'
             ? <KOView comp={comp} onScore={setScoring} onClear={handleClear} />
-            : <RotatingView comp={comp} onScore={setScoring} onClear={handleClear} />
+            : <RotatingView comp={comp} onScore={setScoring} onClear={handleClear}
+            onSubstitute={isAdmin ? handleSubstitute : undefined} />
       }
 
       <ScorerModal

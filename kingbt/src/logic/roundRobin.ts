@@ -67,3 +67,21 @@ export function generateSchedule(players: Pick<Player, 'id'>[]): Match[] {
   }
   return games;
 }
+
+/** Snake pairing: 1°+N°, 2°+(N-1)°, etc. para equilibrar duplas pelo ranking */
+export function balancedPairs(
+  players: { id: string }[],
+  ranking: { id: string; points: number }[]
+): [string, string][] {
+  const sorted = [...players].sort((a, b) => {
+    const rA = ranking.findIndex(r => r.id === a.id);
+    const rB = ranking.findIndex(r => r.id === b.id);
+    return (rA === -1 ? 9999 : rA) - (rB === -1 ? 9999 : rB);
+  });
+  const pairs: [string, string][] = [];
+  const n = sorted.length;
+  for (let i = 0; i < Math.floor(n / 2); i++) {
+    pairs.push([sorted[i].id, sorted[n - 1 - i].id]);
+  }
+  return pairs;
+}

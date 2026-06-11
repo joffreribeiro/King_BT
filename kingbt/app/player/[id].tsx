@@ -5,6 +5,7 @@ import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
 import { PLAYERS } from '@/mocks/data';
 import { useCompetitions } from '@/store/CompetitionsContext';
+import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { buildRanking, type RankedPlayer } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 
@@ -30,6 +31,7 @@ const bar = StyleSheet.create({
 export default function PlayerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state } = useCompetitions();
+  const { groupPlayers } = useGroupPlayers();
 
   const player = PLAYERS.find(p => p.id === id);
   if (!player) {
@@ -45,7 +47,7 @@ export default function PlayerDetailScreen() {
 
   const allGames = state.competitions.flatMap(extractPlayerGames);
   const ranking = buildRanking(
-    PLAYERS.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color })),
+    groupPlayers.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color, handicap: p.handicap })),
     allGames
   );
   const me = ranking.find(r => r.id === id) ?? ranking[0];
