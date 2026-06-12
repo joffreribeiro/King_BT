@@ -1,22 +1,27 @@
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ActivityIndicator, KeyboardAvoidingView, Platform,
+  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
-import { useAuth } from '@/store/AuthContext';
+import { useAuth, type UnlinkedPlayer } from '@/store/AuthContext';
 
 type Mode = 'join' | 'create';
 
 export default function JoinGroupScreen() {
-  const { user, group, loading, joinGroup, createGroup, logout, error, clearError } = useAuth();
+  const { user, group, loading, joinGroup, linkToPlayer, createGroup, logout, error, clearError } = useAuth();
   const router = useRouter();
   const [mode, setMode]   = useState<Mode>('join');
   const [code, setCode]   = useState('');
   const [name, setName]   = useState('');
   const [busy, setBusy]   = useState(false);
+
+  // Modal de vínculo de perfil
+  const [unlinked, setUnlinked]     = useState<UnlinkedPlayer[]>([]);
+  const [showLink, setShowLink]     = useState(false);
+  const [linkBusy, setLinkBusy]     = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -27,8 +32,14 @@ export default function JoinGroupScreen() {
     if (!code.trim()) return;
     setBusy(true);
     clearError();
-    await joinGroup(code.trim());
+    const result = await joinGroup(code.trim());
     setBusy(false);
+    if (result.unlinkedPlayers.length > 0) {
+      setUnlinked(result.unlinkedPlayers);
+      setShowLink(true);
+    }
+    // Se não há jogadores sem vínculo, o joinGroup já criou um player novo
+    // e o useEffect acima vai redirecionar
   }
 
   async function handleCreate() {
@@ -37,6 +48,39 @@ export default function JoinGroupScreen() {
     clearError();
     await createGroup(name.trim());
     setBusy(false);
+  }
+
+  async function handleLinkTo(playerId: string) {
+    setLinkBusy(true);
+    await linkToPlayer(playerId);
+    setLinkBusy(false);
+    setShowLink(false);
+    // o group já está setado, o useEffect vai redirecionar
+  }
+
+  async function handleCreateNew() {
+    // Vincula a um player "novo" passando o uid como playerId — linkToPlayer
+    // vai criar o doc se não existir via setDoc merge, mas precisamos criar primeiro
+    // Usamos linkToPlayer com um ID fictício? Não — precisamos criar o player explicitamente.
+    // Solução: joinGroup já retornou o group setado; criamos o player diretamente aqui.
+    if (!user || !group) return;
+    setLinkBusy(true);
+    try {
+      const [{ doc, setDoc }, { db }] = await Promise.all([
+        import('firebase/firestore'),
+        import('@/firebase/config'),
+      ]);
+      await setDoc(doc(db, 'groups', group.id, 'players', user.uid), {
+        name: user.displayName ?? 'Jogador',
+        uid: user.uid,
+        color: '#FFD166',
+        guest: false,
+      });
+      // Força atualização do myPlayerId no contexto via linkToPlayer
+      await linkToPlayer(user.uid);
+    } catch {}
+    setLinkBusy(false);
+    setShowLink(false);
   }
 
   function switchMode(m: Mode) {
@@ -159,6 +203,48 @@ export default function JoinGroupScreen() {
 
         </View>
       </KeyboardAvoidingView>
+
+      {/* Modal: selecionar perfil existente */}
+      <Modal visible={showLink} transparent animationType="slide" onRequestClose={() => {}}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Você já está no grupo?</Text>
+            <Text style={styles.modalSubtitle}>
+              Selecione seu perfil para vincular ao seu login, ou crie um novo.
+            </Text>
+
+            <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+              {unlinked.map(p => (
+                <TouchableOpacity
+                  key={p.id}
+                  style={styles.playerRow}
+                  onPress={() => handleLinkTo(p.id)}
+                  disabled={linkBusy}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.playerDot, { backgroundColor: p.color }]} />
+                  <Text style={styles.playerName}>{p.name}</Text>
+                  <Text style={styles.playerArrow}>→</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <View style={styles.modalDivider} />
+
+            <TouchableOpacity
+              style={[styles.btnOutline, linkBusy && styles.btnDisabled]}
+              onPress={handleCreateNew}
+              disabled={linkBusy}
+              activeOpacity={0.8}
+            >
+              {linkBusy
+                ? <ActivityIndicator color={Colors.gold} />
+                : <Text style={styles.btnOutlineText}>+ Criar novo perfil</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -193,4 +279,17 @@ const styles = StyleSheet.create({
   btnText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg },
   logoutBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   logoutText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.faint },
+
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  modalBox: { backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
+  modalTitle: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.text },
+  modalSubtitle: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, lineHeight: 20 },
+  playerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  playerDot: { width: 14, height: 14, borderRadius: 7 },
+  playerName: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 16, color: Colors.text },
+  playerArrow: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.gold },
+  modalDivider: { height: 1, backgroundColor: Colors.line },
+  btnOutline: { borderWidth: 1.5, borderColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' },
+  btnOutlineText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.gold },
 });

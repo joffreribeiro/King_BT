@@ -19,6 +19,7 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { getBeachTennisScoreState, getScoreHint, isValidFinalScore } from '@/logic/btScoring';
+import { confirmParticipation, cancelParticipation } from '@/firebase/competitions';
 
 function getPlayer(id: string) {
   return PLAYERS.find(p => p.id === id);
@@ -1064,12 +1065,160 @@ function buildShareText(comp: Competition, findPlayer: (id: string) => { name: s
   return lines.join('\n');
 }
 
+// ─── Avulso View ─────────────────────────────────────────────────────────────
+
+function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
+  comp: Competition;
+  onScore: (m: Match) => void;
+  onClear: (matchId: string) => void;
+  onAddMatch: () => void;
+}) {
+  const { findPlayer } = useGroupPlayers();
+  const scored = comp.matches.filter(m => m.scoreA != null);
+  const pending = comp.matches.filter(m => m.scoreA == null);
+
+  // Ranking igual ao RotatingView
+  const playerIds = [...new Set(comp.matches.flatMap(m => [...(m.teamA ?? []), ...(m.teamB ?? [])]))];
+  const rankingStats = playerIds.map(pid => {
+    let wins = 0, losses = 0, gf = 0, gc = 0;
+    comp.matches.forEach(m => {
+      if (m.scoreA == null || m.scoreA === m.scoreB) return;
+      const inA = m.teamA?.includes(pid);
+      const inB = m.teamB?.includes(pid);
+      if (inA) { gf += m.scoreA!; gc += m.scoreB!; if (m.scoreA! > m.scoreB!) wins++; else losses++; }
+      if (inB) { gf += m.scoreB!; gc += m.scoreA!; if (m.scoreB! > m.scoreA!) wins++; else losses++; }
+    });
+    const played = wins + losses;
+    const ga = gc > 0 ? gf / gc : gf > 0 ? 999 : 0;
+    const pts = wins * 3 + played * 0.5 + ga * 2;
+    return { pid, wins, losses, played, gf, gc, pts };
+  }).sort((a, b) => b.pts - a.pts);
+
+  return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: Spacing.md, gap: Spacing.md }}
+      showsVerticalScrollIndicator={false}>
+
+      {/* Botão adicionar jogo */}
+      {comp.status !== 'done' && (
+        <TouchableOpacity style={avulsoS.addBtn} onPress={onAddMatch} activeOpacity={0.85}>
+          <Text style={avulsoS.addBtnIcon}>+</Text>
+          <Text style={avulsoS.addBtnText}>Registrar jogo</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Jogos pendentes */}
+      {pending.length > 0 && (
+        <View style={{ gap: Spacing.xs }}>
+          <Text style={avulsoS.sectionTitle}>AGUARDANDO PLACAR ({pending.length})</Text>
+          {pending.map(m => {
+            const namesA = (m.teamA ?? []).map(id => findPlayer(id)?.name ?? id).join(' / ');
+            const namesB = (m.teamB ?? []).map(id => findPlayer(id)?.name ?? id).join(' / ');
+            return (
+              <TouchableOpacity key={m.id} onPress={() => onScore(m)} activeOpacity={0.8}>
+                <Card style={avulsoS.matchCard}>
+                  <View style={avulsoS.matchSide}><Text style={avulsoS.matchName} numberOfLines={1}>{namesA}</Text></View>
+                  <View style={avulsoS.matchCenter}><Text style={avulsoS.vsText}>vs</Text></View>
+                  <View style={[avulsoS.matchSide, { alignItems: 'flex-end' }]}>
+                    <Text style={avulsoS.matchName} numberOfLines={1}>{namesB}</Text>
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Jogos com placar */}
+      {scored.length > 0 && (
+        <View style={{ gap: Spacing.xs }}>
+          <Text style={avulsoS.sectionTitle}>JOGOS REGISTRADOS ({scored.length})</Text>
+          {scored.map(m => {
+            const namesA = (m.teamA ?? []).map(id => findPlayer(id)?.name ?? id).join(' / ');
+            const namesB = (m.teamB ?? []).map(id => findPlayer(id)?.name ?? id).join(' / ');
+            const aWon = (m.scoreA ?? 0) > (m.scoreB ?? 0);
+            return (
+              <TouchableOpacity key={m.id} onPress={() => onScore(m)} onLongPress={() => onClear(m.id)} activeOpacity={0.8}>
+                <Card style={avulsoS.matchCard}>
+                  <View style={avulsoS.matchSide}>
+                    <Text style={[avulsoS.matchName, aWon && { color: Colors.teal }]} numberOfLines={1}>{namesA}</Text>
+                  </View>
+                  <View style={avulsoS.matchCenter}>
+                    <Text style={avulsoS.scoreText}>{m.scoreA} – {m.scoreB}</Text>
+                  </View>
+                  <View style={[avulsoS.matchSide, { alignItems: 'flex-end' }]}>
+                    <Text style={[avulsoS.matchName, !aWon && { color: Colors.teal }]} numberOfLines={1}>{namesB}</Text>
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Ranking */}
+      {rankingStats.length > 0 && (
+        <View style={{ gap: Spacing.xs }}>
+          <Text style={avulsoS.sectionTitle}>RANKING</Text>
+          <Card padding={0} style={{ overflow: 'hidden' }}>
+            {rankingStats.map((r, i) => {
+              const pl = findPlayer(r.pid);
+              return (
+                <View key={r.pid} style={[avulsoS.rankRow, i < rankingStats.length - 1 && { borderBottomWidth: 1, borderBottomColor: Colors.line }]}>
+                  <Text style={avulsoS.rankPos}>{i + 1}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                    {pl && <Avatar name={pl.name} color={pl.color} size={22} />}
+                    <Text style={avulsoS.rankName} numberOfLines={1}>{pl?.name ?? r.pid}</Text>
+                  </View>
+                  <Text style={avulsoS.rankStat}>{r.wins}V {r.losses}D</Text>
+                  <Text style={avulsoS.rankPts}>{r.pts.toFixed(2)}</Text>
+                </View>
+              );
+            })}
+          </Card>
+        </View>
+      )}
+
+      {comp.matches.length === 0 && (
+        <View style={avulsoS.empty}>
+          <Text style={avulsoS.emptyIcon}>📋</Text>
+          <Text style={avulsoS.emptyText}>Nenhum jogo registrado ainda.</Text>
+          <Text style={avulsoS.emptyHint}>Toque em "Registrar jogo" para adicionar.</Text>
+        </View>
+      )}
+
+      <View style={{ height: 40 }} />
+    </ScrollView>
+  );
+}
+
+const avulsoS = StyleSheet.create({
+  addBtn:      { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
+  addBtnIcon:  { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.bg },
+  addBtnText:  { fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg },
+  sectionTitle:{ fontFamily: FontFamily.title, fontSize: 12, color: Colors.muted, letterSpacing: 1 },
+  matchCard:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  matchSide:   { flex: 1 },
+  matchCenter: { alignItems: 'center', paddingHorizontal: Spacing.xs },
+  matchName:   { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
+  vsText:      { fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint },
+  scoreText:   { fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.gold },
+  rankRow:     { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8 },
+  rankPos:     { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted, width: 20, textAlign: 'center' },
+  rankName:    { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text, flex: 1 },
+  rankStat:    { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  rankPts:     { fontFamily: FontFamily.numberBold, fontSize: 14, color: Colors.gold, width: 52, textAlign: 'right' },
+  empty:       { alignItems: 'center', paddingVertical: Spacing.xl, gap: Spacing.sm },
+  emptyIcon:   { fontSize: 40 },
+  emptyText:   { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
+  emptyHint:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
+});
+
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function CompetitionDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state, dispatch } = useCompetitions();
-  const { isAdmin } = useAuth();
+  const { isAdmin, myPlayerId, group } = useAuth();
   const { findPlayer, groupPlayers } = useGroupPlayers();
   const comp = state.competitions.find(c => c.id === id);
   const [scoring, setScoring]             = useState<Match | null>(null);
@@ -1077,6 +1226,10 @@ export default function CompetitionDetail() {
   const [showEditName, setShowEditName]   = useState(false);
   const [showConfetti, setShowConfetti]   = useState(false);
   const [showChampion, setShowChampion]   = useState(false);
+  const [confirmBusy, setConfirmBusy]     = useState(false);
+  const [showAddAvulso, setShowAddAvulso] = useState(false);
+  const [avulsoTeamA, setAvulsoTeamA]     = useState<string[]>([]);
+  const [avulsoTeamB, setAvulsoTeamB]     = useState<string[]>([]);
   const champAnim  = useRef(new Animated.Value(0)).current;
   const viewShotRef = useRef<View>(null);
   const screenW = Dimensions.get('window').width;
@@ -1160,6 +1313,58 @@ export default function CompetitionDetail() {
     Share.share({ message: text, title: comp!.name }).catch(() => {});
   }
 
+  async function handleToggleConfirm() {
+    if (!group || !myPlayerId || !comp) return;
+    setConfirmBusy(true);
+    const already = comp.confirmedIds?.includes(myPlayerId);
+    if (already) {
+      await cancelParticipation(group.id, comp.id, myPlayerId);
+    } else {
+      await confirmParticipation(group.id, comp.id, myPlayerId);
+    }
+    setConfirmBusy(false);
+  }
+
+  function handleConfirmAddAvulso() {
+    if (avulsoTeamA.length === 0 || avulsoTeamB.length === 0) return;
+    const newMatch: Match = {
+      id: 'av_' + Date.now(),
+      stage: 'rotating',
+      teamA: avulsoTeamA,
+      teamB: avulsoTeamB,
+      scoreA: null,
+      scoreB: null,
+    };
+    dispatch({
+      type: 'UPDATE',
+      comp: { ...comp!, matches: [...comp!.matches, newMatch], status: 'active' },
+    });
+    setAvulsoTeamA([]);
+    setAvulsoTeamB([]);
+    setShowAddAvulso(false);
+  }
+
+  async function handleStartUpcoming() {
+    if (!comp || !group) return;
+    // Monta competidores a partir dos jogadores confirmados
+    const confirmedPlayers = (comp.confirmedIds ?? [])
+      .map(pid => findPlayer(pid))
+      .filter(Boolean) as typeof groupPlayers;
+    const competitors = confirmedPlayers.map(p => ({
+      id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(),
+      color: p.color, members: [p.id],
+    }));
+    dispatch({
+      type: 'UPDATE',
+      comp: {
+        ...comp,
+        status: 'active',
+        competitors,
+        confirmedIds: comp.confirmedIds,
+      },
+    });
+  }
+
   function handleSubstitute(match: Match, originalId: string) {
     if (!isAdmin) return;
     const options = groupPlayers
@@ -1233,8 +1438,8 @@ export default function CompetitionDetail() {
             <Text style={main.compName} numberOfLines={1}>{comp.name}</Text>
           </TouchableOpacity>
           <Badge
-            label={comp.status === 'done' ? 'Concluída' : 'Ativa'}
-            variant={comp.status === 'done' ? 'teal' : 'gold'}
+            label={comp.status === 'upcoming' ? 'Agendada' : comp.status === 'done' ? 'Concluída' : 'Ativa'}
+            variant={comp.status === 'upcoming' ? 'gold' : comp.status === 'done' ? 'teal' : 'gold'}
             small
           />
         </View>
@@ -1272,17 +1477,152 @@ export default function CompetitionDetail() {
         </View>
       )}
 
+      {/* Painel de confirmação (upcoming) */}
+      {comp.status === 'upcoming' && (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: Spacing.md, gap: Spacing.md }}>
+
+          {/* Banner info */}
+          <View style={upcoming.infoBanner}>
+            <Text style={upcoming.infoIcon}>📅</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={upcoming.infoTitle}>Competição agendada</Text>
+              <Text style={upcoming.infoSub}>
+                Confirme sua participação. Quando todos estiverem prontos, o criador inicia a competição.
+              </Text>
+            </View>
+          </View>
+
+          {/* Botão confirmar / cancelar */}
+          {myPlayerId && (
+            <TouchableOpacity
+              style={[upcoming.confirmBtn,
+                comp.confirmedIds?.includes(myPlayerId) ? upcoming.confirmBtnCancel : upcoming.confirmBtnJoin,
+                confirmBusy && { opacity: 0.5 },
+              ]}
+              onPress={handleToggleConfirm}
+              disabled={confirmBusy}
+              activeOpacity={0.8}
+            >
+              <Text style={[upcoming.confirmBtnText, comp.confirmedIds?.includes(myPlayerId) && { color: Colors.muted }]}>
+                {comp.confirmedIds?.includes(myPlayerId) ? '✓ Confirmado — cancelar' : '+ Confirmar participação'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Lista de confirmados */}
+          <View style={upcoming.section}>
+            <Text style={upcoming.sectionTitle}>
+              CONFIRMADOS ({(comp.confirmedIds ?? []).length})
+            </Text>
+            {(comp.confirmedIds ?? []).length === 0 ? (
+              <Text style={upcoming.empty}>Nenhum jogador confirmou ainda.</Text>
+            ) : (
+              (comp.confirmedIds ?? []).map(pid => {
+                const pl = findPlayer(pid);
+                return (
+                  <View key={pid} style={upcoming.playerRow}>
+                    {pl && <Avatar name={pl.name} color={pl.color} size={30} />}
+                    <Text style={upcoming.playerName}>{pl?.name ?? pid}</Text>
+                    <Text style={{ color: Colors.teal, fontSize: 16 }}>✓</Text>
+                  </View>
+                );
+              })
+            )}
+          </View>
+
+          {/* Botão iniciar (criador ou admin) */}
+          {(isAdmin || comp.createdBy === myPlayerId) && (comp.confirmedIds ?? []).length >= 2 && (
+            <TouchableOpacity style={upcoming.startBtn} onPress={handleStartUpcoming} activeOpacity={0.85}>
+              <Text style={upcoming.startBtnIcon}>⚡</Text>
+              <Text style={upcoming.startBtnText}>
+                Iniciar com {(comp.confirmedIds ?? []).length} jogadores
+              </Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+      )}
+
       {/* Conteúdo por formato */}
-      {comp.format === 'grupos'
-        ? <GroupsView comp={comp} onScore={setScoring} onClear={handleClear} />
-        : comp.format === 'liga'
-          ? <LeagueView comp={comp} onScore={setScoring} onClear={handleClear}
-              onSubstitute={isAdmin ? handleSubstitute : undefined} />
-          : comp.format === 'mata'
-            ? <KOView comp={comp} onScore={setScoring} onClear={handleClear} />
-            : <RotatingView comp={comp} onScore={setScoring} onClear={handleClear}
-            onSubstitute={isAdmin ? handleSubstitute : undefined} />
-      }
+      {comp.status !== 'upcoming' && (
+        comp.format === 'grupos'
+          ? <GroupsView comp={comp} onScore={setScoring} onClear={handleClear} />
+          : comp.format === 'liga'
+            ? <LeagueView comp={comp} onScore={setScoring} onClear={handleClear}
+                onSubstitute={isAdmin ? handleSubstitute : undefined} />
+            : comp.format === 'mata'
+              ? <KOView comp={comp} onScore={setScoring} onClear={handleClear} />
+              : comp.format === 'avulso'
+                ? <AvulsoView comp={comp} onScore={setScoring} onClear={handleClear}
+                    onAddMatch={() => setShowAddAvulso(true)} />
+                : <RotatingView comp={comp} onScore={setScoring} onClear={handleClear}
+                    onSubstitute={isAdmin ? handleSubstitute : undefined} />
+      )}
+
+      {/* Modal: adicionar jogo avulso */}
+      <Modal visible={showAddAvulso} transparent animationType="slide" onRequestClose={() => setShowAddAvulso(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md, maxHeight: '85%' }}>
+            <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text }}>Registrar jogo</Text>
+
+            {(['A', 'B'] as const).map(side => {
+              const team = side === 'A' ? avulsoTeamA : avulsoTeamB;
+              const setTeam = side === 'A' ? setAvulsoTeamA : setAvulsoTeamB;
+              const otherTeam = side === 'A' ? avulsoTeamB : avulsoTeamA;
+              return (
+                <View key={side} style={{ gap: Spacing.xs }}>
+                  <Text style={{ fontFamily: FontFamily.title, fontSize: 13, color: Colors.muted, letterSpacing: 1 }}>
+                    DUPLA {side} {team.length > 0 ? `— ${team.map(id => findPlayer(id)?.name ?? id).join(' / ')}` : ''}
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+                      {groupPlayers.filter(p => !otherTeam.includes(p.id)).map(p => {
+                        const selected = team.includes(p.id);
+                        return (
+                          <TouchableOpacity
+                            key={p.id}
+                            onPress={() => {
+                              if (selected) setTeam(team.filter(id => id !== p.id));
+                              else if (team.length < 2) setTeam([...team, p.id]);
+                            }}
+                            style={{
+                              paddingHorizontal: Spacing.sm, paddingVertical: 6,
+                              borderRadius: Radius.full,
+                              backgroundColor: selected ? Colors.gold : Colors.surf2,
+                              borderWidth: 1,
+                              borderColor: selected ? Colors.gold : Colors.line,
+                            }}
+                          >
+                            <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 13, color: selected ? Colors.bg : Colors.text }}>
+                              {p.name.split(' ')[0]}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                </View>
+              );
+            })}
+
+            <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm }}>
+              <TouchableOpacity
+                style={{ flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' }}
+                onPress={() => { setShowAddAvulso(false); setAvulsoTeamA([]); setAvulsoTeamB([]); }}
+              >
+                <Text style={{ fontFamily: FontFamily.body, fontSize: 15, color: Colors.muted }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[{ flex: 2, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' },
+                  (avulsoTeamA.length === 0 || avulsoTeamB.length === 0) && { opacity: 0.4 }]}
+                onPress={handleConfirmAddAvulso}
+                disabled={avulsoTeamA.length === 0 || avulsoTeamB.length === 0}
+              >
+                <Text style={{ fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg }}>Adicionar jogo</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <ScorerModal
         match={scoring}
@@ -1338,4 +1678,23 @@ const main = StyleSheet.create({
   champBtnText: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.bg },
   champClose: { flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' },
   champCloseText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted },
+});
+
+const upcoming = StyleSheet.create({
+  infoBanner: { flexDirection: 'row', gap: Spacing.md, backgroundColor: 'rgba(243,197,68,0.08)', borderRadius: Radius.md, borderWidth: 1, borderColor: 'rgba(243,197,68,0.25)', padding: Spacing.md, alignItems: 'flex-start' },
+  infoIcon:   { fontSize: 24 },
+  infoTitle:  { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
+  infoSub:    { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 4, lineHeight: 18 },
+  confirmBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center', minHeight: 50 },
+  confirmBtnJoin:   { backgroundColor: Colors.gold },
+  confirmBtnCancel: { backgroundColor: Colors.surf2, borderWidth: 1, borderColor: Colors.line },
+  confirmBtnText:   { fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg },
+  section:     { gap: Spacing.sm },
+  sectionTitle:{ fontFamily: FontFamily.title, fontSize: 12, color: Colors.muted, letterSpacing: 1 },
+  empty:       { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center', paddingVertical: Spacing.md },
+  playerRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  playerName:  { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
+  startBtn:    { backgroundColor: Colors.teal, borderRadius: Radius.md, paddingVertical: Spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 50 },
+  startBtnIcon:{ fontSize: 18 },
+  startBtnText:{ fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg },
 });

@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
@@ -6,7 +6,10 @@ import { Avatar } from '@/components';
 import { PLAYERS } from '@/mocks/data';
 import { buildCompetition } from '@/logic/formats';
 import { useCompetitions } from '@/store/CompetitionsContext';
+import { useAuth } from '@/store/AuthContext';
+import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import type { Format, Competitor } from '@/logic/types';
+import { useState } from 'react';
 
 const STEPS = ['Formato', 'Ajustes', 'Quem joga', 'Revisar'];
 
@@ -35,7 +38,10 @@ type Params = {
 
 export default function ReviewStep() {
   const { addCompetition } = useCompetitions();
+  const { myPlayerId } = useAuth();
+  const { groupPlayers } = useGroupPlayers();
   const p = useLocalSearchParams<Params>();
+  const [busy, setBusy] = useState(false);
 
   const isDuplas = p.unit === 'duplas';
   const roundsLabel = p.rounds === 'double' ? 'Ida e volta' : 'Turno único';
@@ -95,7 +101,26 @@ export default function ReviewStep() {
   });
 
   async function start() {
-    const id = await addCompetition(comp);
+    setBusy(true);
+    const id = await addCompetition({ ...comp, createdBy: myPlayerId ?? undefined });
+    setBusy(false);
+    router.dismissAll();
+    router.replace({ pathname: '/competitions/[id]', params: { id } });
+  }
+
+  async function schedule() {
+    setBusy(true);
+    // Cria sem jogos, status upcoming, participantes em aberto
+    const upcoming = {
+      ...comp,
+      status: 'upcoming' as const,
+      matches: [],
+      competitors: [],
+      confirmedIds: myPlayerId ? [myPlayerId] : [],
+      createdBy: myPlayerId ?? undefined,
+    };
+    const id = await addCompetition(upcoming);
+    setBusy(false);
     router.dismissAll();
     router.replace({ pathname: '/competitions/[id]', params: { id } });
   }
@@ -154,7 +179,11 @@ export default function ReviewStep() {
           <SummaryRow label="Cada jogo" value={winRule} />
           {p.location?.trim() ? <SummaryRow label="Local" value={p.location.trim()} /> : null}
           {p.notes?.trim() ? <SummaryRow label="Observações" value={p.notes.trim()} /> : null}
-          <SummaryRow label="Jogos gerados" value={String(comp.matches.length)} last />
+          <SummaryRow
+            label={p.format === 'avulso' ? 'Jogos' : 'Jogos gerados'}
+            value={p.format === 'avulso' ? 'Registro manual' : String(comp.matches.length)}
+            last
+          />
         </View>
 
         {/* Grid de competidores */}
@@ -175,9 +204,17 @@ export default function ReviewStep() {
 
       {/* Footer */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.btnCreate} onPress={start} activeOpacity={0.85}>
-          <Text style={styles.btnCreateIcon}>⚡</Text>
-          <Text style={styles.btnCreateText}>Criar e gerar jogos</Text>
+        <TouchableOpacity style={[styles.btnSchedule, busy && styles.btnDisabled]} onPress={schedule} disabled={busy} activeOpacity={0.85}>
+          {busy ? <ActivityIndicator color={Colors.gold} size="small" /> : <>
+            <Text style={styles.btnScheduleIcon}>📅</Text>
+            <Text style={styles.btnScheduleText}>Agendar (abrir confirmações)</Text>
+          </>}
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.btnCreate, busy && styles.btnDisabled]} onPress={start} disabled={busy} activeOpacity={0.85}>
+          {busy ? <ActivityIndicator color={Colors.bg} size="small" /> : <>
+            <Text style={styles.btnCreateIcon}>⚡</Text>
+            <Text style={styles.btnCreateText}>Criar e gerar jogos agora</Text>
+          </>}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -225,8 +262,12 @@ const styles = StyleSheet.create({
   competitorChip: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, backgroundColor: Colors.surf2, borderRadius: Radius.full, paddingVertical: 6, paddingHorizontal: Spacing.sm },
   competitorName: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
 
-  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: Spacing.md, paddingBottom: Spacing.lg, backgroundColor: Colors.bg, borderTopWidth: 1, borderTopColor: Colors.line },
-  btnCreate: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
+  footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: Spacing.md, paddingBottom: Spacing.lg, backgroundColor: Colors.bg, borderTopWidth: 1, borderTopColor: Colors.line, gap: Spacing.sm },
+  btnCreate: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 50 },
+  btnDisabled: { opacity: 0.5 },
   btnCreateIcon: { fontSize: 18 },
   btnCreateText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg },
+  btnSchedule: { borderWidth: 1.5, borderColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 46 },
+  btnScheduleIcon: { fontSize: 16 },
+  btnScheduleText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.gold },
 });

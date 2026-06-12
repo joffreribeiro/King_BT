@@ -10,6 +10,8 @@ import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { PLAYERS } from '@/mocks/data';
 import type { Competition, Format } from '@/logic/types';
 import { competitionChampion as getChampion } from '@/logic/formats';
+import { computeStreak } from '@/logic/streak';
+import { StreakBanner } from '@/components/StreakBanner';
 
 const FORMAT_LABEL: Record<string, string> = {
   avulso: 'Avulso', liga: 'Liga', grupos: 'Grupos + Eliminatórias',
@@ -186,8 +188,10 @@ function CompCard({ comp, onDelete, onClone }: {
 
 export default function HubScreen() {
   const { state, dispatch } = useCompetitions();
-  const { group, isAdmin } = useAuth();
+  const { group, isAdmin, myPlayerId } = useAuth();
   const me = PLAYERS[0];
+
+  const myStreak = computeStreak(state.competitions, myPlayerId ?? '');
 
   const [search, setSearch]           = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -274,6 +278,12 @@ export default function HubScreen() {
                 )}
               </View>
             )}
+
+            {/* Streak banner */}
+            <StreakBanner
+              streak={myStreak}
+              onPress={() => router.push('/(app)/ranking')}
+            />
 
             {/* Filter chips — status */}
             <View style={styles.filterRow}>

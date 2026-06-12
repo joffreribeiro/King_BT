@@ -83,6 +83,14 @@ export default function AppLayout() {
         options={{ href: null }}
       />
       <Tabs.Screen
+        name="calendar"
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <TabIcon label="Calendário" focused={focused} icon="📅" />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           tabBarIcon: ({ focused }) => (

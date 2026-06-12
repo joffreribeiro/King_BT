@@ -12,6 +12,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames, competitionChampion } from '@/logic/formats';
 import { computeBadges } from '@/logic/badges';
+import { computeFormatStats } from '@/logic/formatStats';
 import Svg, { Polyline, Line, Circle, Text as SvgText } from 'react-native-svg';
 
 const GUEST_COLORS = ['#FFD166', '#2DD4BF', '#A78BFA', '#34D399', '#F472B6', '#94A3B8', '#FB923C', '#60A5FA'];
@@ -195,6 +196,7 @@ export default function ProfileScreen() {
 
   const badges = computeBadges(MY_ID, state.competitions, id => findPlayer(id)?.name ?? id);
   const unlockedBadges = badges.filter(b => b.unlocked);
+  const formatStats = computeFormatStats(state.competitions, MY_ID);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -294,6 +296,31 @@ export default function ProfileScreen() {
             <Text style={bdg.empty}>Dispute partidas para desbloquear conquistas.</Text>
           )}
         </Card>
+
+        {/* Aproveitamento por formato */}
+        {formatStats.length > 0 && (
+          <Card style={{ gap: Spacing.sm }}>
+            <Text style={styles.sectionTitle}>Aproveitamento por Formato</Text>
+            {formatStats.map(fs => (
+              <View key={fs.format} style={{ gap: 4 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text }}>
+                    {fs.label}
+                  </Text>
+                  <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 13, color: fs.color }}>
+                    {fs.pct}%
+                  </Text>
+                </View>
+                <View style={{ height: 5, backgroundColor: Colors.line, borderRadius: 3, overflow: 'hidden' }}>
+                  <View style={{ height: 5, width: `${fs.pct}%`, backgroundColor: fs.color, borderRadius: 3 }} />
+                </View>
+                <Text style={{ fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint }}>
+                  {fs.wins}V · {fs.played - fs.wins}D · {fs.played} jogos
+                </Text>
+              </View>
+            ))}
+          </Card>
+        )}
 
         {/* Quebra de pontos */}
         <Card>

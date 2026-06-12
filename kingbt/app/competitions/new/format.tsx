@@ -42,7 +42,7 @@ const FORMATS: {
   {
     id: 'avulso',
     label: 'Avulso',
-    desc: 'Parceiros rotacionam: todos jogam com todos.',
+    desc: 'Sessão livre: você registra manualmente cada jogo que aconteceu. Sem calendário fixo.',
     icon: '✕',
     iconBg: '#1a2a2e',
     iconColor: '#2DD4BF',
@@ -50,7 +50,7 @@ const FORMATS: {
   {
     id: 'super8',
     label: 'Super 8',
-    desc: '8 jogadores, parceiros rotativos, ranking individual.',
+    desc: 'Parceiros rotativos gerados automaticamente. Todos jogam com todos em duplas.',
     icon: '◈',
     iconBg: '#2a1a2e',
     iconColor: '#C084FC',

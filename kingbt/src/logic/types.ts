@@ -100,7 +100,7 @@ export interface Competition {
   name: string;
   format: Format;
   unit: Unit;
-  status: 'setup' | 'active' | 'done';
+  status: 'upcoming' | 'setup' | 'active' | 'done';
   date: string;
   /** Local / quadras (opcional). */
   location?: string;
@@ -111,6 +111,10 @@ export interface Competition {
   groupDefs?: GroupDef[];
   matches: Match[];
   substitutions?: Substitution[];
+  /** IDs dos jogadores que confirmaram participação (status: upcoming) */
+  confirmedIds?: string[];
+  /** UID do criador da competição */
+  createdBy?: string;
 }
 
 export interface PlayerStat {

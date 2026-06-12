@@ -24,7 +24,8 @@ type Action =
   | { type: 'CLEAR_SCORE'; compId: string; matchId: string }
   | { type: 'DELETE'; compId: string }
   | { type: 'RENAME'; compId: string; name: string }
-  | { type: 'SUBSTITUTE_PLAYER'; compId: string; sub: Substitution };
+  | { type: 'SUBSTITUTE_PLAYER'; compId: string; sub: Substitution }
+  | { type: 'UPDATE'; comp: Competition };
 
 function applyScore(comp: Competition, matchId: string, scoreA: number, scoreB: number): Competition {
   const updated = {
@@ -114,6 +115,8 @@ function reducer(state: State, action: Action): State {
         }),
       };
     }
+    case 'UPDATE':
+      return { ...state, competitions: state.competitions.map(c => c.id === action.comp.id ? action.comp : c) };
   }
 }
 
@@ -317,6 +320,11 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
         try { await fsUpdateComp(group.id, updated); }
         catch { console.error('[KingBT] Sync error: SUBSTITUTE_PLAYER'); }
       }
+    }
+
+    if (action.type === 'UPDATE') {
+      try { await fsUpdateComp(group.id, action.comp); }
+      catch { console.error('[KingBT] Sync error: UPDATE'); }
     }
 
     if (action.type === 'DELETE') {

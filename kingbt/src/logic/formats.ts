@@ -364,10 +364,11 @@ export function buildCompetition(spec: {
   } else if (spec.format === 'grupos') {
     const { groupDefs, matches } = genGroups(ids, config.groups, config.rounds === 'double', config.qualifiers, config.thirdPlace);
     comp.groupDefs = groupDefs; comp.matches = matches;
-  } else {
+  } else if (spec.format === 'super8') {
     const players = spec.competitors.map(c => ({ id: c.members[0] ?? c.id, name: c.name, short: c.short, color: c.color }));
     comp.matches = generateSchedule(players);
   }
+  // avulso: começa sem partidas — jogos são adicionados manualmente
   resolveCompetition(comp);
   return comp;
 }

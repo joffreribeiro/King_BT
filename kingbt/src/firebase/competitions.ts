@@ -1,6 +1,6 @@
 import {
   collection, doc, addDoc, updateDoc, onSnapshot,
-  query, orderBy, type Unsubscribe,
+  query, orderBy, arrayUnion, arrayRemove, type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './config';
 import type { Competition, Match } from '@/logic/types';
@@ -53,4 +53,26 @@ export async function updateCompetition(
 ): Promise<void> {
   const { id, ...data } = comp;
   await updateDoc(compDoc(groupId, id), data);
+}
+
+/** Confirma participação de um jogador em competição upcoming */
+export async function confirmParticipation(
+  groupId: string,
+  compId: string,
+  playerId: string
+): Promise<void> {
+  await updateDoc(compDoc(groupId, compId), {
+    confirmedIds: arrayUnion(playerId),
+  });
+}
+
+/** Cancela participação de um jogador em competição upcoming */
+export async function cancelParticipation(
+  groupId: string,
+  compId: string,
+  playerId: string
+): Promise<void> {
+  await updateDoc(compDoc(groupId, compId), {
+    confirmedIds: arrayRemove(playerId),
+  });
 }

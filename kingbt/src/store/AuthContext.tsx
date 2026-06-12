@@ -47,12 +47,19 @@ type AuthState = {
   error: string | null;
 };
 
+export interface UnlinkedPlayer {
+  id: string;
+  name: string;
+  color: string;
+}
+
 type AuthContextType = AuthState & {
   myPlayerId: string | null;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (name: string, email: string, password: string) => Promise<void>;
-  joinGroup: (code: string) => Promise<void>;
+  joinGroup: (code: string) => Promise<{ unlinkedPlayers: UnlinkedPlayer[] }>;
+  linkToPlayer: (playerId: string) => Promise<void>;
   createGroup: (name: string) => Promise<void>;
   leaveGroup: () => Promise<void>;
   switchGroup: (groupId: string) => Promise<void>;
@@ -193,52 +200,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function joinGroup(code: string) {
-    if (!user) { setError('Faça login primeiro.'); return; }
+  async function joinGroup(code: string): Promise<{ unlinkedPlayers: UnlinkedPlayer[] }> {
+    if (!user) { setError('Faça login primeiro.'); return { unlinkedPlayers: [] }; }
     try {
       setError(null);
       const q = query(collection(db, 'groups'), where('code', '==', code.toUpperCase()));
       const snap = await getDocs(q);
-      if (snap.empty) { setError('Código do grupo não encontrado.'); return; }
+      if (snap.empty) { setError('Código do grupo não encontrado.'); return { unlinkedPlayers: [] }; }
 
       const groupDoc = snap.docs[0];
       const groupData = groupDoc.data();
+      const groupId = groupDoc.id;
 
-      // Adiciona usuário ao grupo (filtra strings vazias do array)
+      // Adiciona usuário ao grupo
       const members: string[] = (groupData.members ?? []).filter((m: unknown) => typeof m === 'string' && m !== '');
       if (!members.includes(user.uid)) {
-        await setDoc(doc(db, 'groups', groupDoc.id), {
-          members: [...members, user.uid],
-        }, { merge: true });
+        await setDoc(doc(db, 'groups', groupId), { members: [...members, user.uid] }, { merge: true });
       }
 
-      // Cria player no grupo se não existir
-      const playerRef = doc(db, 'groups', groupDoc.id, 'players', user.uid);
-      const playerSnap = await getDoc(playerRef);
-      if (!playerSnap.exists()) {
-        await setDoc(playerRef, {
-          name: user.displayName ?? 'Jogador',
-          uid: user.uid,
-          color: '#FFD166',
-          guest: false,
-        });
-      }
-
-      // Associa grupo ao usuário e salva no histórico
+      // Associa grupo ao usuário
       const userSnap = await getDoc(doc(db, 'users', user.uid));
       const prevGroupIds: string[] = userSnap.data()?.groupIds ?? [];
-      const groupIds = prevGroupIds.includes(groupDoc.id) ? prevGroupIds : [...prevGroupIds, groupDoc.id];
+      const groupIds = prevGroupIds.includes(groupId) ? prevGroupIds : [...prevGroupIds, groupId];
       await setDoc(doc(db, 'users', user.uid), {
-        groupId: groupDoc.id, groupIds,
+        groupId, groupIds,
         lastJoinedGroupAt: new Date().toISOString(),
         ...collectDeviceInfo('invite'),
       }, { merge: true });
-      const g = { id: groupDoc.id, ...groupData } as Group;
+
+      const g = { id: groupId, ...groupData } as Group;
       setGroup(g);
       const admins: string[] = groupData.admins ?? [];
       setIsAdmin(admins.includes(user.uid));
+
+      // Verifica se o usuário já tem player vinculado
+      const playersSnap = await getDocs(collection(db, 'groups', groupId, 'players'));
+      const myPlayer = playersSnap.docs.find(d => d.data().uid === user.uid);
+      if (myPlayer) {
+        setMyPlayerId(myPlayer.id);
+        return { unlinkedPlayers: [] };
+      }
+
+      // Retorna jogadores sem conta vinculada (guests ou sem uid) para o usuário escolher
+      const unlinked: UnlinkedPlayer[] = playersSnap.docs
+        .filter(d => !d.data().uid)
+        .map(d => ({ id: d.id, name: d.data().name ?? '?', color: d.data().color ?? '#FFD166' }));
+
+      return { unlinkedPlayers: unlinked };
     } catch (e: any) {
       setError('Erro ao entrar no grupo. Tente novamente.');
+      return { unlinkedPlayers: [] };
+    }
+  }
+
+  async function linkToPlayer(playerId: string) {
+    if (!user || !group) return;
+    try {
+      // Vincula uid ao player existente e marca como não-guest
+      await setDoc(doc(db, 'groups', group.id, 'players', playerId), {
+        uid: user.uid,
+        guest: false,
+      }, { merge: true });
+      setMyPlayerId(playerId);
+    } catch (e: any) {
+      setError('Erro ao vincular perfil. Tente novamente.');
     }
   }
 
@@ -341,7 +366,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Ctx.Provider value={{ user, group, isAdmin, loading, error, myPlayerId, signInWithGoogle, signInWithEmail, signUpWithEmail, joinGroup, createGroup, leaveGroup, switchGroup, getMyGroups, logout, clearError: () => setError(null), promoteToAdmin, removeFromGroup }}>
+    <Ctx.Provider value={{ user, group, isAdmin, loading, error, myPlayerId, signInWithGoogle, signInWithEmail, signUpWithEmail, joinGroup, linkToPlayer, createGroup, leaveGroup, switchGroup, getMyGroups, logout, clearError: () => setError(null), promoteToAdmin, removeFromGroup }}>
       {children}
     </Ctx.Provider>
   );
