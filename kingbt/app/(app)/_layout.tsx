@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View, Text, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, FontFamily } from '@/theme';
 import { useSyncQueue } from '@/store/SyncQueueContext';
 
@@ -32,13 +33,14 @@ function OfflineBanner() {
 }
 
 export default function AppLayout() {
+  const insets = useSafeAreaInsets();
   return (
     <>
     <OfflineBanner />
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [styles.tabBar, { paddingBottom: Math.max(insets.bottom, 8), height: 56 + Math.max(insets.bottom, 8) }],
         tabBarShowLabel: false,
         tabBarActiveTintColor: Colors.gold,
         tabBarInactiveTintColor: Colors.faint,
@@ -98,8 +100,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surf,
     borderTopColor: Colors.line,
     borderTopWidth: 1,
-    height: 68,
-    paddingBottom: 8,
     paddingTop: 4,
   },
   iconWrap: { alignItems: 'center', gap: 2, width: 80 },

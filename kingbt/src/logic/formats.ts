@@ -137,21 +137,58 @@ export function genGroups(
 
 // ─── Standings ────────────────────────────────────────────────────────────────
 
-export function standings(ids: string[], matches: Match[]): Standing[] {
-  const t: Record<string, Standing> = {};
-  ids.forEach(id => { t[id] = { id, played: 0, wins: 0, losses: 0, gf: 0, ga: 0, gd: 0, pts: 0 }; });
+export function standings(ids: string[], matches: Match[], nameOf?: (id: string) => string): Standing[] {
+  // acc.gc = games contra (acumulador interno, não exposto)
+  const acc: Record<string, { played: number; wins: number; losses: number; gf: number; gc: number }> = {};
+  ids.forEach(id => { acc[id] = { played: 0, wins: 0, losses: 0, gf: 0, gc: 0 }; });
   matches.forEach(m => {
     if (m.scoreA == null || m.scoreB == null) return;
-    if (!m.aId || !m.bId || !t[m.aId] || !t[m.bId]) return;
-    t[m.aId].played++; t[m.bId].played++;
-    t[m.aId].gf += m.scoreA; t[m.aId].ga += m.scoreB;
-    t[m.bId].gf += m.scoreB; t[m.bId].ga += m.scoreA;
-    if (m.scoreA > m.scoreB) { t[m.aId].wins++; t[m.bId].losses++; }
-    else { t[m.bId].wins++; t[m.aId].losses++; }
+    if (!m.aId || !m.bId || !acc[m.aId] || !acc[m.bId]) return;
+    acc[m.aId].played++; acc[m.bId].played++;
+    acc[m.aId].gf += m.scoreA; acc[m.aId].gc += m.scoreB;
+    acc[m.bId].gf += m.scoreB; acc[m.bId].gc += m.scoreA;
+    if (m.scoreA > m.scoreB) { acc[m.aId].wins++; acc[m.bId].losses++; }
+    else { acc[m.bId].wins++; acc[m.aId].losses++; }
   });
-  return ids
-    .map(id => { const s = t[id]; return { ...s, gd: s.gf - s.ga, pts: s.wins * 3 }; })
-    .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf);
+
+  const rows: Standing[] = ids.map(id => {
+    const s = acc[id];
+    const ga = s.gc > 0 ? s.gf / s.gc : s.gf > 0 ? 999 : 0; // Game Average = GP÷GC
+    return { id, played: s.played, wins: s.wins, losses: s.losses, gf: s.gf, ga, gd: s.gf - s.gc, pts: s.wins * 3 };
+  });
+
+  // head-to-head entre dois jogadores: retorna 1 se a venceu, -1 se b venceu, 0 empate
+  function h2h(idA: string, idB: string): number {
+    let wA = 0, wB = 0;
+    matches.forEach(m => {
+      if (m.scoreA == null || m.scoreB == null) return;
+      const fwd = m.aId === idA && m.bId === idB;
+      const rev = m.aId === idB && m.bId === idA;
+      if (!fwd && !rev) return;
+      const aWon = m.scoreA > m.scoreB;
+      if (fwd) { if (aWon) wA++; else wB++; }
+      else     { if (aWon) wB++; else wA++; }
+    });
+    if (wA !== wB) return wA > wB ? -1 : 1; // -1 = a > b (a fica antes)
+    return 0;
+  }
+
+  return rows.sort((a, b) => {
+    // 1. Pontuação King BT
+    const byPts = b.pts - a.pts;   if (byPts !== 0) return byPts;
+    // 2. Game Average (GP÷GC)
+    const byGa  = b.ga  - a.ga;   if (byGa  !== 0) return byGa;
+    // 3. Saldo de Games
+    const byGd  = b.gd  - a.gd;   if (byGd  !== 0) return byGd;
+    // 4. Número de vitórias
+    const byW   = b.wins - a.wins; if (byW   !== 0) return byW;
+    // 5. Confronto direto
+    const byH2H = h2h(a.id, b.id); if (byH2H !== 0) return byH2H;
+    // 6. Sorteio / jogo simples — sem dados: ordem alfabética
+    const nA = nameOf ? nameOf(a.id) : a.id;
+    const nB = nameOf ? nameOf(b.id) : b.id;
+    return nA.localeCompare(nB, 'pt-BR', { sensitivity: 'base' });
+  });
 }
 
 export function groupComplete(matches: Match[], gi: number): boolean {

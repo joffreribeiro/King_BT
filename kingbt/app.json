@@ -8,6 +8,11 @@
     "scheme": "kingbt",
     "userInterfaceStyle": "dark",
     "sdkVersion": "54.0.0",
+    "splash": {
+      "image": "./assets/kingbt-icon-square.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0B0B0D"
+    },
     "ios": {
       "supportsTablet": true
     },
@@ -26,7 +31,16 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/kingbt-icon-square.png",
+          "imageWidth": 400,
+          "resizeMode": "contain",
+          "backgroundColor": "#0B0B0D"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

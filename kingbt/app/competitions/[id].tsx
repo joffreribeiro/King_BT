@@ -32,7 +32,7 @@ function getCompetitor(comp: Competition, id: string) {
 function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
   comp: Competition; ids: string[]; matches: Match[]; highlightTop?: number;
 }) {
-  const st = standings(ids, matches);
+  const st = standings(ids, matches, id => getPlayer(id)?.name ?? id);
   return (
     <Card padding={0} style={{ overflow: 'hidden', marginBottom: Spacing.sm }}>
       <View style={[stRow.row, stRow.header]}>
