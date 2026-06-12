@@ -86,9 +86,10 @@ export function buildRanking(
     } as RankedPlayer;
   });
 
+  const EPS = 1e-9;
   return ranked.sort((a, b) => {
-    const byPts = b.points - a.points;   if (byPts !== 0) return byPts;
-    const byGa  = b.ga    - a.ga;        if (byGa  !== 0) return byGa;
+    const byPts = b.points - a.points;   if (Math.abs(byPts) > EPS) return byPts;
+    const byGa  = b.ga    - a.ga;        if (Math.abs(byGa)  > EPS) return byGa;
     const bySg  = b.sg    - a.sg;        if (bySg  !== 0) return bySg;
     const byW   = b.wins  - a.wins;      if (byW   !== 0) return byW;
     const byH2H = h2h(a.id, b.id);       if (byH2H !== 0) return byH2H;

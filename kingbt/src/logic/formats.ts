@@ -174,18 +174,13 @@ export function standings(ids: string[], matches: Match[], nameOf?: (id: string)
     return 0;
   }
 
+  const EPS = 1e-9;
   return rows.sort((a, b) => {
-    // 1. Pontuação King BT
-    const byPts = b.pts - a.pts;   if (byPts !== 0) return byPts;
-    // 2. Game Average (GP÷GC)
-    const byGa  = b.ga  - a.ga;   if (byGa  !== 0) return byGa;
-    // 3. Saldo de Games
+    const byPts = b.pts - a.pts;   if (Math.abs(byPts) > EPS) return byPts;
+    const byGa  = b.ga  - a.ga;   if (Math.abs(byGa)  > EPS) return byGa;
     const byGd  = b.gd  - a.gd;   if (byGd  !== 0) return byGd;
-    // 4. Número de vitórias
     const byW   = b.wins - a.wins; if (byW   !== 0) return byW;
-    // 5. Confronto direto
     const byH2H = h2h(a.id, b.id); if (byH2H !== 0) return byH2H;
-    // 6. Sorteio / jogo simples — sem dados: ordem alfabética
     const nA = nameOf ? nameOf(a.id) : a.id;
     const nB = nameOf ? nameOf(b.id) : b.id;
     return nA.localeCompare(nB, 'pt-BR', { sensitivity: 'base' });

@@ -430,9 +430,10 @@ function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: Competit
     return 0;
   }
 
+  const EPS = 1e-9;
   rankingStats.sort((a, b) => {
-    const byPts = b.pts  - a.pts;  if (byPts !== 0) return byPts;
-    const byGa  = b.ga   - a.ga;   if (byGa  !== 0) return byGa;
+    const byPts = b.pts  - a.pts;  if (Math.abs(byPts) > EPS) return byPts;
+    const byGa  = b.ga   - a.ga;   if (Math.abs(byGa)  > EPS) return byGa;
     const bySg  = b.sg   - a.sg;   if (bySg  !== 0) return bySg;
     const byW   = b.wins - a.wins; if (byW   !== 0) return byW;
     const byH2H = h2hRotating(a.pid, b.pid); if (byH2H !== 0) return byH2H;
