@@ -413,7 +413,33 @@ function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: Competit
     const sg = gf - gc;
     const pts = wins * 3 + played * 0.5 + ga * 2;
     return { pid, wins, losses, played, gf, gc, ga, sg, pts };
-  }).sort((a, b) => b.pts - a.pts || b.ga - a.ga || b.sg - a.sg || b.wins - a.wins);
+  });
+
+  function h2hRotating(pidA: string, pidB: string): number {
+    let wA = 0, wB = 0;
+    comp.matches.forEach(m => {
+      if (m.scoreA == null || m.scoreA === m.scoreB) return;
+      const aHasA = m.teamA?.includes(pidA) && m.teamB?.includes(pidB);
+      const aHasB = m.teamA?.includes(pidB) && m.teamB?.includes(pidA);
+      if (!aHasA && !aHasB) return;
+      const aWon = m.scoreA! > m.scoreB!;
+      if (aHasA) { if (aWon) wA++; else wB++; }
+      else       { if (aWon) wB++; else wA++; }
+    });
+    if (wA !== wB) return wA > wB ? -1 : 1;
+    return 0;
+  }
+
+  rankingStats.sort((a, b) => {
+    const byPts = b.pts  - a.pts;  if (byPts !== 0) return byPts;
+    const byGa  = b.ga   - a.ga;   if (byGa  !== 0) return byGa;
+    const bySg  = b.sg   - a.sg;   if (bySg  !== 0) return bySg;
+    const byW   = b.wins - a.wins; if (byW   !== 0) return byW;
+    const byH2H = h2hRotating(a.pid, b.pid); if (byH2H !== 0) return byH2H;
+    const nA = findPlayer(a.pid)?.name ?? a.pid;
+    const nB = findPlayer(b.pid)?.name ?? b.pid;
+    return nA.localeCompare(nB, 'pt-BR', { sensitivity: 'base' });
+  });
 
   // Duplas partnership stats
   type PairStat = { key: string; ids: [string, string]; wins: number; losses: number; played: number; gf: number; gc: number };

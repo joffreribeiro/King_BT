@@ -58,17 +58,40 @@ export function buildRanking(
   const map: Record<string, PlayerStat> = {};
   players.forEach(p => { map[p.id] = { ...blankStat(), id: p.id }; });
   games.forEach(g => applyGame(map, g));
-  return players
-    .map(p => {
-      const s = map[p.id];
-      const sg = s.gamesPro - s.gamesCon;
-      const ga = gameAverage(s);
-      const factor = handicapFactor(p);
-      return {
-        ...p, ...s, sg, ga,
-        winRate: s.played ? Math.round((s.wins / s.played) * 100) : 0,
-        points: Math.round(statPoints(s) * factor * 100) / 100,
-      } as RankedPlayer;
-    })
-    .sort((a, b) => b.points - a.points || b.ga - a.ga || b.sg - a.sg || b.wins - a.wins);
+
+  function h2h(idA: string, idB: string): number {
+    let wA = 0, wB = 0;
+    games.forEach(g => {
+      if (g.scoreA === g.scoreB) return;
+      const aInA = g.teamA.includes(idA), bInA = g.teamA.includes(idB);
+      const aInB = g.teamB.includes(idA), bInB = g.teamB.includes(idB);
+      if ((aInA && bInA) || (aInB && bInB)) return; // mesmo time
+      const aWon = g.scoreA > g.scoreB;
+      if (aInA && bInB) { if (aWon) wA++; else wB++; }
+      else if (aInB && bInA) { if (!aWon) wA++; else wB++; }
+    });
+    if (wA !== wB) return wA > wB ? -1 : 1;
+    return 0;
+  }
+
+  const ranked = players.map(p => {
+    const s = map[p.id];
+    const sg = s.gamesPro - s.gamesCon;
+    const ga = gameAverage(s);
+    const factor = handicapFactor(p);
+    return {
+      ...p, ...s, sg, ga,
+      winRate: s.played ? Math.round((s.wins / s.played) * 100) : 0,
+      points: Math.round(statPoints(s) * factor * 100) / 100,
+    } as RankedPlayer;
+  });
+
+  return ranked.sort((a, b) => {
+    const byPts = b.points - a.points;   if (byPts !== 0) return byPts;
+    const byGa  = b.ga    - a.ga;        if (byGa  !== 0) return byGa;
+    const bySg  = b.sg    - a.sg;        if (bySg  !== 0) return bySg;
+    const byW   = b.wins  - a.wins;      if (byW   !== 0) return byW;
+    const byH2H = h2h(a.id, b.id);       if (byH2H !== 0) return byH2H;
+    return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
+  });
 }

@@ -154,7 +154,8 @@ export function standings(ids: string[], matches: Match[], nameOf?: (id: string)
   const rows: Standing[] = ids.map(id => {
     const s = acc[id];
     const ga = s.gc > 0 ? s.gf / s.gc : s.gf > 0 ? 999 : 0; // Game Average = GP÷GC
-    return { id, played: s.played, wins: s.wins, losses: s.losses, gf: s.gf, ga, gd: s.gf - s.gc, pts: s.wins * 3 };
+    const pts = s.wins * 3 + s.played * 0.5 + ga * 2;
+    return { id, played: s.played, wins: s.wins, losses: s.losses, gf: s.gf, ga, gd: s.gf - s.gc, pts };
   });
 
   // head-to-head entre dois jogadores: retorna 1 se a venceu, -1 se b venceu, 0 empate
@@ -272,10 +273,29 @@ export function competitionChampion(comp: Competition): Competitor | AvulsoChamp
         if (!aWin) stats[id].wins++;
       }
     }
-    const sorted = Object.entries(stats).sort(([, a], [, b]) => {
-      const ptA = a.wins * 3 + a.played * 0.5 + a.pro / Math.max(1, a.con) * 2;
-      const ptB = b.wins * 3 + b.played * 0.5 + b.pro / Math.max(1, b.con) * 2;
-      return ptB - ptA;
+    function h2hAvulso(idA: string, idB: string): number {
+      let wA = 0, wB = 0;
+      scored.forEach(m => {
+        const aInA = m.teamA!.includes(idA), bInA = m.teamA!.includes(idB);
+        const aInB = m.teamB!.includes(idA), bInB = m.teamB!.includes(idB);
+        if ((aInA && bInA) || (aInB && bInB)) return;
+        const aWon = m.scoreA! > m.scoreB!;
+        if (aInA && bInB) { if (aWon) wA++; else wB++; }
+        else if (aInB && bInA) { if (!aWon) wA++; else wB++; }
+      });
+      if (wA !== wB) return wA > wB ? -1 : 1;
+      return 0;
+    }
+    const sorted = Object.entries(stats).sort(([idA, a], [idB, b]) => {
+      const gaA = a.pro / Math.max(1, a.con), gaB = b.pro / Math.max(1, b.con);
+      const ptA = a.wins * 3 + a.played * 0.5 + gaA * 2;
+      const ptB = b.wins * 3 + b.played * 0.5 + gaB * 2;
+      const byPts = ptB - ptA;              if (byPts !== 0) return byPts;
+      const byGa  = gaB - gaA;             if (byGa  !== 0) return byGa;
+      const bySg  = (b.pro - b.con) - (a.pro - a.con); if (bySg !== 0) return bySg;
+      const byW   = b.wins - a.wins;       if (byW   !== 0) return byW;
+      return h2hAvulso(idA, idB);
+      // ordem alfabética não disponível aqui (sem nomes) — empate mantém ordem
     });
     if (!sorted.length) return null;
     const [champId] = sorted[0];
