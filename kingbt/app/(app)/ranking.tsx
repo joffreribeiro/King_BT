@@ -16,6 +16,7 @@ import * as Print from 'expo-print';
 import { generateRankingHtml } from '@/logic/rankingHtml';
 import type { PlayerInfo } from '@/store/GroupPlayersContext';
 import RankingCard from '@/components/RankingCard';
+import { PodiumHQ } from '@/components/PodiumHQ';
 
 
 function h2hBetween(
@@ -167,18 +168,20 @@ export default function RankingScreen() {
           ))}
         </View>
 
-        {/* Pódio */}
-        {ranking.length >= 3 && (
-          <View style={styles.podiumWrap}>
-            {/* Brilho dourado centralizado atrás */}
-            <View style={styles.podiumGlow} />
-            <View style={styles.podium}>
-              <PodiumSlot player={second} pos={2} isMe={second.id === MY_ID} findPlayer={findPlayer} />
-              <PodiumSlot player={first}  pos={1} isMe={first.id  === MY_ID} center findPlayer={findPlayer} />
-              <PodiumSlot player={third}  pos={3} isMe={third.id  === MY_ID} findPlayer={findPlayer} />
-            </View>
-          </View>
-        )}
+        {/* Pódio HQ */}
+        {ranking.length >= 3 && (() => {
+          const p1 = findPlayer(first.id);
+          const p2 = findPlayer(second.id);
+          const p3 = findPlayer(third.id);
+          if (!p1 || !p2 || !p3) return null;
+          return (
+            <PodiumHQ
+              first={{  name: p1.name, points: first.points,  color: p1.color }}
+              second={{ name: p2.name, points: second.points, color: p2.color }}
+              third={{  name: p3.name, points: third.points,  color: p3.color }}
+            />
+          );
+        })()}
 
         {/* Tabela */}
         <View style={styles.table}>
