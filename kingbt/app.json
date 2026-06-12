@@ -4,23 +4,27 @@
     "slug": "kingbt",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/kingbt-icon-square.png",
+    "icon": "./assets/kingbt-icon-final.png",
     "scheme": "kingbt",
     "userInterfaceStyle": "dark",
     "sdkVersion": "54.0.0",
+    "notification": {
+      "icon": "./assets/kingbt-icon-notif.png"
+    },
     "splash": {
-      "image": "./assets/kingbt-icon-square.png",
+      "image": "./assets/kingbt-icon-final.png",
       "resizeMode": "contain",
       "backgroundColor": "#0B0B0D"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "icon": "./assets/kingbt-icon-final-rounded.png"
     },
     "android": {
       "package": "com.kingbt.app",
       "adaptiveIcon": {
         "backgroundColor": "#0B0B0D",
-        "foregroundImage": "./assets/kingbt-icon-square.png"
+        "foregroundImage": "./assets/kingbt-icon-final.png"
       }
     },
     "web": {
@@ -35,7 +39,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/kingbt-icon-square.png",
+          "image": "./assets/kingbt-icon-final.png",
           "imageWidth": 400,
           "resizeMode": "contain",
           "backgroundColor": "#0B0B0D"

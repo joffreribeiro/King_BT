@@ -14,7 +14,7 @@ export default function HallScreen() {
   const champions = state.competitions
     .filter(c => c.status === 'done')
     .map(c => {
-      const champ = competitionChampion(c);
+      const champ = competitionChampion(c, id => findPlayer(id)?.name ?? id);
       if (!champ) return null;
       const player = findPlayer(champ.members[0]);
       const champName = (champ as any).name ?? player?.name ?? champ.members[0];

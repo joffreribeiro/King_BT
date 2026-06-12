@@ -108,7 +108,7 @@ function CompCard({ comp, onDelete, onClone }: {
   const pct   = total > 0 ? done / total : 0;
   const isActive = comp.status === 'active';
   const accent = FORMAT_ACCENT[comp.format] ?? Colors.gold;
-  const champRaw = !isActive ? getChampion(comp) : null;
+  const champRaw = !isActive ? getChampion(comp, id => findPlayer(id)?.name ?? id) : null;
   const champ = champRaw
     ? { name: (champRaw as any).name ?? findPlayer(champRaw.members[0])?.name ?? champRaw.members[0] }
     : null;

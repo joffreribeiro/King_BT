@@ -193,7 +193,7 @@ export default function ProfileScreen() {
     .sort((a, b) => b.wins - a.wins || (b.wins / b.played) - (a.wins / a.played))
     .slice(0, 5);
 
-  const badges = computeBadges(MY_ID, state.competitions);
+  const badges = computeBadges(MY_ID, state.competitions, id => findPlayer(id)?.name ?? id);
   const unlockedBadges = badges.filter(b => b.unlocked);
 
   return (

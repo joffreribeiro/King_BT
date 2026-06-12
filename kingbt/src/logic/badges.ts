@@ -9,7 +9,7 @@ export type Badge = {
   unlocked: boolean;
 };
 
-export function computeBadges(playerId: string, competitions: Competition[]): Badge[] {
+export function computeBadges(playerId: string, competitions: Competition[], nameOf?: (id: string) => string): Badge[] {
   const doneComps = competitions.filter(c => c.status === 'done');
 
   // Matches played by this player
@@ -27,7 +27,7 @@ export function computeBadges(playerId: string, competitions: Competition[]): Ba
 
   // Champions
   const champCount = doneComps.filter(c => {
-    const champ = competitionChampion(c);
+    const champ = competitionChampion(c, nameOf);
     return champ && champ.members.includes(playerId);
   }).length;
 

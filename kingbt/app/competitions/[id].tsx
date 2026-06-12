@@ -1094,12 +1094,12 @@ export default function CompetitionDetail() {
 
   // Dispara quando o status muda para 'done' em tempo real
   useEffect(() => {
-    if (comp?.status === 'done' && competitionChampion(comp)) triggerChampion();
+    if (comp?.status === 'done' && competitionChampion(comp, id => findPlayer(id)?.name ?? id)) triggerChampion();
   }, [comp?.status]);
 
   // Dispara ao entrar numa competição já concluída (comp carrega após montagem)
   useEffect(() => {
-    if (comp?.status === 'done' && competitionChampion(comp)) triggerChampion();
+    if (comp?.status === 'done' && competitionChampion(comp, id => findPlayer(id)?.name ?? id)) triggerChampion();
   }, [!!comp]);
 
   async function shareChampionImage() {
@@ -1120,7 +1120,7 @@ export default function CompetitionDetail() {
     );
   }
 
-  const champion = competitionChampion(comp);
+  const champion = competitionChampion(comp, id => findPlayer(id)?.name ?? id);
   const champPlayer = champion
     ? findPlayer(champion.members[0]) ?? { name: (champion as any).name ?? champion.members[0], color: Colors.gold }
     : null;
