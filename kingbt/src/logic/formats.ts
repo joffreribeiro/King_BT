@@ -281,16 +281,18 @@ export function competitionChampion(comp: Competition): Competitor | AvulsoChamp
       if (wA !== wB) return wA > wB ? -1 : 1;
       return 0;
     }
+    const EPS = 1e-9;
+    const nameOf = (id: string) => comp.competitors.find(c => c.id === id)?.name ?? id;
     const sorted = Object.entries(stats).sort(([idA, a], [idB, b]) => {
       const gaA = a.pro / Math.max(1, a.con), gaB = b.pro / Math.max(1, b.con);
       const ptA = a.wins * 3 + a.played * 0.5 + gaA * 2;
       const ptB = b.wins * 3 + b.played * 0.5 + gaB * 2;
-      const byPts = ptB - ptA;              if (byPts !== 0) return byPts;
-      const byGa  = gaB - gaA;             if (byGa  !== 0) return byGa;
-      const bySg  = (b.pro - b.con) - (a.pro - a.con); if (bySg !== 0) return bySg;
-      const byW   = b.wins - a.wins;       if (byW   !== 0) return byW;
-      return h2hAvulso(idA, idB);
-      // ordem alfabética não disponível aqui (sem nomes) — empate mantém ordem
+      const byPts = ptB - ptA;                               if (Math.abs(byPts) > EPS) return byPts;
+      const byGa  = gaB - gaA;                               if (Math.abs(byGa)  > EPS) return byGa;
+      const bySg  = (b.pro - b.con) - (a.pro - a.con);      if (bySg !== 0) return bySg;
+      const byW   = b.wins - a.wins;                         if (byW  !== 0) return byW;
+      const byH2H = h2hAvulso(idA, idB);                     if (byH2H !== 0) return byH2H;
+      return nameOf(idA).localeCompare(nameOf(idB), 'pt-BR', { sensitivity: 'base' });
     });
     if (!sorted.length) return null;
     const [champId] = sorted[0];

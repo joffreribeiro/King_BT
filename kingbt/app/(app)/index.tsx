@@ -6,9 +6,10 @@ import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
+import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { PLAYERS } from '@/mocks/data';
 import type { Competition, Format } from '@/logic/types';
-import { standings } from '@/logic/formats';
+import { competitionChampion as getChampion } from '@/logic/formats';
 
 const FORMAT_LABEL: Record<string, string> = {
   avulso: 'Avulso', liga: 'Liga', grupos: 'Grupos + Eliminatórias',
@@ -86,36 +87,6 @@ function formatDate(iso: string) {
   return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '');
 }
 
-function competitionChampion(comp: Competition): { name: string } | null {
-  if (comp.status !== 'done') return null;
-  if (comp.format === 'liga') {
-    const st = standings(comp.competitors.map((c: any) => c.id), comp.matches);
-    if (!st.length) return null;
-    const winner = comp.competitors.find((c: any) => c.id === st[0].id);
-    return winner ? { name: winner.name } : null;
-  }
-  if (comp.format === 'mata' || comp.format === 'grupos') {
-    const finalMatch = comp.matches.filter(m => m.stage === 'ko' && !m.third).sort((a, b) => (b.koRound ?? 0) - (a.koRound ?? 0))[0];
-    if (!finalMatch || finalMatch.scoreA == null) return null;
-    const winnerId = finalMatch.scoreA > finalMatch.scoreB! ? finalMatch.aId : finalMatch.bId;
-    const winner = comp.competitors.find((c: any) => c.id === winnerId);
-    return winner ? { name: winner.name } : null;
-  }
-  if (comp.format === 'avulso' || comp.format === 'super8') {
-    const scores: Record<string, number> = {};
-    comp.matches.forEach(m => {
-      if (m.scoreA == null) return;
-      const aWon = m.scoreA > m.scoreB!;
-      (m.teamA ?? []).forEach((id: string) => { scores[id] = (scores[id] ?? 0) + (aWon ? 1 : 0); });
-      (m.teamB ?? []).forEach((id: string) => { scores[id] = (scores[id] ?? 0) + (!aWon ? 1 : 0); });
-    });
-    const top = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
-    if (!top) return null;
-    const pl = PLAYERS.find(p => p.id === top[0]);
-    return pl ? { name: pl.name } : null;
-  }
-  return null;
-}
 
 function SectionHeader({ label, color }: { label: string; color: string }) {
   return (
@@ -131,12 +102,16 @@ function SectionHeader({ label, color }: { label: string; color: string }) {
 function CompCard({ comp, onDelete, onClone }: {
   comp: Competition; onDelete: (id: string) => void; onClone: (id: string) => void;
 }) {
+  const { findPlayer } = useGroupPlayers();
   const done  = comp.matches.filter(m => m.scoreA != null).length;
   const total = comp.matches.length;
   const pct   = total > 0 ? done / total : 0;
   const isActive = comp.status === 'active';
   const accent = FORMAT_ACCENT[comp.format] ?? Colors.gold;
-  const champ = !isActive ? competitionChampion(comp) : null;
+  const champRaw = !isActive ? getChampion(comp) : null;
+  const champ = champRaw
+    ? { name: (champRaw as any).name ?? findPlayer(champRaw.members[0])?.name ?? champRaw.members[0] }
+    : null;
 
   function handleLongPress() {
     const doDelete = () => onDelete(comp.id);
