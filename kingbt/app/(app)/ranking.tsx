@@ -403,10 +403,10 @@ export default function RankingScreen() {
 }
 
 const MEDAL = {
-  1: { color: '#F3C544', bg: '#F3C54422', blockH: 130, avatarSize: 72 },
-  2: { color: '#C7D4E0', bg: '#C7D4E018', blockH: 92,  avatarSize: 54 },
-  3: { color: '#D89A6A', bg: '#D89A6A18', blockH: 64,  avatarSize: 46 },
-} as Record<number, { color: string; bg: string; blockH: number; avatarSize: number }>;
+  1: { gold: '#F3C544', crown: '👑', crownSize: 36, pillarH: 130, posSize: 32, nameSize: 14, ptsSize: 24 },
+  2: { gold: '#B8C4CF', crown: '👑', crownSize: 26, pillarH: 88,  posSize: 24, nameSize: 12, ptsSize: 18 },
+  3: { gold: '#CD7F32', crown: '👑', crownSize: 26, pillarH: 62,  posSize: 24, nameSize: 12, ptsSize: 18 },
+} as Record<number, { gold: string; crown: string; crownSize: number; pillarH: number; posSize: number; nameSize: number; ptsSize: number }>;
 
 function PodiumSlot({ player, pos, isMe, center = false, findPlayer }: {
   player: ReturnType<typeof buildRanking>[0];
@@ -414,7 +414,7 @@ function PodiumSlot({ player, pos, isMe, center = false, findPlayer }: {
   findPlayer: (id: string) => PlayerInfo | undefined;
 }) {
   const pl = findPlayer(player.id);
-  const medal = MEDAL[pos];
+  const m = MEDAL[pos];
 
   return (
     <TouchableOpacity
@@ -422,24 +422,25 @@ function PodiumSlot({ player, pos, isMe, center = false, findPlayer }: {
       onPress={() => router.push({ pathname: '/player/[id]', params: { id: player.id } })}
       activeOpacity={0.8}
     >
-      <Avatar name={pl?.name ?? '?'} color={pl?.color ?? '#888'} size={medal.avatarSize} showCrown={pos === 1} />
-      <Text style={[pod.name, pos === 1 && pod.nameCenter, isMe && { color: Colors.gold }]} numberOfLines={1}>
-        {(pl?.name ?? '?').split(' ')[0]}
-      </Text>
-      <Text style={[pod.pts, { color: medal.color, fontSize: pos === 1 ? 20 : 14 }]}>
-        {player.points.toFixed(2)}
-      </Text>
-      <View style={[pod.block, {
-        height: medal.blockH,
-        backgroundColor: medal.bg,
-        borderTopColor: medal.color,
-        shadowColor: medal.color,
-        shadowOffset: { width: 0, height: pos === 1 ? 8 : 0 },
-        shadowOpacity: pos === 1 ? 0.4 : 0,
-        shadowRadius: 16,
-        elevation: pos === 1 ? 10 : 0,
-      }]}>
-        <Text style={[pod.pos, { color: medal.color, fontSize: pos === 1 ? 32 : 24 }]}>{pos}</Text>
+      {/* Coroa */}
+      <Text style={{ fontSize: m.crownSize, marginBottom: 4 }}>{m.crown}</Text>
+
+      {/* Pilar com conteúdo interno */}
+      <View style={[pod.pillar, { height: m.pillarH, borderTopColor: m.gold, shadowColor: m.gold }]}>
+        {/* Número da posição no topo do pilar */}
+        <Text style={[pod.posNum, { color: m.gold, fontSize: m.posSize }]}>{pos}º</Text>
+
+        {/* Nome */}
+        <Text style={[pod.name, { color: m.gold, fontSize: m.nameSize }]} numberOfLines={1}>
+          {(pl?.name ?? '?').split(' ')[0].toUpperCase()}
+        </Text>
+
+        {/* Pontuação */}
+        <Text style={[pod.pts, { color: m.gold, fontSize: m.ptsSize }]}>
+          {player.points.toFixed(2)}
+        </Text>
+
+        {isMe && <View style={pod.youDot} />}
       </View>
     </TouchableOpacity>
   );
@@ -447,19 +448,25 @@ function PodiumSlot({ player, pos, isMe, center = false, findPlayer }: {
 
 const pod = StyleSheet.create({
   col: { alignItems: 'center', flex: 1, justifyContent: 'flex-end' },
-  name: {
-    fontFamily: FontFamily.bodyMed, fontSize: 12,
-    color: Colors.text, textAlign: 'center', maxWidth: 90,
-    marginTop: 4,
+  pillar: {
+    width: '92%',
+    borderTopWidth: 3,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
+    backgroundColor: '#171310',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    paddingVertical: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.6,
+    shadowRadius: 14,
+    elevation: 8,
   },
-  nameCenter: { fontSize: 15, fontFamily: FontFamily.title },
-  pts: { fontFamily: FontFamily.numberBold, textAlign: 'center', marginBottom: 4 },
-  block: {
-    width: '100%', borderTopWidth: 3,
-    borderTopLeftRadius: 6, borderTopRightRadius: 6,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  pos: { fontFamily: FontFamily.titleBold },
+  posNum: { fontFamily: FontFamily.titleBold, letterSpacing: 0.5 },
+  name: { fontFamily: FontFamily.titleBold, textAlign: 'center', letterSpacing: 0.8, maxWidth: 100 },
+  pts: { fontFamily: FontFamily.numberBold, textAlign: 'center' },
+  youDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.gold, marginTop: 2 },
 });
 
 const styles = StyleSheet.create({
@@ -482,9 +489,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'center',
-    paddingHorizontal: Spacing.md,
-    height: 280,
-    gap: 0,
+    paddingHorizontal: Spacing.sm,
+    paddingBottom: 0,
+    height: 310,
+    gap: 6,
+    backgroundColor: '#0A0806',
+    marginHorizontal: Spacing.md,
+    marginBottom: Spacing.md,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: '#2A2010',
+    overflow: 'hidden',
   },
 
   legend: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
