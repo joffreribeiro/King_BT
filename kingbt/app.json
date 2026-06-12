@@ -7,7 +7,7 @@
     "icon": "./assets/kingbt-icon-square.png",
     "scheme": "kingbt",
     "userInterfaceStyle": "dark",
-    "sdkVersion": "52.0.0",
+    "sdkVersion": "54.0.0",
     "ios": {
       "supportsTablet": true
     },
