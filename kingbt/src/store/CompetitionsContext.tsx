@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
 import type { Competition, Substitution } from '@/logic/types';
 import { resolveCompetition, extractPlayerGames, buildCompetition } from '@/logic/formats';
+import { computeRivalries } from '@/logic/rivalries';
 import { MOCK_COMPETITIONS } from '@/mocks/competitions';
 import { subscribeCompetitions, createCompetition, updateCompetition as fsUpdateComp } from '@/firebase/competitions';
 import { createFeedItem } from '@/firebase/feed';
@@ -274,6 +275,136 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
               }
             }
           } catch { console.error('[KingBT] Feed error: rank_change'); }
+
+          // Detectar milestones de rivalidade
+          try {
+            const updatedComp = applyScore(comp, action.matchId, action.scoreA, action.scoreB);
+            const compsAfter  = state.competitions.map(c => c.id === comp.id ? updatedComp : c);
+
+            // Expandir IDs dos lados da partida para player IDs reais
+            const sideAIds = match.teamA ?? (match.aId ? [match.aId] : []);
+            const sideBIds = match.teamB ?? (match.bId ? [match.bId] : []);
+            const expandId = (id: string) => {
+              const comp2 = state.competitions.find(c => c.id === action.compId);
+              const competitor = comp2?.competitors.find(c => c.id === id);
+              return competitor ? competitor.members : [id];
+            };
+            const allSideA = sideAIds.flatMap(expandId);
+            const allSideB = sideBIds.flatMap(expandId);
+            const allPlayers = [...new Set([...allSideA, ...allSideB])];
+
+            for (const pid of allPlayers) {
+              // rivalidades ANTES do novo jogo
+              const rivalsBefore = computeRivalries(pid, state.competitions);
+              // rivalidades DEPOIS do novo jogo
+              const rivalsAfter  = computeRivalries(pid, compsAfter);
+
+              const pl = groupPlayers.find(p => p.id === pid);
+              if (!pl) continue;
+
+              // 1. Sequência quebrada: alguém que tinha ≥3V seguidas foi derrotado
+              const oppIds = allSideA.includes(pid) ? allSideB : allSideA;
+              const aWonAfter = action.scoreA > action.scoreB;
+              const pidInA = allSideA.includes(pid);
+              const pidWon = pidInA ? aWonAfter : !aWonAfter;
+
+              if (!pidWon) {
+                // Calcular sequência que tinha antes
+                const prevMatches = state.competitions.flatMap(c => c.matches)
+                  .filter(m => m.scoreA != null && m.scoreB != null)
+                  .filter(m => (m.teamA ?? [m.aId]).includes(pid) || (m.teamB ?? [m.bId]).includes(pid));
+                let prevStreak = 0;
+                for (let i = prevMatches.length - 1; i >= 0; i--) {
+                  const pm = prevMatches[i];
+                  const inA2 = (pm.teamA ?? [pm.aId]).includes(pid);
+                  const won2 = inA2 ? pm.scoreA! > pm.scoreB! : pm.scoreB! > pm.scoreA!;
+                  if (won2) prevStreak++; else break;
+                }
+                if (prevStreak >= 3) {
+                  const breakerName = oppIds.map(id => groupPlayers.find(p => p.id === id)?.name.split(' ')[0] ?? id).join(' / ');
+                  await createFeedItem(group.id, {
+                    type: 'rivalry_milestone',
+                    compId: comp.id,
+                    compName: comp.name,
+                    timestamp: Timestamp.now(),
+                    reactions: { '👑': [], '🔥': [], '💪': [] },
+                    comments: [],
+                    milestoneType: 'streak_broken',
+                    milestoneEmoji: '💥',
+                    milestoneTitle: `Sequência quebrada!`,
+                    milestoneDesc: `${pl.name} tinha ${prevStreak} vitórias seguidas e foi parado por ${breakerName}`,
+                    involvedIds: [pid, ...oppIds],
+                  });
+                }
+              }
+
+              // 2. Primeira vitória sobre alguém (new_first_win_over)
+              if (pidWon) {
+                for (const oppId of oppIds) {
+                  // Contar vitórias do pid sobre oppId ANTES
+                  let winsBefore = 0;
+                  for (const c2 of state.competitions) {
+                    for (const m2 of c2.matches) {
+                      if (m2.scoreA == null) continue;
+                      const pidInA2 = (m2.teamA ?? [m2.aId]).includes(pid);
+                      const pidInB2 = (m2.teamB ?? [m2.bId]).includes(pid);
+                      const oppInA2 = (m2.teamA ?? [m2.aId]).includes(oppId);
+                      const oppInB2 = (m2.teamB ?? [m2.bId]).includes(oppId);
+                      if (!(pidInA2 || pidInB2) || !(oppInA2 || oppInB2)) continue;
+                      if ((pidInA2 && oppInA2) || (pidInB2 && oppInB2)) continue; // mesmo lado
+                      const pidWon2 = pidInA2 ? m2.scoreA > m2.scoreB! : m2.scoreB! > m2.scoreA!;
+                      if (pidWon2) winsBefore++;
+                    }
+                  }
+                  if (winsBefore === 0) {
+                    const oppPl = groupPlayers.find(p => p.id === oppId);
+                    if (oppPl) {
+                      await createFeedItem(group.id, {
+                        type: 'rivalry_milestone',
+                        compId: comp.id,
+                        compName: comp.name,
+                        timestamp: Timestamp.now(),
+                        reactions: { '👑': [], '🔥': [], '💪': [] },
+                        comments: [],
+                        milestoneType: 'first_win_over',
+                        milestoneEmoji: '🏆',
+                        milestoneTitle: `Primeira vitória histórica!`,
+                        milestoneDesc: `${pl.name} venceu ${oppPl.name} pela primeira vez`,
+                        involvedIds: [pid, oppId],
+                      });
+                    }
+                  }
+                }
+              }
+
+              // 3. Novo carrasco: alguém atingiu 3 vitórias sobre pid
+              const carrascoAfter = rivalsAfter.carrasco;
+              const carrascoBefore = rivalsBefore.carrasco;
+              if (
+                carrascoAfter &&
+                carrascoAfter.wins >= 3 &&
+                carrascoAfter.wins !== (carrascoBefore?.id === carrascoAfter.id ? carrascoBefore.wins : 0) &&
+                carrascoAfter.wins % 3 === 0 // dispara a cada múltiplo de 3
+              ) {
+                const carrascoPlayer = groupPlayers.find(p => p.id === carrascoAfter.id);
+                if (carrascoPlayer) {
+                  await createFeedItem(group.id, {
+                    type: 'rivalry_milestone',
+                    compId: comp.id,
+                    compName: comp.name,
+                    timestamp: Timestamp.now(),
+                    reactions: { '👑': [], '🔥': [], '💪': [] },
+                    comments: [],
+                    milestoneType: 'new_carrasco',
+                    milestoneEmoji: '👹',
+                    milestoneTitle: `Carrasco confirmado!`,
+                    milestoneDesc: `${carrascoPlayer.name} já venceu ${pl.name} ${carrascoAfter.wins} vezes`,
+                    involvedIds: [carrascoAfter.id, pid],
+                  });
+                }
+              }
+            }
+          } catch { console.error('[KingBT] Feed error: rivalry_milestone'); }
         }
       }
     }

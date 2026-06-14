@@ -13,6 +13,7 @@ import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames, competitionChampion } from '@/logic/formats';
 import { computeBadges } from '@/logic/badges';
 import { computeFormatStats } from '@/logic/formatStats';
+import { computeRivalries } from '@/logic/rivalries';
 import Svg, { Polyline, Line, Circle, Text as SvgText } from 'react-native-svg';
 
 const GUEST_COLORS = ['#FFD166', '#2DD4BF', '#A78BFA', '#34D399', '#F472B6', '#94A3B8', '#FB923C', '#60A5FA'];
@@ -197,6 +198,7 @@ export default function ProfileScreen() {
   const badges = computeBadges(MY_ID, state.competitions, id => findPlayer(id)?.name ?? id);
   const unlockedBadges = badges.filter(b => b.unlocked);
   const formatStats = computeFormatStats(state.competitions, MY_ID);
+  const rivalries = computeRivalries(MY_ID, state.competitions);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -401,6 +403,77 @@ export default function ProfileScreen() {
                 </View>
               );
             })}
+          </Card>
+        )}
+
+        {/* Identidade na Quadra */}
+        {(rivalries.biggestPartner || rivalries.biggestRival || rivalries.carrasco || rivalries.fregues) && (
+          <Card>
+            <Text style={styles.sectionTitle}>Identidade na Quadra</Text>
+            <View style={{ gap: Spacing.sm }}>
+              {[
+                {
+                  emoji: '🎾',
+                  label: 'Maior Parceiro',
+                  sub: 'Com quem você mais jogou',
+                  stat: rivalries.biggestPartner,
+                  detail: (s: typeof rivalries.biggestPartner) => s ? `${s.played} jogo${s.played !== 1 ? 's' : ''} juntos` : '',
+                },
+                {
+                  emoji: '🤝',
+                  label: 'Parceiro Mais Eficiente',
+                  sub: 'Com quem você mais venceu',
+                  stat: rivalries.bestPartner,
+                  detail: (s: typeof rivalries.bestPartner) => s ? `${s.wins}V / ${s.played - s.wins}D · ${Math.round(s.pct * 100)}%` : '',
+                },
+                {
+                  emoji: '⚔️',
+                  label: 'Maior Rival',
+                  sub: 'Quem você mais enfrentou',
+                  stat: rivalries.biggestRival,
+                  detail: (s: typeof rivalries.biggestRival) => s ? `${s.played} confronto${s.played !== 1 ? 's' : ''}` : '',
+                },
+                {
+                  emoji: '👹',
+                  label: 'Carrasco',
+                  sub: 'Quem mais te venceu',
+                  stat: rivalries.carrasco,
+                  detail: (s: typeof rivalries.carrasco) => s ? `${s.wins} vitória${s.wins !== 1 ? 's' : ''} sobre você` : '',
+                },
+                {
+                  emoji: '😅',
+                  label: 'Freguês',
+                  sub: 'Quem você mais venceu',
+                  stat: rivalries.fregues,
+                  detail: (s: typeof rivalries.fregues) => s ? `${s.wins} vitória${s.wins !== 1 ? 's' : ''} suas` : '',
+                },
+              ].map(({ emoji, label, sub, stat, detail }) => {
+                if (!stat) return null;
+                const p = findPlayer(stat.id);
+                if (!p) return null;
+                return (
+                  <TouchableOpacity
+                    key={label}
+                    style={ident.row}
+                    onPress={() => router.push({ pathname: '/player/[id]', params: { id: stat.id } })}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={ident.emoji}>{emoji}</Text>
+                    <View style={ident.mid}>
+                      <Text style={ident.label}>{label}</Text>
+                      <Text style={ident.sub}>{sub}</Text>
+                    </View>
+                    <View style={ident.right}>
+                      <Avatar name={p.name} color={p.color} size={32} />
+                      <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                        <Text style={ident.name} numberOfLines={1}>{p.name.split(' ')[0]}</Text>
+                        <Text style={ident.detail}>{detail(stat as any)}</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </Card>
         )}
 
@@ -630,6 +703,17 @@ const pship = StyleSheet.create({
   name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
   rec: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted },
   wr: { fontFamily: FontFamily.numberBold, fontSize: 13, width: 38, textAlign: 'right' },
+});
+
+const ident = StyleSheet.create({
+  row:    { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  emoji:  { fontSize: 22, width: 30, textAlign: 'center' },
+  mid:    { flex: 1, gap: 2 },
+  label:  { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
+  sub:    { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
+  right:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  name:   { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, maxWidth: 80 },
+  detail: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted },
 });
 
 const guest = StyleSheet.create({

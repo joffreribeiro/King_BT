@@ -7,6 +7,7 @@ import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
+import { computeGroupRivalries } from '@/logic/rivalries';
 
 export default function DashboardScreen() {
   const { state } = useCompetitions();
@@ -64,6 +65,9 @@ export default function DashboardScreen() {
   const closestComp = closest
     ? state.competitions.find(c => c.matches.some(m => m.id === closest.id))
     : null;
+
+  // Rivalidades do grupo (top 5 pares com mais confrontos)
+  const groupRivalries = computeGroupRivalries(state.competitions).slice(0, 5);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={['top']}>
@@ -186,6 +190,75 @@ export default function DashboardScreen() {
                 em {closestComp.name}
               </Text>
             </View>
+          </Card>
+        )}
+
+        {/* Rivalidades do grupo */}
+        {groupRivalries.length > 0 && (
+          <Card>
+            <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted,
+              marginBottom: Spacing.sm, letterSpacing: 1.5 }}>RIVALIDADES DO GRUPO ⚔️</Text>
+            {groupRivalries.map((rv, i) => {
+              const pA = findPlayer(rv.idA);
+              const pB = findPlayer(rv.idB);
+              if (!pA || !pB) return null;
+              const total = rv.winsA + rv.winsB;
+              const pctA = total > 0 ? rv.winsA / total : 0.5;
+              return (
+                <View key={`${rv.idA}|${rv.idB}`} style={{
+                  paddingVertical: Spacing.sm,
+                  borderBottomWidth: i < groupRivalries.length - 1 ? 1 : 0,
+                  borderBottomColor: Colors.line,
+                  gap: Spacing.xs,
+                }}>
+                  {/* Nomes e placar */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+                    <TouchableOpacity
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}
+                      onPress={() => router.push({ pathname: '/player/[id]', params: { id: rv.idA } })}
+                      activeOpacity={0.75}
+                    >
+                      <Avatar name={pA.name} color={pA.color} size={28} />
+                      <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text }} numberOfLines={1}>
+                        {pA.name.split(' ')[0]}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <View style={{ alignItems: 'center', gap: 1 }}>
+                      <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 16, color: Colors.text }}>
+                        <Text style={{ color: rv.winsA >= rv.winsB ? Colors.teal : Colors.muted }}>{rv.winsA}</Text>
+                        <Text style={{ color: Colors.faint }}> × </Text>
+                        <Text style={{ color: rv.winsB > rv.winsA ? Colors.teal : Colors.muted }}>{rv.winsB}</Text>
+                      </Text>
+                      <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.faint }}>
+                        {rv.played} confrontos
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-end' }}
+                      onPress={() => router.push({ pathname: '/player/[id]', params: { id: rv.idB } })}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text }} numberOfLines={1}>
+                        {pB.name.split(' ')[0]}
+                      </Text>
+                      <Avatar name={pB.name} color={pB.color} size={28} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Barra de dominância */}
+                  <View style={{ height: 4, backgroundColor: Colors.line, borderRadius: 2, overflow: 'hidden' }}>
+                    <View style={{
+                      position: 'absolute', left: 0, top: 0, bottom: 0,
+                      width: `${pctA * 100}%`,
+                      backgroundColor: pA.color,
+                      borderRadius: 2,
+                    }} />
+                  </View>
+                </View>
+              );
+            })}
           </Card>
         )}
 

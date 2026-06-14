@@ -6,7 +6,7 @@ import { db } from './config';
 
 export type FeedItem = {
   id: string;
-  type: 'match_result' | 'rank_change' | 'comp_done';
+  type: 'match_result' | 'rank_change' | 'comp_done' | 'rivalry_milestone';
   compId: string;
   compName: string;
   matchId?: string;
@@ -22,6 +22,12 @@ export type FeedItem = {
   oldPos?: number;
   newPos?: number;
   newPoints?: number;
+  // rivalry_milestone
+  milestoneType?: 'streak_broken' | 'new_carrasco' | 'new_fregues' | 'first_win_over';
+  milestoneEmoji?: string;
+  milestoneTitle?: string;
+  milestoneDesc?: string;
+  involvedIds?: string[];
 };
 
 const feedCol = (groupId: string) =>

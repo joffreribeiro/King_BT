@@ -254,6 +254,47 @@ const mc = StyleSheet.create({
   commentToggleTxt: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.faint },
 });
 
+// ─── Card de milestone de rivalidade ─────────────────────────────────────────
+
+function MilestoneCard({ item }: { item: FeedItem }) {
+  const { findPlayer } = useGroupPlayers();
+
+  const players = (item.involvedIds ?? [])
+    .map(id => findPlayer(id))
+    .filter(Boolean) as NonNullable<ReturnType<typeof findPlayer>>[];
+
+  return (
+    <Card style={mil.card}>
+      <View style={mil.inner}>
+        <Text style={mil.emoji}>{item.milestoneEmoji ?? '🏅'}</Text>
+        <View style={mil.info}>
+          <Text style={mil.title}>{item.milestoneTitle}</Text>
+          <Text style={mil.desc}>{item.milestoneDesc}</Text>
+          {players.length > 0 && (
+            <View style={mil.avatars}>
+              {players.map((p, i) => (
+                <Avatar key={i} name={p.name} color={p.color} size={24} />
+              ))}
+            </View>
+          )}
+        </View>
+        <Text style={mil.time}>{timeAgo(item.timestamp)}</Text>
+      </View>
+    </Card>
+  );
+}
+
+const mil = StyleSheet.create({
+  card:    { borderWidth: 1, borderColor: Colors.gold + '33' },
+  inner:   { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  emoji:   { fontSize: 28, lineHeight: 34 },
+  info:    { flex: 1, gap: 3 },
+  title:   { fontFamily: FontFamily.title, fontSize: 13, color: Colors.gold },
+  desc:    { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  avatars: { flexDirection: 'row', gap: 4, marginTop: 4 },
+  time:    { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
+});
+
 // ─── Card de mudança de ranking ───────────────────────────────────────────────
 
 function RankChangeCard({ item }: { item: FeedItem }) {
@@ -323,8 +364,9 @@ export default function FeedScreen() {
   const { group } = useAuth();
 
   function renderItem({ item }: { item: FeedItem }) {
-    if (item.type === 'match_result') return <MatchResultCard item={item} />;
-    if (item.type === 'rank_change') return <RankChangeCard item={item} />;
+    if (item.type === 'match_result')      return <MatchResultCard item={item} />;
+    if (item.type === 'rank_change')       return <RankChangeCard item={item} />;
+    if (item.type === 'rivalry_milestone') return <MilestoneCard item={item} />;
     return null;
   }
 
