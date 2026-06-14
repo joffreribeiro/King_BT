@@ -231,24 +231,26 @@ export default function ProfileScreen() {
           </Text>
         </Card>
 
-        {/* Grid de stats */}
-        <View style={styles.grid}>
-          {[
-            { l: 'Vitórias',      v: me.wins,                         c: Colors.teal },
-            { l: 'Derrotas',      v: me.losses,                       c: Colors.coral },
-            { l: 'Partidas',      v: me.played,                       c: Colors.text },
-            { l: 'Game Avg',      v: me.ga.toFixed(2),                c: Colors.gold },
-            { l: 'Games Pró',    v: me.gamesPro,                      c: Colors.teal },
-            { l: 'Games Contra', v: me.gamesCon,                      c: Colors.coral },
-            { l: 'Saldo',         v: (me.sg >= 0 ? '+' : '') + me.sg, c: me.sg >= 0 ? Colors.teal : Colors.coral },
-            { l: 'Win Rate',      v: `${winRate}%`,                    c: Colors.goldBright },
-          ].map(item => (
-            <View key={item.l} style={[styles.cell, { borderLeftWidth: 3, borderLeftColor: item.c + '88' }]}>
-              <Text style={[styles.cellVal, { color: item.c }]}>{item.v}</Text>
-              <Text style={styles.cellLabel}>{item.l}</Text>
-            </View>
-          ))}
-        </View>
+        {/* Linha de stats compacta */}
+        <Card style={{ paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xs }}>
+          <View style={statRow.row}>
+            {[
+              { l: 'J',    v: me.played,                        c: Colors.text },
+              { l: 'V',    v: me.wins,                          c: Colors.teal },
+              { l: 'D',    v: me.losses,                        c: Colors.coral },
+              { l: 'GP',   v: me.gamesPro,                      c: Colors.teal },
+              { l: 'GC',   v: me.gamesCon,                      c: Colors.coral },
+              { l: 'SG',   v: (me.sg >= 0 ? '+' : '') + me.sg, c: me.sg >= 0 ? Colors.teal : Colors.coral },
+              { l: 'GA',   v: me.ga.toFixed(2),                 c: Colors.gold },
+              { l: 'WIN%', v: `${winRate}%`,                    c: Colors.goldBright },
+            ].map((item, i, arr) => (
+              <View key={item.l} style={[statRow.cell, i < arr.length - 1 && statRow.divider]}>
+                <Text style={[statRow.val, { color: item.c }]}>{item.v}</Text>
+                <Text style={statRow.lbl}>{item.l}</Text>
+              </View>
+            ))}
+          </View>
+        </Card>
 
         {/* Forma recente */}
         {(() => {
@@ -631,6 +633,14 @@ export default function ProfileScreen() {
   );
 }
 
+const statRow = StyleSheet.create({
+  row:     { flexDirection: 'row', alignItems: 'center' },
+  cell:    { flex: 1, alignItems: 'center', gap: 3, paddingVertical: Spacing.sm },
+  divider: { borderRightWidth: 1, borderRightColor: Colors.line },
+  val:     { fontFamily: FontFamily.numberBold, fontSize: 15 },
+  lbl:     { fontFamily: FontFamily.number, fontSize: 9, color: Colors.faint, letterSpacing: 0.5 },
+});
+
 const hist = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
   border: { borderBottomWidth: 1, borderBottomColor: Colors.line },
@@ -655,11 +665,8 @@ const styles = StyleSheet.create({
   ptsLabel: { fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted, letterSpacing: 2 },
   ptsVal: { fontFamily: FontFamily.titleBold, fontSize: 52, color: Colors.gold, lineHeight: 60 },
   ptsEq: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  cell: { width: '47%', alignItems: 'center', gap: 2, padding: Spacing.md, backgroundColor: Colors.surf, borderRadius: Radius.md },
-  cellVal: { fontFamily: FontFamily.titleBold, fontSize: 26 },
-  cellLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
   sectionTitle: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.text, marginBottom: Spacing.sm },
+  // grid e cell removidos — substituídos por statRow
   accountCard: { gap: Spacing.sm, alignItems: 'center' },
   accountEmail: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   groupInfo: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.gold },
