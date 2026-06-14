@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
-import type { Format } from '@/logic/types';
+import type { Format, Gender } from '@/logic/types';
 
 const STEPS = ['Formato', 'Ajustes', 'Quem joga', 'Revisar'];
 
@@ -83,8 +83,8 @@ const stp = StyleSheet.create({
 export default function ConfigStep() {
   const { format } = useLocalSearchParams<{ format: Format }>();
   const [name, setName]       = useState(FORMAT_DEFAULT_NAME[format] ?? 'Competição');
-  const isRotativo = format === 'avulso' || format === 'super8';
   const [unit, setUnit]       = useState<Unit>('individual');
+  const [gender, setGender]   = useState<Gender>('misto');
   const [rounds, setRounds]   = useState<Rounds>('single');
   const [sets, setSets]       = useState(1);
   const [games, setGames]     = useState(6);
@@ -101,7 +101,8 @@ export default function ConfigStep() {
       params: {
         format,
         name,
-        unit: isRotativo ? 'individual' : unit,
+        unit,
+        gender,
         rounds,
         sets: String(sets),
         games: String(games),
@@ -149,27 +150,39 @@ export default function ConfigStep() {
           />
         </View>
 
-        {/* Tipo de competidor — oculto para avulso/super8 (sempre rotativo) */}
-        {!isRotativo && (
-          <View style={styles.field}>
-            <Text style={styles.fieldLabel}>
-              Tipo de competidor
-              {unit === 'duplas' && <Text style={styles.required}>*</Text>}
-            </Text>
-            <SegmentControl
-              options={[
-                { value: 'individual', label: 'Individual' },
-                { value: 'duplas', label: 'Duplas fixas' },
-              ]}
-              value={unit}
-              onChange={setUnit}
-              descriptions={{
-                individual: 'Cada jogador compete individualmente.',
-                duplas: 'Você inscreve as duplas; elas competem entre si.',
-              }}
-            />
-          </View>
-        )}
+        {/* Tipo de competidor */}
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>
+            Tipo de competidor
+            {unit === 'duplas' && <Text style={styles.required}>*</Text>}
+          </Text>
+          <SegmentControl
+            options={[
+              { value: 'individual', label: 'Individual' },
+              { value: 'duplas', label: 'Duplas' },
+            ]}
+            value={unit}
+            onChange={setUnit}
+            descriptions={{
+              individual: 'Cada jogador compete individualmente.',
+              duplas: 'Dois jogadores formam uma dupla.',
+            }}
+          />
+        </View>
+
+        {/* Gênero */}
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>Categoria</Text>
+          <SegmentControl
+            options={[
+              { value: 'masculino', label: 'Masculino' },
+              { value: 'feminino', label: 'Feminino' },
+              { value: 'misto', label: 'Misto' },
+            ]}
+            value={gender}
+            onChange={setGender}
+          />
+        </View>
 
         {/* Turnos — só para liga e grupos */}
         {(format === 'liga' || format === 'grupos') && (

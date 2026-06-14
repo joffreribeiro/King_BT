@@ -1,5 +1,6 @@
 export type Format = 'liga' | 'grupos' | 'mata' | 'avulso' | 'super8';
 export type Unit   = 'individual' | 'duplas';
+export type Gender = 'masculino' | 'feminino' | 'misto';
 export type Stage  = 'league' | 'group' | 'ko' | 'rotating';
 
 export interface Player {
@@ -100,6 +101,7 @@ export interface Competition {
   name: string;
   format: Format;
   unit: Unit;
+  gender: Gender;
   status: 'upcoming' | 'setup' | 'active' | 'done';
   date: string;
   /** Local / quadras (opcional). */

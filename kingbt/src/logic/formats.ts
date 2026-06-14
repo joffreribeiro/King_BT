@@ -335,13 +335,14 @@ export function extractPlayerGames(
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
-import type { Format, Unit, CompetitionConfig } from './types';
+import type { Format, Unit, Gender, CompetitionConfig } from './types';
 import { generateSchedule } from './roundRobin';
 
 export function buildCompetition(spec: {
   name: string;
   format: Format;
   unit: Unit;
+  gender?: Gender;
   competitors: Competitor[];
   config: CompetitionConfig;
   location?: string;
@@ -350,6 +351,7 @@ export function buildCompetition(spec: {
   const id = 'comp_' + Date.now();
   const comp: Competition = {
     id, name: spec.name, format: spec.format, unit: spec.unit,
+    gender: spec.gender ?? 'misto',
     status: 'active', date: new Date().toISOString().slice(0, 10),
     ...(spec.location ? { location: spec.location } : {}),
     ...(spec.notes ? { notes: spec.notes } : {}),

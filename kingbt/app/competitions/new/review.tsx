@@ -8,7 +8,7 @@ import { buildCompetition } from '@/logic/formats';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
-import type { Format, Competitor } from '@/logic/types';
+import type { Format, Competitor, Gender } from '@/logic/types';
 import { useState } from 'react';
 
 const STEPS = ['Formato', 'Ajustes', 'Quem joga', 'Revisar'];
@@ -28,7 +28,7 @@ const FORMAT_ICON_COLOR: Record<Format, string> = {
 };
 
 type Params = {
-  format: Format; name: string; unit: string; rounds: string;
+  format: Format; name: string; unit: string; gender: string; rounds: string;
   sets: string; games: string; tiebreak: string;
   location?: string; notes?: string;
   useOfficialRules?: string;
@@ -44,6 +44,8 @@ export default function ReviewStep() {
   const [busy, setBusy] = useState(false);
 
   const isDuplas = p.unit === 'duplas';
+  const gender = (p.gender ?? 'misto') as Gender;
+  const GENDER_LABEL: Record<Gender, string> = { masculino: 'Masculino', feminino: 'Feminino', misto: 'Misto' };
   const roundsLabel = p.rounds === 'double' ? 'Ida e volta' : 'Turno único';
   const setsN = parseInt(p.sets ?? '1', 10) || 1;
   const gamesN = parseInt(p.games ?? '6', 10) || 6;
@@ -87,6 +89,7 @@ export default function ReviewStep() {
     name: p.name,
     format: p.format,
     unit: isDuplas ? 'duplas' : 'individual',
+    gender,
     competitors,
     location: p.location?.trim() || undefined,
     notes: p.notes?.trim() || undefined,
@@ -169,6 +172,7 @@ export default function ReviewStep() {
         {/* Resumo */}
         <View style={styles.summaryCard}>
           <SummaryRow label="Formato" value={FORMAT_LABEL[p.format]} />
+          <SummaryRow label="Categoria" value={GENDER_LABEL[gender]} />
           <SummaryRow
             label="Competidores"
             value={`${competitors.length} ${isDuplas ? 'duplas' : 'jogadores'}`}

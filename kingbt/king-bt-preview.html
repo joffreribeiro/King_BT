@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>King BT — Apresentação do App</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #0B0B0D;
+    --surf:    #16140F;
+    --surf2:   #221C12;
+    --line:    rgba(214,175,70,0.18);
+    --gold:    #F3C544;
+    --goldD:   #C2891A;
+    --teal:    #54B981;
+    --coral:   #E5483D;
+    --text:    #F6EFDD;
+    --muted:   #A99B7C;
+    --faint:   #6E6452;
+    --pink:    #F472B6;
+    --purple:  #C084FC;
+    --blue:    #6B7FD7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #1a1a1a;
+    font-family: 'Sora', sans-serif;
+    color: var(--text);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Capa ── */
+  .cover {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    page-break-after: always;
+    padding: 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(243,197,68,0.08) 0%, transparent 70%);
+    top: -100px; left: 50%; transform: translateX(-50%);
+  }
+  .cover-logo {
+    font-family: 'Sora', sans-serif;
+    font-weight: 800;
+    font-size: 72px;
+    background: linear-gradient(135deg, #F3C544, #C2891A);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -2px;
+  }
+  .cover-crown { font-size: 64px; }
+  .cover-subtitle {
+    font-size: 18px;
+    color: var(--muted);
+    text-align: center;
+    max-width: 320px;
+    line-height: 1.6;
+  }
+  .cover-badge {
+    background: var(--surf2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 8px 20px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .cover-divider {
+    width: 60px; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+  .cover-tagline {
+    font-size: 14px;
+    color: var(--faint);
+    margin-top: 48px;
+    text-align: center;
+  }
+
+  /* ── Página de telas ── */
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    background: #111;
+    page-break-after: always;
+    padding: 32px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .page-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(243,197,68,0.15);
+  }
+  .page-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--gold);
+    letter-spacing: 2px;
+  }
+  .page-title-main {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .page-logo-sm {
+    margin-left: auto;
+    font-weight: 800;
+    font-size: 13px;
+    color: var(--gold);
+    letter-spacing: -0.5px;
+  }
+
+  /* ── Layout 2-col ── */
+  .screens-row {
+    display: flex;
+    gap: 20px;
+    flex: 1;
+    align-items: flex-start;
+  }
+  .screen-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .screen-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--gold);
+    text-transform: uppercase;
+    text-align: center;
+  }
+  .screen-desc {
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.5;
+  }
+
+  /* ── Mockup do celular ── */
+  .phone {
+    background: var(--bg);
+    border-radius: 32px;
+    border: 2.5px solid #333;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
+    position: relative;
+    width: 100%;
+    max-width: 220px;
+    margin: 0 auto;
+  }
+  .phone-notch {
+    background: #000;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0 0 16px 16px;
+    position: relative;
+    z-index: 10;
+  }
+  .phone-notch-pill {
+    width: 80px; height: 22px;
+    background: #000;
+    border-radius: 0 0 14px 14px;
+    border: 2px solid #222;
+    border-top: none;
+  }
+  .phone-screen {
+    min-height: 380px;
+    overflow: hidden;
+  }
+  .phone-tabbar {
+    background: rgba(11,11,13,0.95);
+    border-top: 1px solid var(--line);
+    display: flex;
+    padding: 8px 0 12px;
+  }
+  .phone-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 8px;
+    color: var(--faint);
+  }
+  .phone-tab.active { color: var(--gold); }
+  .phone-tab-icon { font-size: 14px; }
+
+  /* ── Conteúdos das telas ── */
+
+  /* HOME */
+  .s-home { padding: 16px 14px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); }
+  .s-home-header { display: flex; justify-content: space-between; align-items: flex-start; }
+  .s-home-title { font-size: 20px; font-weight: 800; color: var(--text); }
+  .s-home-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
+  .s-home-avatar { width: 34px; height: 34px; border-radius: 17px; background: linear-gradient(135deg, #C2891A, #F3C544); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #000; }
+
+  .streak-banner {
+    background: linear-gradient(135deg, rgba(243,197,68,0.12), rgba(194,137,26,0.08));
+    border: 1px solid rgba(243,197,68,0.25);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .streak-icon { font-size: 20px; }
+  .streak-text { font-size: 11px; font-weight: 700; color: var(--gold); }
+  .streak-sub { font-size: 9px; color: var(--muted); }
+
+  .filter-row { display: flex; gap: 6px; }
+  .filter-chip { background: var(--surf2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 9px; color: var(--muted); }
+  .filter-chip.active { background: rgba(243,197,68,0.15); border-color: rgba(243,197,68,0.4); color: var(--gold); }
+
+  .comp-card {
+    background: var(--surf);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .comp-card-accent { height: 3px; }
+  .comp-card-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .comp-card-top { display: flex; justify-content: space-between; align-items: center; }
+  .comp-card-name { font-size: 12px; font-weight: 700; color: var(--text); }
+  .comp-badge { font-size: 9px; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
+  .badge-active { background: rgba(84,185,129,0.15); color: var(--teal); }
+  .badge-done { background: rgba(110,100,82,0.3); color: var(--faint); }
+  .badge-upcoming { background: rgba(96,165,250,0.15); color: #60A5FA; }
+  .comp-meta { font-size: 9px; color: var(--muted); display: flex; gap: 6px; }
+  .comp-prog { height: 3px; background: var(--surf2); border-radius: 2px; }
+  .comp-prog-fill { height: 3px; background: var(--gold); border-radius: 2px; }
+
+  /* RANKING */
+  .s-rank { padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); }
+  .s-rank-title { font-size: 18px; font-weight: 800; color: var(--text); }
+
+  .podium {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 6px;
+    height: 130px;
+    padding: 0 4px;
+  }
+  .podium-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .podium-avatar { width: 36px; height: 36px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #000; }
+  .podium-name { font-size: 8px; color: var(--text); font-weight: 600; }
+  .podium-pts { font-family: 'Space Grotesk', sans-serif; font-size: 9px; color: var(--gold); font-weight: 700; }
+  .podium-crown { font-size: 14px; }
+  .podium-pillar {
+    border-radius: 6px 6px 0 0;
+    width: 62px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    color: rgba(255,255,255,0.3);
+  }
+  .pillar-1 { background: linear-gradient(180deg, #2a2010, #1a1508); height: 80px; }
+  .pillar-2 { background: linear-gradient(180deg, #222222, #151515); height: 60px; }
+  .pillar-3 { background: linear-gradient(180deg, #1e1a12, #131108); height: 45px; }
+
+  .rank-row {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surf); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 10px;
+  }
+  .rank-pos { font-family: 'Space Grotesk', sans-serif; font-size: 11px; font-weight: 700; color: var(--faint); width: 16px; text-align: center; }
+  .rank-avatar { width: 28px; height: 28px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #000; }
+  .rank-name { flex: 1; font-size: 11px; font-weight: 600; color: var(--text); }
+  .rank-pts { font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 700; color: var(--gold); }
+  .rank-sub { font-size: 8px; color: var(--muted); }
+
+  /* FEED */
+  .s-feed { padding: 14px 12px; display: flex; flex-direction: column; gap: 8px; background: var(--bg); }
+  .s-feed-title { font-size: 18px; font-weight: 800; color: var(--text); }
+  .s-feed-sub { font-size: 9px; color: var(--muted); margin-top: -4px; }
+
+  .feed-card {
+    background: var(--surf);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .feed-card-bar { height: 3px; }
+  .feed-card-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 7px; }
+  .feed-header { display: flex; justify-content: space-between; align-items: center; }
+  .feed-comp-name { font-size: 10px; font-weight: 700; }
+  .feed-time { font-family: 'Space Grotesk', sans-serif; font-size: 9px; color: var(--faint); }
+  .feed-score-row { display: flex; align-items: center; background: var(--surf2); border-radius: 8px; padding: 8px 10px; gap: 4px; }
+  .feed-side { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+  .feed-side-right { align-items: flex-end; }
+  .feed-side-name { font-size: 10px; font-weight: 600; color: var(--text); }
+  .feed-score-box { min-width: 64px; text-align: center; font-family: 'Space Grotesk', sans-serif; font-size: 22px; font-weight: 700; }
+  .feed-reactions { display: flex; gap: 4px; }
+  .feed-react-btn { display: flex; align-items: center; gap: 3px; background: var(--surf2); border-radius: 999px; padding: 3px 8px; font-size: 11px; border: 1px solid var(--line); }
+  .feed-react-cnt { font-size: 9px; color: var(--muted); font-family: 'Space Grotesk', sans-serif; }
+
+  /* CALENDÁRIO */
+  .s-cal { padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); }
+  .s-cal-title { font-size: 18px; font-weight: 800; color: var(--text); }
+
+  .cal-grid { background: var(--surf); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+  .cal-month { font-size: 13px; font-weight: 700; color: var(--text); text-align: center; margin-bottom: 8px; }
+  .cal-week { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
+  .cal-day-name { font-size: 8px; color: var(--muted); text-align: center; padding: 2px 0; font-weight: 600; }
+  .cal-day { font-size: 9px; color: var(--muted); text-align: center; padding: 4px 2px; border-radius: 6px; position: relative; }
+  .cal-day.today { background: var(--surf2); color: var(--gold); font-weight: 700; }
+  .cal-day.has-event::after { content: ''; position: absolute; bottom: 1px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 50%; background: var(--gold); }
+  .cal-day.has-event-teal::after { background: var(--teal); }
+
+  .cal-stat-row { display: flex; gap: 6px; }
+  .cal-stat { flex: 1; background: var(--surf); border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+  .cal-stat-val { font-family: 'Space Grotesk', sans-serif; font-size: 18px; font-weight: 700; color: var(--gold); }
+  .cal-stat-lbl { font-size: 8px; color: var(--muted); }
+
+  /* PERFIL */
+  .s-profile { padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); }
+  .profile-header { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .profile-avatar { width: 56px; height: 56px; border-radius: 28px; background: linear-gradient(135deg, #C2891A, #F3C544); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: #000; border: 2px solid var(--gold); }
+  .profile-name { font-size: 16px; font-weight: 800; color: var(--text); }
+  .profile-rank { font-size: 10px; color: var(--muted); }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .stat-card { background: var(--surf); border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 2px; }
+  .stat-val { font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; color: var(--gold); }
+  .stat-lbl { font-size: 8px; color: var(--muted); }
+
+  .fmt-row { display: flex; flex-direction: column; gap: 5px; }
+  .fmt-item { display: flex; align-items: center; gap: 6px; }
+  .fmt-label { font-size: 9px; color: var(--text); width: 40px; }
+  .fmt-bar { flex: 1; height: 5px; background: var(--surf2); border-radius: 3px; overflow: hidden; }
+  .fmt-fill { height: 5px; border-radius: 3px; }
+  .fmt-pct { font-family: 'Space Grotesk', sans-serif; font-size: 9px; color: var(--muted); width: 28px; text-align: right; }
+
+  .badges-row { display: flex; gap: 6px; }
+  .badge-item { background: var(--surf2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 6px; display: flex; flex-direction: column; align-items: center; gap: 3px; flex: 1; }
+  .badge-emoji { font-size: 18px; }
+  .badge-name { font-size: 8px; color: var(--muted); text-align: center; }
+
+  /* COMPETIÇÃO DETALHE */
+  .s-comp { padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; background: var(--bg); }
+  .s-comp-header { display: flex; align-items: center; gap: 8px; }
+  .s-comp-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .s-comp-title { font-size: 14px; font-weight: 800; color: var(--text); }
+  .s-comp-sub { font-size: 9px; color: var(--muted); }
+
+  .score-table { background: var(--surf); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .score-table-head { display: grid; grid-template-columns: 24px 1fr 20px 20px 20px 36px; gap: 4px; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  .score-table-row { display: grid; grid-template-columns: 24px 1fr 20px 20px 20px 36px; gap: 4px; padding: 7px 10px; border-bottom: 1px solid rgba(214,175,70,0.07); align-items: center; }
+  .score-table-row:last-child { border: none; }
+  .sc-head { font-size: 8px; color: var(--faint); font-weight: 600; letter-spacing: 0.5px; text-align: center; }
+  .sc-pos { font-family: 'Space Grotesk', sans-serif; font-size: 10px; font-weight: 700; color: var(--faint); text-align: center; }
+  .sc-name { font-size: 10px; font-weight: 600; color: var(--text); }
+  .sc-num { font-family: 'Space Grotesk', sans-serif; font-size: 10px; color: var(--muted); text-align: center; }
+  .sc-pts { font-family: 'Space Grotesk', sans-serif; font-size: 11px; font-weight: 700; color: var(--gold); text-align: center; }
+
+  .match-card { background: var(--surf); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: flex; align-items: center; gap: 6px; }
+  .match-side { flex: 1; font-size: 10px; color: var(--text); font-weight: 600; }
+  .match-score { font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; text-align: center; min-width: 50px; }
+  .match-score .win { color: var(--teal); }
+  .match-score .lose { color: var(--muted); }
+
+  /* NOVO COMP */
+  .s-new { padding: 14px 12px; display: flex; flex-direction: column; gap: 12px; background: var(--bg); }
+  .steps-bar { display: flex; gap: 4px; }
+  .step-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .step-line { height: 3px; width: 100%; border-radius: 2px; }
+  .step-line.active { background: var(--gold); }
+  .step-line.inactive { background: var(--surf2); }
+  .step-lbl { font-size: 8px; color: var(--faint); }
+  .step-lbl.active { color: var(--gold); font-weight: 600; }
+
+  .format-card { display: flex; align-items: center; gap: 10px; background: var(--surf); border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .format-card.selected { border-color: rgba(243,197,68,0.5); background: var(--surf2); }
+  .format-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+  .format-info { flex: 1; }
+  .format-name { font-size: 12px; font-weight: 700; color: var(--text); }
+  .format-name.selected { color: var(--gold); }
+  .format-desc { font-size: 9px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+  .format-radio { width: 18px; height: 18px; border-radius: 9px; border: 2px solid var(--faint); display: flex; align-items: center; justify-content: center; }
+  .format-radio.selected { border-color: var(--gold); }
+  .format-radio-dot { width: 8px; height: 8px; border-radius: 4px; background: var(--gold); }
+
+  .seg-control { display: flex; background: var(--surf2); border-radius: 10px; padding: 3px; }
+  .seg-btn { flex: 1; padding: 6px; text-align: center; border-radius: 8px; font-size: 11px; color: var(--muted); font-weight: 500; }
+  .seg-btn.active { background: var(--gold); color: #000; font-weight: 700; }
+
+  .btn-gold { background: var(--gold); border-radius: 12px; padding: 12px; text-align: center; font-size: 14px; font-weight: 700; color: #000; }
+  .btn-outline { border: 1.5px solid var(--gold); border-radius: 12px; padding: 10px; text-align: center; font-size: 13px; font-weight: 600; color: var(--gold); }
+
+  /* ── Seção descritiva (sem mockup) ── */
+  .feature-section {
+    background: var(--surf);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .feature-title { font-size: 13px; font-weight: 700; color: var(--gold); }
+  .feature-desc { font-size: 11px; color: var(--muted); line-height: 1.6; }
+  .feature-list { display: flex; flex-direction: column; gap: 5px; }
+  .feature-item { display: flex; gap: 8px; align-items: flex-start; font-size: 11px; color: var(--text); }
+  .feature-dot { color: var(--gold); font-size: 14px; margin-top: -1px; }
+
+  /* ── Página de features ── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .feat-card {
+    background: var(--surf);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .feat-icon { font-size: 28px; }
+  .feat-name { font-size: 13px; font-weight: 700; color: var(--text); }
+  .feat-desc { font-size: 10px; color: var(--muted); line-height: 1.5; }
+
+  /* ── Print ── */
+  @media print {
+    body { background: #000; }
+    .cover, .page { margin: 0; box-shadow: none; }
+    @page { margin: 0; size: A4; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     CAPA
+══════════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-crown">👑</div>
+  <div class="cover-logo">King BT</div>
+  <div class="cover-divider"></div>
+  <p class="cover-subtitle">Aplicativo de gestão de torneios e competições de Beach Tennis</p>
+  <div class="cover-badge">Versão Beta · Junho 2025</div>
+  <p class="cover-tagline">Apresentação das telas para revisão e sugestões</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PÁG 1 — HOME + RANKING
+══════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span class="page-num">01</span>
+    <span class="page-title-main">Início &amp; Ranking</span>
+    <span class="page-logo-sm">King BT</span>
+  </div>
+
+  <div class="screens-row">
+    <!-- HOME -->
+    <div class="screen-col">
+      <div class="screen-label">Tela Inicial</div>
+      <div class="phone">
+        <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+        <div class="phone-screen">
+          <div class="s-home">
+            <!-- Header -->
+            <div class="s-home-header">
+              <div>
+                <div class="s-home-title">Competições</div>
+                <div class="s-home-sub">King BT</div>
+              </div>
+              <div class="s-home-avatar">JR</div>
+            </div>
+
+            <!-- Streak banner -->
+            <div class="streak-banner">
+              <div class="streak-icon">🔥</div>
+              <div>
+                <div class="streak-text">Sequência de 3 vitórias!</div>
+                <div class="streak-sub">Continue assim — ver ranking</div>
+              </div>
+            </div>
+
+            <!-- Filtros -->
+            <div class="filter-row">
+              <div class="filter-chip active">Todas</div>
+              <div class="filter-chip">Ativas</div>
+              <div class="filter-chip">Concluídas</div>
+            </div>
+
+            <!-- Card ativo -->
+            <div class="comp-card">
+              <div class="comp-card-accent" style="background: #C084FC;"></div>
+              <div class="comp-card-body">
+                <div class="comp-card-top">
+                  <div class="comp-card-name">Super 8 · BT Quadra</div>
+                  <span class="comp-badge badge-active">Ativa</span>
+                </div>
+                <div class="comp-meta">
+                  <span>◈ Super 8</span>
+                  <span>·</span>
+                  <span>02/06</span>
+                  <span>·</span>
+                  <span>8 jogadores</span>
+                </div>
+                <div class="comp-prog"><div class="comp-prog-fill" style="width:65%"></div></div>
+              </div>
+            </div>
+
+            <!-- Card agendado -->
+            <div class="comp-card">
+              <div class="comp-card-accent" style="background: #60A5FA;"></div>
+              <div class="comp-card-body">
+                <div class="comp-card-top">
+                  <div class="comp-card-name">Liga Verão</div>
+                  <span class="comp-badge badge-upcoming">Agendada</span>
+                </div>
+                <div class="comp-meta">
+                  <span>≡ Liga</span>
+                  <span>·</span>
+                  <span>20/06</span>
+                  <span>·</span>
+                  <span>4 confirmados</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card concluído -->
+            <div class="comp-card">
+              <div class="comp-card-accent" style="background: #6E6452;"></div>
+              <div class="comp-card-body">
+                <div class="comp-card-top">
+                  <div class="comp-card-name">Super 8 · Iate 12/05</div>
+                  <span class="comp-badge badge-done">Concluída</span>
+                </div>
+                <div class="comp-meta">
+                  <span>◈ Super 8</span>
+                  <span>·</span>
+                  <span>12/05</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="phone-tabbar">
+          <div class="phone-tab active"><div class="phone-tab-icon">🏠</div><div>Início</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">📅</div><div>Calendário</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">🏆</div><div>Ranking</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">📣</div><div>Feed</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">👤</div><div>Perfil</div></div>
+        </div>
+      </div>
+      <div class="screen-desc">Lista de competições com filtros.<br>Banner de sequência de vitórias.</div>
+    </div>
+
+    <!-- RANKING -->
+    <div class="screen-col">
+      <div class="screen-label">Ranking</div>
+      <div class="phone">
+        <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+        <div class="phone-screen">
+          <div class="s-rank">
+            <div class="s-rank-title">Ranking</div>
+
+            <!-- Pódio -->
+            <div class="podium">
+              <!-- 2º -->
+              <div class="podium-col">
+                <div class="podium-avatar" style="background: linear-gradient(135deg,#888,#aaa);">DM</div>
+                <div class="podium-name">Daniel</div>
+                <div class="podium-pts">9.20</div>
+                <div class="podium-pillar pillar-2">2</div>
+              </div>
+              <!-- 1º -->
+              <div class="podium-col">
+                <div class="podium-crown">👑</div>
+                <div class="podium-avatar" style="background: linear-gradient(135deg,#C2891A,#F3C544);">JR</div>
+                <div class="podium-name">Joffre</div>
+                <div class="podium-pts">11.45</div>
+                <div class="podium-pillar pillar-1">1</div>
+              </div>
+              <!-- 3º -->
+              <div class="podium-col">
+                <div class="podium-avatar" style="background: linear-gradient(135deg,#7c5c2e,#a0764a);">MC</div>
+                <div class="podium-name">Marcelo</div>
+                <div class="podium-pts">8.75</div>
+                <div class="podium-pillar pillar-3">3</div>
+              </div>
+            </div>
+
+            <!-- Lista -->
+            <div class="rank-row">
+              <div class="rank-pos">4</div>
+              <div class="rank-avatar" style="background:#54B981;">GH</div>
+              <div><div class="rank-name">Guilherme</div><div class="rank-sub">7J · 4V</div></div>
+              <div class="rank-pts">7.83</div>
+            </div>
+            <div class="rank-row">
+              <div class="rank-pos">5</div>
+              <div class="rank-avatar" style="background:#6B7FD7;">RB</div>
+              <div><div class="rank-name">Roberto</div><div class="rank-sub">6J · 3V</div></div>
+              <div class="rank-pts">6.50</div>
+            </div>
+            <div class="rank-row">
+              <div class="rank-pos">6</div>
+              <div class="rank-avatar" style="background:#E5483D;">EI</div>
+              <div><div class="rank-name">Eider</div><div class="rank-sub">5J · 2V</div></div>
+              <div class="rank-pts">5.20</div>
+            </div>
+            <div class="rank-row">
+              <div class="rank-pos">7</div>
+              <div class="rank-avatar" style="background:#F472B6;">LN</div>
+              <div><div class="rank-name">Luis Nei</div><div class="rank-sub">4J · 1V</div></div>
+              <div class="rank-pts">3.75</div>
+            </div>
+          </div>
+        </div>
+        <div class="phone-tabbar">
+          <div class="phone-tab"><div class="phone-tab-icon">🏠</div><div>Início</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">📅</div><div>Calendário</div></div>
+          <div class="phone-tab active"><div class="phone-tab-icon">🏆</div><div>Ranking</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">📣</div><div>Feed</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">👤</div><div>Perfil</div></div>
+        </div>
+      </div>
+      <div class="screen-desc">Pódio cinematográfico com coroas.<br>Ranking geral do grupo por pontos.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PÁG 2 — FEED + CALENDÁRIO
+══════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span class="page-num">02</span>
+    <span class="page-title-main">Feed &amp; Calendário</span>
+    <span class="page-logo-sm">King BT</span>
+  </div>
+
+  <div class="screens-row">
+    <!-- FEED -->
+    <div class="screen-col">
+      <div class="screen-label">Feed do Grupo</div>
+      <div class="phone">
+        <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+        <div class="phone-screen">
+          <div class="s-feed">
+            <div class="s-feed-title">Feed do grupo</div>
+            <div class="s-feed-sub">King BT</div>
+
+            <!-- Card 1 -->
+            <div class="feed-card">
+              <div class="feed-card-bar" style="background:#C084FC;"></div>
+              <div class="feed-card-body">
+                <div class="feed-header">
+                  <span class="feed-comp-name" style="color:#C084FC;">Super 8 · BT na Quadra 02/06</span>
+                  <span class="feed-time">10d</span>
+                </div>
+                <div class="feed-score-row">
+                  <div class="feed-side">
+                    <div class="feed-side-name">Daniel / Guilherme</div>
+                  </div>
+                  <div class="feed-score-box">
+                    <span style="color:#A99B7C">2</span>
+                    <span style="color:#6E6452;font-size:14px"> – </span>
+                    <span style="color:#54B981">4</span>
+                  </div>
+                  <div class="feed-side feed-side-right">
+                    <div class="feed-side-name">Joffre / Marcelo</div>
+                  </div>
+                </div>
+                <div class="feed-reactions">
+                  <div class="feed-react-btn">👑 <span class="feed-react-cnt">2</span></div>
+                  <div class="feed-react-btn">🔥 <span class="feed-react-cnt">1</span></div>
+                  <div class="feed-react-btn">💪</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="feed-card">
+              <div class="feed-card-bar" style="background:#C084FC;"></div>
+              <div class="feed-card-body">
+                <div class="feed-header">
+                  <span class="feed-comp-name" style="color:#C084FC;">Super 8 · BT na Quadra 02/06</span>
+                  <span class="feed-time">10d</span>
+                </div>
+                <div class="feed-score-row">
+                  <div class="feed-side">
+                    <div class="feed-side-name">Daniel / Marcelo</div>
+                  </div>
+                  <div class="feed-score-box">
+                    <span style="color:#54B981">4</span>
+                    <span style="color:#6E6452;font-size:14px"> – </span>
+                    <span style="color:#A99B7C">3</span>
+                  </div>
+                  <div class="feed-side feed-side-right">
+                    <div class="feed-side-name">Guilherme / Roberto</div>
+                  </div>
+                </div>
+                <div class="feed-reactions">
+                  <div class="feed-react-btn">👑</div>
+                  <div class="feed-react-btn">🔥 <span class="feed-react-cnt">3</span></div>
+                  <div class="feed-react-btn">💪 <span class="feed-react-cnt">1</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="feed-card">
+              <div class="feed-card-bar" style="background:#C084FC;"></div>
+              <div class="feed-card-body">
+                <div class="feed-header">
+                  <span class="feed-comp-name" style="color:#C084FC;">Super 8 · BT na Quadra 02/06</span>
+                  <span class="feed-time">10d</span>
+                </div>
+                <div class="feed-score-row">
+                  <div class="feed-side">
+                    <div class="feed-side-name">Daniel / Marcelo</div>
+                  </div>
+                  <div class="feed-score-box">
+                    <span style="color:#A99B7C">3</span>
+                    <span style="color:#6E6452;font-size:14px"> – </span>
+                    <span style="color:#54B981">4</span>
+                  </div>
+                  <div class="feed-side feed-side-right">
+                    <div class="feed-side-name">Joffre / Roberto</div>
+                  </div>
+                </div>
+                <div class="feed-reactions">
+                  <div class="feed-react-btn">👑 <span class="feed-react-cnt">1</span></div>
+                  <div class="feed-react-btn">🔥</div>
+                  <div class="feed-react-btn">💪</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="phone-tabbar">
+          <div class="phone-tab"><div class="phone-tab-icon">🏠</div><div>Início</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">📅</div><div>Calendário</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">🏆</div><div>Ranking</div></div>
+          <div class="phone-tab active"><div class="phone-tab-icon">📣</div><div>Feed</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">👤</div><div>Perfil</div></div>
+        </div>
+      </div>
+      <div class="screen-desc">Resultados em tempo real.<br>Reações (👑🔥💪) e comentários por jogo.</div>
+    </div>
+
+    <!-- CALENDÁRIO -->
+    <div class="screen-col">
+      <div class="screen-label">Calendário</div>
+      <div class="phone">
+        <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+        <div class="phone-screen">
+          <div class="s-cal">
+            <div class="s-cal-title">Calendário</div>
+
+            <!-- Calendário visual -->
+            <div class="cal-grid">
+              <div class="cal-month">Junho 2025</div>
+              <div class="cal-week">
+                <div class="cal-day-name">D</div><div class="cal-day-name">S</div>
+                <div class="cal-day-name">T</div><div class="cal-day-name">Q</div>
+                <div class="cal-day-name">Q</div><div class="cal-day-name">S</div>
+                <div class="cal-day-name">S</div>
+              </div>
+              <div class="cal-week">
+                <div class="cal-day"></div><div class="cal-day"></div>
+                <div class="cal-day"></div><div class="cal-day"></div>
+                <div class="cal-day"></div><div class="cal-day"></div>
+                <div class="cal-day">1</div>
+              </div>
+              <div class="cal-week">
+                <div class="cal-day has-event">2</div><div class="cal-day">3</div>
+                <div class="cal-day">4</div><div class="cal-day">5</div>
+                <div class="cal-day">6</div><div class="cal-day">7</div>
+                <div class="cal-day">8</div>
+              </div>
+              <div class="cal-week">
+                <div class="cal-day">9</div><div class="cal-day">10</div>
+                <div class="cal-day">11</div><div class="cal-day today">12</div>
+                <div class="cal-day">13</div><div class="cal-day">14</div>
+                <div class="cal-day">15</div>
+              </div>
+              <div class="cal-week">
+                <div class="cal-day">16</div><div class="cal-day">17</div>
+                <div class="cal-day">18</div><div class="cal-day">19</div>
+                <div class="cal-day has-event-teal">20</div><div class="cal-day">21</div>
+                <div class="cal-day">22</div>
+              </div>
+            </div>
+
+            <!-- Stats resumo -->
+            <div class="cal-stat-row">
+              <div class="cal-stat">
+                <div class="cal-stat-val">12</div>
+                <div class="cal-stat-lbl">Competições</div>
+              </div>
+              <div class="cal-stat">
+                <div class="cal-stat-val" style="color:var(--teal)">87</div>
+                <div class="cal-stat-lbl">Jogos</div>
+              </div>
+              <div class="cal-stat">
+                <div class="cal-stat-val" style="color:var(--muted)">7</div>
+                <div class="cal-stat-lbl">Jogadores</div>
+              </div>
+            </div>
+
+            <!-- Evento selecionado -->
+            <div class="comp-card">
+              <div class="comp-card-accent" style="background:#C084FC;"></div>
+              <div class="comp-card-body">
+                <div class="comp-card-top">
+                  <div class="comp-card-name">Super 8 · BT na Quadra</div>
+                  <span class="comp-badge badge-done">Concluída</span>
+                </div>
+                <div class="comp-meta"><span>02/06/2025</span><span>·</span><span>8 jogadores</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="phone-tabbar">
+          <div class="phone-tab"><div class="phone-tab-icon">🏠</div><div>Início</div></div>
+          <div class="phone-tab active"><div class="phone-tab-icon">📅</div><div>Calendário</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">🏆</div><div>Ranking</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">📣</div><div>Feed</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">👤</div><div>Perfil</div></div>
+        </div>
+      </div>
+      <div class="screen-desc">Visualização mensal das competições.<br>Toque no dia para ver os detalhes.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PÁG 3 — PERFIL + COMPETIÇÃO DETALHE
+══════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span class="page-num">03</span>
+    <span class="page-title-main">Perfil &amp; Detalhe de Competição</span>
+    <span class="page-logo-sm">King BT</span>
+  </div>
+
+  <div class="screens-row">
+    <!-- PERFIL -->
+    <div class="screen-col">
+      <div class="screen-label">Perfil do Jogador</div>
+      <div class="phone">
+        <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+        <div class="phone-screen">
+          <div class="s-profile">
+            <div class="profile-header">
+              <div class="profile-avatar">JR</div>
+              <div class="profile-name">Joffre Ribeiro</div>
+              <div class="profile-rank">🏆 1º no ranking · King BT</div>
+            </div>
+
+            <!-- Stats grid -->
+            <div class="stat-grid">
+              <div class="stat-card">
+                <div class="stat-val">11.45</div>
+                <div class="stat-lbl">Pontuação</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-val" style="color:var(--teal)">72%</div>
+                <div class="stat-lbl">Aproveit.</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-val">18</div>
+                <div class="stat-lbl">Jogos</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-val">13</div>
+                <div class="stat-lbl">Vitórias</div>
+              </div>
+            </div>
+
+            <!-- Por formato -->
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px;">POR FORMATO</div>
+              <div class="fmt-row">
+                <div class="fmt-item">
+                  <div class="fmt-label">Super 8</div>
+                  <div class="fmt-bar"><div class="fmt-fill" style="width:72%;background:#C084FC;"></div></div>
+                  <div class="fmt-pct">72%</div>
+                </div>
+                <div class="fmt-item">
+                  <div class="fmt-label">Liga</div>
+                  <div class="fmt-bar"><div class="fmt-fill" style="width:60%;background:var(--teal);"></div></div>
+                  <div class="fmt-pct">60%</div>
+                </div>
+                <div class="fmt-item">
+                  <div class="fmt-label">Avulso</div>
+                  <div class="fmt-bar"><div class="fmt-fill" style="width:80%;background:#38BDF8;"></div></div>
+                  <div class="fmt-pct">80%</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Badges -->
+            <div style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:1px;">CONQUISTAS</div>
+            <div class="badges-row">
+              <div class="badge-item">
+                <div class="badge-emoji">👑</div>
+                <div class="badge-name">Rei do Grupo</div>
+              </div>
+              <div class="badge-item">
+                <div class="badge-emoji">🔥</div>
+                <div class="badge-name">Em Chama</div>
+              </div>
+              <div class="badge-item">
+                <div class="badge-emoji">⚡</div>
+                <div class="badge-name">Veloz</div>
+              </div>
+              <div class="badge-item">
+                <div class="badge-emoji">🏆</div>
+                <div class="badge-name">Campeão</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="phone-tabbar">
+          <div class="phone-tab"><div class="phone-tab-icon">🏠</div><div>Início</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">📅</div><div>Calendário</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">🏆</div><div>Ranking</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">📣</div><div>Feed</div></div>
+          <div class="phone-tab active"><div class="phone-tab-icon">👤</div><div>Perfil</div></div>
+        </div>
+      </div>
+      <div class="screen-desc">Estatísticas pessoais, aproveitamento<br>por formato e conquistas desbloqueadas.</div>
+    </div>
+
+    <!-- COMPETIÇÃO DETALHE -->
+    <div class="screen-col">
+      <div class="screen-label">Detalhe · Super 8</div>
+      <div class="phone">
+        <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+        <div class="phone-screen">
+          <div class="s-comp">
+            <div class="s-comp-header">
+              <div class="s-comp-icon" style="background:#2a1a2e;">◈</div>
+              <div>
+                <div class="s-comp-title">BT na Quadra 02/06</div>
+                <div class="s-comp-sub">Super 8 · 8 jogadores · Ativa</div>
+              </div>
+            </div>
+
+            <!-- Tabela ranking -->
+            <div style="font-size:9px;font-weight:700;color:var(--gold);letter-spacing:1px;">CLASSIFICAÇÃO</div>
+            <div class="score-table">
+              <div class="score-table-head">
+                <div class="sc-head">#</div>
+                <div class="sc-head">Nome</div>
+                <div class="sc-head">J</div>
+                <div class="sc-head">V</div>
+                <div class="sc-head">GA</div>
+                <div class="sc-head">PTS</div>
+              </div>
+              <div class="score-table-row">
+                <div class="sc-pos">1</div>
+                <div class="sc-name">Joffre</div>
+                <div class="sc-num">7</div><div class="sc-num">5</div><div class="sc-num">1.8</div>
+                <div class="sc-pts">16.1</div>
+              </div>
+              <div class="score-table-row">
+                <div class="sc-pos">2</div>
+                <div class="sc-name">Daniel</div>
+                <div class="sc-num">7</div><div class="sc-num">4</div><div class="sc-num">1.5</div>
+                <div class="sc-pts">13.5</div>
+              </div>
+              <div class="score-table-row">
+                <div class="sc-pos">3</div>
+                <div class="sc-name">Marcelo</div>
+                <div class="sc-num">7</div><div class="sc-num">3</div><div class="sc-num">1.2</div>
+                <div class="sc-pts">10.9</div>
+              </div>
+              <div class="score-table-row">
+                <div class="sc-pos">4</div>
+                <div class="sc-name">Guilherme</div>
+                <div class="sc-num">7</div><div class="sc-num">3</div><div class="sc-num">1.1</div>
+                <div class="sc-pts">10.7</div>
+              </div>
+            </div>
+
+            <!-- Partidas -->
+            <div style="font-size:9px;font-weight:700;color:var(--gold);letter-spacing:1px;">PARTIDAS</div>
+            <div class="match-card">
+              <div class="match-side">Daniel / Guilherme</div>
+              <div class="match-score"><span class="lose">2</span> – <span class="win">4</span></div>
+              <div class="match-side" style="text-align:right">Joffre / Marcelo</div>
+            </div>
+            <div class="match-card">
+              <div class="match-side">Daniel / Marcelo</div>
+              <div class="match-score"><span class="win">4</span> – <span class="lose">3</span></div>
+              <div class="match-side" style="text-align:right">G. / Roberto</div>
+            </div>
+            <div class="match-card">
+              <div class="match-side">Daniel / Marcelo</div>
+              <div class="match-score"><span class="lose">3</span> – <span class="win">4</span></div>
+              <div class="match-side" style="text-align:right">Joffre / Roberto</div>
+            </div>
+          </div>
+        </div>
+        <div class="phone-tabbar">
+          <div class="phone-tab"><div class="phone-tab-icon">🏠</div><div>Início</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">📅</div><div>Calendário</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">🏆</div><div>Ranking</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">📣</div><div>Feed</div></div>
+          <div class="phone-tab"><div class="phone-tab-icon">👤</div><div>Perfil</div></div>
+        </div>
+      </div>
+      <div class="screen-desc">Classificação em tempo real.<br>Lista de partidas com placar e resultado.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PÁG 4 — CRIAR COMPETIÇÃO
+══════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span class="page-num">04</span>
+    <span class="page-title-main">Criação de Competição</span>
+    <span class="page-logo-sm">King BT</span>
+  </div>
+
+  <div class="screens-row">
+    <!-- PASSO 1: FORMATO -->
+    <div class="screen-col">
+      <div class="screen-label">Passo 1 · Formato</div>
+      <div class="phone">
+        <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+        <div class="phone-screen">
+          <div class="s-new">
+            <div class="steps-bar">
+              <div class="step-item"><div class="step-line active"></div><div class="step-lbl active">Formato</div></div>
+              <div class="step-item"><div class="step-line inactive"></div><div class="step-lbl">Ajustes</div></div>
+              <div class="step-item"><div class="step-line inactive"></div><div class="step-lbl">Quem joga</div></div>
+              <div class="step-item"><div class="step-line inactive"></div><div class="step-lbl">Revisar</div></div>
+            </div>
+
+            <div style="font-size:16px;font-weight:800;color:var(--text);">Escolha o formato</div>
+
+            <div class="format-card selected">
+              <div class="format-icon" style="background:#2a1a2e;color:#C084FC;font-size:22px;">◈</div>
+              <div class="format-info">
+                <div class="format-name selected">Super 8</div>
+                <div class="format-desc">Parceiros rotativos gerados automaticamente.</div>
+              </div>
+              <div class="format-radio selected"><div class="format-radio-dot"></div></div>
+            </div>
+
+            <div class="format-card">
+              <div class="format-icon" style="background:#1a2e1a;color:#54B981;font-size:22px;">≡</div>
+              <div class="format-info">
+                <div class="format-name">Liga</div>
+                <div class="format-desc">Todos jogam contra todos. Ranking por pontos.</div>
+              </div>
+              <div class="format-radio"></div>
+            </div>
+
+            <div class="format-card">
+              <div class="format-icon" style="background:#1a1a2e;color:#6B7FD7;font-size:22px;">⊞</div>
+              <div class="format-info">
+                <div class="format-name">Grupos + Eliminatórias</div>
+                <div class="format-desc">Fase de grupos e chave knockout.</div>
+              </div>
+              <div class="format-radio"></div>
+            </div>
+
+            <div class="format-card">
+              <div class="format-icon" style="background:#2e1a1a;color:#E5483D;font-size:22px;">⇌</div>
+              <div class="format-info">
+                <div class="format-name">Mata-mata</div>
+                <div class="format-desc">Quem perde está fora. Direto à final.</div>
+              </div>
+              <div class="format-radio"></div>
+            </div>
+
+            <div class="format-card">
+              <div class="format-icon" style="background:#1a2a2e;color:#2DD4BF;font-size:22px;">✕</div>
+              <div class="format-info">
+                <div class="format-name">Avulso</div>
+                <div class="format-desc">Registro manual de jogos. Sem calendário fixo.</div>
+              </div>
+              <div class="format-radio"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="screen-desc">5 formatos disponíveis.<br>Cada um com geração de jogos diferente.</div>
+    </div>
+
+    <!-- PASSO 2: AJUSTES -->
+    <div class="screen-col">
+      <div class="screen-label">Passo 2 · Ajustes</div>
+      <div class="phone">
+        <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+        <div class="phone-screen">
+          <div class="s-new">
+            <div class="steps-bar">
+              <div class="step-item"><div class="step-line active"></div><div class="step-lbl">Formato</div></div>
+              <div class="step-item"><div class="step-line active"></div><div class="step-lbl active">Ajustes</div></div>
+              <div class="step-item"><div class="step-line inactive"></div><div class="step-lbl">Quem joga</div></div>
+              <div class="step-item"><div class="step-line inactive"></div><div class="step-lbl">Revisar</div></div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <div style="font-size:12px;font-weight:700;color:var(--muted);">Nome da competição</div>
+              <div style="background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text);">Super 8</div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="font-size:12px;font-weight:700;color:var(--muted);">Tipo de competidor</div>
+              <div class="seg-control">
+                <div class="seg-btn active">Individual</div>
+                <div class="seg-btn">Duplas</div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="font-size:12px;font-weight:700;color:var(--muted);">Categoria</div>
+              <div class="seg-control">
+                <div class="seg-btn">Masculino</div>
+                <div class="seg-btn">Feminino</div>
+                <div class="seg-btn active">Misto</div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="font-size:12px;font-weight:700;color:var(--muted);">Como vencer cada jogo</div>
+              <div class="seg-control">
+                <div class="seg-btn active">1 set</div>
+                <div class="seg-btn">Melhor de 3</div>
+                <div class="seg-btn">Melhor de 5</div>
+              </div>
+            </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div style="font-size:12px;color:var(--text);">Games por set</div>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div style="width:30px;height:30px;border-radius:15px;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text);">−</div>
+                <div style="font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;color:var(--text);">6</div>
+                <div style="width:30px;height:30px;border-radius:15px;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--text);">+</div>
+              </div>
+            </div>
+
+            <div style="font-size:11px;color:var(--muted);">Local / quadras (opcional)</div>
+            <div style="background:var(--surf);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:11px;color:var(--faint);">Ex: Arena Beach — quadras 1 e 2</div>
+
+            <div class="btn-gold">Continuar</div>
+          </div>
+        </div>
+      </div>
+      <div class="screen-desc">Configura nome, tipo (individual/duplas),<br>categoria (Misto/Masc/Fem) e regras de jogo.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PÁG 5 — PARTICIPANTES + REVISÃO
+══════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span class="page-num">05</span>
+    <span class="page-title-main">Participantes &amp; Revisão</span>
+    <span class="page-logo-sm">King BT</span>
+  </div>
+
+  <div class="screens-row">
+    <!-- PARTICIPANTES -->
+    <div class="screen-col">
+      <div class="screen-label">Passo 3 · Quem joga</div>
+      <div class="phone">
+        <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+        <div class="phone-screen">
+          <div class="s-new">
+            <div class="steps-bar">
+              <div class="step-item"><div class="step-line active"></div><div class="step-lbl">Formato</div></div>
+              <div class="step-item"><div class="step-line active"></div><div class="step-lbl">Ajustes</div></div>
+              <div class="step-item"><div class="step-line active"></div><div class="step-lbl active">Quem joga</div></div>
+              <div class="step-item"><div class="step-line inactive"></div><div class="step-lbl">Revisar</div></div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="font-size:16px;font-weight:800;color:var(--text);">Quem vai jogar</div>
+              <div style="width:24px;height:24px;border-radius:12px;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;color:var(--gold);">5</div>
+            </div>
+            <div style="font-size:10px;color:var(--muted);">Selecione os participantes. Mínimo 2.</div>
+
+            <!-- Grid jogadores -->
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+              <!-- Selecionados -->
+              <div style="width:47%;display:flex;align-items:center;gap:6px;background:var(--surf2);border:1.5px solid var(--gold);border-radius:10px;padding:8px;">
+                <div style="width:32px;height:32px;border-radius:16px;background:linear-gradient(135deg,#C2891A,#F3C544);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000;">JR</div>
+                <div style="font-size:12px;font-weight:600;color:var(--gold);">Joffre</div>
+              </div>
+              <div style="width:47%;display:flex;align-items:center;gap:6px;background:var(--surf2);border:1.5px solid var(--gold);border-radius:10px;padding:8px;">
+                <div style="width:32px;height:32px;border-radius:16px;background:#6B7FD7;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000;">DM</div>
+                <div style="font-size:12px;font-weight:600;color:var(--gold);">Daniel</div>
+              </div>
+              <div style="width:47%;display:flex;align-items:center;gap:6px;background:var(--surf2);border:1.5px solid var(--gold);border-radius:10px;padding:8px;">
+                <div style="width:32px;height:32px;border-radius:16px;background:#54B981;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000;">GH</div>
+                <div style="font-size:12px;font-weight:600;color:var(--gold);">Guilherme</div>
+              </div>
+              <!-- Não selecionados -->
+              <div style="width:47%;display:flex;align-items:center;gap:6px;background:var(--surf);border:1.5px solid var(--line);border-radius:10px;padding:8px;">
+                <div style="width:32px;height:32px;border-radius:16px;background:#E5483D;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000;">EI</div>
+                <div style="font-size:12px;font-weight:600;color:var(--text);">Eider</div>
+              </div>
+              <div style="width:47%;display:flex;align-items:center;gap:6px;background:var(--surf2);border:1.5px solid var(--gold);border-radius:10px;padding:8px;">
+                <div style="width:32px;height:32px;border-radius:16px;background:#F472B6;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000;">LN</div>
+                <div style="font-size:12px;font-weight:600;color:var(--gold);">Luis Nei</div>
+              </div>
+              <div style="width:47%;display:flex;align-items:center;gap:6px;background:var(--surf);border:1.5px solid var(--line);border-radius:10px;padding:8px;">
+                <div style="width:32px;height:32px;border-radius:16px;background:#A78BFA;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#000;">RB</div>
+                <div style="font-size:12px;font-weight:600;color:var(--text);">Roberto</div>
+              </div>
+              <!-- Adicionar convidado -->
+              <div style="width:47%;display:flex;align-items:center;justify-content:center;gap:4px;background:transparent;border:1.5px dashed var(--line);border-radius:10px;padding:8px;min-height:50px;">
+                <div style="font-size:16px;color:var(--muted);">+</div>
+                <div style="font-size:12px;color:var(--muted);">Convidado</div>
+              </div>
+            </div>
+
+            <div class="btn-gold">Continuar</div>
+          </div>
+        </div>
+      </div>
+      <div class="screen-desc">Seleciona jogadores do grupo.<br>Suporte a convidados sem cadastro.</div>
+    </div>
+
+    <!-- REVISÃO -->
+    <div class="screen-col">
+      <div class="screen-label">Passo 4 · Revisar</div>
+      <div class="phone">
+        <div class="phone-notch"><div class="phone-notch-pill"></div></div>
+        <div class="phone-screen">
+          <div class="s-new">
+            <div class="steps-bar">
+              <div class="step-item"><div class="step-line active"></div><div class="step-lbl">Formato</div></div>
+              <div class="step-item"><div class="step-line active"></div><div class="step-lbl">Ajustes</div></div>
+              <div class="step-item"><div class="step-line active"></div><div class="step-lbl">Quem joga</div></div>
+              <div class="step-item"><div class="step-line active"></div><div class="step-lbl active">Revisar</div></div>
+            </div>
+
+            <!-- Header formato -->
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:44px;height:44px;border-radius:12px;background:#2a1a2e;display:flex;align-items:center;justify-content:center;font-size:22px;color:#C084FC;">◈</div>
+              <div>
+                <div style="font-size:16px;font-weight:800;color:var(--text);">Super 8</div>
+                <div style="font-size:10px;color:var(--muted);">Super 8 — parceiros rotativos</div>
+              </div>
+            </div>
+
+            <!-- Resumo -->
+            <div style="background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px;">
+              <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line);">
+                <span style="font-size:11px;color:var(--muted);">Formato</span>
+                <span style="font-size:11px;font-weight:600;color:var(--text);">Super 8</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line);">
+                <span style="font-size:11px;color:var(--muted);">Categoria</span>
+                <span style="font-size:11px;font-weight:600;color:var(--text);">Misto</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line);">
+                <span style="font-size:11px;color:var(--muted);">Competidores</span>
+                <span style="font-size:11px;font-weight:600;color:var(--text);">5 jogadores</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line);">
+                <span style="font-size:11px;color:var(--muted);">Cada jogo</span>
+                <span style="font-size:11px;font-weight:600;color:var(--text);">1 set · 6 games · TB 7</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:4px 0;">
+                <span style="font-size:11px;color:var(--muted);">Jogos gerados</span>
+                <span style="font-size:11px;font-weight:600;color:var(--text);">10</span>
+              </div>
+            </div>
+
+            <!-- Chips jogadores -->
+            <div style="display:flex;flex-wrap:wrap;gap:5px;">
+              <div style="display:flex;align-items:center;gap:5px;background:var(--surf2);border-radius:999px;padding:4px 10px;">
+                <div style="width:20px;height:20px;border-radius:10px;background:linear-gradient(135deg,#C2891A,#F3C544);font-size:8px;font-weight:700;color:#000;display:flex;align-items:center;justify-content:center;">JR</div>
+                <span style="font-size:10px;font-weight:600;color:var(--text);">Joffre</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:5px;background:var(--surf2);border-radius:999px;padding:4px 10px;">
+                <div style="width:20px;height:20px;border-radius:10px;background:#6B7FD7;font-size:8px;font-weight:700;color:#000;display:flex;align-items:center;justify-content:center;">DM</div>
+                <span style="font-size:10px;font-weight:600;color:var(--text);">Daniel</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:5px;background:var(--surf2);border-radius:999px;padding:4px 10px;">
+                <div style="width:20px;height:20px;border-radius:10px;background:#54B981;font-size:8px;font-weight:700;color:#000;display:flex;align-items:center;justify-content:center;">GH</div>
+                <span style="font-size:10px;font-weight:600;color:var(--text);">Guilherme</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:5px;background:var(--surf2);border-radius:999px;padding:4px 10px;">
+                <div style="width:20px;height:20px;border-radius:10px;background:#F472B6;font-size:8px;font-weight:700;color:#000;display:flex;align-items:center;justify-content:center;">LN</div>
+                <span style="font-size:10px;font-weight:600;color:var(--text);">Luis Nei</span>
+              </div>
+            </div>
+
+            <!-- Botões -->
+            <div class="btn-outline">📅 Agendar (abrir confirmações)</div>
+            <div class="btn-gold">⚡ Criar e gerar jogos agora</div>
+          </div>
+        </div>
+      </div>
+      <div class="screen-desc">Resumo completo antes de criar.<br>Pode agendar ou criar imediatamente.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PÁG 6 — FEATURES RESUMO
+══════════════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <span class="page-num">06</span>
+    <span class="page-title-main">Funcionalidades do App</span>
+    <span class="page-logo-sm">King BT</span>
+  </div>
+
+  <div class="features-grid">
+    <div class="feat-card">
+      <div class="feat-icon">🏆</div>
+      <div class="feat-name">5 Formatos de Competição</div>
+      <div class="feat-desc">Liga, Grupos + Eliminatórias, Mata-mata, Super 8 (rotativos automático) e Avulso (registro manual). Cada formato gera os jogos automaticamente.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📊</div>
+      <div class="feat-name">Ranking Dinâmico</div>
+      <div class="feat-desc">Pontuação por vitórias, jogos e aproveitamento de games (GA = GP÷GC). Pódio visual com coroas e animações para os 3 primeiros.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📣</div>
+      <div class="feat-name">Feed Social</div>
+      <div class="feat-desc">Resultados em tempo real com reações (👑🔥💪) e comentários. Cada partida gera um card no feed do grupo automaticamente.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📅</div>
+      <div class="feat-name">Calendário &amp; Agendamento</div>
+      <div class="feat-desc">Visualização mensal das competições. Agendamento com sistema de RSVP — jogadores confirmam presença antes do início.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🔥</div>
+      <div class="feat-name">Streak Tracker</div>
+      <div class="feat-desc">Banner na tela inicial mostrando sequência de vitórias do jogador ou alerta de inatividade após 10+ dias sem jogar.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">👤</div>
+      <div class="feat-name">Perfil Completo</div>
+      <div class="feat-desc">Estatísticas pessoais, aproveitamento por formato (Liga, Super 8, etc.), histórico de partidas e conquistas desbloqueadas.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">👥</div>
+      <div class="feat-name">Grupos &amp; Cadastro</div>
+      <div class="feat-desc">Acesso por código de grupo. Vinculação de perfis pré-existentes ao criar conta. Suporte a convidados sem cadastro em qualquer competição.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">⚙️</div>
+      <div class="feat-name">Configuração Flexível</div>
+      <div class="feat-desc">Categoria (Masc/Fem/Misto), tipo (Individual/Duplas), sets, games e tie-break configuráveis. Regras oficiais de Beach Tennis integradas.</div>
+    </div>
+  </div>
+
+  <!-- Rodapé -->
+  <div style="margin-top:auto;padding-top:20px;border-top:1px solid rgba(243,197,68,0.15);display:flex;justify-content:space-between;align-items:center;">
+    <div style="font-size:11px;color:var(--faint);">King BT · Beach Tennis Manager · Junho 2025</div>
+    <div style="font-size:13px;font-weight:800;color:var(--gold);">👑 King BT</div>
+  </div>
+</div>
+
+</body>
+</html>

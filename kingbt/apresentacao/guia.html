@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>King BT — Guia do Usuário</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:    #070500;
+    --bg2:   #0e0b02;
+    --gold:  #F3C544;
+    --gold2: #C2891A;
+    --goldb: #FFE566;
+    --text:  #F6EFDD;
+    --muted: #A99B7C;
+    --faint: #6E6452;
+    --line:  rgba(243,197,68,0.18);
+    --surf:  #121008;
+    --surf2: #1C1810;
+    --teal:  #54C98A;
+    --coral: #E5483D;
+    --blue:  #6B91F0;
+    --purp:  #C084FC;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #030200;
+    font-family: 'Sora', sans-serif;
+    color: var(--text);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ══ PÁGINA ══ */
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto 0;
+    background: var(--bg);
+    page-break-after: always;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* grain gold top */
+  .page::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 100% 45% at 50% -5%, rgba(243,197,68,0.11) 0%, transparent 55%),
+      radial-gradient(ellipse 30% 20% at 0% 100%,  rgba(194,137,26,0.05) 0%, transparent 55%),
+      radial-gradient(ellipse 30% 20% at 100% 100%,rgba(194,137,26,0.05) 0%, transparent 55%);
+    pointer-events: none; z-index: 0;
+  }
+
+  .z1 { position: relative; z-index: 1; }
+
+  /* ══ CAPA ══ */
+  .cover {
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    min-height: 297mm;
+  }
+
+  .cover-inner {
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    padding: 48px 40px 40px; text-align: center;
+    position: relative; z-index: 1; width: 100%;
+  }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 5px 16px; background: rgba(243,197,68,0.05);
+    font-size: 9px; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; color: var(--gold);
+  }
+  .badge img { width: 14px; height: 14px; object-fit: contain; }
+
+  .bee-icon {
+    width: 110px; height: 110px; object-fit: contain;
+    filter: drop-shadow(0 0 30px rgba(243,197,68,0.55)) drop-shadow(0 8px 20px rgba(0,0,0,0.8));
+  }
+
+  .cover-title {
+    font-size: 70px; font-weight: 900; line-height: 0.88; letter-spacing: -5px;
+    background: linear-gradient(155deg, #FFE880 0%, #F3C544 45%, #9A6200 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .cover-sub {
+    font-size: 10px; font-weight: 700; letter-spacing: 6px;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .cover-rule {
+    width: 80px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+
+  .cover-doc-title {
+    font-size: 22px; font-weight: 800; color: var(--text); letter-spacing: -0.5px;
+  }
+  .cover-doc-sub {
+    font-size: 11px; color: var(--muted); line-height: 1.7; max-width: 280px;
+  }
+
+  /* índice */
+  .toc {
+    width: 100%; max-width: 400px;
+    background: var(--surf); border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px 20px; margin-top: 8px;
+    display: flex; flex-direction: column; gap: 0;
+  }
+  .toc-hdr {
+    font-size: 9px; font-weight: 700; letter-spacing: 2.5px;
+    text-transform: uppercase; color: var(--gold);
+    padding-bottom: 10px; border-bottom: 1px solid var(--line); margin-bottom: 10px;
+  }
+  .toc-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 0; border-bottom: 1px solid rgba(243,197,68,0.05);
+    font-size: 10px;
+  }
+  .toc-row:last-child { border-bottom: none; }
+  .toc-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 9px; font-weight: 700; color: var(--gold2);
+    width: 22px; text-align: right; flex-shrink: 0;
+  }
+  .toc-dot { flex: 1; height: 1px; background: repeating-linear-gradient(90deg, var(--faint) 0px, var(--faint) 3px, transparent 3px, transparent 7px); }
+  .toc-lbl { color: var(--text); font-weight: 600; }
+  .toc-pg { color: var(--muted); font-size: 9px; }
+
+  .cover-footer {
+    margin-top: 28px; font-size: 9px; color: var(--faint);
+    border-top: 1px solid var(--line); padding-top: 14px; width: 100%;
+    display: flex; justify-content: space-between;
+  }
+
+  /* ══ HEADER DE SEÇÃO ══ */
+  .sec-hdr {
+    display: flex; align-items: center; gap: 10px;
+    padding: 13px 22px 11px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(0,0,0,0.18);
+    position: relative; z-index: 1;
+  }
+  .sec-chip {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 9px; font-weight: 700; color: var(--gold);
+    letter-spacing: 1.5px; text-transform: uppercase;
+    border: 1px solid var(--line);
+    border-radius: 5px; padding: 2px 8px;
+    background: rgba(243,197,68,0.07);
+  }
+  .sec-title { font-size: 14px; font-weight: 700; }
+  .sec-bee {
+    margin-left: auto; display: flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 800; color: var(--gold);
+  }
+  .sec-bee img { width: 20px; height: 20px; object-fit: contain;
+    filter: drop-shadow(0 0 4px rgba(243,197,68,0.5)); }
+
+  /* ══ BODY ══ */
+  .pbody {
+    flex: 1; padding: 16px 22px 14px;
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+
+  /* ══ PHONE SHELL ══ */
+  .phone {
+    background: #090909; border: 2px solid #1e1e1e;
+    border-radius: 26px; overflow: hidden;
+    box-shadow: 0 0 0 1px #141414, 0 16px 50px rgba(0,0,0,0.85),
+                inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .ph-top {
+    background: #000; height: 20px;
+    display: flex; align-items: flex-end; justify-content: center; padding-bottom: 2px;
+  }
+  .ph-pill {
+    width: 55px; height: 14px;
+    background: #0e0e0e; border-radius: 0 0 9px 9px;
+    border: 1.5px solid #1a1a1a; border-top: none;
+  }
+  .ph-img { width: 100%; display: block; background: #000; }
+  /* elimina fundo branco de imagens que têm margem ao redor da tela */
+  .ph-img-crop {
+    width: 100%; display: block; background: #000;
+    object-fit: cover; object-position: top center;
+  }
+  .ph-bot {
+    background: #000; height: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .ph-bar { width: 50px; height: 3px; background: #1e1e1e; border-radius: 2px; }
+
+  /* tamanhos */
+  .ph-lg { max-width: 185px; }
+  .ph-md { max-width: 150px; }
+  .ph-sm { max-width: 128px; border-radius: 20px; border-width: 1.5px; }
+
+  /* ══ LAYOUT HELPERS ══ */
+  .row { display: flex; gap: 16px; align-items: flex-start; }
+  .row-c { display: flex; gap: 16px; align-items: center; }
+  .col { display: flex; flex-direction: column; gap: 10px; }
+  .col-c { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .f1 { flex: 1; }
+
+  /* ══ BLOCO DE INSTRUÇÃO ══ */
+  .instr {
+    background: var(--surf); border: 1px solid var(--line);
+    border-radius: 12px; padding: 13px 15px;
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .instr-hdr {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .instr-icon { font-size: 18px; flex-shrink: 0; }
+  .instr-title { font-size: 12px; font-weight: 700; color: var(--text); }
+  .instr-body { font-size: 10px; color: var(--muted); line-height: 1.65; }
+
+  /* lista dentro de instr */
+  .ilist { list-style: none; display: flex; flex-direction: column; gap: 5px; padding-left: 0; }
+  .ilist li {
+    display: flex; gap: 8px; align-items: flex-start;
+    font-size: 10px; color: var(--muted); line-height: 1.55;
+  }
+  .ilist li::before {
+    content: '›';
+    color: var(--gold); font-weight: 700; flex-shrink: 0; margin-top: 1px;
+  }
+
+  /* tag inline */
+  .tag {
+    display: inline-block;
+    background: rgba(243,197,68,0.1); border: 1px solid var(--line);
+    border-radius: 4px; padding: 2px 8px;
+    font-size: 9px; color: var(--gold); font-weight: 600;
+  }
+  .tag-teal { background: rgba(84,201,138,0.1); border-color: rgba(84,201,138,0.25); color: var(--teal); }
+  .tag-blue { background: rgba(107,145,240,0.1); border-color: rgba(107,145,240,0.25); color: var(--blue); }
+  .tag-coral { background: rgba(229,72,61,0.1); border-color: rgba(229,72,61,0.25); color: var(--coral); }
+
+  /* step circles */
+  .step-row {
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .step-circ {
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--gold2), var(--gold));
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px; font-weight: 700; color: #000;
+    box-shadow: 0 4px 12px rgba(243,197,68,0.3);
+  }
+  .step-body { flex: 1; padding-top: 4px; }
+  .step-title { font-size: 11.5px; font-weight: 700; margin-bottom: 3px; }
+  .step-desc { font-size: 10px; color: var(--muted); line-height: 1.6; }
+
+  /* linha tracejada conectando steps */
+  .step-connector {
+    width: 1px; min-height: 10px; flex-shrink: 0;
+    background: repeating-linear-gradient(180deg, var(--gold2) 0px, var(--gold2) 4px, transparent 4px, transparent 10px);
+    margin-left: 14px;
+  }
+
+  /* callout */
+  .callout {
+    border-radius: 10px; padding: 10px 14px;
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 10px; line-height: 1.6;
+  }
+  .callout-gold { background: rgba(243,197,68,0.07); border: 1px solid rgba(243,197,68,0.2); }
+  .callout-teal { background: rgba(84,201,138,0.07); border: 1px solid rgba(84,201,138,0.2); color: var(--teal); }
+  .callout-blue { background: rgba(107,145,240,0.07); border: 1px solid rgba(107,145,240,0.2); }
+  .callout-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .callout-text { color: var(--muted); }
+  .callout-text strong { color: var(--text); }
+
+  /* pills de formato */
+  .format-pills { display: flex; flex-wrap: wrap; gap: 7px; }
+  .fpill {
+    background: var(--surf2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 12px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .fpill-name { font-size: 10px; font-weight: 700; color: var(--gold); }
+  .fpill-desc { font-size: 9px; color: var(--muted); }
+
+  /* tabela de fórmula */
+  .formula-box {
+    background: var(--surf); border: 1px solid var(--line);
+    border-radius: 12px; padding: 13px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .formula-eq {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 17px; font-weight: 700; color: var(--gold);
+    letter-spacing: -0.5px; text-align: center;
+  }
+  .formula-eq span { color: var(--muted); font-size: 13px; font-weight: 400; }
+  .fvars { display: flex; flex-direction: column; gap: 5px; }
+  .fvar {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 10px; padding: 5px 0; border-bottom: 1px solid rgba(243,197,68,0.06);
+  }
+  .fvar:last-child { border-bottom: none; }
+  .fvar-k {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px; font-weight: 700; color: var(--gold);
+    width: 40px; flex-shrink: 0;
+  }
+  .fvar-v { color: var(--muted); }
+
+  /* grid de conquistas */
+  .achv-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .achv {
+    background: var(--surf); border: 1px solid var(--line);
+    border-radius: 10px; padding: 10px; text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+  }
+  .achv-ico { font-size: 22px; }
+  .achv-name { font-size: 9.5px; font-weight: 700; color: var(--text); line-height: 1.3; }
+  .achv-cond { font-size: 8.5px; color: var(--muted); line-height: 1.4; }
+
+  /* rodapé */
+  .pftr {
+    border-top: 1px solid var(--line);
+    padding: 8px 22px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(0,0,0,0.2);
+    position: relative; z-index: 1;
+  }
+  .pftr-l { font-size: 9px; color: var(--faint); }
+  .pftr-r { font-size: 9px; font-weight: 700; color: var(--gold); letter-spacing: 1px; }
+
+  /* divider */
+  .divider {
+    height: 1px; background: linear-gradient(90deg, transparent, var(--line), transparent);
+    margin: 2px 0;
+  }
+
+  /* SCREEN CAPTION */
+  .screen-lbl {
+    font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--gold);
+    text-align: center;
+  }
+  .screen-cap {
+    font-size: 9.5px; color: var(--muted); text-align: center;
+    line-height: 1.5; max-width: 160px;
+  }
+
+  /* ── TELA LOGIN FAKE ── */
+  .login-screen {
+    background: #0a0800; width: 100%;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 24px 16px 20px; gap: 0;
+    font-family: 'Sora', sans-serif;
+  }
+  .ls-bee { width: 44px; height: 44px; object-fit: contain; margin-bottom: 6px;
+    filter: drop-shadow(0 0 10px rgba(243,197,68,0.5)); }
+  .ls-title { font-size: 22px; font-weight: 900; letter-spacing: -1px;
+    background: linear-gradient(145deg,#FFE880,#F3C544,#9A6200);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  .ls-sub { font-size: 7.5px; font-weight: 700; letter-spacing: 3px;
+    color: #A99B7C; text-transform: uppercase; margin-bottom: 16px; }
+  .ls-rule { width: 40px; height: 1px;
+    background: linear-gradient(90deg,transparent,#F3C544,transparent);
+    margin: 4px 0 14px; }
+  .ls-label { font-size: 8px; font-weight: 600; color: #A99B7C;
+    align-self: flex-start; margin-bottom: 3px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .ls-input {
+    width: 100%; background: #151200; border: 1px solid rgba(243,197,68,0.2);
+    border-radius: 8px; padding: 7px 10px; margin-bottom: 8px;
+    font-size: 9px; color: #F6EFDD; display: flex; align-items: center;
+  }
+  .ls-input-placeholder { color: #6E6452; font-size: 9px; }
+  .ls-btn {
+    width: 100%; background: linear-gradient(135deg,#C2891A,#F3C544);
+    border-radius: 8px; padding: 9px; text-align: center;
+    font-size: 10px; font-weight: 700; color: #000; margin-top: 4px;
+  }
+  .ls-divider {
+    display: flex; align-items: center; gap: 8px; margin: 10px 0;
+    font-size: 8px; color: #6E6452; width: 100%;
+  }
+  .ls-divider::before,.ls-divider::after {
+    content:''; flex:1; height:1px; background: rgba(243,197,68,0.12);
+  }
+  .ls-link {
+    font-size: 9px; color: #F3C544; font-weight: 600; text-align: center; width: 100%;
+  }
+  .ls-or-btn {
+    width: 100%; background: rgba(243,197,68,0.07);
+    border: 1px solid rgba(243,197,68,0.2);
+    border-radius: 8px; padding: 8px; text-align: center;
+    font-size: 9.5px; font-weight: 600; color: #F3C544;
+  }
+  .ls-footer { font-size: 7.5px; color: #4a4030; margin-top: 10px; text-align: center; }
+
+  /* ── PRINT ── */
+  @media print {
+    body { background: #000; }
+    .page { margin: 0; }
+    @page { margin: 0; size: A4 portrait; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     CAPA
+══════════════════════════════════════════════════════════ -->
+<div class="page cover">
+  <div class="cover-inner z1">
+    <div class="badge">
+      <img src="screens/icon.png" onerror="this.style.display='none'">
+      Beach Tennis Manager
+    </div>
+
+    <img src="screens/icon.png" class="bee-icon"
+         onerror="this.outerHTML='<div style=\'font-size:90px\'>👑</div>'">
+
+    <div class="cover-title">King BT</div>
+    <div class="cover-sub">Beach Tennis</div>
+    <div class="cover-rule"></div>
+
+    <div class="cover-doc-title">Guia do Usuário</div>
+    <div class="cover-doc-sub">Tudo o que você precisa saber para utilizar o app — cadastro, competições, ranking, perfil e muito mais.</div>
+
+    <div class="toc">
+      <div class="toc-hdr">Sumário</div>
+      <div class="toc-row"><div class="toc-num">01</div><div class="toc-lbl">Primeiros Passos — Cadastro e Acesso</div><div class="toc-dot"></div><div class="toc-pg">2</div></div>
+      <div class="toc-row"><div class="toc-num">02</div><div class="toc-lbl">Navegação — Abas do App</div><div class="toc-dot"></div><div class="toc-pg">3</div></div>
+      <div class="toc-row"><div class="toc-num">03</div><div class="toc-lbl">Feed — Acompanhe o Grupo</div><div class="toc-dot"></div><div class="toc-pg">4</div></div>
+      <div class="toc-row"><div class="toc-num">04</div><div class="toc-lbl">Competições — Criar e Gerenciar</div><div class="toc-dot"></div><div class="toc-pg">5</div></div>
+      <div class="toc-row"><div class="toc-num">05</div><div class="toc-lbl">Registrar Placares e Jogos</div><div class="toc-dot"></div><div class="toc-pg">6</div></div>
+      <div class="toc-row"><div class="toc-num">06</div><div class="toc-lbl">Ranking Geral King BT</div><div class="toc-dot"></div><div class="toc-pg">7</div></div>
+      <div class="toc-row"><div class="toc-num">07</div><div class="toc-lbl">Perfil do Atleta</div><div class="toc-dot"></div><div class="toc-pg">8</div></div>
+      <div class="toc-row"><div class="toc-num">08</div><div class="toc-lbl">Calendário, Grupo e Hall</div><div class="toc-dot"></div><div class="toc-pg">9</div></div>
+      <div class="toc-row"><div class="toc-num">09</div><div class="toc-lbl">Fórmula de Pontuação</div><div class="toc-dot"></div><div class="toc-pg">10</div></div>
+    </div>
+
+    <div class="cover-footer">
+      <span>Versão Beta · Junho 2026</span>
+      <span style="color:var(--gold);font-weight:700">BEE MODE 🐝 · PLAY COM RESPEITO, EVOLUA SEMPRE.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PÁG 2 — PRIMEIROS PASSOS: CADASTRO
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="sec-hdr z1">
+    <span class="sec-chip">01</span>
+    <span class="sec-title">Primeiros Passos — Cadastro e Acesso ao Grupo</span>
+    <div class="sec-bee">
+      <img src="screens/icon.png" onerror="this.outerHTML='👑'">King BT
+    </div>
+  </div>
+  <div class="pbody">
+    <div class="row">
+      <!-- Coluna esquerda: steps -->
+      <div class="col f1">
+        <div class="step-row">
+          <div class="step-circ">1</div>
+          <div class="step-body">
+            <div class="step-title">Instalar o app</div>
+            <div class="step-desc">Receba o link de instalação ou QR Code do administrador do grupo. O app está disponível como APK (Android) ou via Expo Go.</div>
+          </div>
+        </div>
+        <div class="step-connector" style="height:10px"></div>
+        <div class="step-row">
+          <div class="step-circ">2</div>
+          <div class="step-body">
+            <div class="step-title">Criar conta</div>
+            <div class="step-desc">Na tela inicial toque em <strong style="color:var(--gold)">"Criar conta"</strong>. Informe:<br>
+            · Nome completo (ou apelido)<br>
+            · E-mail válido<br>
+            · Senha (mín. 6 caracteres)</div>
+          </div>
+        </div>
+        <div class="step-connector" style="height:10px"></div>
+        <div class="step-row">
+          <div class="step-circ">3</div>
+          <div class="step-body">
+            <div class="step-title">Entrar no grupo King BT</div>
+            <div class="step-desc">Após o cadastro, toque em <strong style="color:var(--gold)">"Entrar em um grupo"</strong> e informe o código do grupo. O app vai vincular sua conta ao perfil de atleta existente.</div>
+          </div>
+        </div>
+        <div class="step-connector" style="height:10px"></div>
+        <div class="step-row">
+          <div class="step-circ">4</div>
+          <div class="step-body">
+            <div class="step-title">Pronto — você está dentro!</div>
+            <div class="step-desc">O feed do grupo já vai mostrar os últimos resultados. Seu perfil aparece no ranking assim que você jogar as primeiras partidas.</div>
+          </div>
+        </div>
+
+        <div class="callout callout-gold" style="margin-top:6px">
+          <div class="callout-icon">💡</div>
+          <div class="callout-text">
+            <strong>Já tem perfil no grupo?</strong> Se o admin já criou seu perfil antes, o app pergunta se deseja vincular sua nova conta ao perfil existente — só confirmar.
+          </div>
+        </div>
+
+        <div class="callout callout-teal" style="margin-top:4px">
+          <div class="callout-icon">🔑</div>
+          <div class="callout-text">
+            <strong>Código do grupo:</strong> <span style="color:var(--gold);font-weight:700;font-family:'Space Grotesk',sans-serif">KINGBT</span> — guarde este código para compartilhar com novos membros.
+          </div>
+        </div>
+      </div>
+
+      <!-- Coluna direita: telas -->
+      <div class="col-c" style="gap:12px;">
+        <div class="phone ph-md">
+          <div class="ph-top"><div class="ph-pill"></div></div>
+          <div class="login-screen">
+            <img src="screens/icon.png" class="ls-bee" onerror="this.outerHTML='<div style=\'font-size:36px;margin-bottom:6px\'>👑</div>'">
+            <div class="ls-title">King BT</div>
+            <div class="ls-rule"></div>
+            <div class="ls-sub">Beach Tennis</div>
+            <div class="ls-label">E-mail</div>
+            <div class="ls-input"><span class="ls-input-placeholder">seu@email.com</span></div>
+            <div class="ls-label">Senha</div>
+            <div class="ls-input"><span class="ls-input-placeholder">••••••••</span></div>
+            <div class="ls-btn">Entrar</div>
+            <div class="ls-divider">ou</div>
+            <div class="ls-or-btn">Criar conta</div>
+            <div class="ls-footer">BEE MODE 🐝 · PLAY COM RESPEITO</div>
+          </div>
+          <div class="ph-bot"><div class="ph-bar"></div></div>
+        </div>
+        <div class="screen-lbl">Tela de Login</div>
+        <div class="screen-cap">Escolha entre criar conta ou entrar com conta existente.</div>
+      </div>
+    </div>
+  </div>
+  <div class="pftr">
+    <div class="pftr-l">King BT · Guia do Usuário</div>
+    <div class="pftr-r">BEE MODE 🐝</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PÁG 3 — NAVEGAÇÃO: ABAS DO APP
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="sec-hdr z1">
+    <span class="sec-chip">02</span>
+    <span class="sec-title">Navegação — As Abas do App</span>
+    <div class="sec-bee">
+      <img src="screens/icon.png" onerror="this.outerHTML='👑'">King BT
+    </div>
+  </div>
+  <div class="pbody" style="gap:12px">
+
+    <div class="callout callout-gold">
+      <div class="callout-icon">📱</div>
+      <div class="callout-text">O King BT tem <strong>5 abas principais</strong> na barra de navegação inferior. Toque em qualquer aba para navegar instantaneamente.</div>
+    </div>
+
+    <!-- 5 abas em cards -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="instr" style="border-left:2px solid var(--gold)">
+        <div class="instr-hdr">
+          <div class="instr-icon">📣</div>
+          <div class="instr-title">Feed</div>
+        </div>
+        <div class="instr-body">Todos os resultados do grupo em tempo real. Veja quem ganhou, com quem jogou e reaja às partidas.</div>
+        <span class="tag">Aba inicial</span>
+      </div>
+      <div class="instr" style="border-left:2px solid var(--teal)">
+        <div class="instr-hdr">
+          <div class="instr-icon">🏆</div>
+          <div class="instr-title">Competições</div>
+        </div>
+        <div class="instr-body">Lista de todas as competições ativas, encerradas e agendadas. Aqui você cria e gerencia torneios.</div>
+        <span class="tag tag-teal">Criar e jogar</span>
+      </div>
+      <div class="instr" style="border-left:2px solid var(--blue)">
+        <div class="instr-hdr">
+          <div class="instr-icon">📊</div>
+          <div class="instr-title">Ranking</div>
+        </div>
+        <div class="instr-body">Ranking geral King BT com pódio e tabela completa. Filtre por período (mês, ano, geral).</div>
+        <span class="tag tag-blue">Pódio ao vivo</span>
+      </div>
+      <div class="instr" style="border-left:2px solid var(--purp)">
+        <div class="instr-hdr">
+          <div class="instr-icon">👤</div>
+          <div class="instr-title">Perfil</div>
+        </div>
+        <div class="instr-body">Suas estatísticas detalhadas, conquistas desbloqueadas, evolução de pontos e melhores parcerias.</div>
+        <span class="tag" style="background:rgba(192,132,252,0.1);border-color:rgba(192,132,252,0.25);color:var(--purp)">Suas stats</span>
+      </div>
+    </div>
+
+    <!-- 5ª aba: calendário separada -->
+    <div class="instr" style="border-left:2px solid var(--coral)">
+      <div class="instr-hdr">
+        <div class="instr-icon">📅</div>
+        <div class="instr-title">Calendário</div>
+      </div>
+      <div class="instr-body">Visualização mensal com marcadores por sessão. Resume suas sessões, competições e partidas no mês.</div>
+      <span class="tag tag-coral">Histórico de atividade</span>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Dicas rápidas -->
+    <div class="instr">
+      <div class="instr-hdr">
+        <div class="instr-icon">⚡</div>
+        <div class="instr-title">Dicas de Navegação</div>
+      </div>
+      <ul class="ilist">
+        <li>Na tela de uma competição, deslize entre as abas <strong style="color:var(--text)">Classificação · Duplas · Jogos</strong> para ver diferentes visões.</li>
+        <li>No Ranking, toque em qualquer atleta para ver o perfil completo dele.</li>
+        <li>No Feed, puxe para baixo (<em>pull-to-refresh</em>) para forçar a atualização dos resultados.</li>
+        <li>Em Competições, use os filtros de status (<em>Em andamento · Encerradas · Agendadas</em>) para encontrar rapidamente o que procura.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="pftr">
+    <div class="pftr-l">King BT · Guia do Usuário</div>
+    <div class="pftr-r">BEE MODE 🐝</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PÁG 4 — FEED
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="sec-hdr z1">
+    <span class="sec-chip">03</span>
+    <span class="sec-title">Feed — Acompanhe o Grupo em Tempo Real</span>
+    <div class="sec-bee">
+      <img src="screens/icon.png" onerror="this.outerHTML='👑'">King BT
+    </div>
+  </div>
+  <div class="pbody">
+    <div class="row">
+      <div class="col f1" style="gap:11px">
+        <div class="instr">
+          <div class="instr-hdr">
+            <div class="instr-icon">📣</div>
+            <div class="instr-title">O que aparece no Feed?</div>
+          </div>
+          <ul class="ilist">
+            <li>Cada jogo registrado gera automaticamente um <strong style="color:var(--text)">card de resultado</strong> com os nomes, placar, duplas e nome da competição.</li>
+            <li>O feed é <strong style="color:var(--text)">compartilhado com todo o grupo</strong> — todos veem os mesmos resultados.</li>
+            <li>Os cards aparecem em ordem cronológica, do mais recente ao mais antigo.</li>
+          </ul>
+        </div>
+
+        <div class="instr">
+          <div class="instr-hdr">
+            <div class="instr-icon">👑</div>
+            <div class="instr-title">Reações e Comentários</div>
+          </div>
+          <ul class="ilist">
+            <li>Toque no ícone de reação para reagir a um resultado: <strong style="color:var(--gold)">👑 🔥 💪</strong></li>
+            <li>Toque em <strong style="color:var(--text)">"Comentar"</strong> para deixar uma mensagem no resultado.</li>
+            <li>As reações de todos os membros ficam visíveis abaixo do card.</li>
+          </ul>
+        </div>
+
+        <div class="instr">
+          <div class="instr-hdr">
+            <div class="instr-icon">🔄</div>
+            <div class="instr-title">Atualização em Tempo Real</div>
+          </div>
+          <div class="instr-body">O feed atualiza automaticamente via Firestore — quando alguém registra um jogo, o card aparece para todos sem precisar recarregar. Mas você também pode puxar para baixo para forçar atualização.</div>
+        </div>
+
+        <div class="callout callout-blue">
+          <div class="callout-icon">📌</div>
+          <div class="callout-text">
+            <strong>Atenção:</strong> Apenas quem tem permissão de criar competições pode registrar resultados. Se você não vê a opção de lançar placar, peça ao organizador.
+          </div>
+        </div>
+      </div>
+
+      <div class="col-c" style="gap:10px">
+        <div class="phone ph-md">
+          <div class="ph-top"><div class="ph-pill"></div></div>
+          <img src="screens/feed.png" class="ph-img">
+          <div class="ph-bot"><div class="ph-bar"></div></div>
+        </div>
+        <div class="screen-lbl">Feed do Grupo</div>
+        <div class="screen-cap">Resultados com reações e comentários de toda a galera.</div>
+      </div>
+    </div>
+  </div>
+  <div class="pftr">
+    <div class="pftr-l">King BT · Guia do Usuário</div>
+    <div class="pftr-r">BEE MODE 🐝</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PÁG 5 — CRIAR COMPETIÇÃO
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="sec-hdr z1">
+    <span class="sec-chip">04</span>
+    <span class="sec-title">Competições — Criar e Configurar</span>
+    <div class="sec-bee">
+      <img src="screens/icon.png" onerror="this.outerHTML='👑'">King BT
+    </div>
+  </div>
+  <div class="pbody" style="gap:11px">
+
+    <!-- Formatos -->
+    <div class="instr">
+      <div class="instr-hdr">
+        <div class="instr-icon">🎯</div>
+        <div class="instr-title">Formatos disponíveis</div>
+      </div>
+      <div class="format-pills" style="margin-top:6px">
+        <div class="fpill">
+          <div class="fpill-name">Super 8</div>
+          <div class="fpill-desc">Rodízio automático · todos jogam entre si</div>
+        </div>
+        <div class="fpill">
+          <div class="fpill-name">Liga</div>
+          <div class="fpill-desc">Pontos corridos · temporada longa</div>
+        </div>
+        <div class="fpill">
+          <div class="fpill-name">Mata-mata</div>
+          <div class="fpill-desc">Eliminação direta · chaveamento</div>
+        </div>
+        <div class="fpill">
+          <div class="fpill-name">Grupos + Elim.</div>
+          <div class="fpill-desc">Fase de grupos + eliminatórias</div>
+        </div>
+        <div class="fpill">
+          <div class="fpill-name">Avulso</div>
+          <div class="fpill-desc">Registro livre · sem rodízio fixo</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Steps de criação -->
+    <div class="instr">
+      <div class="instr-hdr">
+        <div class="instr-icon">➕</div>
+        <div class="instr-title">Como criar uma competição — passo a passo</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+        <div class="step-row">
+          <div class="step-circ" style="width:24px;height:24px;font-size:11px">1</div>
+          <div class="step-body">
+            <div class="step-title">Na aba Competições, toque em <span style="color:var(--gold)">+ Criar</span></div>
+          </div>
+        </div>
+        <div class="step-row">
+          <div class="step-circ" style="width:24px;height:24px;font-size:11px">2</div>
+          <div class="step-body">
+            <div class="step-title">Escolha o <span style="color:var(--gold)">formato</span> (Super 8, Liga, etc.)</div>
+          </div>
+        </div>
+        <div class="step-row">
+          <div class="step-circ" style="width:24px;height:24px;font-size:11px">3</div>
+          <div class="step-body">
+            <div class="step-title">Configure: <span style="color:var(--gold)">Individual ou Duplas · Categoria · Sets · Games</span></div>
+          </div>
+        </div>
+        <div class="step-row">
+          <div class="step-circ" style="width:24px;height:24px;font-size:11px">4</div>
+          <div class="step-body">
+            <div class="step-title">Selecione os <span style="color:var(--gold)">participantes</span> (mínimo 2 jogadores)</div>
+          </div>
+        </div>
+        <div class="step-row">
+          <div class="step-circ" style="width:24px;height:24px;font-size:11px">5</div>
+          <div class="step-body">
+            <div class="step-title">Revise e toque em <span style="color:var(--gold)">Criar Competição</span> — ou agende para outra data</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row" style="gap:12px">
+      <div class="callout callout-gold f1">
+        <div class="callout-icon">📅</div>
+        <div class="callout-text"><strong>Agendamento com RSVP:</strong> Você pode criar a competição com data futura. Os convidados confirmam ou recusam presença antes do início.</div>
+      </div>
+      <div class="callout callout-teal f1">
+        <div class="callout-icon">👥</div>
+        <div class="callout-text"><strong>Duplas:</strong> Para competições em duplas, você monta os pares antes de criar. No Super 8, as duplas são sorteadas a cada rodada.</div>
+      </div>
+    </div>
+  </div>
+  <div class="pftr">
+    <div class="pftr-l">King BT · Guia do Usuário</div>
+    <div class="pftr-r">BEE MODE 🐝</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PÁG 6 — DENTRO DA COMPETIÇÃO: PLACAR E JOGOS
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="sec-hdr z1">
+    <span class="sec-chip">05</span>
+    <span class="sec-title">Dentro da Competição — Placares e Jogos</span>
+    <div class="sec-bee">
+      <img src="screens/icon.png" onerror="this.outerHTML='👑'">King BT
+    </div>
+  </div>
+  <div class="pbody">
+    <div class="row">
+      <div class="col f1" style="gap:11px">
+        <div class="instr">
+          <div class="instr-hdr">
+            <div class="instr-icon">📋</div>
+            <div class="instr-title">As 3 abas de uma competição</div>
+          </div>
+          <ul class="ilist" style="margin-top:4px">
+            <li><strong style="color:var(--gold)">Classificação</strong> — ranking em tempo real com V, D, J, GA e pontos King BT de cada jogador.</li>
+            <li><strong style="color:var(--gold)">Duplas</strong> — aproveitamento de cada combinação de parceria usada nas partidas.</li>
+            <li><strong style="color:var(--gold)">Jogos</strong> — lista de todas as partidas com placar, duplas e data de cada jogo.</li>
+          </ul>
+        </div>
+
+        <div class="instr">
+          <div class="instr-hdr">
+            <div class="instr-icon">🎾</div>
+            <div class="instr-title">Como registrar um placar</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:7px;margin-top:4px">
+            <div class="step-row">
+              <div class="step-circ" style="width:24px;height:24px;font-size:11px">1</div>
+              <div class="step-body"><div class="step-desc">Abra a competição e vá para a aba <strong style="color:var(--gold)">Jogos</strong>.</div></div>
+            </div>
+            <div class="step-row">
+              <div class="step-circ" style="width:24px;height:24px;font-size:11px">2</div>
+              <div class="step-body"><div class="step-desc">Toque na partida que deseja registrar (aparece como "Pendente").</div></div>
+            </div>
+            <div class="step-row">
+              <div class="step-circ" style="width:24px;height:24px;font-size:11px">3</div>
+              <div class="step-body"><div class="step-desc">Informe o placar de cada set (ex: 6-4 / 7-5). Se houver tie-break, informe também.</div></div>
+            </div>
+            <div class="step-row">
+              <div class="step-circ" style="width:24px;height:24px;font-size:11px">4</div>
+              <div class="step-body"><div class="step-desc">Confirme. O ranking atualiza automaticamente e o resultado aparece no Feed.</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout callout-gold">
+          <div class="callout-icon">⚡</div>
+          <div class="callout-text">
+            <strong>Atualização automática:</strong> O ranking da competição é recalculado em tempo real toda vez que um placar é registrado. Não precisa fazer nada manual.
+          </div>
+        </div>
+      </div>
+
+      <!-- 3 phones -->
+      <div class="col-c" style="gap:8px">
+        <div style="display:flex;gap:7px;align-items:flex-end">
+          <div class="col-c" style="gap:5px">
+            <div class="phone ph-sm">
+              <div class="ph-top" style="height:15px"><div class="ph-pill" style="width:40px;height:11px"></div></div>
+              <img src="screens/comp-ranking.png" class="ph-img">
+              <div class="ph-bot" style="height:11px"><div class="ph-bar" style="width:38px"></div></div>
+            </div>
+            <div class="screen-lbl" style="font-size:8px">Classificação</div>
+          </div>
+          <div class="col-c" style="gap:5px">
+            <div class="phone ph-sm">
+              <div class="ph-top" style="height:15px"><div class="ph-pill" style="width:40px;height:11px"></div></div>
+              <img src="screens/comp-jogos.png" class="ph-img">
+              <div class="ph-bot" style="height:11px"><div class="ph-bar" style="width:38px"></div></div>
+            </div>
+            <div class="screen-lbl" style="font-size:8px">Jogos</div>
+          </div>
+        </div>
+        <div class="col-c" style="gap:5px">
+          <div class="phone ph-sm">
+            <div class="ph-top" style="height:15px"><div class="ph-pill" style="width:40px;height:11px"></div></div>
+            <img src="screens/comp-duplas.png" class="ph-img">
+            <div class="ph-bot" style="height:11px"><div class="ph-bar" style="width:38px"></div></div>
+          </div>
+          <div class="screen-lbl" style="font-size:8px">Duplas</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="pftr">
+    <div class="pftr-l">King BT · Guia do Usuário</div>
+    <div class="pftr-r">BEE MODE 🐝</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PÁG 7 — RANKING GERAL
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="sec-hdr z1">
+    <span class="sec-chip">06</span>
+    <span class="sec-title">Ranking Geral King BT</span>
+    <div class="sec-bee">
+      <img src="screens/icon.png" onerror="this.outerHTML='👑'">King BT
+    </div>
+  </div>
+  <div class="pbody">
+    <div class="row">
+      <div class="col f1" style="gap:11px">
+        <div class="instr">
+          <div class="instr-hdr">
+            <div class="instr-icon">🏆</div>
+            <div class="instr-title">O que é o Ranking King BT?</div>
+          </div>
+          <div class="instr-body">É o ranking geral do grupo, calculado com base em todas as competições jogadas. Ele une vitórias, quantidade de jogos e eficiência de game em uma única pontuação — a <strong style="color:var(--gold)">Pontuação King BT</strong>.</div>
+        </div>
+
+        <div class="instr">
+          <div class="instr-hdr">
+            <div class="instr-icon">📊</div>
+            <div class="instr-title">Colunas da tabela</div>
+          </div>
+          <ul class="ilist" style="margin-top:4px">
+            <li><strong style="color:var(--gold)">V</strong> — Vitórias no período selecionado.</li>
+            <li><strong style="color:var(--gold)">D</strong> — Derrotas no período selecionado.</li>
+            <li><strong style="color:var(--gold)">J</strong> — Total de jogos (V + D).</li>
+            <li><strong style="color:var(--gold)">GP</strong> — Games pró (games ganhos no total).</li>
+            <li><strong style="color:var(--gold)">GC</strong> — Games contra (games sofridos).</li>
+            <li><strong style="color:var(--gold)">SG</strong> — Saldo de games (GP − GC), usado como critério de desempate.</li>
+            <li><strong style="color:var(--gold)">GA</strong> — Game Average (GP ÷ GC), eficiência de game.</li>
+            <li><strong style="color:var(--gold)">PTS</strong> — Pontuação King BT calculada pela fórmula.</li>
+          </ul>
+        </div>
+
+        <div class="instr">
+          <div class="instr-hdr">
+            <div class="instr-icon">🔍</div>
+            <div class="instr-title">Filtros de período</div>
+          </div>
+          <ul class="ilist" style="margin-top:4px">
+            <li><strong style="color:var(--text)">Geral</strong> — toda a história do grupo.</li>
+            <li><strong style="color:var(--text)">Ano</strong> — apenas o ano atual (ou escolha outro).</li>
+            <li><strong style="color:var(--text)">Mês</strong> — o mês em andamento (ou escolha outro).</li>
+          </ul>
+        </div>
+
+        <div class="callout callout-gold">
+          <div class="callout-icon">👑</div>
+          <div class="callout-text">O <strong>Top 3</strong> aparece em destaque no pódio com coroas douradas. Toque em qualquer atleta da tabela para ver o perfil completo.</div>
+        </div>
+      </div>
+
+      <div class="col-c" style="gap:10px">
+        <div class="phone ph-md">
+          <div class="ph-top"><div class="ph-pill"></div></div>
+          <img src="screens/ranking.png" class="ph-img">
+          <div class="ph-bot"><div class="ph-bar"></div></div>
+        </div>
+        <div class="screen-lbl">Ranking Geral</div>
+        <div class="screen-cap">Pódio dourado + tabela completa com todas as estatísticas.</div>
+      </div>
+    </div>
+  </div>
+  <div class="pftr">
+    <div class="pftr-l">King BT · Guia do Usuário</div>
+    <div class="pftr-r">BEE MODE 🐝</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PÁG 8 — PERFIL DO ATLETA
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="sec-hdr z1">
+    <span class="sec-chip">07</span>
+    <span class="sec-title">Perfil do Atleta</span>
+    <div class="sec-bee">
+      <img src="screens/icon.png" onerror="this.outerHTML='👑'">King BT
+    </div>
+  </div>
+  <div class="pbody">
+    <div class="row">
+      <div class="col f1" style="gap:11px">
+        <div class="instr">
+          <div class="instr-hdr">
+            <div class="instr-icon">👤</div>
+            <div class="instr-title">O que você vê no Perfil?</div>
+          </div>
+          <ul class="ilist" style="margin-top:4px">
+            <li><strong style="color:var(--gold)">Pontuação King BT</strong> com os valores de V, J, GA e PTS detalhados.</li>
+            <li><strong style="color:var(--gold)">Aproveitamento geral</strong> — % de vitórias sobre o total de jogos.</li>
+            <li><strong style="color:var(--gold)">Evolução de pontos</strong> — gráfico com a trajetória da pontuação ao longo do tempo.</li>
+            <li><strong style="color:var(--gold)">Aproveitamento por formato</strong> — como você se sai em cada tipo de competição.</li>
+            <li><strong style="color:var(--gold)">Melhores parcerias</strong> — duplas com quem você tem melhor aproveitamento.</li>
+          </ul>
+        </div>
+
+        <div class="instr">
+          <div class="instr-hdr">
+            <div class="instr-icon">🏅</div>
+            <div class="instr-title">Conquistas</div>
+          </div>
+          <div class="instr-body" style="margin-bottom:8px">Conquistas são medalhas desbloqueadas automaticamente conforme você atinge marcos. Exemplos:</div>
+          <div class="achv-grid">
+            <div class="achv">
+              <div class="achv-ico">👑</div>
+              <div class="achv-name">Rei da Quadra</div>
+              <div class="achv-cond">Atingir 1º lugar no Ranking</div>
+            </div>
+            <div class="achv">
+              <div class="achv-ico">🔥</div>
+              <div class="achv-name">Em Chamas</div>
+              <div class="achv-cond">5 vitórias consecutivas</div>
+            </div>
+            <div class="achv">
+              <div class="achv-ico">🎯</div>
+              <div class="achv-name">Precisão</div>
+              <div class="achv-cond">GA acima de 2.0</div>
+            </div>
+            <div class="achv">
+              <div class="achv-ico">🏆</div>
+              <div class="achv-name">Campeão</div>
+              <div class="achv-cond">Vencer uma competição</div>
+            </div>
+            <div class="achv">
+              <div class="achv-ico">⚡</div>
+              <div class="achv-name">Veterano</div>
+              <div class="achv-cond">50 jogos disputados</div>
+            </div>
+            <div class="achv">
+              <div class="achv-ico">🤝</div>
+              <div class="achv-name">Parceiro</div>
+              <div class="achv-cond">Jogou com todos do grupo</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-c" style="gap:8px">
+        <div class="phone ph-sm">
+          <div class="ph-top" style="height:16px"><div class="ph-pill" style="width:42px;height:12px"></div></div>
+          <img src="screens/perfil.png" class="ph-img">
+          <div class="ph-bot" style="height:12px"><div class="ph-bar" style="width:40px"></div></div>
+        </div>
+        <div class="screen-lbl" style="font-size:8px">Perfil — Stats</div>
+        <div class="phone ph-sm">
+          <div class="ph-top" style="height:16px"><div class="ph-pill" style="width:42px;height:12px"></div></div>
+          <img src="screens/perfil2.png" class="ph-img">
+          <div class="ph-bot" style="height:12px"><div class="ph-bar" style="width:40px"></div></div>
+        </div>
+        <div class="screen-lbl" style="font-size:8px">Perfil — Conquistas</div>
+      </div>
+    </div>
+  </div>
+  <div class="pftr">
+    <div class="pftr-l">King BT · Guia do Usuário</div>
+    <div class="pftr-r">BEE MODE 🐝</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PÁG 9 — CALENDÁRIO, GRUPO e HALL
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="sec-hdr z1">
+    <span class="sec-chip">08</span>
+    <span class="sec-title">Calendário, Painel do Grupo e Hall dos Campeões</span>
+    <div class="sec-bee">
+      <img src="screens/icon.png" onerror="this.outerHTML='👑'">King BT
+    </div>
+  </div>
+  <div class="pbody" style="gap:12px">
+    <div class="row" style="gap:14px;align-items:flex-start">
+
+      <!-- Calendário -->
+      <div class="col f1" style="gap:10px">
+        <div class="instr">
+          <div class="instr-hdr">
+            <div class="instr-icon">📅</div>
+            <div class="instr-title">Calendário</div>
+          </div>
+          <ul class="ilist" style="margin-top:4px">
+            <li>Visualização mensal com um <strong style="color:var(--gold)">marcador</strong> nos dias em que houve sessão.</li>
+            <li>Toque em um dia para ver o resumo: sessões, competições e partidas jogadas.</li>
+            <li>Resume o total do mês: <strong style="color:var(--text)">sessões, competições e partidas</strong>.</li>
+          </ul>
+        </div>
+        <div class="col-c" style="gap:6px">
+          <div class="phone ph-sm">
+            <div class="ph-top" style="height:16px"><div class="ph-pill" style="width:42px;height:12px"></div></div>
+            <img src="screens/calendario.png" class="ph-img">
+            <div class="ph-bot" style="height:12px"><div class="ph-bar" style="width:40px"></div></div>
+          </div>
+          <div class="screen-lbl" style="font-size:8px">Calendário</div>
+        </div>
+      </div>
+
+      <!-- Grupo -->
+      <div class="col f1" style="gap:10px">
+        <div class="instr">
+          <div class="instr-hdr">
+            <div class="instr-icon">👥</div>
+            <div class="instr-title">Painel do Grupo</div>
+          </div>
+          <ul class="ilist" style="margin-top:4px">
+            <li><strong style="color:var(--gold)">Mais ativo</strong> — quem jogou mais partidas.</li>
+            <li><strong style="color:var(--gold)">Sequência em alta</strong> — maior sequência de vitórias ativa.</li>
+            <li><strong style="color:var(--gold)">Maior rivalidade</strong> — dupla que mais se enfrentou.</li>
+            <li><strong style="color:var(--gold)">Jogo mais disputado</strong> — partida com menor diferença de placar.</li>
+            <li><strong style="color:var(--gold)">Top 3</strong> do ranking atual.</li>
+          </ul>
+        </div>
+        <div class="col-c" style="gap:6px">
+          <div class="phone ph-sm">
+            <div class="ph-top" style="height:16px"><div class="ph-pill" style="width:42px;height:12px"></div></div>
+            <img src="screens/grupo.png" class="ph-img">
+            <div class="ph-bot" style="height:12px"><div class="ph-bar" style="width:40px"></div></div>
+          </div>
+          <div class="screen-lbl" style="font-size:8px">Painel do Grupo</div>
+        </div>
+      </div>
+
+      <!-- Hall -->
+      <div class="col f1" style="gap:10px">
+        <div class="instr">
+          <div class="instr-hdr">
+            <div class="instr-icon">🥇</div>
+            <div class="instr-title">Hall dos Campeões</div>
+          </div>
+          <ul class="ilist" style="margin-top:4px">
+            <li>Lista de todos os <strong style="color:var(--gold)">campeões</strong> de cada competição já encerrada.</li>
+            <li><strong style="color:var(--gold)">Ranking de títulos</strong> — quem ganhou mais competições na história do grupo.</li>
+            <li>Atualizado automaticamente ao encerrar uma competição.</li>
+          </ul>
+        </div>
+        <div class="col-c" style="gap:6px">
+          <div class="phone ph-sm">
+            <div class="ph-top" style="height:16px"><div class="ph-pill" style="width:42px;height:12px"></div></div>
+            <img src="screens/hall.png" class="ph-img">
+            <div class="ph-bot" style="height:12px"><div class="ph-bar" style="width:40px"></div></div>
+          </div>
+          <div class="screen-lbl" style="font-size:8px">Hall dos Campeões</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="pftr">
+    <div class="pftr-l">King BT · Guia do Usuário</div>
+    <div class="pftr-r">BEE MODE 🐝</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PÁG 10 — FÓRMULA DE PONTUAÇÃO
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="sec-hdr z1">
+    <span class="sec-chip">09</span>
+    <span class="sec-title">A Fórmula de Pontuação King BT</span>
+    <div class="sec-bee">
+      <img src="screens/icon.png" onerror="this.outerHTML='👑'">King BT
+    </div>
+  </div>
+  <div class="pbody" style="gap:14px">
+
+    <!-- Fórmula principal -->
+    <div class="formula-box">
+      <div style="font-size:10px;font-weight:700;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Pontuação King BT</div>
+      <div class="formula-eq">PTS = V × 3 &nbsp;+&nbsp; J × 0,5 &nbsp;+&nbsp; GA × 2</div>
+      <div class="divider" style="margin:6px 0"></div>
+      <div class="fvars">
+        <div class="fvar"><div class="fvar-k">V</div><div class="fvar-v">Vitórias — cada vitória vale <strong style="color:var(--text)">3 pontos</strong>. Principal critério de diferenciação.</div></div>
+        <div class="fvar"><div class="fvar-k">J</div><div class="fvar-v">Jogos totais — cada jogo disputado (mesmo perdido) vale <strong style="color:var(--text)">0,5 ponto</strong>. Recompensa frequência.</div></div>
+        <div class="fvar"><div class="fvar-k">GA</div><div class="fvar-v">Game Average — mede eficiência: quem ganha por placar elástico pontua mais alto.</div></div>
+      </div>
+    </div>
+
+    <!-- GA detalhado -->
+    <div class="formula-box">
+      <div style="font-size:10px;font-weight:700;color:var(--teal);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Game Average (GA)</div>
+      <div class="formula-eq" style="color:var(--teal)">GA = GP ÷ GC</div>
+      <div class="divider" style="margin:6px 0"></div>
+      <div class="fvars">
+        <div class="fvar"><div class="fvar-k" style="color:var(--teal)">GP</div><div class="fvar-v">Games Pró — total de games <strong style="color:var(--text)">ganhos</strong> pelo atleta em todas as partidas.</div></div>
+        <div class="fvar"><div class="fvar-k" style="color:var(--teal)">GC</div><div class="fvar-v">Games Contra — total de games <strong style="color:var(--text)">sofridos</strong> pelo atleta em todas as partidas.</div></div>
+      </div>
+      <div class="callout callout-teal" style="margin-top:8px">
+        <div class="callout-icon">📌</div>
+        <div class="callout-text">GA = 1,5 → para cada game sofrido, o atleta ganhou 1,5 game. Quanto maior o GA, mais dominante é a performance nas quadras.</div>
+      </div>
+    </div>
+
+    <!-- SG desempate -->
+    <div class="instr">
+      <div class="instr-hdr">
+        <div class="instr-icon">⚖️</div>
+        <div class="instr-title">Critério de Desempate — Saldo de Games (SG)</div>
+      </div>
+      <div class="instr-body">
+        Quando dois atletas têm a mesma pontuação King BT, o desempate é feito pelo <strong style="color:var(--gold)">Saldo de Games</strong>:<br><br>
+        <span style="font-family:'Space Grotesk',sans-serif;font-size:15px;color:var(--gold);font-weight:700">SG = GP − GC</span><br><br>
+        O atleta com maior saldo positivo fica na posição superior do ranking.
+      </div>
+    </div>
+
+    <!-- rodapé especial -->
+    <div style="text-align:center;padding:10px 0 4px">
+      <div style="font-size:9px;color:var(--faint);letter-spacing:2.5px;text-transform:uppercase;margin-bottom:6px">TREINE COM PROPÓSITO · JOGUE COM PAIXÃO · APRENDA COM CADA PONTO</div>
+      <div style="font-size:22px;font-weight:900;color:var(--gold);letter-spacing:-0.5px">👑 BEE MODE 🐝</div>
+    </div>
+  </div>
+  <div class="pftr">
+    <div class="pftr-l">King BT · Guia do Usuário · Junho 2026</div>
+    <div class="pftr-r">PLAY COM RESPEITO, EVOLUA SEMPRE.</div>
+  </div>
+</div>
+
+</body>
+</html>

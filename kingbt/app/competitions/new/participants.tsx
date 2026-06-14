@@ -90,7 +90,7 @@ export default function ParticipantsStep() {
     setPairs(prev => prev.filter((_, idx) => idx !== i));
   }
 
-  const canContinue = isDuplas ? pairs.length >= 2 : selected.length >= 4;
+  const canContinue = isDuplas ? pairs.length >= 2 : selected.length >= 2;
   const usedInPair = pairs.flat();
 
   function next() {
@@ -140,7 +140,7 @@ export default function ParticipantsStep() {
         <Text style={styles.subtitle}>
           {isDuplas
             ? 'Toque em dois jogadores para formar uma dupla.'
-            : `Selecione os participantes. Mínimo 4.`}
+            : 'Selecione os participantes. Mínimo 2.'}
         </Text>
 
         {/* Duplas formadas */}
@@ -301,7 +301,7 @@ export default function ParticipantsStep() {
           <Text style={[styles.btnText, !canContinue && styles.btnTextDisabled]}>
             {canContinue
               ? 'Continuar'
-              : isDuplas ? 'Mínimo 2 duplas' : 'Mínimo 4 jogadores'}
+              : isDuplas ? 'Mínimo 2 duplas' : 'Mínimo 2 jogadores'}
           </Text>
         </TouchableOpacity>
       </View>

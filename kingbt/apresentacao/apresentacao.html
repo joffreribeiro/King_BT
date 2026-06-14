@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>King BT — Apresentação</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;700;800;900&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:    #070500;
+    --bg2:   #0d0a02;
+    --gold:  #F3C544;
+    --gold2: #C2891A;
+    --goldb: #FFE066;
+    --text:  #F6EFDD;
+    --muted: #A99B7C;
+    --faint: #6E6452;
+    --line:  rgba(243,197,68,0.2);
+    --surf:  #131008;
+    --surf2: #1C1810;
+    --teal:  #54B981;
+    --coral: #E5483D;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #030200;
+    font-family: 'Sora', sans-serif;
+    color: var(--text);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ═══════════════════════════════════════
+     PÁGINA BASE
+  ═══════════════════════════════════════ */
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    background: var(--bg);
+    page-break-after: always;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Fundo texturizado com grain */
+  .page::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      radial-gradient(ellipse 120% 60% at 50% -10%, rgba(243,197,68,0.12) 0%, transparent 55%),
+      radial-gradient(ellipse 40% 30% at 5%  95%,  rgba(194,137,26,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse 40% 30% at 95% 95%,  rgba(194,137,26,0.06) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Linhas douradas diagonais decorativas */
+  .page::after {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(135deg, transparent 0%, transparent 49%, rgba(243,197,68,0.03) 49.5%, transparent 50%),
+      linear-gradient(225deg, transparent 0%, transparent 49%, rgba(243,197,68,0.03) 49.5%, transparent 50%);
+    background-size: 80px 80px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .z1 { position: relative; z-index: 1; }
+
+  /* ═══════════════════════════════════════
+     CAPA — PÁG 0
+  ═══════════════════════════════════════ */
+  .cover { justify-content: space-between; }
+
+  .cover-top {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 32px 0;
+    gap: 6px;
+    position: relative; z-index: 1;
+  }
+
+  .kbt-eyebrow {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 16px;
+    font-size: 9px; font-weight: 700;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: var(--gold);
+    background: rgba(243,197,68,0.05);
+  }
+  .kbt-eyebrow img { width: 14px; height: 14px; object-fit: contain; }
+
+  .cover-bee {
+    width: 96px; height: 96px;
+    object-fit: contain;
+    margin-top: 8px;
+    filter: drop-shadow(0 0 24px rgba(243,197,68,0.5)) drop-shadow(0 6px 16px rgba(0,0,0,0.7));
+  }
+
+  .kbt-wordmark {
+    font-size: 88px; font-weight: 900;
+    letter-spacing: -6px; line-height: 0.88;
+    background: linear-gradient(160deg, #FFE880 0%, #F3C544 45%, #9A6200 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    text-align: center; margin-top: 4px;
+  }
+  .kbt-sub {
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 6px; text-transform: uppercase;
+    color: var(--muted); margin-top: -2px;
+  }
+  .cover-rule {
+    width: 100px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 8px 0;
+  }
+  .cover-pitch {
+    font-size: 13px; color: var(--muted);
+    text-align: center; max-width: 300px; line-height: 1.7;
+  }
+
+  /* Stats chips */
+  .cover-chips {
+    display: flex; gap: 10px; margin-top: 12px;
+  }
+  .chip {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: rgba(243,197,68,0.06);
+    border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px 18px;
+  }
+  .chip-val {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 26px; font-weight: 700; color: var(--gold); line-height: 1;
+  }
+  .chip-lbl { font-size: 9px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; }
+
+  /* 3 phones flutuantes */
+  .cover-phones {
+    display: flex; gap: 14px;
+    align-items: flex-end;
+    margin-top: 20px;
+    padding: 0 24px;
+  }
+  .cph {
+    flex: 1; max-width: 110px;
+    background: #0e0e0e;
+    border-radius: 20px;
+    border: 1.5px solid #222;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px #181818, 0 16px 50px rgba(0,0,0,0.85);
+  }
+  .cph-main {
+    max-width: 138px;
+    border-radius: 26px;
+    transform: translateY(-18px);
+    box-shadow: 0 0 0 1px #282828, 0 28px 80px rgba(0,0,0,0.9),
+                0 0 50px rgba(243,197,68,0.12);
+    border-color: #2a2a2a;
+  }
+  .cph-top {
+    background: #000; height: 16px;
+    display: flex; align-items: flex-end; justify-content: center; padding-bottom: 2px;
+  }
+  .cph-pill {
+    width: 46px; height: 12px;
+    background: #111; border-radius: 0 0 8px 8px;
+    border: 1px solid #1a1a1a; border-top: none;
+  }
+  .cph-img { width: 100%; display: block; }
+  .cph-bot {
+    background: #000; height: 12px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cph-bar { width: 44px; height: 3px; background: #222; border-radius: 2px; }
+
+  /* Rodapé da capa */
+  .cover-footer {
+    border-top: 1px solid var(--line);
+    padding: 12px 32px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(0,0,0,0.4);
+    position: relative; z-index: 1;
+  }
+  .cf-l { font-size: 9px; color: var(--faint); }
+  .cf-r { font-size: 10px; font-weight: 700; color: var(--gold); letter-spacing: 1px; }
+
+  /* ═══════════════════════════════════════
+     HEADER DE PÁGINA
+  ═══════════════════════════════════════ */
+  .phdr {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 22px 11px;
+    border-bottom: 1px solid var(--line);
+    position: relative; z-index: 1;
+    background: rgba(0,0,0,0.15);
+  }
+  .phdr-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 9px; font-weight: 700; color: var(--gold);
+    letter-spacing: 1.5px;
+    border: 1px solid var(--line);
+    border-radius: 5px; padding: 2px 7px;
+    background: rgba(243,197,68,0.06);
+  }
+  .phdr-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .phdr-logo {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 800; color: var(--gold);
+  }
+  .phdr-bee { width: 20px; height: 20px; object-fit: contain;
+    filter: drop-shadow(0 0 4px rgba(243,197,68,0.5)); }
+
+  /* ═══════════════════════════════════════
+     CORPO
+  ═══════════════════════════════════════ */
+  .pbody {
+    flex: 1; padding: 18px 22px;
+    position: relative; z-index: 1;
+  }
+
+  /* Layouts */
+  .l2  { display: flex; gap: 18px; height: 100%; align-items: flex-start; }
+  .l3  { display: flex; gap: 12px; height: 100%; align-items: flex-start; }
+  .col  { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 9px; }
+  .col3 { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+
+  .slbl { font-size: 9px; font-weight: 700; letter-spacing: 2px; color: var(--gold); text-transform: uppercase; }
+  .sdsc { font-size: 10px; color: var(--muted); text-align: center; line-height: 1.55; max-width: 185px; }
+
+  /* ── MOCKUP CELULAR ── */
+  .phone {
+    width: 100%; max-width: 195px;
+    background: #0a0a0a;
+    border-radius: 28px;
+    border: 2px solid #222;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px #151515, 0 18px 56px rgba(0,0,0,0.85),
+                inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .phone-sm { max-width: 148px; border-radius: 22px; }
+  .phone-top {
+    background: #000; height: 20px;
+    display: flex; align-items: flex-end; justify-content: center; padding-bottom: 2px;
+  }
+  .phone-pill {
+    width: 58px; height: 15px;
+    background: #0f0f0f; border-radius: 0 0 9px 9px;
+    border: 1.5px solid #1c1c1c; border-top: none;
+  }
+  .phone-img { width: 100%; display: block; }
+  .phone-bot {
+    background: #000; height: 15px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .phone-bar { width: 55px; height: 3px; background: #222; border-radius: 2px; }
+
+  /* ═══════════════════════════════════════
+     FEATURES GRID
+  ═══════════════════════════════════════ */
+  .fgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+  .fcard {
+    background: var(--surf); border: 1px solid var(--line);
+    border-radius: 12px; padding: 13px;
+    display: flex; flex-direction: column; gap: 7px;
+  }
+  .fcard:hover { border-color: rgba(243,197,68,0.35); }
+  .ficon { font-size: 20px; }
+  .fname { font-size: 11px; font-weight: 700; color: var(--text); }
+  .fdesc { font-size: 9.5px; color: var(--muted); line-height: 1.55; }
+
+  /* Acento de cor no card */
+  .fcard-gold  { border-left: 2px solid var(--gold); }
+  .fcard-teal  { border-left: 2px solid var(--teal); }
+  .fcard-coral { border-left: 2px solid var(--coral); }
+  .fcard-blue  { border-left: 2px solid #6B7FD7; }
+  .fcard-pink  { border-left: 2px solid #F472B6; }
+  .fcard-purp  { border-left: 2px solid #C084FC; }
+
+  /* Tagline */
+  .tagline { text-align: center; padding: 18px 0 4px; }
+  .tl-sm { font-size: 9px; color: var(--faint); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+  .tl-big { font-size: 17px; font-weight: 800; color: var(--gold); letter-spacing: -0.5px; }
+
+  /* Rodapé de página */
+  .pftr {
+    border-top: 1px solid var(--line);
+    padding: 8px 22px;
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(0,0,0,0.25);
+    position: relative; z-index: 1;
+  }
+  .pftr-l { font-size: 9px; color: var(--faint); }
+  .pftr-r { font-size: 9px; font-weight: 700; color: var(--gold); letter-spacing: 1px; }
+
+  /* ═══════════════════════════════════════
+     PASSO A PASSO
+  ═══════════════════════════════════════ */
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step {
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(243,197,68,0.08);
+  }
+  .step:last-child { border-bottom: none; }
+  .step-num {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold2), var(--gold));
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px; font-weight: 700; color: #000;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .step-body { flex: 1; }
+  .step-title { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .step-desc { font-size: 10px; color: var(--muted); line-height: 1.6; }
+  .step-tag {
+    display: inline-block; margin-top: 5px;
+    background: rgba(243,197,68,0.1); border: 1px solid var(--line);
+    border-radius: 4px; padding: 2px 8px;
+    font-size: 9px; color: var(--gold); font-weight: 600;
+  }
+  .step-icon { font-size: 20px; margin-top: 2px; }
+
+  /* ── PRINT ── */
+  @media print {
+    body { background: #000; }
+    .page { margin: 0; }
+    @page { margin: 0; size: A4 portrait; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     CAPA
+══════════════════════════════════════════════════════════ -->
+<div class="page cover">
+  <div class="cover-top z1">
+    <div class="kbt-eyebrow">
+      <img src="screens/icon.png" onerror="this.style.display='none'">
+      Beach Tennis Manager
+    </div>
+
+    <img src="screens/icon.png" class="cover-bee"
+         onerror="this.outerHTML='<div style=\'font-size:80px;margin-top:10px;\'>👑</div>'">
+
+    <div class="kbt-wordmark">King BT</div>
+    <div class="kbt-sub">Beach Tennis</div>
+    <div class="cover-rule"></div>
+    <div class="cover-pitch">Aplicativo de gestão de torneios e competições de Beach Tennis — ranking, placar, feed e estatísticas do grupo.</div>
+
+    <div class="cover-chips">
+      <div class="chip"><div class="chip-val">5</div><div class="chip-lbl">Formatos</div></div>
+      <div class="chip"><div class="chip-val">7</div><div class="chip-lbl">Atletas</div></div>
+      <div class="chip"><div class="chip-val">4</div><div class="chip-lbl">Rodadas</div></div>
+      <div class="chip"><div class="chip-val">87</div><div class="chip-lbl">Partidas</div></div>
+    </div>
+
+    <div class="cover-phones">
+      <div class="cph">
+        <div class="cph-top"><div class="cph-pill"></div></div>
+        <img src="screens/feed.png" class="cph-img">
+        <div class="cph-bot"><div class="cph-bar"></div></div>
+      </div>
+      <div class="cph cph-main">
+        <div class="cph-top"><div class="cph-pill"></div></div>
+        <img src="screens/ranking.png" class="cph-img">
+        <div class="cph-bot"><div class="cph-bar"></div></div>
+      </div>
+      <div class="cph">
+        <div class="cph-top"><div class="cph-pill"></div></div>
+        <img src="screens/perfil.png" class="cph-img">
+        <div class="cph-bot"><div class="cph-bar"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cover-footer z1">
+    <div class="cf-l">Versão Beta · Junho 2026 · Apresentação</div>
+    <div class="cf-r">BEE MODE 🐝 · PLAY COM RESPEITO, EVOLUA SEMPRE.</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PÁG 1 — FEED + COMPETIÇÕES
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="phdr z1">
+    <span class="phdr-num">01</span>
+    <span class="phdr-title">Feed &amp; Competições</span>
+    <div class="phdr-logo">
+      <img src="screens/icon.png" class="phdr-bee" onerror="this.outerHTML='👑'">
+      King BT
+    </div>
+  </div>
+  <div class="pbody">
+    <div class="l2">
+      <div class="col">
+        <div class="slbl">Feed do Grupo</div>
+        <div class="phone">
+          <div class="phone-top"><div class="phone-pill"></div></div>
+          <img src="screens/feed.png" class="phone-img">
+          <div class="phone-bot"><div class="phone-bar"></div></div>
+        </div>
+        <div class="sdsc">Resultados em tempo real com reações 👑🔥💪 e comentários. Atualização automática.</div>
+      </div>
+      <div class="col">
+        <div class="slbl">Lista de Competições</div>
+        <div class="phone">
+          <div class="phone-top"><div class="phone-pill"></div></div>
+          <img src="screens/competicoes.png" class="phone-img">
+          <div class="phone-bot"><div class="phone-bar"></div></div>
+        </div>
+        <div class="sdsc">Todas as competições com status, filtros por formato e criação rápida.</div>
+      </div>
+    </div>
+  </div>
+  <div class="pftr">
+    <div class="pftr-l">King BT · Beach Tennis Manager</div>
+    <div class="pftr-r">BEE MODE 🐝</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PÁG 2 — DETALHE COMPETIÇÃO (3 telas)
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="phdr z1">
+    <span class="phdr-num">02</span>
+    <span class="phdr-title">Detalhe da Competição — Super 8</span>
+    <div class="phdr-logo">
+      <img src="screens/icon.png" class="phdr-bee" onerror="this.outerHTML='👑'">
+      King BT
+    </div>
+  </div>
+  <div class="pbody">
+    <div class="l3">
+      <div class="col3">
+        <div class="slbl">Classificação</div>
+        <div class="phone phone-sm">
+          <div class="phone-top"><div class="phone-pill"></div></div>
+          <img src="screens/comp-ranking.png" class="phone-img">
+          <div class="phone-bot"><div class="phone-bar"></div></div>
+        </div>
+        <div class="sdsc">Ranking em tempo real com V, D, J, GA e pontos King BT.</div>
+      </div>
+      <div class="col3">
+        <div class="slbl">Duplas</div>
+        <div class="phone phone-sm">
+          <div class="phone-top"><div class="phone-pill"></div></div>
+          <img src="screens/comp-duplas.png" class="phone-img">
+          <div class="phone-bot"><div class="phone-bar"></div></div>
+        </div>
+        <div class="sdsc">Aproveitamento de cada combinação de dupla jogada.</div>
+      </div>
+      <div class="col3">
+        <div class="slbl">Jogos</div>
+        <div class="phone phone-sm">
+          <div class="phone-top"><div class="phone-pill"></div></div>
+          <img src="screens/comp-jogos.png" class="phone-img">
+          <div class="phone-bot"><div class="phone-bar"></div></div>
+        </div>
+        <div class="sdsc">Todas as partidas com placar e duplas.</div>
+      </div>
+    </div>
+  </div>
+  <div class="pftr">
+    <div class="pftr-l">King BT · Beach Tennis Manager</div>
+    <div class="pftr-r">BEE MODE 🐝</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PÁG 3 — RANKING + GRUPO
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="phdr z1">
+    <span class="phdr-num">03</span>
+    <span class="phdr-title">Ranking Geral &amp; Painel do Grupo</span>
+    <div class="phdr-logo">
+      <img src="screens/icon.png" class="phdr-bee" onerror="this.outerHTML='👑'">
+      King BT
+    </div>
+  </div>
+  <div class="pbody">
+    <div class="l2">
+      <div class="col">
+        <div class="slbl">Ranking Geral</div>
+        <div class="phone">
+          <div class="phone-top"><div class="phone-pill"></div></div>
+          <img src="screens/ranking.png" class="phone-img">
+          <div class="phone-bot"><div class="phone-bar"></div></div>
+        </div>
+        <div class="sdsc">Pódio com coroas douradas. Tabela completa: V, D, J, GP, GC, SG, GA e PTS. Filtros por mês / ano / geral.</div>
+      </div>
+      <div class="col">
+        <div class="slbl">Painel do Grupo</div>
+        <div class="phone">
+          <div class="phone-top"><div class="phone-pill"></div></div>
+          <img src="screens/grupo.png" class="phone-img">
+          <div class="phone-bot"><div class="phone-bar"></div></div>
+        </div>
+        <div class="sdsc">Mais ativo, sequência em alta, maior rivalidade, jogo mais disputado e Top 3. Calculado automaticamente.</div>
+      </div>
+    </div>
+  </div>
+  <div class="pftr">
+    <div class="pftr-l">King BT · Beach Tennis Manager</div>
+    <div class="pftr-r">BEE MODE 🐝</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PÁG 4 — CALENDÁRIO + PERFIL
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="phdr z1">
+    <span class="phdr-num">04</span>
+    <span class="phdr-title">Calendário &amp; Perfil do Atleta</span>
+    <div class="phdr-logo">
+      <img src="screens/icon.png" class="phdr-bee" onerror="this.outerHTML='👑'">
+      King BT
+    </div>
+  </div>
+  <div class="pbody">
+    <div class="l2">
+      <div class="col">
+        <div class="slbl">Calendário</div>
+        <div class="phone">
+          <div class="phone-top"><div class="phone-pill"></div></div>
+          <img src="screens/calendario.png" class="phone-img">
+          <div class="phone-bot"><div class="phone-bar"></div></div>
+        </div>
+        <div class="sdsc">Visualização mensal com marcadores por sessão. Resumo de sessões, competições e partidas.</div>
+      </div>
+      <div class="col">
+        <div class="slbl">Perfil do Atleta</div>
+        <div class="phone">
+          <div class="phone-top"><div class="phone-pill"></div></div>
+          <img src="screens/perfil.png" class="phone-img">
+          <div class="phone-bot"><div class="phone-bar"></div></div>
+        </div>
+        <div class="sdsc">Pontuação King BT com fórmula detalhada, vitórias, derrotas, Game Average e aproveitamento.</div>
+      </div>
+    </div>
+  </div>
+  <div class="pftr">
+    <div class="pftr-l">King BT · Beach Tennis Manager</div>
+    <div class="pftr-r">BEE MODE 🐝</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PÁG 5 — CONQUISTAS + HALL
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="phdr z1">
+    <span class="phdr-num">05</span>
+    <span class="phdr-title">Conquistas &amp; Hall dos Campeões</span>
+    <div class="phdr-logo">
+      <img src="screens/icon.png" class="phdr-bee" onerror="this.outerHTML='👑'">
+      King BT
+    </div>
+  </div>
+  <div class="pbody">
+    <div class="l2">
+      <div class="col">
+        <div class="slbl">Conquistas &amp; Histórico</div>
+        <div class="phone">
+          <div class="phone-top"><div class="phone-pill"></div></div>
+          <img src="screens/perfil2.png" class="phone-img">
+          <div class="phone-bot"><div class="phone-bar"></div></div>
+        </div>
+        <div class="sdsc">Conquistas desbloqueadas, aproveitamento por formato, evolução de pontos e melhores parcerias.</div>
+      </div>
+      <div class="col">
+        <div class="slbl">Hall dos Campeões</div>
+        <div class="phone">
+          <div class="phone-top"><div class="phone-pill"></div></div>
+          <img src="screens/hall.png" class="phone-img">
+          <div class="phone-bot"><div class="phone-bar"></div></div>
+        </div>
+        <div class="sdsc">Campeões de cada competição e ranking histórico de títulos do grupo.</div>
+      </div>
+    </div>
+  </div>
+  <div class="pftr">
+    <div class="pftr-l">King BT · Beach Tennis Manager</div>
+    <div class="pftr-r">BEE MODE 🐝</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PÁG 6 — PASSO A PASSO DE USO
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="phdr z1">
+    <span class="phdr-num">06</span>
+    <span class="phdr-title">Como usar o App — Passo a Passo</span>
+    <div class="phdr-logo">
+      <img src="screens/icon.png" class="phdr-bee" onerror="this.outerHTML='👑'">
+      King BT
+    </div>
+  </div>
+  <div class="pbody">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-icon">📲</div>
+        <div class="step-body">
+          <div class="step-title">Baixar o app e criar conta</div>
+          <div class="step-desc">Instale o King BT pelo link/QR Code fornecido. Toque em "Criar conta", informe nome, e-mail e senha. Um perfil de atleta é criado automaticamente.</div>
+          <span class="step-tag">Expo Go ou APK instalado</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-icon">👥</div>
+        <div class="step-body">
+          <div class="step-title">Entrar no grupo King BT</div>
+          <div class="step-desc">Na tela inicial toque em "Entrar em um grupo". Digite o código <strong style="color:var(--gold)">KINGBT</strong>. Se você já tem um perfil registrado no grupo, o app pergunta se deseja vincular à sua conta.</div>
+          <span class="step-tag">Código do grupo: KINGBT</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-icon">🏆</div>
+        <div class="step-body">
+          <div class="step-title">Criar ou abrir uma competição</div>
+          <div class="step-desc">Na aba Competições toque em "+ Criar". Escolha o formato (Super 8, Liga, Avulso…), configure sets/games, selecione os participantes e crie ou agende para outro dia com confirmação de presença (RSVP).</div>
+          <span class="step-tag">Mínimo 2 jogadores · Qualquer membro pode criar</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-icon">🎾</div>
+        <div class="step-body">
+          <div class="step-title">Registrar os placares</div>
+          <div class="step-desc">Abra a competição → aba Jogos. Toque na partida, informe o placar (games de cada set) e confirme. O ranking atualiza automaticamente e o resultado aparece no Feed do grupo.</div>
+          <span class="step-tag">Ranking e feed atualizados em tempo real</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-icon">📣</div>
+        <div class="step-body">
+          <div class="step-title">Interagir no Feed</div>
+          <div class="step-desc">No Feed, veja os resultados do grupo, reaja com 👑🔥💪 e deixe comentários. Cada jogo registrado gera automaticamente um card no feed para todos do grupo.</div>
+          <span class="step-tag">Feed · Reações · Comentários</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-icon">📊</div>
+        <div class="step-body">
+          <div class="step-title">Acompanhar o Ranking e o Perfil</div>
+          <div class="step-desc">Na aba Ranking veja o pódio e a tabela completa. No seu Perfil acompanhe pontuação, aproveitamento, conquistas desbloqueadas, evolução de pontos e melhores parcerias.</div>
+          <span class="step-tag">Ranking · Perfil · Hall dos Campeões</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="pftr">
+    <div class="pftr-l">King BT · Beach Tennis Manager</div>
+    <div class="pftr-r">BEE MODE 🐝</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     PÁG 7 — FUNCIONALIDADES
+══════════════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="phdr z1">
+    <span class="phdr-num">07</span>
+    <span class="phdr-title">Funcionalidades</span>
+    <div class="phdr-logo">
+      <img src="screens/icon.png" class="phdr-bee" onerror="this.outerHTML='👑'">
+      King BT
+    </div>
+  </div>
+  <div class="pbody" style="display:flex;flex-direction:column;gap:12px;">
+    <div class="fgrid">
+      <div class="fcard fcard-gold">
+        <div class="ficon">🏆</div>
+        <div class="fname">5 Formatos de Competição</div>
+        <div class="fdesc">Liga, Grupos + Eliminatórias, Mata-mata, Super 8 (rotativos automáticos) e Avulso (registro manual de jogos avulsos).</div>
+      </div>
+      <div class="fcard fcard-teal">
+        <div class="ficon">📊</div>
+        <div class="fname">Ranking Dinâmico King BT</div>
+        <div class="fdesc">Fórmula: V×3 + J×0,5 + GA×2. Game Average = GP÷GC. Pódio com coroas animadas para o Top 3. Filtros por mês/ano/geral.</div>
+      </div>
+      <div class="fcard fcard-coral">
+        <div class="ficon">📣</div>
+        <div class="fname">Feed Social em Tempo Real</div>
+        <div class="fdesc">Cada jogo registrado gera um card automático com reações 👑🔥💪 e comentários. Atualização via Firestore.</div>
+      </div>
+      <div class="fcard fcard-blue">
+        <div class="ficon">📅</div>
+        <div class="fname">Calendário &amp; RSVP</div>
+        <div class="fdesc">Visualização mensal das sessões. Agendamento com confirmação de presença antes do início da competição.</div>
+      </div>
+      <div class="fcard fcard-pink">
+        <div class="ficon">👤</div>
+        <div class="fname">Perfil Completo do Atleta</div>
+        <div class="fdesc">Pontuação detalhada, conquistas desbloqueadas, evolução histórica de pontos, aproveitamento por formato e melhores parcerias.</div>
+      </div>
+      <div class="fcard fcard-gold">
+        <div class="ficon">👥</div>
+        <div class="fname">Painel do Grupo</div>
+        <div class="fdesc">Mais ativo, sequência em alta, maior rivalidade, jogo mais disputado e Top 3. Calculado automaticamente.</div>
+      </div>
+      <div class="fcard fcard-purp">
+        <div class="ficon">🥇</div>
+        <div class="fname">Hall dos Campeões</div>
+        <div class="fdesc">Histórico de campeões por competição e ranking de jogadores com mais títulos na história do grupo.</div>
+      </div>
+      <div class="fcard fcard-teal">
+        <div class="ficon">⚙️</div>
+        <div class="fname">Configuração Flexível</div>
+        <div class="fdesc">Categoria (Masc/Fem/Misto), Individual ou Duplas, sets, games e tie-break configuráveis. Mínimo 2 jogadores.</div>
+      </div>
+    </div>
+
+    <div class="tagline">
+      <div class="tl-sm">TREINE COM PROPÓSITO · JOGUE COM PAIXÃO · APRENDA COM CADA PONTO</div>
+      <div class="tl-big">👑 BEE MODE 🐝</div>
+    </div>
+  </div>
+  <div class="pftr">
+    <div class="pftr-l">King BT · Beach Tennis Manager · Junho 2026</div>
+    <div class="pftr-r">PLAY COM RESPEITO, EVOLUA SEMPRE.</div>
+  </div>
+</div>
+
+</body>
+</html>
