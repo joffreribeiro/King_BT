@@ -1,12 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
-import { PLAYERS } from '@/mocks/data';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
-import { buildRanking, type RankedPlayer } from '@/logic/scoring';
+import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 
 function Bar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
@@ -33,7 +32,7 @@ export default function PlayerDetailScreen() {
   const { state } = useCompetitions();
   const { groupPlayers } = useGroupPlayers();
 
-  const player = PLAYERS.find(p => p.id === id);
+  const player = groupPlayers.find(p => p.id === id);
   if (!player) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -81,12 +80,12 @@ export default function PlayerDetailScreen() {
       let opponents = '?';
       if (m.teamA && m.teamB) {
         const oppTeam = inA ? m.teamB : m.teamA;
-        opponents = oppTeam.map(pid => PLAYERS.find(p => p.id === pid)?.name.split(' ')[0] ?? pid).join(' / ');
+        opponents = oppTeam.map(pid => groupPlayers.find(p => p.id === pid)?.name.split(' ')[0] ?? pid).join(' / ');
       } else {
         const oppId = inA ? m.bId : m.aId;
         if (oppId) {
           const oppComp = comp.competitors.find(c => c.id === oppId);
-          opponents = oppComp?.name ?? PLAYERS.find(p => p.id === oppId)?.name ?? oppId;
+          opponents = oppComp?.name ?? groupPlayers.find(p => p.id === oppId)?.name ?? oppId;
         }
       }
 
@@ -244,7 +243,7 @@ export default function PlayerDetailScreen() {
           <Card>
             <Text style={styles.sectionTitle}>Confronto direto</Text>
             {h2hList.map(h => {
-              const opp = PLAYERS.find(p => p.id === h.oppId);
+              const opp = groupPlayers.find(p => p.id === h.oppId);
               const oppName = opp?.name ?? h.oppId;
               const oppColor = opp?.color ?? Colors.muted;
               const rate = h.total > 0 ? Math.round((h.wins / h.total) * 100) : 0;
