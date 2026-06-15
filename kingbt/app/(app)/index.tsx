@@ -7,7 +7,6 @@ import { Avatar, Badge, Card } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
-import { PLAYERS } from '@/mocks/data';
 import type { Competition, Format } from '@/logic/types';
 import { competitionChampion as getChampion } from '@/logic/formats';
 import { computeStreak } from '@/logic/streak';
@@ -189,7 +188,8 @@ function CompCard({ comp, onDelete, onClone }: {
 export default function HubScreen() {
   const { state, dispatch } = useCompetitions();
   const { group, isAdmin, myPlayerId } = useAuth();
-  const me = PLAYERS[0];
+  const { groupPlayers } = useGroupPlayers();
+  const me = groupPlayers.find(p => p.id === myPlayerId);
 
   const myStreak = computeStreak(state.competitions, myPlayerId ?? '');
 
@@ -247,7 +247,7 @@ export default function HubScreen() {
                   </View>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => router.push('/(app)/profile')}>
-                  <Avatar name={me.name} color={me.color} size={40} />
+                  <Avatar name={me?.name ?? '?'} color={me?.color ?? Colors.gold} size={40} />
                 </TouchableOpacity>
               </View>
             </View>
