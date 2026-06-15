@@ -40,7 +40,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/kingbt-icon-final.png",
-          "imageWidth": 400,
+          "imageWidth": 800,
           "resizeMode": "contain",
           "backgroundColor": "#0B0B0D"
         }

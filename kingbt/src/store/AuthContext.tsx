@@ -55,6 +55,7 @@ export interface UnlinkedPlayer {
 
 type AuthContextType = AuthState & {
   myPlayerId: string | null;
+  playerLoading: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (name: string, email: string, password: string) => Promise<void>;
@@ -79,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
+  const [playerLoading, setPlayerLoading] = useState(true);
 
   // Captura resultado do redirect do Google (web only)
   useEffect(() => {
@@ -101,14 +103,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Escuta mudanças de auth
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
-      console.log('[Auth] onAuthStateChanged:', u?.uid ?? 'null');
       setUser(u);
       if (u) {
         const userDoc = await getDoc(doc(db, 'users', u.uid));
-        console.log('[Auth] userDoc exists:', userDoc.exists(), userDoc.data());
         if (userDoc.exists()) {
           const { groupId, groupIds } = userDoc.data();
-          // Garante que o grupo atual está salvo no histórico
           if (groupId) {
             const prevIds: string[] = groupIds ?? [];
             if (!prevIds.includes(groupId)) {
@@ -125,13 +124,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               const playersSnap = await getDocs(collection(db, 'groups', groupId, 'players'));
               const myPlayer = playersSnap.docs.find(d => d.data().uid === u.uid);
               setMyPlayerId(myPlayer?.id ?? null);
+              setPlayerLoading(false);
+            } else {
+              setPlayerLoading(false);
             }
+          } else {
+            setPlayerLoading(false);
           }
+        } else {
+          setPlayerLoading(false);
         }
         setLoading(false);
       } else {
         setGroup(null);
         setMyPlayerId(null);
+        setPlayerLoading(false);
         setLoading(false);
       }
     });
@@ -368,7 +375,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Ctx.Provider value={{ user, group, isAdmin, loading, error, myPlayerId, signInWithGoogle, signInWithEmail, signUpWithEmail, joinGroup, linkToPlayer, createGroup, leaveGroup, switchGroup, getMyGroups, logout, clearError: () => setError(null), promoteToAdmin, removeFromGroup }}>
+    <Ctx.Provider value={{ user, group, isAdmin, loading, error, myPlayerId, playerLoading, signInWithGoogle, signInWithEmail, signUpWithEmail, joinGroup, linkToPlayer, createGroup, leaveGroup, switchGroup, getMyGroups, logout, clearError: () => setError(null), promoteToAdmin, removeFromGroup }}>
       {children}
     </Ctx.Provider>
   );
