@@ -9,6 +9,7 @@ import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { useAuth, type UnlinkedPlayer } from '@/store/AuthContext';
 
 type Mode = 'join' | 'create';
+type LinkMode = 'ask' | 'search' | 'list';
 
 export default function JoinGroupScreen() {
   const { user, group, loading, joinGroup, linkToPlayer, createGroup, logout, error, clearError } = useAuth();
@@ -22,6 +23,9 @@ export default function JoinGroupScreen() {
   const [unlinked, setUnlinked]     = useState<UnlinkedPlayer[]>([]);
   const [showLink, setShowLink]     = useState(false);
   const [linkBusy, setLinkBusy]     = useState(false);
+  const [linkMode, setLinkMode]     = useState<LinkMode>('ask');
+  const [searchName, setSearchName] = useState('');
+  const [searchError, setSearchError] = useState('');
 
   useEffect(() => {
     if (loading) return;
@@ -36,10 +40,11 @@ export default function JoinGroupScreen() {
     setBusy(false);
     if (result.unlinkedPlayers.length > 0) {
       setUnlinked(result.unlinkedPlayers);
+      setLinkMode('ask');
+      setSearchName('');
+      setSearchError('');
       setShowLink(true);
     }
-    // Se não há jogadores sem vínculo, o joinGroup já criou um player novo
-    // e o useEffect acima vai redirecionar
   }
 
   async function handleCreate() {
@@ -55,14 +60,21 @@ export default function JoinGroupScreen() {
     await linkToPlayer(playerId);
     setLinkBusy(false);
     setShowLink(false);
-    // o group já está setado, o useEffect vai redirecionar
+  }
+
+  async function handleLinkByName() {
+    const trimmed = searchName.trim().toLowerCase();
+    if (!trimmed) return;
+    const match = unlinked.find(p => p.name.trim().toLowerCase() === trimmed);
+    if (!match) {
+      setSearchError('Nenhum perfil encontrado com esse nome. Verifique a grafia ou crie um novo.');
+      return;
+    }
+    setSearchError('');
+    await handleLinkTo(match.id);
   }
 
   async function handleCreateNew() {
-    // Vincula a um player "novo" passando o uid como playerId — linkToPlayer
-    // vai criar o doc se não existir via setDoc merge, mas precisamos criar primeiro
-    // Usamos linkToPlayer com um ID fictício? Não — precisamos criar o player explicitamente.
-    // Solução: joinGroup já retornou o group setado; criamos o player diretamente aqui.
     if (!user || !group) return;
     setLinkBusy(true);
     try {
@@ -76,7 +88,6 @@ export default function JoinGroupScreen() {
         color: '#FFD166',
         guest: false,
       });
-      // Força atualização do myPlayerId no contexto via linkToPlayer
       await linkToPlayer(user.uid);
     } catch {}
     setLinkBusy(false);
@@ -138,7 +149,7 @@ export default function JoinGroupScreen() {
                   style={styles.input}
                   value={code}
                   onChangeText={t => { setCode(t.toUpperCase()); clearError(); }}
-                  placeholder="Ex: KINGBT"
+                  placeholder="Código do grupo"
                   placeholderTextColor={Colors.faint}
                   autoCapitalize="characters"
                   autoCorrect={false}
@@ -208,40 +219,111 @@ export default function JoinGroupScreen() {
       <Modal visible={showLink} transparent animationType="slide" onRequestClose={() => {}}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Você já está no grupo?</Text>
-            <Text style={styles.modalSubtitle}>
-              Selecione seu perfil para vincular ao seu login, ou crie um novo.
-            </Text>
 
-            <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
-              {unlinked.map(p => (
+            {/* ── Pergunta inicial ── */}
+            {linkMode === 'ask' && (
+              <>
+                <Text style={styles.modalTitle}>Você já está no grupo?</Text>
+                <Text style={styles.modalSubtitle}>
+                  Se você já jogou neste grupo antes, vincule seu perfil existente. Caso contrário, crie um novo.
+                </Text>
+
                 <TouchableOpacity
-                  key={p.id}
-                  style={styles.playerRow}
-                  onPress={() => handleLinkTo(p.id)}
-                  disabled={linkBusy}
-                  activeOpacity={0.75}
+                  style={styles.btnPrimary}
+                  onPress={() => setLinkMode('search')}
+                  activeOpacity={0.85}
                 >
-                  <View style={[styles.playerDot, { backgroundColor: p.color }]} />
-                  <Text style={styles.playerName}>{p.name}</Text>
-                  <Text style={styles.playerArrow}>→</Text>
+                  <Text style={styles.btnText}>✅  Sim, já tenho perfil</Text>
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
 
-            <View style={styles.modalDivider} />
+                <TouchableOpacity
+                  style={[styles.btnOutline, linkBusy && styles.btnDisabled]}
+                  onPress={handleCreateNew}
+                  disabled={linkBusy}
+                  activeOpacity={0.8}
+                >
+                  {linkBusy
+                    ? <ActivityIndicator color={Colors.gold} />
+                    : <Text style={styles.btnOutlineText}>+ Criar novo perfil</Text>
+                  }
+                </TouchableOpacity>
+              </>
+            )}
 
-            <TouchableOpacity
-              style={[styles.btnOutline, linkBusy && styles.btnDisabled]}
-              onPress={handleCreateNew}
-              disabled={linkBusy}
-              activeOpacity={0.8}
-            >
-              {linkBusy
-                ? <ActivityIndicator color={Colors.gold} />
-                : <Text style={styles.btnOutlineText}>+ Criar novo perfil</Text>
-              }
-            </TouchableOpacity>
+            {/* ── Busca por nome ── */}
+            {linkMode === 'search' && (
+              <>
+                <TouchableOpacity onPress={() => { setLinkMode('ask'); setSearchName(''); setSearchError(''); }} style={styles.backBtn}>
+                  <Text style={styles.backText}>← Voltar</Text>
+                </TouchableOpacity>
+                <Text style={styles.modalTitle}>Qual é o seu nome no grupo?</Text>
+                <Text style={styles.modalSubtitle}>
+                  Digite seu nome exatamente como aparece no grupo.
+                </Text>
+
+                <TextInput
+                  style={styles.searchInput}
+                  value={searchName}
+                  onChangeText={t => { setSearchName(t); setSearchError(''); }}
+                  placeholder="Seu nome no grupo"
+                  placeholderTextColor={Colors.faint}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  autoFocus
+                />
+
+                {searchError !== '' && (
+                  <View style={styles.errorBox}>
+                    <Text style={styles.errorText}>{searchError}</Text>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.btnPrimary, (!searchName.trim() || linkBusy) && styles.btnDisabled]}
+                  onPress={handleLinkByName}
+                  disabled={!searchName.trim() || linkBusy}
+                  activeOpacity={0.85}
+                >
+                  {linkBusy
+                    ? <ActivityIndicator color={Colors.bg} />
+                    : <Text style={styles.btnText}>Vincular perfil</Text>
+                  }
+                </TouchableOpacity>
+
+                <View style={styles.modalDivider} />
+
+                <TouchableOpacity onPress={() => setLinkMode('list')} activeOpacity={0.7}>
+                  <Text style={styles.linkText}>Ver todos os perfis disponíveis</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {/* ── Lista completa ── */}
+            {linkMode === 'list' && (
+              <>
+                <TouchableOpacity onPress={() => setLinkMode('search')} style={styles.backBtn}>
+                  <Text style={styles.backText}>← Voltar</Text>
+                </TouchableOpacity>
+                <Text style={styles.modalTitle}>Selecione seu perfil</Text>
+
+                <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+                  {unlinked.map(p => (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={styles.playerRow}
+                      onPress={() => handleLinkTo(p.id)}
+                      disabled={linkBusy}
+                      activeOpacity={0.75}
+                    >
+                      <View style={[styles.playerDot, { backgroundColor: p.color }]} />
+                      <Text style={styles.playerName}>{p.name}</Text>
+                      <Text style={styles.playerArrow}>→</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </>
+            )}
+
           </View>
         </View>
       </Modal>
@@ -279,6 +361,12 @@ const styles = StyleSheet.create({
   btnText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg },
   logoutBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   logoutText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.faint },
+
+  backBtn: { paddingBottom: Spacing.xs },
+  backText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.teal },
+  linkText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.gold, textAlign: 'center' },
+
+  searchInput: { backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, fontFamily: FontFamily.body, fontSize: 16, color: Colors.text },
 
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
