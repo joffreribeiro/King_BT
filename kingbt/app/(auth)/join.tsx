@@ -242,6 +242,10 @@ export default function JoinGroupScreen() {
 
       {/* Modal: selecionar perfil existente */}
       <Modal visible={showLink} transparent animationType="slide" onRequestClose={() => {}}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
 
@@ -383,6 +387,7 @@ export default function JoinGroupScreen() {
 
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

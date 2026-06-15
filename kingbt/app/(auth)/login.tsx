@@ -55,7 +55,7 @@ export default function LoginScreen() {
 
           {/* Logo */}
           <View style={styles.logoWrap}>
-            <Image source={require('../../assets/kingbt-logo.png')} style={styles.logo} resizeMode="contain" />
+            <Image source={require('../../assets/kingbt-icon.png')} style={styles.logo} resizeMode="contain" />
           </View>
 
           {/* Erro */}
