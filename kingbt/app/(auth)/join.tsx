@@ -9,7 +9,7 @@ import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { useAuth, type UnlinkedPlayer } from '@/store/AuthContext';
 
 type Mode = 'join' | 'create';
-type LinkMode = 'ask' | 'search' | 'list';
+type LinkMode = 'ask' | 'search' | 'list' | 'create';
 
 export default function JoinGroupScreen() {
   const { user, group, loading, joinGroup, linkToPlayer, createGroup, logout, error, clearError } = useAuth();
@@ -26,6 +26,7 @@ export default function JoinGroupScreen() {
   const [linkMode, setLinkMode]     = useState<LinkMode>('ask');
   const [searchName, setSearchName] = useState('');
   const [searchError, setSearchError] = useState('');
+  const [newProfileName, setNewProfileName] = useState('');
 
   useEffect(() => {
     if (loading) return;
@@ -38,7 +39,7 @@ export default function JoinGroupScreen() {
     clearError();
     const result = await joinGroup(code.trim());
     setBusy(false);
-    if (result.unlinkedPlayers.length > 0) {
+    if (result.needsLink) {
       setUnlinked(result.unlinkedPlayers);
       setLinkMode('ask');
       setSearchName('');
@@ -76,6 +77,7 @@ export default function JoinGroupScreen() {
 
   async function handleCreateNew() {
     if (!user || !group) return;
+    const profileName = newProfileName.trim() || user.displayName || 'Jogador';
     setLinkBusy(true);
     try {
       const [{ doc, setDoc }, { db }] = await Promise.all([
@@ -83,7 +85,7 @@ export default function JoinGroupScreen() {
         import('@/firebase/config'),
       ]);
       await setDoc(doc(db, 'groups', group.id, 'players', user.uid), {
-        name: user.displayName ?? 'Jogador',
+        name: profileName,
         uid: user.uid,
         color: '#FFD166',
         guest: false,
@@ -223,9 +225,9 @@ export default function JoinGroupScreen() {
             {/* ── Pergunta inicial ── */}
             {linkMode === 'ask' && (
               <>
-                <Text style={styles.modalTitle}>Você já está no grupo?</Text>
+                <Text style={styles.modalTitle}>Você já jogou neste grupo?</Text>
                 <Text style={styles.modalSubtitle}>
-                  Se você já jogou neste grupo antes, vincule seu perfil existente. Caso contrário, crie um novo.
+                  Se já jogou antes, vincule seu perfil existente. Caso contrário, crie um novo.
                 </Text>
 
                 <TouchableOpacity
@@ -237,14 +239,46 @@ export default function JoinGroupScreen() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.btnOutline, linkBusy && styles.btnDisabled]}
-                  onPress={handleCreateNew}
-                  disabled={linkBusy}
+                  style={styles.btnOutline}
+                  onPress={() => { setNewProfileName(''); setLinkMode('create'); }}
                   activeOpacity={0.8}
                 >
+                  <Text style={styles.btnOutlineText}>+ Não, criar novo perfil</Text>
+                </TouchableOpacity>
+              </>
+            )}
+
+            {/* ── Criar novo perfil ── */}
+            {linkMode === 'create' && (
+              <>
+                <TouchableOpacity onPress={() => setLinkMode('ask')} style={styles.backBtn}>
+                  <Text style={styles.backText}>← Voltar</Text>
+                </TouchableOpacity>
+                <Text style={styles.modalTitle}>Como você quer ser chamado?</Text>
+                <Text style={styles.modalSubtitle}>
+                  Digite o nome que vai aparecer no ranking e nas competições.
+                </Text>
+
+                <TextInput
+                  style={styles.searchInput}
+                  value={newProfileName}
+                  onChangeText={setNewProfileName}
+                  placeholder="Seu nome no grupo"
+                  placeholderTextColor={Colors.faint}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  autoFocus
+                />
+
+                <TouchableOpacity
+                  style={[styles.btnPrimary, (!newProfileName.trim() || linkBusy) && styles.btnDisabled]}
+                  onPress={handleCreateNew}
+                  disabled={!newProfileName.trim() || linkBusy}
+                  activeOpacity={0.85}
+                >
                   {linkBusy
-                    ? <ActivityIndicator color={Colors.gold} />
-                    : <Text style={styles.btnOutlineText}>+ Criar novo perfil</Text>
+                    ? <ActivityIndicator color={Colors.bg} />
+                    : <Text style={styles.btnText}>Criar perfil</Text>
                   }
                 </TouchableOpacity>
               </>

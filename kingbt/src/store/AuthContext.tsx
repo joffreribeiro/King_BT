@@ -58,7 +58,7 @@ type AuthContextType = AuthState & {
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (name: string, email: string, password: string) => Promise<void>;
-  joinGroup: (code: string) => Promise<{ unlinkedPlayers: UnlinkedPlayer[] }>;
+  joinGroup: (code: string) => Promise<{ unlinkedPlayers: UnlinkedPlayer[]; needsLink?: boolean }>;
   linkToPlayer: (playerId: string) => Promise<void>;
   createGroup: (name: string) => Promise<void>;
   leaveGroup: () => Promise<void>;
@@ -246,7 +246,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .filter(d => !d.data().uid)
         .map(d => ({ id: d.id, name: d.data().name ?? '?', color: d.data().color ?? '#FFD166' }));
 
-      return { unlinkedPlayers: unlinked };
+      // Sempre retorna needsLink=true quando usuário não tem player vinculado
+      return { unlinkedPlayers: unlinked, needsLink: true };
     } catch (e: any) {
       setError('Erro ao entrar no grupo. Tente novamente.');
       return { unlinkedPlayers: [] };
