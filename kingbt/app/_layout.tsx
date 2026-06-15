@@ -1,7 +1,6 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import {
   useFonts,
@@ -25,6 +24,8 @@ import { FeedProvider } from '@/store/FeedContext';
 import { SyncQueueProvider } from '@/store/SyncQueueContext';
 
 SplashScreen.preventAutoHideAsync();
+// Timeout de segurança: esconde a splash em no máximo 5s independente das fontes
+setTimeout(() => SplashScreen.hideAsync().catch(() => {}), 5000);
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -39,12 +40,8 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) SplashScreen.hideAsync();
+    if (fontsLoaded || fontError) SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded, fontError]);
-
-  if (!fontsLoaded && !fontError) {
-    return <View style={{ flex: 1, backgroundColor: Colors.bg }} />;
-  }
 
   return (
     <AuthProvider>

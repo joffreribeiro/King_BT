@@ -4,7 +4,7 @@
     "slug": "kingbt",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/kingbt-icon-final.png",
+    "icon": "./assets/kingbt-icon.png",
     "scheme": "kingbt",
     "userInterfaceStyle": "dark",
     "sdkVersion": "54.0.0",
@@ -12,7 +12,7 @@
       "icon": "./assets/kingbt-icon-notif.png"
     },
     "splash": {
-      "image": "./assets/kingbt-icon-final.png",
+      "image": "./assets/kingbt-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0B0B0D"
     },
@@ -24,7 +24,7 @@
       "package": "com.kingbt.app",
       "adaptiveIcon": {
         "backgroundColor": "#0B0B0D",
-        "foregroundImage": "./assets/kingbt-icon-final.png"
+        "foregroundImage": "./assets/kingbt-icon.png"
       }
     },
     "web": {
@@ -39,7 +39,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/kingbt-icon-final.png",
+          "image": "./assets/kingbt-icon.png",
           "imageWidth": 800,
           "resizeMode": "contain",
           "backgroundColor": "#0B0B0D"

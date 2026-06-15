@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
-  const [playerLoading, setPlayerLoading] = useState(true);
+  const [playerLoading, setPlayerLoading] = useState(false);
 
   // Captura resultado do redirect do Google (web only)
   useEffect(() => {
@@ -102,47 +102,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Escuta mudanças de auth
   useEffect(() => {
+    // Timeout de segurança: se o auth demorar mais de 10s, libera o loading
+    const safetyTimer = setTimeout(() => setLoading(false), 10000);
+
     const unsub = onAuthStateChanged(auth, async (u) => {
+      clearTimeout(safetyTimer);
       setUser(u);
       if (u) {
-        const userDoc = await getDoc(doc(db, 'users', u.uid));
-        if (userDoc.exists()) {
-          const { groupId, groupIds } = userDoc.data();
-          if (groupId) {
-            const prevIds: string[] = groupIds ?? [];
-            if (!prevIds.includes(groupId)) {
-              await setDoc(doc(db, 'users', u.uid), { groupIds: [...prevIds, groupId] }, { merge: true });
+        try {
+          const userDoc = await getDoc(doc(db, 'users', u.uid));
+          if (userDoc.exists()) {
+            const { groupId, groupIds } = userDoc.data();
+            if (groupId) {
+              const prevIds: string[] = groupIds ?? [];
+              if (!prevIds.includes(groupId)) {
+                await setDoc(doc(db, 'users', u.uid), { groupIds: [...prevIds, groupId] }, { merge: true });
+              }
+              const groupDoc = await getDoc(doc(db, 'groups', groupId));
+              if (groupDoc.exists()) {
+                const gData = groupDoc.data();
+                const g = { id: groupDoc.id, ...gData } as Group;
+                setGroup(g);
+                const admins: string[] = gData.admins ?? [];
+                setIsAdmin(admins.includes(u.uid));
+                const playersSnap = await getDocs(collection(db, 'groups', groupId, 'players'));
+                const myPlayer = playersSnap.docs.find(d => d.data().uid === u.uid);
+                setMyPlayerId(myPlayer?.id ?? null);
+              }
             }
-            const groupDoc = await getDoc(doc(db, 'groups', groupId));
-            if (groupDoc.exists()) {
-              const gData = groupDoc.data();
-              const g = { id: groupDoc.id, ...gData } as Group;
-              setGroup(g);
-              const admins: string[] = gData.admins ?? [];
-              setIsAdmin(admins.includes(u.uid));
-              // Resolve o playerId do usuário no grupo
-              const playersSnap = await getDocs(collection(db, 'groups', groupId, 'players'));
-              const myPlayer = playersSnap.docs.find(d => d.data().uid === u.uid);
-              setMyPlayerId(myPlayer?.id ?? null);
-              setPlayerLoading(false);
-            } else {
-              setPlayerLoading(false);
-            }
-          } else {
-            setPlayerLoading(false);
           }
-        } else {
-          setPlayerLoading(false);
+        } catch (e) {
+          // erro de rede — continua sem grupo
         }
         setLoading(false);
       } else {
         setGroup(null);
         setMyPlayerId(null);
-        setPlayerLoading(false);
         setLoading(false);
       }
     });
-    return unsub;
+    return () => { clearTimeout(safetyTimer); unsub(); };
   }, []);
 
   async function signInWithGoogle() {

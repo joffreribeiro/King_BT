@@ -41,8 +41,25 @@ export default function ProfileScreen() {
   const { state } = useCompetitions();
   const { logout, leaveGroup, group, user, isAdmin, myPlayerId } = useAuth();
   const { groupPlayers, findPlayer } = useGroupPlayers();
-  const MY_ID = myPlayerId ?? groupPlayers[0]?.id ?? '';
-  const player = groupPlayers.find(p => p.id === MY_ID) ?? groupPlayers[0];
+  const MY_ID = myPlayerId ?? '';
+  const player = groupPlayers.find(p => p.id === MY_ID) ?? null;
+
+  if (!player) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text, textAlign: 'center', marginBottom: 12 }}>
+          Perfil não vinculado
+        </Text>
+        <Text style={{ fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, textAlign: 'center', marginBottom: 24 }}>
+          Saia do grupo e entre novamente para vincular seu perfil.
+        </Text>
+        <TouchableOpacity onPress={logout} style={{ backgroundColor: Colors.gold, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32 }}>
+          <Text style={{ fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg }}>Sair da conta</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
   const [showAddGuest, setShowAddGuest] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [guestName, setGuestName] = useState('');

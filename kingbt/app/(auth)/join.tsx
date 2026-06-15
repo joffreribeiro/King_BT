@@ -31,16 +31,10 @@ export default function JoinGroupScreen() {
 
   useEffect(() => {
     if (loading) return;
-    if (user && group) {
-      if (myPlayerId !== null) {
-        router.replace('/(app)');
-      } else if (!modalOpened) {
-        // Já tem grupo mas não tem player — abre modal uma única vez
-        setModalOpened(true);
-        openLinkModal();
-      }
+    if (user && group && myPlayerId !== null && !showLink) {
+      router.replace('/(app)');
     }
-  }, [loading, user, group, myPlayerId]);
+  }, [loading, user, group, myPlayerId, showLink]);
 
   async function openLinkModal() {
     if (!group) return;

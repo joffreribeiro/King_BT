@@ -2,6 +2,9 @@
   "permissions": {
     "additionalDirectories": [
       "C:\\Users\\Joffre\\.claude"
+    ],
+    "allow": [
+      "Read(//d/KINGBT/android/**)"
     ]
   }
 }
