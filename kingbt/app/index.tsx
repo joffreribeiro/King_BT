@@ -5,18 +5,17 @@ import { useAuth } from '@/store/AuthContext';
 import { Colors } from '@/theme';
 
 export default function Root() {
-  const { user, group, loading } = useAuth();
+  const { user, group, loading, myPlayerId } = useAuth();
   const router = useRouter();
-
-  console.log('[Root] render - loading:', loading, 'user:', user?.uid ?? 'null', 'group:', group?.id ?? 'null');
 
   useEffect(() => {
     if (loading) return;
-    console.log('[Root] navigating - user:', user?.uid ?? 'null', 'group:', group?.id ?? 'null');
-    if (!user) router.replace('/(auth)/login');
-    else if (!group) router.replace('/(auth)/join');
-    else router.replace('/(app)');
-  }, [loading, user, group]);
+    if (!user) { router.replace('/(auth)/login'); return; }
+    if (!group) { router.replace('/(auth)/join'); return; }
+    // Usuário tem grupo mas ainda não tem perfil vinculado → mostrar modal de seleção
+    if (myPlayerId === null) { router.replace('/(auth)/join'); return; }
+    router.replace('/(app)');
+  }, [loading, user, group, myPlayerId]);
 
   return <View style={{ flex: 1, backgroundColor: Colors.bg }} />;
 }

@@ -12,7 +12,7 @@ type Mode = 'join' | 'create';
 type LinkMode = 'ask' | 'search' | 'list' | 'create';
 
 export default function JoinGroupScreen() {
-  const { user, group, loading, joinGroup, linkToPlayer, createGroup, logout, error, clearError } = useAuth();
+  const { user, group, loading, myPlayerId, joinGroup, linkToPlayer, createGroup, logout, error, clearError } = useAuth();
   const router = useRouter();
   const [mode, setMode]   = useState<Mode>('join');
   const [code, setCode]   = useState('');
@@ -20,8 +20,9 @@ export default function JoinGroupScreen() {
   const [busy, setBusy]   = useState(false);
 
   // Modal de vínculo de perfil
-  const [unlinked, setUnlinked]     = useState<UnlinkedPlayer[]>([]);
-  const [showLink, setShowLink]     = useState(false);
+  const [unlinked, setUnlinked]         = useState<UnlinkedPlayer[]>([]);
+  const [showLink, setShowLink]         = useState(false);
+  const [modalOpened, setModalOpened]   = useState(false);
   const [linkBusy, setLinkBusy]     = useState(false);
   const [linkMode, setLinkMode]     = useState<LinkMode>('ask');
   const [searchName, setSearchName] = useState('');
@@ -30,8 +31,35 @@ export default function JoinGroupScreen() {
 
   useEffect(() => {
     if (loading) return;
-    if (user && group) router.replace('/(app)');
-  }, [loading, user, group]);
+    if (user && group) {
+      if (myPlayerId !== null) {
+        router.replace('/(app)');
+      } else if (!modalOpened) {
+        // Já tem grupo mas não tem player — abre modal uma única vez
+        setModalOpened(true);
+        openLinkModal();
+      }
+    }
+  }, [loading, user, group, myPlayerId]);
+
+  async function openLinkModal() {
+    if (!group) return;
+    try {
+      const [{ collection, getDocs }, { db }] = await Promise.all([
+        import('firebase/firestore'),
+        import('@/firebase/config'),
+      ]);
+      const playersSnap = await getDocs(collection(db, 'groups', group.id, 'players'));
+      const unlinkedList = playersSnap.docs
+        .filter(d => !d.data().uid)
+        .map(d => ({ id: d.id, name: d.data().name ?? '?', color: d.data().color ?? '#FFD166' }));
+      setUnlinked(unlinkedList);
+      setLinkMode('ask');
+      setSearchName('');
+      setSearchError('');
+      setShowLink(true);
+    } catch {}
+  }
 
   async function handleJoin() {
     if (!code.trim()) return;
@@ -44,6 +72,7 @@ export default function JoinGroupScreen() {
       setLinkMode('ask');
       setSearchName('');
       setSearchError('');
+      setModalOpened(true);
       setShowLink(true);
     }
   }

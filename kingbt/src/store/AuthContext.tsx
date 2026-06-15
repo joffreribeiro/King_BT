@@ -233,20 +233,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const admins: string[] = groupData.admins ?? [];
       setIsAdmin(admins.includes(user.uid));
 
-      // Verifica se o usuário já tem player vinculado
+      // Verifica se o usuário já tem player vinculado (cadastro anterior no mesmo grupo)
       const playersSnap = await getDocs(collection(db, 'groups', groupId, 'players'));
       const myPlayer = playersSnap.docs.find(d => d.data().uid === user.uid);
       if (myPlayer) {
+        // Já tem player vinculado — entra direto sem perguntar
         setMyPlayerId(myPlayer.id);
-        return { unlinkedPlayers: [] };
+        return { unlinkedPlayers: [], needsLink: false };
       }
 
-      // Retorna jogadores sem conta vinculada (guests ou sem uid) para o usuário escolher
+      // Usuário novo no grupo — retorna jogadores sem uid para vincular
       const unlinked: UnlinkedPlayer[] = playersSnap.docs
         .filter(d => !d.data().uid)
         .map(d => ({ id: d.id, name: d.data().name ?? '?', color: d.data().color ?? '#FFD166' }));
 
-      // Sempre retorna needsLink=true quando usuário não tem player vinculado
+      // Sempre mostra o modal para o usuário escolher/criar perfil
       return { unlinkedPlayers: unlinked, needsLink: true };
     } catch (e: any) {
       setError('Erro ao entrar no grupo. Tente novamente.');
