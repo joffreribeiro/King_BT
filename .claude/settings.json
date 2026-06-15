@@ -1,10 +1,11 @@
 {
   "permissions": {
+    "allow": [
+      "Read(//d/KINGBT/android/**)",
+      "Read(//d/KINGBT/app/player/**)"
+    ],
     "additionalDirectories": [
       "C:\\Users\\Joffre\\.claude"
-    ],
-    "allow": [
-      "Read(//d/KINGBT/android/**)"
     ]
   }
 }

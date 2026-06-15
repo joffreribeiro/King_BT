@@ -131,9 +131,11 @@ export default function ProfileScreen() {
   const matchHistory: Array<{
     compName: string;
     opponents: string;
+    partner: string | null;
     myScore: number;
     oppScore: number;
     won: boolean;
+    isTeam: boolean;
   }> = [];
 
   state.competitions.forEach(comp => {
@@ -146,11 +148,16 @@ export default function ProfileScreen() {
       const myScore  = inA ? m.scoreA : m.scoreB;
       const oppScore = inA ? m.scoreB : m.scoreA;
       const won = myScore > oppScore;
+      const isTeam = !!(m.teamA && m.teamB);
 
       let opponents = '?';
+      let partner: string | null = null;
       if (m.teamA && m.teamB) {
+        const myTeam  = inA ? m.teamA : m.teamB;
         const oppTeam = inA ? m.teamB : m.teamA;
         opponents = oppTeam.map(pid => findPlayer(pid)?.name.split(' ')[0] ?? pid).join(' / ');
+        const partnerId = myTeam.find(pid => pid !== MY_ID);
+        if (partnerId) partner = findPlayer(partnerId)?.name.split(' ')[0] ?? partnerId;
       } else {
         const oppId = inA ? m.bId : m.aId;
         if (oppId) {
@@ -159,10 +166,43 @@ export default function ProfileScreen() {
         }
       }
 
-      matchHistory.push({ compName: comp.name, opponents, myScore, oppScore, won });
+      matchHistory.push({ compName: comp.name, opponents, partner, myScore, oppScore, won, isTeam });
     });
   });
   matchHistory.reverse();
+
+  // Últimos 20 jogos
+  const last20 = matchHistory.slice(0, 20);
+  const last20Wins = last20.filter(g => g.won).length;
+  const last20Losses = last20.filter(g => !g.won).length;
+
+  const simplesGames = last20.filter(g => !g.isTeam);
+  const duplasGames  = last20.filter(g => g.isTeam);
+  const formatBreakdown = [
+    { label: 'Simples', wins: simplesGames.filter(g => g.won).length, losses: simplesGames.filter(g => !g.won).length },
+    { label: 'Duplas',  wins: duplasGames.filter(g => g.won).length,  losses: duplasGames.filter(g => !g.won).length },
+  ];
+
+  // Jogos por mês nos últimos 12 meses
+  const now = new Date();
+  const monthlyData: { label: string; count: number }[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const shortMonth = d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+    const label = `${shortMonth}/${String(d.getFullYear()).slice(2)}`;
+    const count = state.competitions.flatMap(c =>
+      c.matches.map(m => ({ m, compDate: c.date ?? '' }))
+    ).filter(({ m, compDate }) => {
+      if (m.scoreA == null) return false;
+      const inA = m.teamA ? m.teamA.includes(MY_ID) : m.aId === MY_ID;
+      const inB = m.teamB ? m.teamB.includes(MY_ID) : m.bId === MY_ID;
+      const date = m.playedAt ?? compDate;
+      return (inA || inB) && date.startsWith(key);
+    }).length;
+    monthlyData.push({ label, count });
+  }
+  const maxMonthly = Math.max(...monthlyData.map(m => m.count), 1);
 
   // Evolution chart: pontos do jogador por competição
   const screenW = Dimensions.get('window').width - Spacing.md * 2 - Spacing.md * 2 - 32;
@@ -185,6 +225,7 @@ export default function ProfileScreen() {
       return { label, pts };
     })
     .filter(Boolean) as { label: string; pts: number }[];
+  evoPoints.reverse();
 
   // Best partnerships
   type PairInfo = { partnerId: string; wins: number; losses: number; played: number };
@@ -217,6 +258,8 @@ export default function ProfileScreen() {
   const formatStats = computeFormatStats(state.competitions, MY_ID);
   const rivalries = computeRivalries(MY_ID, state.competitions);
 
+  if (!me) return null;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
@@ -227,7 +270,7 @@ export default function ProfileScreen() {
             <Avatar
               name={player?.name ?? '?'}
               color={player?.color ?? '#FFD166'}
-              size={88}
+              size={70}
               showCrown={myPos === 1}
             />
             <Text style={styles.name}>{player?.name ?? user?.displayName ?? 'Jogador'}</Text>
@@ -243,9 +286,6 @@ export default function ProfileScreen() {
         <Card elevated style={styles.ptsCard}>
           <Text style={styles.ptsLabel}>PONTUAÇÃO KING BT</Text>
           <Text style={styles.ptsVal}>{me.points.toFixed(2)}</Text>
-          <Text style={styles.ptsEq}>
-            ({me.wins}×3) + ({me.played}×0,5) + ({me.ga.toFixed(2)}×2)
-          </Text>
         </Card>
 
         {/* Linha de stats compacta */}
@@ -269,31 +309,22 @@ export default function ProfileScreen() {
           </View>
         </Card>
 
-        {/* Forma recente */}
-        {(() => {
-          const recentGames = state.competitions
-            .flatMap(c => c.matches)
-            .filter(m => m.scoreA != null && m.scoreB != null)
-            .filter(m => (m.teamA ?? [m.aId]).includes(MY_ID) || (m.teamB ?? [m.bId]).includes(MY_ID))
-            .slice(-6);
-          if (recentGames.length === 0) return null;
-          const results = recentGames.map(m => {
-            const inA = (m.teamA ?? [m.aId]).includes(MY_ID);
-            return inA ? m.scoreA! > m.scoreB! : m.scoreB! > m.scoreA!;
-          });
+        {/* Forma recente — mais recente à direita */}
+        {matchHistory.length > 0 && (() => {
+          const recent = [...matchHistory.slice(0, 7)].reverse();
           return (
             <Card>
               <Text style={styles.sectionTitle}>Forma recente</Text>
-              <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-                {results.map((w, i) => (
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {recent.map((g, i) => (
                   <View key={i} style={{
                     width: 32, height: 32, borderRadius: 8,
-                    backgroundColor: w ? Colors.teal + '33' : Colors.coral + '33',
-                    borderWidth: 1, borderColor: w ? Colors.teal + '66' : Colors.coral + '66',
+                    backgroundColor: g.won ? Colors.teal + '33' : Colors.coral + '33',
+                    borderWidth: 1, borderColor: g.won ? Colors.teal + '66' : Colors.coral + '66',
                     alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 12, color: w ? Colors.teal : Colors.coral }}>
-                      {w ? 'V' : 'D'}
+                    <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 12, color: g.won ? Colors.teal : Colors.coral }}>
+                      {g.won ? 'V' : 'D'}
                     </Text>
                   </View>
                 ))}
@@ -301,6 +332,67 @@ export default function ProfileScreen() {
             </Card>
           );
         })()}
+
+        {/* Últimos 20 jogos */}
+        {last20.length > 0 && (
+          <Card>
+            <Text style={styles.sectionTitle}>Últimos 20 jogos</Text>
+            {formatBreakdown.map(f => (
+              <View key={f.label} style={l20.row}>
+                <Text style={l20.label}>{f.label}</Text>
+                <View style={l20.bar}>
+                  <View style={[l20.barWin, { flex: f.wins || 0.001 }]}>
+                    {f.wins > 0 && <Text style={l20.barNum}>{f.wins}</Text>}
+                  </View>
+                  <View style={[l20.barLoss, { flex: f.losses || 0.001 }]}>
+                    {f.losses > 0 && <Text style={l20.barNum}>{f.losses}</Text>}
+                  </View>
+                </View>
+              </View>
+            ))}
+            <View style={{ flexDirection: 'row', marginTop: Spacing.md, gap: Spacing.md }}>
+              <View style={l20.resultBox}>
+                <Text style={l20.resultIcon}>✅</Text>
+                <Text style={[l20.resultNum, { color: Colors.teal }]}>{last20Wins}</Text>
+                <Text style={l20.resultLbl}>Vitórias</Text>
+              </View>
+              <View style={l20.resultBox}>
+                <Text style={l20.resultIcon}>❌</Text>
+                <Text style={[l20.resultNum, { color: Colors.coral }]}>{last20Losses}</Text>
+                <Text style={l20.resultLbl}>Derrotas</Text>
+              </View>
+              <View style={l20.resultBox}>
+                <Text style={l20.resultIcon}>📊</Text>
+                <Text style={[l20.resultNum, { color: Colors.gold }]}>
+                  {last20.length > 0 ? Math.round((last20Wins / last20.length) * 100) : 0}%
+                </Text>
+                <Text style={l20.resultLbl}>Aproveit.</Text>
+              </View>
+            </View>
+          </Card>
+        )}
+
+        {/* Jogos nos últimos 12 meses */}
+        {monthlyData.some(m => m.count > 0) && (
+          <Card>
+            <Text style={styles.sectionTitle}>Jogos nos últimos 12 meses</Text>
+            <View style={monthly.chart}>
+              {monthlyData.map((m, i) => (
+                <View key={i} style={monthly.col}>
+                  {m.count > 0 && <Text style={monthly.count}>{m.count}</Text>}
+                  <View style={monthly.barWrap}>
+                    <View style={[monthly.bar, {
+                      height: maxMonthly > 0 ? Math.max((m.count / maxMonthly) * 80, m.count > 0 ? 4 : 0) : 0,
+                      backgroundColor: m.count > 0 ? Colors.gold : 'transparent',
+                    }]} />
+                  </View>
+                  <Text style={monthly.label}>{m.label.split('/')[0]}</Text>
+                  <Text style={monthly.year}>/{m.label.split('/')[1]}</Text>
+                </View>
+              ))}
+            </View>
+          </Card>
+        )}
 
         {/* Conquistas */}
         <Card>
@@ -343,14 +435,6 @@ export default function ProfileScreen() {
           </Card>
         )}
 
-        {/* Quebra de pontos */}
-        <Card>
-          <Text style={styles.sectionTitle}>Quebra dos Pontos</Text>
-          <Bar label="Vitórias ×3"   value={wPts}  max={me.points} color={Colors.teal} />
-          <Bar label="Partidas ×0,5" value={jPts}  max={me.points} color={Colors.text} />
-          <Bar label="GA ×2"         value={gaPts} max={me.points} color={Colors.gold} />
-        </Card>
-
         {/* Histórico de partidas */}
         {matchHistory.length > 0 && (
           <Card>
@@ -364,7 +448,9 @@ export default function ProfileScreen() {
                 </View>
                 <View style={hist.info}>
                   <Text style={hist.opp} numberOfLines={1}>vs {h.opponents}</Text>
-                  <Text style={hist.compName} numberOfLines={1}>{h.compName}</Text>
+                  <Text style={hist.compName} numberOfLines={1}>
+                    {h.partner ? `c/ ${h.partner} · ` : ''}{h.compName}
+                  </Text>
                 </View>
                 <Text style={[hist.score, { color: h.won ? Colors.teal : Colors.coral }]}>
                   {h.myScore}–{h.oppScore}
@@ -457,14 +543,14 @@ export default function ProfileScreen() {
                   label: 'Carrasco',
                   sub: 'Quem mais te venceu',
                   stat: rivalries.carrasco,
-                  detail: (s: typeof rivalries.carrasco) => s ? `${s.wins} vitória${s.wins !== 1 ? 's' : ''} sobre você` : '',
+                  detail: (s: typeof rivalries.carrasco) => s ? `${s.wins} derrota${s.wins !== 1 ? 's' : ''}` : '',
                 },
                 {
                   emoji: '😅',
                   label: 'Freguês',
                   sub: 'Quem você mais venceu',
                   stat: rivalries.fregues,
-                  detail: (s: typeof rivalries.fregues) => s ? `${s.wins} vitória${s.wins !== 1 ? 's' : ''} suas` : '',
+                  detail: (s: typeof rivalries.fregues) => s ? `${s.wins} vitória${s.wins !== 1 ? 's' : ''}` : '',
                 },
               ].map(({ emoji, label, sub, stat, detail }) => {
                 if (!stat) return null;
@@ -484,9 +570,9 @@ export default function ProfileScreen() {
                     </View>
                     <View style={ident.right}>
                       <Avatar name={p.name} color={p.color} size={32} />
-                      <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                      <View style={{ alignItems: 'flex-end', gap: 2, width: 90 }}>
                         <Text style={ident.name} numberOfLines={1}>{p.name.split(' ')[0]}</Text>
-                        <Text style={ident.detail}>{detail(stat as any)}</Text>
+                        <Text style={ident.detail} numberOfLines={1}>{detail(stat as any)}</Text>
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -669,12 +755,35 @@ const hist = StyleSheet.create({
   score: { fontFamily: FontFamily.numberBold, fontSize: 15 },
 });
 
+const monthly = StyleSheet.create({
+  chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 2, paddingTop: Spacing.sm },
+  col: { flex: 1, alignItems: 'center', gap: 2 },
+  barWrap: { height: 80, justifyContent: 'flex-end', width: '100%', alignItems: 'center' },
+  bar: { width: '80%', borderRadius: 3 },
+  count: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold },
+  label: { fontFamily: FontFamily.body, fontSize: 9, color: Colors.muted },
+  year: { fontFamily: FontFamily.body, fontSize: 8, color: Colors.faint, marginTop: -2 },
+});
+
+const l20 = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: 6 },
+  label: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, width: 60 },
+  bar: { flex: 1, flexDirection: 'row', height: 18, borderRadius: 4, overflow: 'hidden' },
+  barWin: { backgroundColor: Colors.teal + 'CC' },
+  barLoss: { backgroundColor: Colors.coral + 'CC' },
+  barNum: { fontFamily: FontFamily.numberBold, fontSize: 12, color: '#fff', paddingHorizontal: 6, alignSelf: 'center' },
+  resultBox: { flex: 1, alignItems: 'center', backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.sm, gap: 2 },
+  resultIcon: { fontSize: 18 },
+  resultNum: { fontFamily: FontFamily.titleBold, fontSize: 22 },
+  resultLbl: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+});
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   scroll: { padding: Spacing.md, gap: Spacing.md },
   heroBanner: { position: 'relative', overflow: 'hidden', borderRadius: Radius.lg, marginBottom: Spacing.sm },
   heroBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 120 },
-  heroInner: { alignItems: 'center', paddingTop: Spacing.xl, paddingBottom: Spacing.lg, gap: Spacing.sm },
+  heroInner: { alignItems: 'center', paddingTop: Spacing.sm, paddingBottom: Spacing.sm, gap: 4 },
   name: { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text },
   titleText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted },
   badges: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
@@ -735,9 +844,9 @@ const ident = StyleSheet.create({
   mid:    { flex: 1, gap: 2 },
   label:  { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
   sub:    { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
-  right:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  name:   { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, maxWidth: 80 },
-  detail: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted },
+  right:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, width: 140, justifyContent: 'flex-end' },
+  name:   { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, textAlign: 'right' },
+  detail: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted, textAlign: 'right' },
 });
 
 const guest = StyleSheet.create({
