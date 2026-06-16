@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import ViewShot from 'react-native-view-shot';
 import { router } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
@@ -11,6 +11,8 @@ import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
+import { computeRankingDeltas } from '@/logic/rankingDelta';
+import { FadeScreen } from '@/components/FadeScreen';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
 import { generateRankingHtml } from '@/logic/rankingHtml';
@@ -115,11 +117,19 @@ export default function RankingScreen() {
     allGames
   );
 
+  const deltas = useMemo(
+    () => computeRankingDeltas(filteredComps, groupPlayers.map(p => ({
+      id: p.id, name: p.name, short: p.name.slice(0,3).toUpperCase(), color: p.color, handicap: p.handicap,
+    }))),
+    [filteredComps, groupPlayers]
+  );
+
   const first  = ranking[0];
   const second = ranking[1];
   const third  = ranking[2];
 
   return (
+    <FadeScreen>
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
 
@@ -216,10 +226,22 @@ export default function RankingScreen() {
                   <Avatar name={pl?.name ?? '?'} color={pl?.color ?? '#888'} size={28} />
                   <View style={styles.nameBlock}>
                     <View style={styles.nameRow}>
-                      <Text style={[styles.playerName, isMe && { color: Colors.gold }]} numberOfLines={1}>
+                      <Text style={[styles.playerName, isMe && { color: Colors.gold }, { flexShrink: 1 }]} numberOfLines={1}>
                         {pl?.name ?? s.id}
                       </Text>
-                      {isMe && <View style={styles.youBadge}><Text style={styles.youText}>você</Text></View>}
+
+                      {(() => {
+                        const d = deltas[s.id];
+                        if (!d || d.dir === 'same' || d.dir === 'new') return null;
+                        const isUp = d.dir === 'up';
+                        return (
+                          <View style={{ flexShrink: 0, flexDirection: 'row', alignItems: 'center', backgroundColor: isUp ? Colors.teal + '22' : Colors.coral + '22', borderRadius: Radius.full, paddingHorizontal: 4, paddingVertical: 1 }}>
+                            <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 9, color: isUp ? Colors.teal : Colors.coral }}>
+                              {isUp ? '↑' : '↓'}{d.diff > 1 ? d.diff : ''}
+                            </Text>
+                          </View>
+                        );
+                      })()}
                     </View>
                   </View>
                 </View>
@@ -406,6 +428,7 @@ export default function RankingScreen() {
         </TouchableOpacity>
       </Modal>
     </SafeAreaView>
+    </FadeScreen>
   );
 }
 
@@ -586,9 +609,9 @@ const styles = StyleSheet.create({
   th: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 0.5 },
   posText: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted },
   rowPlayer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  nameBlock: { flex: 1 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  playerName: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text },
+  nameBlock: { flex: 1, overflow: 'hidden' },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 3, overflow: 'hidden' },
+  playerName: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, flexShrink: 1 },
   youBadge: {
     backgroundColor: Colors.gold + '33', borderRadius: Radius.full,
     paddingHorizontal: 5, paddingVertical: 1,

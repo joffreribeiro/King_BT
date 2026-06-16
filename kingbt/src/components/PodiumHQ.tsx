@@ -111,7 +111,7 @@ function Crown({ type, size = 56 }: { type: 'gold' | 'silver' | 'bronze'; size?:
 }
 
 function Pedestal({
-  entry, rank, pedW, pedH, crownType, posColor, posSize, nameSize, scoreSize, withGlow,
+  entry, rank, pedW, pedH, crownType, posColor, posSize, nameSize, scoreSize, withGlow, animH,
 }: {
   entry: PodiumEntry;
   rank: 1 | 2 | 3;
@@ -120,12 +120,19 @@ function Pedestal({
   posColor: string; posSize: number;
   nameSize: number; scoreSize: number;
   withGlow?: boolean;
+  animH?: Animated.Value;
 }) {
   const crownSize = rank === 1 ? 62 : 52;
   const aboveH = crownSize + posSize + 20;
+  const translateY = animH
+    ? animH.interpolate({ inputRange: [0, 1], outputRange: [pedH + aboveH, 0] })
+    : 0;
+  const opacity = animH
+    ? animH.interpolate({ inputRange: [0, 0.4], outputRange: [0, 1], extrapolate: 'clamp' })
+    : 1;
 
   return (
-    <View style={{ width: pedW, alignItems: 'center' }}>
+    <Animated.View style={{ width: pedW, alignItems: 'center', opacity, transform: [{ translateY }] }}>
       {/* Posição + Coroa (acima do cilindro) */}
       <View style={{ height: aboveH, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 4 }}>
         <Text style={{
@@ -198,7 +205,7 @@ function Pedestal({
           </Text>
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -209,7 +216,20 @@ export function PodiumHQ({ first, second, third }: PodiumHQProps) {
   const ped1H  = Math.round(totalW * 0.30);
   const ped2H  = Math.round(totalW * 0.245);
   const ped3H  = Math.round(totalW * 0.21);
-  const maxAbove = 62 + 28 + 20; // crownSize + posSize + padding
+  const maxAbove = 62 + 28 + 20;
+
+  const anim1 = useRef(new Animated.Value(0)).current;
+  const anim2 = useRef(new Animated.Value(0)).current;
+  const anim3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const spring = (anim: Animated.Value, delay: number) =>
+      Animated.spring(anim, { toValue: 1, delay, tension: 60, friction: 8, useNativeDriver: false });
+    Animated.parallel([spring(anim2, 0), spring(anim3, 150), spring(anim1, 300)]).start();
+  }, []);
+
+  const HEIGHTS = { 1: ped1H, 2: ped2H, 3: ped3H };
+  const anims: Record<number, Animated.Value> = { 1: anim1, 2: anim2, 3: anim3 };
 
   return (
     <View style={{ marginHorizontal: 12, marginBottom: 8, overflow: 'hidden', borderRadius: 12 }}>
@@ -249,6 +269,7 @@ export function PodiumHQ({ first, second, third }: PodiumHQProps) {
           crownType="silver"
           posColor={C.silver} posSize={22}
           nameSize={13} scoreSize={18}
+          animH={anims[2]}
         />
         <Pedestal
           entry={first}  rank={1}
@@ -257,6 +278,7 @@ export function PodiumHQ({ first, second, third }: PodiumHQProps) {
           posColor={C.gold}   posSize={28}
           nameSize={15} scoreSize={22}
           withGlow
+          animH={anims[1]}
         />
         <Pedestal
           entry={third}  rank={3}
@@ -264,6 +286,7 @@ export function PodiumHQ({ first, second, third }: PodiumHQProps) {
           crownType="bronze"
           posColor={C.bronze} posSize={22}
           nameSize={13} scoreSize={18}
+          animH={anims[3]}
         />
       </View>
     </View>

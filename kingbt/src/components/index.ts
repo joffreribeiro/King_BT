@@ -4,3 +4,6 @@ export { default as Button } from './Button';
 export { default as Card } from './Card';
 export { default as KingBTLogo } from './KingBTLogo';
 export { default as RankingCard } from './RankingCard';
+export { FadeScreen } from './FadeScreen';
+export { ShareStatsCard } from './ShareStatsCard';
+export type { ShareStatsData } from './ShareStatsCard';

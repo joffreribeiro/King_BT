@@ -357,24 +357,134 @@ function FeedSkeleton() {
   );
 }
 
+// ─── Card agrupado por competição ────────────────────────────────────────────
+
+function CompGroupCard({ compName, matches }: { compName: string; matches: FeedItem[] }) {
+  const accent = FORMAT_COLOR[matches[0]?.format ?? ''] ?? Colors.gold;
+  const time = timeAgo(matches[0]?.timestamp);
+  return (
+    <Card style={mc.card}>
+      <View style={[mc.accentBar, { backgroundColor: accent }]} />
+      <View style={mc.body}>
+        <View style={mc.header}>
+          <Text style={[mc.compName, { color: accent }]} numberOfLines={1}>{compName}</Text>
+          <Text style={mc.time}>{time}</Text>
+        </View>
+        {matches.map((item, i) => (
+          <MatchRow key={item.id} item={item} last={i === matches.length - 1} />
+        ))}
+      </View>
+    </Card>
+  );
+}
+
+function MatchRow({ item, last }: { item: FeedItem; last: boolean }) {
+  const { user, group } = useAuth();
+  const { findPlayer } = useGroupPlayers();
+  const [showComments, setShowComments] = useState(false);
+  const aWon = (item.sideA?.score ?? 0) > (item.sideB?.score ?? 0);
+
+  async function handleReaction(emoji: string) {
+    if (!user || !group) return;
+    const has = (item.reactions[emoji] ?? []).includes(user.uid);
+    try { await toggleReaction(group.id, item.id, emoji, user.uid, has); }
+    catch { /* ignore */ }
+  }
+
+  return (
+    <View style={[mr.wrap, !last && mr.border]}>
+      {/* Placar */}
+      <View style={mr.scoreRow}>
+        <View style={mr.side}>
+          <Text style={[mr.sideName, aWon && mr.win]} numberOfLines={1}>{item.sideA?.name}</Text>
+        </View>
+        <Text style={mr.score}>
+          <Text style={{ color: aWon ? Colors.teal : Colors.muted }}>{item.sideA?.score}</Text>
+          <Text style={{ color: Colors.faint }}> – </Text>
+          <Text style={{ color: !aWon ? Colors.teal : Colors.muted }}>{item.sideB?.score}</Text>
+        </Text>
+        <View style={[mr.side, { alignItems: 'flex-end' }]}>
+          <Text style={[mr.sideName, !aWon && mr.win]} numberOfLines={1}>{item.sideB?.name}</Text>
+        </View>
+      </View>
+      {/* Reações */}
+      <View style={mr.reactRow}>
+        {EMOJIS.map(emoji => {
+          const uids = item.reactions[emoji] ?? [];
+          const hasReacted = user ? uids.includes(user.uid) : false;
+          return (
+            <TouchableOpacity
+              key={emoji}
+              style={[mc.reactBtn, hasReacted && mc.reactBtnActive]}
+              onPress={() => handleReaction(emoji)}
+              activeOpacity={0.7}
+            >
+              <Text style={mc.reactEmoji}>{emoji}</Text>
+              {uids.length > 0 && (
+                <Text style={[mc.reactCount, hasReacted && mc.reactCountActive]}>{uids.length}</Text>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+        <TouchableOpacity style={mc.commentToggle} onPress={() => setShowComments(true)}>
+          <Text style={mc.commentToggleTxt}>{item.comments.length > 0 ? `💬 ${item.comments.length}` : '💬'}</Text>
+        </TouchableOpacity>
+      </View>
+      <CommentsModal item={item} visible={showComments} onClose={() => setShowComments(false)} />
+    </View>
+  );
+}
+
+const mr = StyleSheet.create({
+  wrap:     { gap: 6, paddingVertical: Spacing.sm },
+  border:   { borderBottomWidth: 1, borderBottomColor: Colors.line },
+  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.surf2, borderRadius: Radius.md, paddingHorizontal: Spacing.sm, paddingVertical: 8 },
+  side:     { flex: 1 },
+  sideName: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted },
+  win:      { color: Colors.text },
+  score:    { fontFamily: FontFamily.titleBold, fontSize: 20, textAlign: 'center', minWidth: 60 },
+  reactRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+});
+
 // ─── Tela principal ───────────────────────────────────────────────────────────
+
+type FeedRow =
+  | { kind: 'group'; compName: string; matches: FeedItem[] }
+  | { kind: 'single'; item: FeedItem };
 
 export default function FeedScreen() {
   const { items, loaded, error } = useFeed();
   const { group } = useAuth();
 
-  function renderItem({ item }: { item: FeedItem }) {
-    if (item.type === 'match_result')      return <MatchResultCard item={item} />;
-    if (item.type === 'rank_change')       return <RankChangeCard item={item} />;
-    if (item.type === 'rivalry_milestone') return <MilestoneCard item={item} />;
+  // Agrupar match_result por compName preservando ordem cronológica
+  const rows: FeedRow[] = [];
+  const seen = new Map<string, FeedItem[]>();
+  for (const item of items) {
+    if (item.type === 'match_result') {
+      const key = item.compName ?? '__unknown__';
+      if (!seen.has(key)) {
+        const bucket: FeedItem[] = [];
+        seen.set(key, bucket);
+        rows.push({ kind: 'group', compName: key, matches: bucket });
+      }
+      seen.get(key)!.push(item);
+    } else {
+      rows.push({ kind: 'single', item });
+    }
+  }
+
+  function renderRow({ item }: { item: FeedRow }) {
+    if (item.kind === 'group') return <CompGroupCard compName={item.compName} matches={item.matches} />;
+    if (item.item.type === 'rank_change') return <RankChangeCard item={item.item} />;
+    if (item.item.type === 'rivalry_milestone') return <MilestoneCard item={item.item} />;
     return null;
   }
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
       <FlatList
-        data={items}
-        keyExtractor={item => item.id}
+        data={rows}
+        keyExtractor={(r, i) => r.kind === 'group' ? r.compName : r.item.id}
         contentContainerStyle={s.list}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
@@ -383,7 +493,7 @@ export default function FeedScreen() {
             {group && <Text style={s.groupName}>{group.name}</Text>}
           </View>
         }
-        renderItem={renderItem}
+        renderItem={renderRow}
         ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
         ListEmptyComponent={
           !loaded

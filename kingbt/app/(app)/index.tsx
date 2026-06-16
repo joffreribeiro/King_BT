@@ -11,6 +11,8 @@ import type { Competition, Format } from '@/logic/types';
 import { competitionChampion as getChampion } from '@/logic/formats';
 import { computeStreak } from '@/logic/streak';
 import { StreakBanner } from '@/components/StreakBanner';
+import { usePulseAnim } from '@/hooks/usePulseAnim';
+import { FadeScreen } from '@/components/FadeScreen';
 
 const FORMAT_LABEL: Record<string, string> = {
   avulso: 'Avulso', liga: 'Liga', grupos: 'Grupos + Eliminatórias',
@@ -128,6 +130,11 @@ function CompCard({ comp, onDelete, onClone }: {
     }
   }
 
+  const pulseAnim = usePulseAnim(2000);
+  const shadowOpacity = isActive
+    ? pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.1, 0.45] })
+    : new Animated.Value(0);
+
   return (
     <TouchableOpacity
       activeOpacity={0.75}
@@ -135,12 +142,12 @@ function CompCard({ comp, onDelete, onClone }: {
       onLongPress={handleLongPress}
       delayLongPress={600}
     >
-      <View style={[styles.compCard, {
+      <Animated.View style={[styles.compCard, {
         shadowColor: accent,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: isActive ? 0.18 : 0,
-        shadowRadius: 12,
-        elevation: isActive ? 4 : 0,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity,
+        shadowRadius: 16,
+        elevation: isActive ? 6 : 0,
       }]}>
         <View style={{ width: 4, backgroundColor: accent, borderRadius: 2, alignSelf: 'stretch' }} />
 
@@ -157,16 +164,36 @@ function CompCard({ comp, onDelete, onClone }: {
               </View>
             </View>
           </View>
+          {/* Bolinhas dos jogadores */}
+          {(() => {
+            const ids = new Set<string>();
+            comp.matches.forEach(m => {
+              (m.teamA ?? (m.aId ? [m.aId] : [])).forEach(id => ids.add(id));
+              (m.teamB ?? (m.bId ? [m.bId] : [])).forEach(id => ids.add(id));
+            });
+            if (comp.competitors.length > 0) comp.competitors.forEach(c => ids.add(c.id));
+            const players = [...ids].slice(0, 12).map(id => {
+              const c = comp.competitors.find(x => x.id === id);
+              const p = findPlayer(id);
+              return { id, color: c?.color ?? p?.color ?? Colors.gold, short: c?.short ?? p?.name?.slice(0,2).toUpperCase() ?? '?' };
+            });
+            if (players.length === 0) return null;
+            return (
+              <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap' }}>
+                {players.map(p => (
+                  <View key={p.id} style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: p.color, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.bg }}>{p.short}</Text>
+                  </View>
+                ))}
+              </View>
+            );
+          })()}
           {champ ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={{ fontSize: 14 }}>👑</Text>
               <Text style={{ fontFamily: FontFamily.title, fontSize: 13, color: Colors.gold, flex: 1 }}>{champ.name}</Text>
               <Text style={styles.dateText}>{formatDate(comp.date)}</Text>
-              <TouchableOpacity
-                onPress={() => onClone(comp.id)}
-                hitSlop={8}
-                style={{ padding: 4 }}
-              >
+              <TouchableOpacity onPress={() => onClone(comp.id)} hitSlop={8} style={{ padding: 4 }}>
                 <Text style={{ fontSize: 15 }}>🔁</Text>
               </TouchableOpacity>
             </View>
@@ -177,10 +204,20 @@ function CompCard({ comp, onDelete, onClone }: {
               </View>
               <Text style={styles.progressText}>{done}/{total} jogos</Text>
               <Text style={styles.dateText}>{formatDate(comp.date)}</Text>
+              {isActive && (
+                <TouchableOpacity
+                  onPress={e => { e.stopPropagation?.(); router.push({ pathname: '/court', params: { compId: comp.id } }); }}
+                  hitSlop={8}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.teal + '22', borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: Colors.teal + '44' }}
+                >
+                  <Text style={{ fontSize: 11 }}>🏓</Text>
+                  <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.teal }}>Quadra</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
-      </View>
+      </Animated.View>
     </TouchableOpacity>
   );
 }
@@ -212,6 +249,7 @@ export default function HubScreen() {
   const hasFilter = statusFilter !== 'all' || formatFilter !== 'all' || search.trim().length > 0;
 
   return (
+    <FadeScreen>
     <SafeAreaView style={styles.container} edges={['top']}>
       <FlatList
         data={listData}
@@ -364,6 +402,7 @@ export default function HubScreen() {
         }
       />
     </SafeAreaView>
+    </FadeScreen>
   );
 }
 

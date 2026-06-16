@@ -1,9 +1,12 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, TextInput, Modal, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { router } from 'expo-router';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
-import { Avatar, Badge, Card } from '@/components';
+import { Avatar, Badge, Card, ShareStatsCard } from '@/components';
+import type { ShareStatsData } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -62,8 +65,10 @@ export default function ProfileScreen() {
 
   const [showAddGuest, setShowAddGuest] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [sharingInProgress, setSharingInProgress] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [guestColor, setGuestColor] = useState(GUEST_COLORS[0]);
+  const shareCardRef = useRef<View>(null);
   async function handleLeaveGroup() {
     const doLeave = async () => {
       await leaveGroup();
@@ -112,6 +117,20 @@ export default function ProfileScreen() {
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Remover', style: 'destructive', onPress: doRemove },
       ]);
+    }
+  }
+
+  async function handleShare() {
+    if (!shareCardRef.current || sharingInProgress) return;
+    try {
+      setSharingInProgress(true);
+      const uri = await captureRef(shareCardRef, { format: 'png', quality: 1, result: 'tmpfile' });
+      setSharingInProgress(false);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Compartilhar stats' });
+      }
+    } catch (e) {
+      setSharingInProgress(false);
     }
   }
 
@@ -279,6 +298,9 @@ export default function ProfileScreen() {
               <Badge label={`${myPos}° lugar`} variant="gold" />
               <Badge label={`${winRate}% aproveit.`} variant="teal" />
             </View>
+            <TouchableOpacity style={[styles.shareBtn, sharingInProgress && { opacity: 0.5 }]} onPress={handleShare} activeOpacity={0.75} disabled={sharingInProgress}>
+              <Text style={styles.shareBtnText}>{sharingInProgress ? 'Gerando...' : '↑ Compartilhar stats'}</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -695,6 +717,25 @@ export default function ProfileScreen() {
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
 
+      {/* Card de share — renderizada fora da tela para captureRef funcionar */}
+      <View style={{ position: 'absolute', left: -9999, top: 0 }} pointerEvents="none">
+        <View ref={shareCardRef} collapsable={false}>
+          <ShareStatsCard data={{
+            name: player?.name ?? user?.displayName ?? 'Jogador',
+            color: player?.color ?? '#FFD166',
+            position: myPos,
+            points: me.points,
+            played: me.played,
+            wins: me.wins,
+            losses: me.losses,
+            winRate,
+            sg: me.sg,
+            ga: me.ga,
+            groupName: group?.name ?? 'King BT',
+          }} />
+        </View>
+      </View>
+
       {/* Modal QR Code de convite */}
       <Modal visible={showQR} transparent animationType="fade">
         <TouchableOpacity
@@ -787,6 +828,13 @@ const styles = StyleSheet.create({
   name: { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text },
   titleText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted },
   badges: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
+  shareBtn: {
+    marginTop: 4,
+    paddingVertical: 6, paddingHorizontal: 18,
+    borderRadius: 20, borderWidth: 1, borderColor: Colors.gold + '55',
+    backgroundColor: Colors.gold + '11',
+  },
+  shareBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.gold },
   ptsCard: { alignItems: 'center', gap: 4 },
   ptsLabel: { fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted, letterSpacing: 2 },
   ptsVal: { fontFamily: FontFamily.titleBold, fontSize: 52, color: Colors.gold, lineHeight: 60 },

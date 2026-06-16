@@ -44,6 +44,7 @@ export default function AppLayout() {
         tabBarShowLabel: false,
         tabBarActiveTintColor: Colors.gold,
         tabBarInactiveTintColor: Colors.faint,
+        animation: 'fade',
       }}
     >
       <Tabs.Screen
