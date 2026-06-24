@@ -1,4 +1,4 @@
-import type { Match, Player } from './types';
+import type { Match, Player, Competitor } from './types';
 
 function combinations<T>(arr: T[], k: number): T[][] {
   const res: T[][] = [];
@@ -64,6 +64,56 @@ export function generateSchedule(players: Pick<Player, 'id'>[]): Match[] {
       scoreA: null,
       scoreB: null,
     });
+  }
+  return games;
+}
+
+/**
+ * Super 8 individual: round-robin completo 1v1, todos contra todos.
+ * Mínimo 2 jogadores.
+ */
+export function generateScheduleIndividual(competitors: Pick<Competitor, 'id' | 'members'>[]): Match[] {
+  const n = competitors.length;
+  if (n < 2) return [];
+  const games: Match[] = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const idA = competitors[i].members[0] ?? competitors[i].id;
+      const idB = competitors[j].members[0] ?? competitors[j].id;
+      games.push({
+        id: 'g' + games.length,
+        stage: 'rotating',
+        teamA: [idA],
+        teamB: [idB],
+        scoreA: null,
+        scoreB: null,
+      });
+    }
+  }
+  return games;
+}
+
+/**
+ * Super 8 com duplas fixas: round-robin completo, cada dupla joga contra todas as outras.
+ * Mínimo 2 duplas.
+ */
+export function generateScheduleDuplas(competitors: Pick<Competitor, 'id' | 'members'>[]): Match[] {
+  const n = competitors.length;
+  if (n < 2) return [];
+  const games: Match[] = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const cA = competitors[i];
+      const cB = competitors[j];
+      games.push({
+        id: 'g' + games.length,
+        stage: 'rotating',
+        teamA: cA.members.length >= 2 ? [cA.members[0], cA.members[1]] : [cA.members[0] ?? cA.id],
+        teamB: cB.members.length >= 2 ? [cB.members[0], cB.members[1]] : [cB.members[0] ?? cB.id],
+        scoreA: null,
+        scoreB: null,
+      });
+    }
   }
   return games;
 }

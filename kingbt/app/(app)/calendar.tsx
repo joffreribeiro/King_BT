@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useMemo } from 'react';
 import { Calendar } from 'react-native-calendars';
@@ -62,6 +62,26 @@ export default function CalendarScreen() {
     (sum, c) => sum + c.matches.filter(m => m.scoreA != null).length, 0
   );
 
+  // Strip semanal — semana atual começando na segunda
+  const today = new Date();
+  const WEEK_LETTERS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
+  const weekDays = useMemo(() => {
+    const startOffset = today.getDay() === 0 ? -6 : 1 - today.getDay();
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() + startOffset + i);
+      const dateStr = d.toISOString().split('T')[0];
+      return {
+        date: d,
+        dateStr,
+        dayNum: d.getDate(),
+        letter: WEEK_LETTERS[i],
+        isToday: d.toDateString() === today.toDateString(),
+        hasComp: !!compsByDate[dateStr],
+      };
+    });
+  }, [compsByDate]);
+
   return (
     <SafeAreaView style={s.container} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -69,6 +89,36 @@ export default function CalendarScreen() {
         <View style={s.header}>
           <Text style={s.title}>Calendário 📅</Text>
           <Text style={s.subtitle}>Dias com competições registradas</Text>
+        </View>
+
+        {/* Strip de 7 dias */}
+        <View style={s.weekStrip}>
+          {weekDays.map((day, i) => (
+            <TouchableOpacity
+              key={i}
+              style={s.dayCol}
+              onPress={() => setSelected(day.dateStr)}
+              activeOpacity={0.75}
+            >
+              <Text style={s.dayLetter}>{day.letter}</Text>
+              <View style={[
+                s.dayCircle,
+                day.isToday && s.dayCircleToday,
+                selected === day.dateStr && !day.isToday && s.dayCircleSelected,
+              ]}>
+                <Text style={[
+                  s.dayNum,
+                  day.isToday && s.dayNumToday,
+                  selected === day.dateStr && !day.isToday && { color: Colors.gold },
+                ]}>
+                  {day.dayNum}
+                </Text>
+              </View>
+              {day.hasComp && (
+                <View style={[s.dayDot, { backgroundColor: day.isToday ? '#fff' : Colors.gold }]} />
+              )}
+            </TouchableOpacity>
+          ))}
         </View>
 
         <View style={s.calWrap}>
@@ -190,7 +240,55 @@ export default function CalendarScreen() {
 
 const s = StyleSheet.create({
   container:   { flex: 1, backgroundColor: Colors.bg },
-  header:      { padding: Spacing.md, paddingBottom: 0 },
+  header:      { padding: Spacing.md, paddingBottom: Spacing.sm },
+  weekStrip: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+    gap: 4,
+  },
+  dayCol: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  dayLetter: {
+    fontFamily: FontFamily.numberBold,
+    fontSize: 10,
+    color: Colors.faint,
+  },
+  dayCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayCircleToday: {
+    backgroundColor: '#F3C544',
+    shadowColor: '#F3C544',
+    shadowRadius: 8,
+    shadowOpacity: 0.5,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 4,
+  },
+  dayCircleSelected: {
+    borderWidth: 1,
+    borderColor: 'rgba(243,197,68,0.4)',
+    backgroundColor: 'rgba(243,197,68,0.1)',
+  },
+  dayNum: {
+    fontFamily: FontFamily.numberBold,
+    fontSize: 11,
+    fontWeight: '700',
+    color: Colors.muted,
+  },
+  dayNumToday: { color: '#000' },
+  dayDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
   title:       { fontFamily: FontFamily.titleBold, fontSize: 24, color: Colors.text },
   subtitle:    { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 4 },
   calWrap:     { margin: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden',
@@ -202,7 +300,7 @@ const s = StyleSheet.create({
   legendText:  { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
   daySection:  { paddingHorizontal: Spacing.md, gap: Spacing.sm, marginBottom: Spacing.md },
   dayLabel:    { fontFamily: FontFamily.title, fontSize: 12, color: Colors.muted, letterSpacing: 1 },
-  emptyText:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center' },
+  emptyText:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
   compCard:    { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   accentBar:   { width: 4, alignSelf: 'stretch', borderRadius: 2 },
   compName:    { fontFamily: FontFamily.title, fontSize: 14, color: Colors.text },

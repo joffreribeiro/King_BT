@@ -75,6 +75,11 @@ export interface WinRule {
   games?: number;
   /** Pontos do tie-break. */
   tiebreak?: number;
+  /** Super tie-break no set decisivo em vez de jogar o set completo. */
+  superTiebreak?: boolean;
+  /** Pontos do super tie-break (padrão 10). */
+  superTiebreakPts?: number;
+  scoutMode?: 'aovivo' | 'padrao' | 'avancado';
   // legado
   mode?: 'games' | 'sets' | 'points';
   target?: number;

@@ -2,8 +2,9 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Platf
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useState, useRef, useEffect } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
-import { Avatar, Badge, Card } from '@/components';
+import { Avatar, Badge, Card, EmptyState } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -28,7 +29,7 @@ const FORMAT_ICON_COLOR: Record<string, string> = {
   liga: '#54B981', grupos: '#6B7FD7', mata: '#E5483D', avulso: '#2DD4BF', super8: '#C084FC',
 };
 const FORMAT_ACCENT: Record<string, string> = {
-  avulso: '#38BDF8', liga: '#54B981', grupos: '#6B7FD7', mata: '#E5483D', super8: '#F472B6',
+  avulso: '#38BDF8', liga: '#6B7FD7', grupos: '#6B7FD7', mata: '#E5483D', super8: '#C084FC',
 };
 
 const STATUS_FILTERS = [
@@ -59,7 +60,7 @@ function Skeleton({ width = '100%' as number | string, height = 16, radius = 8 }
       ])
     ).start();
   }, []);
-  return <Animated.View style={{ width, height, borderRadius: radius, backgroundColor: Colors.surf2, opacity }} />;
+  return <Animated.View style={{ width: width as any, height, borderRadius: radius, backgroundColor: Colors.surf2, opacity }} />;
 }
 
 function SkeletonCard() {
@@ -110,7 +111,8 @@ function CompCard({ comp, onDelete, onClone }: {
   const total = comp.matches.length;
   const pct   = total > 0 ? done / total : 0;
   const isActive = comp.status === 'active';
-  const accent = FORMAT_ACCENT[comp.format] ?? Colors.gold;
+  const isDone = comp.status === 'done';
+  const accent = isDone ? '#6E6452' : (FORMAT_ACCENT[comp.format] ?? Colors.gold);
   const champRaw = !isActive ? getChampion(comp, id => findPlayer(id)?.name ?? id) : null;
   const champ = champRaw
     ? { name: (champRaw as any).name ?? findPlayer(champRaw.members[0])?.name ?? champRaw.members[0] }
@@ -135,6 +137,19 @@ function CompCard({ comp, onDelete, onClone }: {
     ? pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.1, 0.45] })
     : new Animated.Value(0);
 
+  // Player bubbles
+  const ids = new Set<string>();
+  comp.matches.forEach(m => {
+    (m.teamA ?? (m.aId ? [m.aId] : [])).forEach(id => ids.add(id));
+    (m.teamB ?? (m.bId ? [m.bId] : [])).forEach(id => ids.add(id));
+  });
+  if (comp.competitors.length > 0) comp.competitors.forEach(c => ids.add(c.id));
+  const players = [...ids].slice(0, 12).map(id => {
+    const c = comp.competitors.find(x => x.id === id);
+    const p = findPlayer(id);
+    return { id, color: c?.color ?? p?.color ?? Colors.gold, short: c?.short ?? p?.name?.slice(0, 2).toUpperCase() ?? '?' };
+  });
+
   return (
     <TouchableOpacity
       activeOpacity={0.75}
@@ -142,54 +157,50 @@ function CompCard({ comp, onDelete, onClone }: {
       onLongPress={handleLongPress}
       delayLongPress={600}
     >
-      <Animated.View style={[styles.compCard, {
-        shadowColor: accent,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity,
-        shadowRadius: 16,
-        elevation: isActive ? 6 : 0,
-      }]}>
-        <View style={{ width: 4, backgroundColor: accent, borderRadius: 2, alignSelf: 'stretch' }} />
-
-        <View style={{ flex: 1, padding: Spacing.sm, gap: 6 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
-            <View style={[styles.fmtIcon, { backgroundColor: FORMAT_ICON_BG[comp.format] ?? '#1a1a1a' }]}>
-              <Text style={[styles.fmtIconText, { color: FORMAT_ICON_COLOR[comp.format] ?? '#ffffff' }]}>{FORMAT_ICON[comp.format]}</Text>
-            </View>
-            <View style={{ flex: 1, gap: 3 }}>
-              <Text style={styles.cardName}>{comp.name}</Text>
-              <View style={styles.cardMeta}>
-                <Badge label={isActive ? 'EM ANDAMENTO' : 'ENCERRADA'} variant={isActive ? 'gold' : 'teal'} small />
-                <Text style={styles.cardMetaText}>{FORMAT_LABEL[comp.format]} · {comp.competitors.length} jogadores</Text>
-              </View>
-            </View>
+      <Animated.View style={[
+        styles.compCard,
+        { borderColor: isDone ? 'rgba(110,100,82,0.20)' : `${accent}33` },
+        {
+          shadowColor: accent,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity,
+          shadowRadius: 16,
+          elevation: isActive ? 6 : 0,
+          opacity: isDone ? 0.85 : 1,
+        },
+      ]}>
+        {/* Header strip with gradient */}
+        <LinearGradient
+          colors={[`${accent}30`, `${accent}10`]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[styles.cardHeader, { borderBottomColor: `${accent}1F` }]}
+        >
+          <View style={[styles.fmtIconContainer, { backgroundColor: `${accent}2E` }]}>
+            <Text style={[styles.fmtIconText, { color: accent }]}>{FORMAT_ICON[comp.format]}</Text>
           </View>
-          {/* Bolinhas dos jogadores */}
-          {(() => {
-            const ids = new Set<string>();
-            comp.matches.forEach(m => {
-              (m.teamA ?? (m.aId ? [m.aId] : [])).forEach(id => ids.add(id));
-              (m.teamB ?? (m.bId ? [m.bId] : [])).forEach(id => ids.add(id));
-            });
-            if (comp.competitors.length > 0) comp.competitors.forEach(c => ids.add(c.id));
-            const players = [...ids].slice(0, 12).map(id => {
-              const c = comp.competitors.find(x => x.id === id);
-              const p = findPlayer(id);
-              return { id, color: c?.color ?? p?.color ?? Colors.gold, short: c?.short ?? p?.name?.slice(0,2).toUpperCase() ?? '?' };
-            });
-            if (players.length === 0) return null;
-            return (
-              <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap' }}>
-                {players.map(p => (
-                  <View key={p.id} style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: p.color, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.bg }}>{p.short}</Text>
-                  </View>
-                ))}
-              </View>
-            );
-          })()}
+          <Text style={[styles.formatLabel, { color: accent }]}>{FORMAT_LABEL[comp.format]?.toUpperCase()}</Text>
+          <Badge label={isActive ? 'EM ANDAMENTO' : 'ENCERRADA'} variant={isActive ? 'gold' : 'teal'} small />
+        </LinearGradient>
+
+        {/* Card body */}
+        <View style={styles.cardBody}>
+          <Text style={styles.cardName}>{comp.name}</Text>
+          <Text style={styles.cardMetaText}>{formatDate(comp.date)} · {comp.competitors.length} jogadores</Text>
+
+          {/* Player bubbles */}
+          {players.length > 0 && (
+            <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+              {players.map(p => (
+                <View key={p.id} style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: p.color, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.bg }}>{p.short}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
           {champ ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
               <Text style={{ fontSize: 14 }}>👑</Text>
               <Text style={{ fontFamily: FontFamily.title, fontSize: 13, color: Colors.gold, flex: 1 }}>{champ.name}</Text>
               <Text style={styles.dateText}>{formatDate(comp.date)}</Text>
@@ -202,8 +213,8 @@ function CompCard({ comp, onDelete, onClone }: {
               <View style={styles.progressTrack}>
                 <View style={[styles.progressFill, { width: `${pct * 100}%`, backgroundColor: accent }]} />
               </View>
-              <Text style={styles.progressText}>{done}/{total} jogos</Text>
-              <Text style={styles.dateText}>{formatDate(comp.date)}</Text>
+              <Text style={[styles.progressLabel, { color: accent }]}>{Math.round(pct * 100)}%</Text>
+              <Text style={styles.dateText}>{done}/{total} jogos</Text>
               {isActive && (
                 <TouchableOpacity
                   onPress={e => { e.stopPropagation?.(); router.push({ pathname: '/court', params: { compId: comp.id } }); }}
@@ -258,36 +269,13 @@ export default function HubScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View>
-            {/* Header */}
-            <View style={styles.header}>
-              <View style={styles.headerLeft}>
-                <Image
-                  source={require('../../assets/kingbt-logo.png')}
-                  style={styles.logo}
-                  resizeMode="contain"
-                />
-                <View>
-                  <Text style={styles.headerGroup}>Grupo</Text>
-                  <Text style={styles.headerTitle} numberOfLines={1}>
-                    {group?.name ?? 'King BT'}
-                  </Text>
+            {/* Search toggle */}
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: Spacing.md, paddingTop: Spacing.sm }}>
+              <TouchableOpacity onPress={() => { setShowSearch(v => !v); if (showSearch) setSearch(''); }}>
+                <View style={[styles.iconBtn, showSearch && styles.iconBtnActive]}>
+                  <Text style={styles.iconBtnText}>⌕</Text>
                 </View>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
-                {!state.synced && (
-                  <View style={styles.syncDot}>
-                    <View style={styles.syncDotInner} />
-                  </View>
-                )}
-                <TouchableOpacity onPress={() => { setShowSearch(v => !v); if (showSearch) setSearch(''); }}>
-                  <View style={[styles.iconBtn, showSearch && styles.iconBtnActive]}>
-                    <Text style={styles.iconBtnText}>⌕</Text>
-                  </View>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => router.push('/(app)/profile')}>
-                  <Avatar name={me?.name ?? '?'} color={me?.color ?? Colors.gold} size={40} />
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             </View>
 
             {/* Offline indicator */}
@@ -383,21 +371,23 @@ export default function HubScreen() {
               <SkeletonCard />
             </View>
           ) : (
-            <Card style={styles.empty}>
-              {hasFilter ? (
-                <>
-                  <Text style={styles.emptyText}>Nenhum resultado.</Text>
-                  <TouchableOpacity onPress={() => { setStatusFilter('all'); setFormatFilter('all'); setSearch(''); }}>
-                    <Text style={[styles.emptyHint, { color: Colors.teal }]}>Limpar filtros</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.emptyText}>Nenhuma competição ainda.</Text>
-                  <Text style={styles.emptyHint}>Toque em "+ Criar competição" para começar.</Text>
-                </>
-              )}
-            </Card>
+            hasFilter ? (
+              <EmptyState
+                icon="racket"
+                title="Nenhum resultado"
+                subtitle="Nenhuma competição corresponde aos filtros aplicados."
+                ctaLabel="Limpar filtros"
+                onCta={() => { setStatusFilter('all'); setFormatFilter('all'); setSearch(''); }}
+              />
+            ) : (
+              <EmptyState
+                icon="racket"
+                title="Sem competições ativas"
+                subtitle="Crie a primeira e comece a disputar o ranking!"
+                ctaLabel="+ Nova Competição"
+                onCta={() => router.push('/competitions/new/format')}
+              />
+            )
           )
         }
       />
@@ -414,7 +404,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingBottom: Spacing.sm,
+    paddingBottom: 140,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -503,28 +493,43 @@ const styles = StyleSheet.create({
   },
 
   compCard: {
-    backgroundColor: Colors.surf,
-    borderRadius: 18,
-    flexDirection: 'row',
+    backgroundColor: '#16140F',
+    borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.line,
+    marginBottom: 0,
   },
-  fmtIcon: {
-    width: 40, height: 40, borderRadius: Radius.sm,
+  cardHeader: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderBottomWidth: 1,
+  },
+  fmtIconContainer: {
+    width: 24, height: 24, borderRadius: 7,
     alignItems: 'center', justifyContent: 'center',
   },
-  fmtIconText: { fontSize: 18 },
+  fmtIconText: { fontSize: 13 },
+  formatLabel: {
+    fontSize: 9, fontWeight: '700',
+    fontFamily: FontFamily.numberBold,
+    letterSpacing: 1, flex: 1,
+  },
+  cardBody: {
+    padding: 10, paddingHorizontal: 12,
+  },
   cardName: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, flexWrap: 'wrap' },
-  cardMetaText: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
-  progressRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  progressTrack: { flex: 1, height: 3, borderRadius: 2, backgroundColor: Colors.line, overflow: 'hidden' },
-  progressFill: { height: 3, borderRadius: 2 },
-  progressText: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted },
+  cardMetaText: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, marginTop: 2 },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: 6 },
+  progressTrack: { flex: 1, height: 4, borderRadius: 3, backgroundColor: '#221C12', overflow: 'hidden' },
+  progressFill: { height: 4, borderRadius: 3 },
+  progressLabel: { fontSize: 9, fontWeight: '700', fontFamily: FontFamily.numberBold },
   dateText: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
 
   empty: { alignItems: 'center', padding: Spacing.xl, gap: Spacing.sm, marginTop: Spacing.lg },
   emptyText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.muted },
-  emptyHint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center' },
+  emptyHint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
 });

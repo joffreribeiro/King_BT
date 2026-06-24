@@ -1,10 +1,11 @@
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Card } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { useAuth } from '@/store/AuthContext';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 import { computeGroupRivalries } from '@/logic/rivalries';
@@ -12,6 +13,12 @@ import { computeGroupRivalries } from '@/logic/rivalries';
 export default function DashboardScreen() {
   const { state } = useCompetitions();
   const { groupPlayers, findPlayer } = useGroupPlayers();
+  const { myPlayerId } = useAuth();
+
+  // Saudação por hora
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+  const greetingEmoji = hour < 12 ? '☀️' : hour < 18 ? '👊' : '🌙';
 
   const allMatches = state.competitions.flatMap(c => c.matches);
   const playedMatches = allMatches.filter(m => m.scoreA != null && m.scoreB != null);
@@ -69,15 +76,114 @@ export default function DashboardScreen() {
   // Rivalidades do grupo (top 5 pares com mais confrontos)
   const groupRivalries = computeGroupRivalries(state.competitions).slice(0, 5);
 
+  // Stats pessoais do usuário logado
+  const myStats = myPlayerId ? ranking.find(r => r.id === myPlayerId) : null;
+  const myPos = myPlayerId ? ranking.findIndex(r => r.id === myPlayerId) + 1 : 0;
+  const myPlayer = myPlayerId ? findPlayer(myPlayerId) : null;
+
+  // Próxima competição (status active com jogos pendentes)
+  const nextComp = state.competitions.find(c =>
+    c.status === 'active' && c.matches.some(m => m.scoreA == null)
+  ) ?? state.competitions.find(c => c.status === 'upcoming');
+  const nextCompDaysLeft = nextComp
+    ? Math.max(0, Math.ceil((new Date(nextComp.date + 'T12:00:00').getTime() - Date.now()) / 86400000))
+    : null;
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={['top']}>
       <ScrollView
         contentContainerStyle={{ padding: Spacing.md, gap: Spacing.md }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 24, color: Colors.text }}>
-          Nosso grupo 👑
-        </Text>
+        {/* Saudação */}
+        <View>
+          <Text style={ds.greetingLine}>{greeting} {greetingEmoji}</Text>
+          <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 24, color: Colors.text }}>
+            Nosso grupo 👑
+          </Text>
+        </View>
+
+        {/* Strip de 3 stats pessoais */}
+        {myStats && (
+          <View style={ds.statsRow}>
+            <View style={ds.statCard}>
+              <Text style={ds.statValue}>{myStats.points.toFixed(1)}</Text>
+              <Text style={ds.statLabel}>RATING</Text>
+              <Text style={[ds.statSub, { color: Colors.gold }]}>pts King BT</Text>
+            </View>
+            <View style={ds.statCard}>
+              <Text style={ds.statValue}>
+                {(() => {
+                  let streak = 0;
+                  const pm = state.competitions.flatMap(c => c.matches)
+                    .filter(m => m.scoreA != null && (
+                      m.teamA?.includes(myPlayerId!) || m.teamB?.includes(myPlayerId!) ||
+                      m.aId === myPlayerId || m.bId === myPlayerId
+                    ));
+                  for (let i = pm.length - 1; i >= 0; i--) {
+                    const m = pm[i];
+                    const inA = m.teamA?.includes(myPlayerId!) || m.aId === myPlayerId;
+                    const won = inA ? m.scoreA! > m.scoreB! : m.scoreB! > m.scoreA!;
+                    if (won) streak++; else break;
+                  }
+                  return streak;
+                })()}
+              </Text>
+              <Text style={ds.statLabel}>SEQUÊNCIA</Text>
+              <Text style={[ds.statSub, { color: Colors.teal }]}>🔥 vitórias</Text>
+            </View>
+            <View style={ds.statCard}>
+              <Text style={ds.statValue}>{myPos > 0 ? `${myPos}°` : '—'}</Text>
+              <Text style={ds.statLabel}>POSIÇÃO</Text>
+              <Text style={[ds.statSub, { color: myPos <= 3 ? Colors.gold : Colors.muted }]}>
+                {myPos === 1 ? '👑 líder' : myPos <= 3 ? '🏅 top 3' : `de ${ranking.length}`}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Card próxima partida */}
+        {nextComp && (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.push({ pathname: '/competitions/[id]', params: { id: nextComp.id } })}
+            style={ds.nextCard}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={ds.nextLabel}>PRÓXIMA PARTIDA</Text>
+              <Text style={ds.nextName} numberOfLines={1}>{nextComp.name}</Text>
+              <Text style={ds.nextMeta}>
+                {new Date(nextComp.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}
+                {' · '}{nextComp.status === 'active' ? 'Em andamento' : 'Agendada'}
+              </Text>
+            </View>
+            <View style={ds.nextBadge}>
+              <Text style={ds.nextBadgeText}>
+                {nextCompDaysLeft === 0 ? 'hoje' : `${nextCompDaysLeft}d`}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* Barra W/L pessoal */}
+        {myStats && myStats.played > 0 && (
+          <View style={ds.wlWrap}>
+            <View style={ds.wlLabels}>
+              <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.teal }}>
+                {myStats.wins}V
+              </Text>
+              <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted }}>
+                {Math.round((myStats.wins / myStats.played) * 100)}% aproveit.
+              </Text>
+              <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.coral }}>
+                {myStats.losses}D
+              </Text>
+            </View>
+            <View style={ds.wlTrack}>
+              <View style={[ds.wlFill, { width: `${(myStats.wins / myStats.played) * 100}%` as any }]} />
+            </View>
+          </View>
+        )}
 
         {/* Números gerais */}
         <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
@@ -292,8 +398,133 @@ export default function DashboardScreen() {
           </Card>
         )}
 
+        {/* Hall dos Campeões */}
+        <TouchableOpacity
+          onPress={() => router.push('/hall')}
+          activeOpacity={0.8}
+          style={{
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+            backgroundColor: 'rgba(243,197,68,0.08)', borderWidth: 1,
+            borderColor: 'rgba(243,197,68,0.22)', borderRadius: 12, padding: 14,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Text style={{ fontSize: 22 }}>👑</Text>
+            <View>
+              <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: Colors.gold }}>Hall dos Campeões</Text>
+              <Text style={{ fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted }}>
+                {state.competitions.filter(c => c.status === 'done').length} competições encerradas
+              </Text>
+            </View>
+          </View>
+          <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.gold }}>›</Text>
+        </TouchableOpacity>
+
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const ds = StyleSheet.create({
+  greetingLine: {
+    fontFamily: FontFamily.body,
+    fontSize: 11,
+    color: '#6E6452',
+    marginBottom: 2,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#16140F',
+    borderWidth: 1,
+    borderColor: 'rgba(243,197,68,0.15)',
+    borderRadius: 10,
+    padding: 8,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontFamily: FontFamily.titleBold,
+    fontSize: 16,
+    color: '#F3C544',
+    fontWeight: '700',
+  },
+  statLabel: {
+    fontFamily: FontFamily.numberBold,
+    fontSize: 8,
+    color: '#6E6452',
+    marginTop: 2,
+    letterSpacing: 0.5,
+  },
+  statSub: {
+    fontFamily: FontFamily.numberBold,
+    fontSize: 9,
+    fontWeight: '700',
+    marginTop: 3,
+  },
+  nextCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(107,127,215,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(107,127,215,0.25)',
+    borderRadius: 12,
+    padding: 12,
+  },
+  nextLabel: {
+    fontFamily: FontFamily.numberBold,
+    fontSize: 8,
+    color: '#6B7FD7',
+    letterSpacing: 1.5,
+    marginBottom: 3,
+  },
+  nextName: {
+    fontFamily: FontFamily.title,
+    fontSize: 13,
+    color: Colors.text,
+    fontWeight: '700',
+  },
+  nextMeta: {
+    fontFamily: FontFamily.body,
+    fontSize: 11,
+    color: '#A99B7C',
+    marginTop: 2,
+  },
+  nextBadge: {
+    backgroundColor: 'rgba(107,127,215,0.2)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(107,127,215,0.35)',
+    marginLeft: 12,
+  },
+  nextBadgeText: {
+    fontFamily: FontFamily.numberBold,
+    fontSize: 13,
+    color: '#6B7FD7',
+    fontWeight: '700',
+  },
+  wlWrap: {
+    gap: 6,
+  },
+  wlLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  wlTrack: {
+    height: 5,
+    backgroundColor: '#221C12',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  wlFill: {
+    height: 5,
+    backgroundColor: Colors.teal,
+    borderRadius: 3,
+  },
+});

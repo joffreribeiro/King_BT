@@ -3,7 +3,7 @@ import type { Competition, Substitution } from '@/logic/types';
 import { resolveCompetition, extractPlayerGames, buildCompetition } from '@/logic/formats';
 import { computeRivalries } from '@/logic/rivalries';
 import { MOCK_COMPETITIONS } from '@/mocks/competitions';
-import { subscribeCompetitions, createCompetition, updateCompetition as fsUpdateComp } from '@/firebase/competitions';
+import { subscribeCompetitions, createCompetition, updateCompetition as fsUpdateComp, deleteCompetition as fsDeleteComp } from '@/firebase/competitions';
 import { createFeedItem } from '@/firebase/feed';
 import { Timestamp } from 'firebase/firestore';
 import { buildRanking } from '@/logic/scoring';
@@ -462,10 +462,7 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
       const comp = state.competitions.find(c => c.id === action.compId);
       if (comp) {
         try {
-          const { id } = comp;
-          const { updateDoc, doc } = await import('firebase/firestore');
-          const { db } = await import('@/firebase/config');
-          await updateDoc(doc(db, 'groups', group.id, 'competitions', id), { status: 'done' });
+          await fsDeleteComp(group.id, comp.id);
         } catch { console.error('[KingBT] Sync error: DELETE'); }
       }
     }

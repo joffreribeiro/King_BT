@@ -46,6 +46,16 @@ export async function saveMatchScore(
   });
 }
 
+/** Deleta competição permanentemente e limpa o feed associado */
+export async function deleteCompetition(groupId: string, compId: string): Promise<void> {
+  const { deleteDoc } = await import('firebase/firestore');
+  const { deleteFeedItemsByComp } = await import('./feed');
+  await Promise.all([
+    deleteDoc(compDoc(groupId, compId)),
+    deleteFeedItemsByComp(groupId, compId),
+  ]);
+}
+
 /** Atualiza competição inteira (status, matches resolvidos) */
 export async function updateCompetition(
   groupId: string,
