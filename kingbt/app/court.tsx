@@ -1,23 +1,25 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Modal, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import {
+  carregarAnalise, placardInicial, avancaPonto, formatGameScore,
+  winRuleFromComp, type BtAnalise, type BtPlacardState,
+} from '@/logic/btTracker';
 import type { Match, Competition } from '@/logic/types';
 
 function firstUnscored(matches: Match[]): Match | undefined {
   return matches.find(m => m.scoreA == null && ((m.aId && m.bId) || (m.teamA && m.teamB)));
 }
 
-function isBtScore(a: number, b: number): { isBt: boolean; hint: string | null } {
-  const hi = Math.max(a, b);
-  const lo = Math.min(a, b);
-  if (hi === 5 && lo === 5) return { isBt: false, hint: 'BT: quem chegar a 7 primeiro vence!' };
-  if (hi === 6 && lo === 6) return { isBt: false, hint: 'BT duplo: próximo ponto vence!' };
-  return { isBt: false, hint: null };
+function btHint(a: number, b: number, G: number = 6): string | null {
+  if (a === G - 1 && b === G - 1) return `Empate em ${G - 1}-${G - 1} — jogue até ${G + 1}!`;
+  if (a === G && b === G) return `${G}-${G} — próximo ponto vence!`;
+  return null;
 }
 
 function NextMatchPreview({ comp, match }: { comp: Competition; match: Match }) {
@@ -60,6 +62,24 @@ function NextMatchPreview({ comp, match }: { comp: Competition; match: Match }) 
   );
 }
 
+function LiveBadge() {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 0.2, duration: 600, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return (
+    <View style={live.liveBadge}>
+      <Animated.View style={[live.liveDot, { opacity: pulseAnim }]} />
+      <Text style={live.liveText}>AO VIVO</Text>
+    </View>
+  );
+}
+
 function CourtLive({ comp, match, onSave, onBack }: {
   comp: Competition;
   match: Match;
@@ -67,25 +87,31 @@ function CourtLive({ comp, match, onSave, onBack }: {
   onBack: () => void;
 }) {
   const { findPlayer } = useGroupPlayers();
-  const [scoreA, setScoreA] = useState(0);
-  const [scoreB, setScoreB] = useState(0);
+
+  // Usa o BtPlacardState para seguir as regras da competição
+  const rule = winRuleFromComp(comp.config.winRule);
+  const [placard, setPlacard] = useState<BtPlacardState>(() => placardInicial(rule));
+  const historyRef = useRef<BtPlacardState[]>([]);
+
+  // Pontos do game atual (0-3 internamente, exibidos como 0/15/30/40)
+  const GAME_LABELS = ['0', '15', '30', '40'];
+  const pontosALabel = (p: number) => p >= 4 ? 'AD' : (GAME_LABELS[p] ?? '40');
 
   const teamA = match.teamA ?? (match.aId ? [match.aId] : []);
   const teamB = match.teamB ?? (match.bId ? [match.bId] : []);
 
   const playersA = teamA.map(id => {
     if (match.aId && !match.teamA) {
-      const comp2 = comp.competitors.find(c => c.id === match.aId);
-      return { name: comp2?.name ?? id, color: Colors.gold };
+      const c = comp.competitors.find(x => x.id === match.aId);
+      return { name: c?.name ?? id, color: Colors.gold };
     }
     const p = findPlayer(id);
     return { name: p?.name ?? id, color: p?.color ?? Colors.gold };
   });
-
   const playersB = teamB.map(id => {
     if (match.bId && !match.teamA) {
-      const comp2 = comp.competitors.find(c => c.id === match.bId);
-      return { name: comp2?.name ?? id, color: Colors.teal };
+      const c = comp.competitors.find(x => x.id === match.bId);
+      return { name: c?.name ?? id, color: Colors.teal };
     }
     const p = findPlayer(id);
     return { name: p?.name ?? id, color: p?.color ?? Colors.teal };
@@ -94,8 +120,29 @@ function CourtLive({ comp, match, onSave, onBack }: {
   const nameA = playersA.map(p => p.name.split(' ')[0]).join(' / ');
   const nameB = playersB.map(p => p.name.split(' ')[0]).join(' / ');
 
-  const valid = scoreA !== scoreB;
-  const { hint } = isBtScore(scoreA, scoreB);
+  function addPoint(dupla: 'A' | 'B') {
+    // Salva estado anterior para desfazer
+    historyRef.current = [...historyRef.current, placard];
+    const next = avancaPonto(placard, dupla);
+    setPlacard(next);
+    if (next.encerrada) {
+      onSave(next.setsA, next.setsB);
+    }
+  }
+
+  function removePoint() {
+    // Desfaz: volta ao estado anterior
+    const prev = historyRef.current.pop();
+    if (prev) setPlacard(prev);
+  }
+
+  const isTiebreak = placard.tiebreak;
+  const scoreLabel = placard.superTiebreakAtivo
+    ? `SUPER TIE · primeiro a ${rule.superTiebreakPts ?? 10}`
+    : isTiebreak ? 'TIEBREAK' : null;
+
+  // Histórico de sets encerrados (sets anteriores)
+  const setsEncerrados = placard.historicGamesA.length;
 
   return (
     <View style={live.container}>
@@ -105,77 +152,152 @@ function CourtLive({ comp, match, onSave, onBack }: {
         <Text style={live.backTxt}>← Sair</Text>
       </TouchableOpacity>
 
-      <Text style={live.compName} numberOfLines={1}>{comp.name}</Text>
-
-      <View style={live.scoreArea}>
-        {/* Lado A */}
-        <View style={live.side}>
-          <View style={live.avatarRow}>
-            {playersA.map((p, i) => (
-              <Avatar key={i} name={p.name} color={p.color} size={56} />
-            ))}
-          </View>
-          <Text style={live.teamName} numberOfLines={1}>{nameA}</Text>
-          <Text style={[live.score, { color: scoreA > scoreB ? Colors.gold : Colors.muted }]}>{scoreA}</Text>
-          <View style={live.btnRow}>
-            <TouchableOpacity style={live.minusBtn} onPress={() => setScoreA(s => Math.max(0, s - 1))}>
-              <Text style={live.minusTxt}>−</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={live.plusBtn} onPress={() => setScoreA(s => s + 1)}>
-              <Text style={live.plusTxt}>+</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={live.vs}>
-          <Text style={live.vsTxt}>VS</Text>
-        </View>
-
-        {/* Lado B */}
-        <View style={live.side}>
-          <View style={live.avatarRow}>
-            {playersB.map((p, i) => (
-              <Avatar key={i} name={p.name} color={p.color} size={56} />
-            ))}
-          </View>
-          <Text style={live.teamName} numberOfLines={1}>{nameB}</Text>
-          <Text style={[live.score, { color: scoreB > scoreA ? Colors.gold : Colors.muted }]}>{scoreB}</Text>
-          <View style={live.btnRow}>
-            <TouchableOpacity style={live.minusBtn} onPress={() => setScoreB(s => Math.max(0, s - 1))}>
-              <Text style={live.minusTxt}>−</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={live.plusBtn} onPress={() => setScoreB(s => s + 1)}>
-              <Text style={live.plusTxt}>+</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+      {/* Header */}
+      <View style={live.headerRow}>
+        <LiveBadge />
+        <Text style={live.compName} numberOfLines={1}>{comp.name}</Text>
       </View>
 
-      {/* Hint BT */}
-      {hint && (
-        <View style={live.hintBox}>
-          <Text style={live.hintText}>🏓 {hint}</Text>
+      {/* Tiebreak label */}
+      {scoreLabel && (
+        <View style={live.tiebreakBanner}>
+          <Text style={live.tiebreakBannerTxt}>{scoreLabel}</Text>
         </View>
       )}
 
-      <TouchableOpacity
-        style={[live.saveBtn, !valid && live.saveBtnOff]}
-        onPress={() => { if (valid) onSave(scoreA, scoreB); }}
-        disabled={!valid}
-      >
-        <Text style={live.saveBtnTxt}>
-          {!valid ? 'Sem empate' : `Salvar: ${nameA} ${scoreA}–${scoreB} ${nameB}`}
+      {/* Placar estilo scoreboard — 2 linhas */}
+      <View style={live.board}>
+
+        {/* Cabeçalho de colunas */}
+        <View style={live.boardHeader}>
+          <View style={{ flex: 1 }} />
+          {/* Colunas de sets anteriores */}
+          {placard.historicGamesA.map((_, i) => (
+            <Text key={i} style={live.boardColHdr}>{i + 1}º S</Text>
+          ))}
+          <Text style={live.boardColHdr}>G</Text>
+          <Text style={[live.boardColHdr, { width: 56 }]}>PTS</Text>
+        </View>
+
+        {/* Linha A */}
+        <View style={[live.boardRow, { backgroundColor: 'rgba(243,197,68,0.06)' }]}>
+          {/* Indicador de serviço (futuro) */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 }}>
+            {playersA.map((p, i) => (
+              <Avatar key={i} name={p.name} color={p.color} size={28} />
+            ))}
+            <Text style={live.boardName} numberOfLines={1}>{nameA}</Text>
+          </View>
+          {/* Sets anteriores */}
+          {placard.historicGamesA.map((gA, i) => (
+            <Text key={i} style={[live.boardCell, { color: gA > (placard.historicGamesB[i] ?? 0) ? Colors.gold : Colors.faint }]}>
+              {gA}
+            </Text>
+          ))}
+          {/* Games atual */}
+          <Text style={[live.boardCell, { color: placard.gamesA >= placard.gamesB ? Colors.gold : Colors.text }]}>
+            {placard.gamesA}
+          </Text>
+          {/* Pontos */}
+          <Text style={[live.boardPts, { color: placard.pontosA > placard.pontosB ? Colors.gold : Colors.text, width: 56 }]}>
+            {isTiebreak ? placard.pontosA : pontosALabel(placard.pontosA)}
+          </Text>
+        </View>
+
+        {/* Divisor */}
+        <View style={live.boardDiv} />
+
+        {/* Linha B */}
+        <View style={[live.boardRow, { backgroundColor: 'rgba(84,185,129,0.06)' }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 }}>
+            {playersB.map((p, i) => (
+              <Avatar key={i} name={p.name} color={p.color} size={28} />
+            ))}
+            <Text style={live.boardName} numberOfLines={1}>{nameB}</Text>
+          </View>
+          {placard.historicGamesA.map((_, i) => (
+            <Text key={i} style={[live.boardCell, { color: (placard.historicGamesB[i] ?? 0) > placard.historicGamesA[i] ? Colors.teal : Colors.faint }]}>
+              {placard.historicGamesB[i] ?? 0}
+            </Text>
+          ))}
+          <Text style={[live.boardCell, { color: placard.gamesB >= placard.gamesA ? Colors.teal : Colors.text }]}>
+            {placard.gamesB}
+          </Text>
+          <Text style={[live.boardPts, { color: placard.pontosB > placard.pontosA ? Colors.teal : Colors.text, width: 56 }]}>
+            {isTiebreak ? placard.pontosB : pontosALabel(placard.pontosB)}
+          </Text>
+        </View>
+
+        {/* Rodapé: regra */}
+        <Text style={live.ruleHint}>
+          MD{rule.sets} · {rule.games} games · TB {rule.tiebreak}
+          {rule.superTiebreak ? ` · STB ${rule.superTiebreakPts}` : ''}
         </Text>
-      </TouchableOpacity>
+      </View>
+
+      {/* Botões +/− */}
+      <View style={live.btnsArea}>
+        <View style={live.playerBtns}>
+          <TouchableOpacity style={live.minusBtnA} onPress={() => removePoint()}>
+            <Text style={live.minusTxtA}>−</Text>
+          </TouchableOpacity>
+          <Text style={live.playerBtnLabel} numberOfLines={1}>{nameA}</Text>
+          <TouchableOpacity style={live.plusBtnA} onPress={() => addPoint('A')}>
+            <Text style={live.plusTxtA}>+</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={live.playerBtns}>
+          <TouchableOpacity style={live.minusBtnB} onPress={() => removePoint()}>
+            <Text style={live.minusTxtB}>−</Text>
+          </TouchableOpacity>
+          <Text style={live.playerBtnLabel} numberOfLines={1}>{nameB}</Text>
+          <TouchableOpacity style={live.plusBtnB} onPress={() => addPoint('B')}>
+            <Text style={live.plusTxtB}>+</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function MatchMiniCard({
+  comp, match, findPlayer,
+}: {
+  comp: Competition;
+  match: Match;
+  findPlayer: (id: string) => { name: string; color: string } | undefined;
+}) {
+  const teamA = match.teamA ?? (match.aId ? [match.aId] : []);
+  const teamB = match.teamB ?? (match.bId ? [match.bId] : []);
+  const useComp = !!(match.aId && match.bId && !match.teamA);
+  function n(id: string) {
+    if (useComp) {
+      const c = comp.competitors.find(x => x.id === id);
+      if (c) return c.name;
+    }
+    return findPlayer(id)?.name.split(' ')[0] ?? id;
+  }
+  return (
+    <View style={md.miniCard}>
+      <Text style={md.miniTeam} numberOfLines={1}>{teamA.map(n).join(' / ')}</Text>
+      <Text style={md.miniVs}>×</Text>
+      <Text style={md.miniTeam} numberOfLines={1}>{teamB.map(n).join(' / ')}</Text>
     </View>
   );
 }
 
 export default function CourtScreen() {
   const { state, dispatch } = useCompetitions();
+  const { findPlayer } = useGroupPlayers();
   const params = useLocalSearchParams<{ compId?: string }>();
   const [selectedCompId, setSelectedCompId] = useState<string | null>(params.compId ?? null);
   const [liveMatch, setLiveMatch] = useState<Match | null>(null);
+  const [modoModal, setModoModal] = useState(false);
+  const [pendingMatch, setPendingMatch] = useState<Match | null>(null);
+  const [analisePendente, setAnalisePendente] = useState<BtAnalise | null>(null);
+  // matchId → true para partidas com análise BT salva
+  const [analiseIds, setAnaliseIds] = useState<Set<string>>(new Set());
 
   const activeComps = state.competitions.filter(c => c.status === 'active');
   const selectedComp = state.competitions.find(c => c.id === selectedCompId);
@@ -186,29 +308,171 @@ export default function CourtScreen() {
       const comp = state.competitions.find(c => c.id === params.compId);
       if (comp) {
         const next = firstUnscored(comp.matches);
-        if (next) setLiveMatch(next);
+        if (next) abrirMatch(next);
       }
     }
-  }, [params.compId]);
+  }, [params.compId, state.competitions]);
+
+  // Verifica quais partidas da comp selecionada têm análise BT salva
+  useEffect(() => {
+    if (!selectedComp) return;
+    const scoredIds = selectedComp.matches
+      .filter(m => m.scoreA != null)
+      .map(m => m.id);
+    if (scoredIds.length === 0) return;
+    const cid = selectedComp.id;
+    Promise.all(scoredIds.map(id => carregarAnalise(id, cid).then(a => ({ id, has: !!a }))))
+      .then(results => {
+        const s = new Set(results.filter(r => r.has).map(r => r.id));
+        setAnaliseIds(s);
+      })
+      .catch(() => {});
+  }, [selectedComp?.id]);
+
+  async function abrirMatch(match: Match) {
+    setPendingMatch(match);
+    const analise = selectedCompId ? await carregarAnalise(match.id, selectedCompId) : null;
+    setAnalisePendente(analise);
+    // Vai direto para o placar simples sem mostrar modal de escolha
+    setLiveMatch(match);
+  }
+
+  function escolherPlacarSimples() {
+    setModoModal(false);
+    setLiveMatch(pendingMatch);
+  }
+
+  function escolherBtTracker() {
+    setModoModal(false);
+    if (!pendingMatch || !selectedCompId) return;
+    const teamA = pendingMatch.teamA ?? (pendingMatch.aId ? [pendingMatch.aId] : []);
+    const teamB = pendingMatch.teamB ?? (pendingMatch.bId ? [pendingMatch.bId] : []);
+
+    const wr = selectedComp?.config?.winRule;
+    router.push({
+      pathname: '/analise/[matchId]/ponto',
+      params: {
+        matchId: pendingMatch.id,
+        compId: selectedCompId,
+        a1: teamA[0] ?? '',
+        a2: teamA[1] ?? '',
+        b1: teamB[0] ?? '',
+        b2: teamB[1] ?? '',
+        sets: String(wr?.sets ?? 3),
+        games: String(wr?.games ?? 6),
+        tiebreak: String(wr?.tiebreak ?? 7),
+        scoutMode: wr?.scoutMode ?? 'avancado',
+      },
+    });
+  }
+
+  function verRelatorio() {
+    setModoModal(false);
+    if (!pendingMatch || !selectedCompId) return;
+    router.push({
+      pathname: '/analise/[matchId]/relatorio',
+      params: { matchId: pendingMatch.id, compId: selectedCompId },
+    });
+  }
 
   function handleSave(a: number, b: number) {
     if (!liveMatch || !selectedCompId) return;
-    dispatch({ type: 'SAVE_SCORE', compId: selectedCompId, matchId: liveMatch.id, scoreA: a, scoreB: b });
     const comp = state.competitions.find(c => c.id === selectedCompId);
+    dispatch({ type: 'SAVE_SCORE', compId: selectedCompId, matchId: liveMatch.id, scoreA: a, scoreB: b });
+
+    // Navegar para tela de vitória
+    const winner = a > b ? 'A' : 'B';
+    const teamA = liveMatch.teamA ?? (liveMatch.aId ? [liveMatch.aId] : []);
+    const teamB = liveMatch.teamB ?? (liveMatch.bId ? [liveMatch.bId] : []);
+    const getNome = (ids: string[]) => ids.map(id => {
+      if (liveMatch.aId && !liveMatch.teamA) {
+        const c = comp?.competitors.find(x => x.id === id);
+        if (c) return c.name;
+      }
+      return findPlayer(id)?.name.split(' ')[0] ?? id;
+    }).join(' / ');
+    const winnerName  = winner === 'A' ? getNome(teamA) : getNome(teamB);
+    const loserName   = winner === 'A' ? getNome(teamB) : getNome(teamA);
+    const winnerScore = winner === 'A' ? String(a) : String(b);
+    const loserScore  = winner === 'A' ? String(b) : String(a);
+
+    router.push({
+      pathname: '/victory',
+      params: {
+        winnerName,
+        loserName,
+        winnerScore,
+        loserScore,
+        competitionName: comp?.name ?? '',
+      },
+    });
+
     if (!comp) { setLiveMatch(null); return; }
     const remaining = comp.matches.filter(m => m.id !== liveMatch.id);
     const next = firstUnscored(remaining);
     setLiveMatch(next ?? null);
   }
 
+  // Modal de escolha de modo
+  const modoModalEl = pendingMatch && selectedComp ? (
+    <Modal visible={modoModal} transparent animationType="fade">
+      <View style={md.overlay}>
+        <View style={md.card}>
+          <Text style={md.title}>Como registrar esta partida?</Text>
+          <MatchMiniCard comp={selectedComp} match={pendingMatch} findPlayer={findPlayer} />
+
+          {analisePendente && !analisePendente.placarFinal ? (
+            // Análise em andamento: botão principal é Continuar
+            <>
+              <TouchableOpacity style={[md.btnBt, md.btnBtContinuar]} onPress={escolherBtTracker}>
+                <Text style={md.btnBtTxtContinuar}>▶ Continuar BT Tracker</Text>
+                <Text style={md.btnBtSub}>{analisePendente.pontos.length} pontos registrados</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={md.btnRelatorio} onPress={verRelatorio}>
+                <Text style={md.btnRelatorioTxt}>📊 Ver análise parcial</Text>
+              </TouchableOpacity>
+            </>
+          ) : analisePendente?.placarFinal ? (
+            // Análise encerrada
+            <>
+              <TouchableOpacity style={md.btnRelatorio} onPress={verRelatorio}>
+                <Text style={md.btnRelatorioTxt}>📊 Ver Análise BT Salva</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={md.btnBt} onPress={escolherBtTracker}>
+                <Text style={md.btnBtTxt}>🎾 Nova análise BT</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            // Sem análise
+            <TouchableOpacity style={md.btnBt} onPress={escolherBtTracker}>
+              <Text style={md.btnBtTxt}>🎾 Analisar ponto a ponto</Text>
+              <Text style={md.btnBtSub}>Placar calculado automaticamente</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity style={md.btnSimples} onPress={escolherPlacarSimples}>
+            <Text style={md.btnSimplesTxt}>Registrar placar simples</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={md.btnCancelar} onPress={() => setModoModal(false)}>
+            <Text style={md.btnCancelarTxt}>Cancelar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  ) : null;
+
   if (liveMatch && selectedComp) {
     return (
-      <CourtLive
-        comp={selectedComp}
-        match={liveMatch}
-        onSave={handleSave}
-        onBack={() => setLiveMatch(null)}
-      />
+      <>
+        <CourtLive
+          comp={selectedComp}
+          match={liveMatch}
+          onSave={handleSave}
+          onBack={() => setLiveMatch(null)}
+        />
+        {modoModalEl}
+      </>
     );
   }
 
@@ -219,81 +483,114 @@ export default function CourtScreen() {
 
   if (selectedComp) {
     return (
-      <SafeAreaView style={s.container} edges={['top']}>
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => { setSelectedCompId(null); setLiveMatch(null); }}>
-            <Text style={s.back}>←</Text>
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={s.title} numberOfLines={1}>{selectedComp.name}</Text>
-            <Text style={s.meta}>{compViewDone}/{compViewTotal} jogos registrados</Text>
-          </View>
-        </View>
-
-        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-          {compViewNext ? (
-            <TouchableOpacity activeOpacity={0.85} onPress={() => setLiveMatch(compViewNext)}>
-              <NextMatchPreview comp={selectedComp} match={compViewNext} />
+      <>
+        <SafeAreaView style={s.container} edges={['top']}>
+          <View style={s.header}>
+            <TouchableOpacity onPress={() => { setSelectedCompId(null); setLiveMatch(null); }}>
+              <Text style={s.back}>←</Text>
             </TouchableOpacity>
-          ) : (
-            <View style={s.empty}>
-              <Text style={{ fontSize: 40 }}>✅</Text>
-              <Text style={s.emptyTitle}>Todos os jogos registrados!</Text>
-              <Text style={s.emptySub}>Nenhuma partida pendente nesta competição.</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={s.title} numberOfLines={1}>{selectedComp.name}</Text>
+              <Text style={s.meta}>{compViewDone}/{compViewTotal} jogos registrados</Text>
             </View>
-          )}
+          </View>
 
-          <View style={{ height: Spacing.xl }} />
-        </ScrollView>
-      </SafeAreaView>
+          <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+            {compViewNext ? (
+              <TouchableOpacity activeOpacity={0.85} onPress={() => abrirMatch(compViewNext)}>
+                <NextMatchPreview comp={selectedComp} match={compViewNext} />
+              </TouchableOpacity>
+            ) : (
+              <View style={s.empty}>
+                <Text style={{ fontSize: 40 }}>✅</Text>
+                <Text style={s.emptyTitle}>Todos os jogos registrados!</Text>
+                <Text style={s.emptySub}>Nenhuma partida pendente nesta competição.</Text>
+              </View>
+            )}
+
+            {/* Partidas com análise BT salva */}
+            {analiseIds.size > 0 && (
+              <View style={{ gap: Spacing.xs }}>
+                <Text style={s.sectionLabel}>Análises BT salvas</Text>
+                {selectedComp.matches
+                  .filter(m => analiseIds.has(m.id))
+                  .map(m => (
+                    <TouchableOpacity
+                      key={m.id}
+                      style={s.analiseRow}
+                      activeOpacity={0.8}
+                      onPress={() => router.push({
+                        pathname: '/analise/[matchId]/relatorio',
+                        params: { matchId: m.id, compId: selectedComp.id },
+                      })}
+                    >
+                      <MatchMiniCard comp={selectedComp} match={m} findPlayer={findPlayer} />
+                      <Text style={s.analiseIcon}>📊</Text>
+                    </TouchableOpacity>
+                  ))}
+              </View>
+            )}
+
+            <View style={{ height: Spacing.xl }} />
+          </ScrollView>
+        </SafeAreaView>
+        {modoModalEl}
+      </>
     );
   }
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={s.back}>←</Text>
-        </TouchableOpacity>
-        <Text style={s.title}>Modo Quadra ao Vivo</Text>
-      </View>
+    <>
+      <SafeAreaView style={s.container} edges={['top']}>
+        <View style={s.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={s.back}>←</Text>
+          </TouchableOpacity>
+          <Text style={s.title}>Modo Quadra ao Vivo</Text>
+        </View>
 
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-        {activeComps.length === 0 && (
-          <View style={s.empty}>
-            <Text style={{ fontSize: 40 }}>🏓</Text>
-            <Text style={s.emptyTitle}>Nenhuma competição ativa</Text>
-            <Text style={s.emptySub}>Crie uma competição para usar o Modo Quadra.</Text>
-          </View>
-        )}
+        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+          {activeComps.length === 0 && (
+            <View style={s.empty}>
+              <Text style={{ fontSize: 40 }}>🏓</Text>
+              <Text style={s.emptyTitle}>Nenhuma competição ativa</Text>
+              <Text style={s.emptySub}>Crie uma competição para usar o Modo Quadra.</Text>
+            </View>
+          )}
 
-        {activeComps.map(comp => {
-          const next = firstUnscored(comp.matches);
-          const done = comp.matches.filter(m => m.scoreA != null).length;
-          const total = comp.matches.length;
-          return (
-            <TouchableOpacity
-              key={comp.id}
-              activeOpacity={0.8}
-              onPress={() => {
-                setSelectedCompId(comp.id);
-                setLiveMatch(next ?? null);
-              }}
-            >
-              <View style={s.compCard}>
-                <View style={s.compInfo}>
-                  <Text style={s.compName}>{comp.name}</Text>
-                  <Text style={s.compMeta}>{done}/{total} jogos · {next ? 'Próximo disponível' : 'Todos registrados'}</Text>
+          {activeComps.map(comp => {
+            const next = firstUnscored(comp.matches);
+            const done = comp.matches.filter(m => m.scoreA != null).length;
+            const total = comp.matches.length;
+            return (
+              <TouchableOpacity
+                key={comp.id}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setSelectedCompId(comp.id);
+                  if (next) abrirMatch(next);
+                }}
+              >
+                <View style={s.compCard}>
+                  <View style={s.compInfo}>
+                    <Text style={s.compName}>{comp.name}</Text>
+                    <Text style={s.compMeta}>{done}/{total} jogos · {next ? 'Próximo disponível' : 'Todos registrados'}</Text>
+                  </View>
+                  <Text style={s.arrow}>▶</Text>
                 </View>
-                <Text style={s.arrow}>▶</Text>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+              </TouchableOpacity>
+            );
+          })}
 
-        <View style={{ height: Spacing.xl }} />
-      </ScrollView>
-    </SafeAreaView>
+          <TouchableOpacity style={s.historico} onPress={() => router.push('/analise')} activeOpacity={0.8}>
+            <Text style={s.historicoTxt}>📊 Histórico de análises BT</Text>
+          </TouchableOpacity>
+
+          <View style={{ height: Spacing.xl }} />
+        </ScrollView>
+      </SafeAreaView>
+      {modoModalEl}
+    </>
   );
 }
 
@@ -308,6 +605,10 @@ const s = StyleSheet.create({
   emptyTitle: { fontFamily: FontFamily.title, fontSize: 18, color: Colors.text },
   emptySub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
   sectionLabel: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted, marginTop: Spacing.sm, marginBottom: 4 },
+  analiseRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  analiseIcon: { fontSize: 18 },
+  historico: { borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, padding: Spacing.sm, alignItems: 'center', marginTop: Spacing.sm },
+  historicoTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
   compCard: {
     backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.md,
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
@@ -338,35 +639,104 @@ const nxt = StyleSheet.create({
 
 const live = StyleSheet.create({
   container: {
-    flex: 1, backgroundColor: Colors.bg2, justifyContent: 'center', alignItems: 'center',
-    paddingHorizontal: Spacing.md, paddingVertical: Spacing.xl,
+    flex: 1, backgroundColor: '#0a0a0c',
+    justifyContent: 'center', alignItems: 'stretch',
+    paddingHorizontal: Spacing.md,
   },
-  backBtn: { position: 'absolute', top: 20, left: 20, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: Colors.surf2, borderRadius: Radius.full },
+  backBtn: { position: 'absolute', top: 20, left: 20, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: Colors.surf2, borderRadius: Radius.full, zIndex: 10 },
   backTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
-  compName: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', marginBottom: Spacing.lg },
-  scoreArea: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, width: '100%', marginBottom: Spacing.xl },
-  side: { flex: 1, alignItems: 'center', gap: Spacing.md },
-  avatarRow: { flexDirection: 'row', gap: -10 },
-  teamName: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text, textAlign: 'center' },
-  score: { fontFamily: FontFamily.titleBold, fontSize: 72, lineHeight: 80 },
-  btnRow: { flexDirection: 'row', gap: Spacing.sm },
-  minusBtn: { width: 52, height: 52, borderRadius: 26, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.line },
-  minusTxt: { fontFamily: FontFamily.titleBold, fontSize: 28, color: Colors.muted, lineHeight: 34 },
-  plusBtn: { width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
-  plusTxt: { fontFamily: FontFamily.titleBold, fontSize: 36, color: Colors.bg, lineHeight: 42 },
-  vs: { alignItems: 'center', paddingHorizontal: 4 },
-  vsTxt: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.faint },
-  hintBox: {
-    backgroundColor: Colors.gold + '22',
-    borderRadius: Radius.md,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginBottom: Spacing.sm,
-    borderWidth: 1,
-    borderColor: Colors.gold + '55',
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: Spacing.md, marginTop: 64, justifyContent: 'center' },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(229,72,61,0.12)', borderWidth: 1, borderColor: 'rgba(229,72,61,0.3)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#E5483D' },
+  liveText: { fontSize: 9, fontWeight: '700', color: '#E5483D', letterSpacing: 1, fontFamily: FontFamily.numberBold },
+  compName: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, flexShrink: 1 },
+  tiebreakBanner: { backgroundColor: 'rgba(243,197,68,0.15)', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 3, alignSelf: 'center', marginBottom: Spacing.sm },
+  tiebreakBannerTxt: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold, letterSpacing: 1 },
+
+  // Board estilo TV
+  board: {
+    backgroundColor: 'rgba(22,20,15,0.95)',
+    borderRadius: 12, borderWidth: 1,
+    borderColor: 'rgba(214,175,70,0.18)',
+    overflow: 'hidden', marginBottom: Spacing.lg,
   },
-  hintText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.gold, textAlign: 'center' },
-  saveBtn: { backgroundColor: Colors.teal, borderRadius: Radius.full, paddingVertical: Spacing.md, paddingHorizontal: Spacing.xl, alignSelf: 'stretch', alignItems: 'center' },
+  boardHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 12, paddingVertical: 5,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderBottomWidth: 1, borderBottomColor: 'rgba(214,175,70,0.1)',
+  },
+  boardColHdr: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 1, width: 36, textAlign: 'center' },
+  boardRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10 },
+  boardDiv: { height: 1, backgroundColor: 'rgba(214,175,70,0.1)' },
+  boardName: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text, flex: 1 },
+  boardCell: { fontFamily: FontFamily.numberBold, fontSize: 22, width: 36, textAlign: 'center' },
+  boardPts: { fontFamily: FontFamily.titleBold, fontSize: 28, textAlign: 'center', letterSpacing: -1 },
+  ruleHint: { fontFamily: FontFamily.number, fontSize: 9, color: Colors.faint, textAlign: 'center', paddingVertical: 5 },
+
+  // Botões
+  btnsArea: { gap: Spacing.sm },
+  playerBtns: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  playerBtnLabel: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text, textAlign: 'center' },
+  minusBtnA: { width: 44, height: 44, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(214,175,70,0.15)', alignItems: 'center', justifyContent: 'center' },
+  minusTxtA: { fontFamily: FontFamily.titleBold, fontSize: 24, color: Colors.muted, lineHeight: 30 },
+  plusBtnA: { width: 56, height: 56, borderRadius: 12, backgroundColor: 'rgba(243,197,68,0.18)', borderWidth: 1.5, borderColor: 'rgba(243,197,68,0.5)', alignItems: 'center', justifyContent: 'center' },
+  plusTxtA: { fontFamily: FontFamily.titleBold, fontSize: 32, color: '#F3C544', lineHeight: 38 },
+  minusBtnB: { width: 44, height: 44, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(84,185,129,0.15)', alignItems: 'center', justifyContent: 'center' },
+  minusTxtB: { fontFamily: FontFamily.titleBold, fontSize: 24, color: Colors.muted, lineHeight: 30 },
+  plusBtnB: { width: 56, height: 56, borderRadius: 12, backgroundColor: 'rgba(84,185,129,0.15)', borderWidth: 1.5, borderColor: 'rgba(84,185,129,0.4)', alignItems: 'center', justifyContent: 'center' },
+  plusTxtB: { fontFamily: FontFamily.titleBold, fontSize: 32, color: '#54B981', lineHeight: 38 },
+
+  // legado (não usados mas mantidos para não quebrar referências)
+  scoreArea: { flexDirection: 'row' },
+  side: { flex: 1 },
+  avatarRow: { flexDirection: 'row' },
+  teamName: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  score: { fontFamily: FontFamily.titleBold, fontSize: 72 },
+  btnRow: { flexDirection: 'row', gap: Spacing.sm },
+  vs: { alignItems: 'center' },
+  vsTxt: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.faint },
+  hintBox: { backgroundColor: Colors.gold + '22', borderRadius: Radius.md, padding: 8 },
+  hintText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.gold },
+  saveBtn: { backgroundColor: Colors.teal, borderRadius: Radius.full, paddingVertical: Spacing.md, alignItems: 'center' },
   saveBtnOff: { opacity: 0.4 },
   saveBtnTxt: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg },
+});
+
+const md = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: '#000000BB', justifyContent: 'center', alignItems: 'center', padding: Spacing.lg },
+  card: {
+    backgroundColor: Colors.surf, borderRadius: Radius.lg,
+    padding: Spacing.lg, width: '100%', gap: Spacing.md,
+    borderWidth: 1, borderColor: Colors.line,
+  },
+  title: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text, textAlign: 'center' },
+  miniCard: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.sm,
+    borderWidth: 1, borderColor: Colors.line,
+  },
+  miniTeam: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text, textAlign: 'center' },
+  miniVs: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.faint },
+  btnBt: {
+    backgroundColor: Colors.gold + '22', borderRadius: Radius.md,
+    padding: Spacing.md, alignItems: 'center', gap: 4,
+    borderWidth: 1, borderColor: Colors.gold + '66',
+  },
+  btnBtTxt: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.gold },
+  btnBtSub: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+  btnBtContinuar: { backgroundColor: Colors.teal + '22', borderColor: Colors.teal + '88' },
+  btnBtTxtContinuar: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.teal },
+  btnSimples: {
+    borderRadius: Radius.md, padding: Spacing.sm + 2, alignItems: 'center',
+    borderWidth: 1, borderColor: Colors.line,
+  },
+  btnSimplesTxt: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  btnRelatorio: {
+    borderRadius: Radius.md, padding: Spacing.sm, alignItems: 'center',
+    backgroundColor: Colors.teal + '22', borderWidth: 1, borderColor: Colors.teal + '55',
+  },
+  btnRelatorioTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal },
+  btnCancelar: { alignItems: 'center', padding: 6 },
+  btnCancelarTxt: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint },
 });
