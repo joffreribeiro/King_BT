@@ -84,35 +84,30 @@ export default function ConfigStep() {
   const { format } = useLocalSearchParams<{ format: Format }>();
   const [name, setName]       = useState(FORMAT_DEFAULT_NAME[format] ?? 'Competição');
   const [unit, setUnit]       = useState<Unit>('individual');
-  const [gender, setGender]   = useState<Gender>('misto');
+  const [gender, setGender]   = useState<Gender>('masculino');
   const [rounds, setRounds]   = useState<Rounds>('single');
-  const [sets, setSets]       = useState(1);
-  const [games, setGames]     = useState(6);
+  const [sets, setSets]       = useState(3);
+  const [games, setGames]     = useState(4);
   const [tiebreak, setTiebreak] = useState(7);
   const [groups, setGroups]   = useState(2);
   const [qualifiers, setQualifiers] = useState(2);
   const [location, setLocation] = useState('');
   const [notes, setNotes]     = useState('');
-  const [useOfficialRules, setUseOfficialRules] = useState(true);
+  const [useOfficialRules, setUseOfficialRules]     = useState(true);
+  const [superTiebreak, setSuperTiebreak]           = useState(true);
+  const [superTiebreakPts, setSuperTiebreakPts]     = useState(10);
 
   function next() {
     router.push({
       pathname: '/competitions/new/participants',
       params: {
-        format,
-        name,
-        unit,
-        gender,
-        rounds,
-        sets: String(sets),
-        games: String(games),
-        tiebreak: String(tiebreak),
-        location,
-        notes,
+        format, name, unit, gender, rounds,
+        sets: String(sets), games: String(games), tiebreak: String(tiebreak),
+        location, notes,
         useOfficialRules: String(useOfficialRules),
-        groups: String(groups),
-        qualifiers: String(qualifiers),
-        thirdPlace: 'false',
+        superTiebreak: String(superTiebreak),
+        superTiebreakPts: String(superTiebreakPts),
+        groups: String(groups), qualifiers: String(qualifiers), thirdPlace: 'false',
       },
     });
   }
@@ -239,6 +234,30 @@ export default function ConfigStep() {
         <View style={styles.field}>
           <Stepper label="Pontos do tie-break" value={tiebreak} min={5} max={15} onChange={setTiebreak} />
         </View>
+
+        {/* Super tie-break no set decisivo — só para Melhor de 3 ou 5 */}
+        {sets > 1 && (
+          <View style={styles.field}>
+            <TouchableOpacity
+              style={tog.row}
+              onPress={() => setSuperTiebreak(v => !v)}
+              activeOpacity={0.8}
+            >
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={tog.label}>Super tie-break no set decisivo</Text>
+                <Text style={tog.desc}>
+                  {sets}° set substituído por super tie-break a {superTiebreakPts} pts (ganhar por 2)
+                </Text>
+              </View>
+              <View style={[tog.track, superTiebreak && tog.trackOn]}>
+                <View style={[tog.thumb, superTiebreak && tog.thumbOn]} />
+              </View>
+            </TouchableOpacity>
+            {superTiebreak && (
+              <Stepper label="Pontos do super tie-break" value={superTiebreakPts} min={7} max={15} onChange={setSuperTiebreakPts} />
+            )}
+          </View>
+        )}
 
         {/* Regras oficiais BT */}
         <View style={styles.field}>

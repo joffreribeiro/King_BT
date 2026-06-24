@@ -4,7 +4,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState, useMemo } from 'react';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar } from '@/components';
-import { PLAYERS } from '@/mocks/data';
 import type { Format } from '@/logic/types';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -25,7 +24,9 @@ const GUEST_COLORS = ['#94A3B8', '#FB923C', '#A78BFA', '#34D399', '#F472B6', '#2
 
 export default function ParticipantsStep() {
   const params = useLocalSearchParams<Params>();
-  const isDuplas = params.unit === 'duplas';
+  // No Super 8, sempre seleção individual — o sistema gera as duplas automaticamente
+  const isSuper8 = params.format === 'super8';
+  const isDuplas = params.unit === 'duplas' && !isSuper8;
   const { state } = useCompetitions();
   const { groupPlayers, findPlayer } = useGroupPlayers();
 
@@ -34,13 +35,43 @@ export default function ParticipantsStep() {
   const [pairBuf, setPairBuf] = useState<string | null>(null);
   const [balanced, setBalanced] = useState(false);
 
+  // ── Distribuição de grupos ───────────────────────────────────────────────
+  type DistMode = 'auto' | 'ranking' | 'manual';
+  const [distMode, setDistMode] = useState<DistMode>('auto');
+  const [manualGroups, setManualGroups] = useState<Record<string, number>>({});
+
+  const isGrupos = params.format === 'grupos';
+  const numGroups = parseInt(params.groups ?? '2');
+
+  const rankingForGroups = useMemo(() => {
+    if (!isGrupos || distMode !== 'ranking') return [];
+    const allGames = state.competitions.flatMap(extractPlayerGames);
+    return buildRanking(
+      groupPlayers.map(p => ({ id: p.id, name: p.name, short: '', color: p.color })),
+      allGames,
+    );
+  }, [isGrupos, distMode, state.competitions, groupPlayers]);
+
+  function changeDistMode(mode: DistMode) {
+    setDistMode(mode);
+    if (mode === 'manual') {
+      // Inicializa com distribuição serpentina automática
+      const init: Record<string, number> = {};
+      selected.forEach((id, i) => {
+        const row = Math.floor(i / numGroups), col = i % numGroups;
+        init[id] = row % 2 ? numGroups - 1 - col : col;
+      });
+      setManualGroups(init);
+    }
+  }
+
   // Convidados
   const [guests, setGuests] = useState<GuestPlayer[]>([]);
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [guestName, setGuestName] = useState('');
 
   const allPlayers = [
-    ...PLAYERS.map(p => ({ ...p, guest: false as const })),
+    ...groupPlayers.map(p => ({ id: p.id, name: p.name, color: p.color, guest: false as const })),
     ...guests,
   ];
 
@@ -90,18 +121,41 @@ export default function ParticipantsStep() {
     setPairs(prev => prev.filter((_, idx) => idx !== i));
   }
 
-  const canContinue = isDuplas ? pairs.length >= 2 : selected.length >= 2;
+  const minIndividual = isSuper8 && params.unit === 'duplas' ? 4 : 2;
+  const minDuplas = 2;
+  const canContinue = isDuplas ? pairs.length >= minDuplas : selected.length >= minIndividual;
   const usedInPair = pairs.flat();
 
   function next() {
     if (!canContinue) return;
+
+    let orderedSelected = selected;
+    let groupMap = '';
+
+    if (isGrupos && !isDuplas) {
+      if (distMode === 'ranking' && rankingForGroups.length > 0) {
+        orderedSelected = [...selected].sort((a, b) => {
+          const ra = rankingForGroups.findIndex(r => r.id === a);
+          const rb = rankingForGroups.findIndex(r => r.id === b);
+          return (ra < 0 ? 9999 : ra) - (rb < 0 ? 9999 : rb);
+        });
+      } else if (distMode === 'manual') {
+        const groups: string[][] = Array.from({ length: numGroups }, () => []);
+        selected.forEach(id => {
+          const g = Math.min(manualGroups[id] ?? 0, numGroups - 1);
+          groups[g].push(id);
+        });
+        groupMap = JSON.stringify(groups);
+      }
+    }
+
     const ids = isDuplas
       ? pairs.map(([a, b]) => `${a}+${b}`).join(',')
-      : selected.join(',');
+      : orderedSelected.join(',');
     const guestData = guests.length > 0 ? JSON.stringify(guests.map(g => ({ id: g.id, name: g.name, color: g.color }))) : '';
     router.push({
       pathname: '/competitions/new/review',
-      params: { ...params, playerIds: ids, guestData },
+      params: { ...params, playerIds: ids, guestData, ...(groupMap ? { groupMap } : {}) },
     });
   }
 
@@ -131,6 +185,11 @@ export default function ParticipantsStep() {
           <Text style={styles.title}>
             {isDuplas ? 'Monte as duplas' : 'Quem vai jogar'}
           </Text>
+          {isSuper8 && params.unit === 'duplas' && (
+            <View style={styles.countBadge}>
+              <Text style={{ fontFamily: FontFamily.body, fontSize: 10, color: Colors.teal }}>auto</Text>
+            </View>
+          )}
           <View style={styles.countBadge}>
             <Text style={styles.countText}>
               {isDuplas ? pairs.length : selected.length}
@@ -140,7 +199,9 @@ export default function ParticipantsStep() {
         <Text style={styles.subtitle}>
           {isDuplas
             ? 'Toque em dois jogadores para formar uma dupla.'
-            : 'Selecione os participantes. Mínimo 2.'}
+            : isSuper8 && params.unit === 'duplas'
+              ? `Selecione os jogadores. Mínimo 4. O sistema gera as duplas automaticamente.`
+              : 'Selecione os participantes. Mínimo 2.'}
         </Text>
 
         {/* Duplas formadas */}
@@ -287,6 +348,97 @@ export default function ParticipantsStep() {
           </View>
         )}
 
+        {/* ── Distribuição de grupos ── */}
+        {isGrupos && !isDuplas && selected.length >= numGroups * 2 && (
+          <View style={styles.distSection}>
+            <Text style={styles.distTitle}>Distribuição nos grupos</Text>
+
+            {/* Seletor de modo */}
+            <View style={styles.distModeRow}>
+              {([
+                { key: 'auto',    label: 'Automático' },
+                { key: 'ranking', label: '🏅 Por ranking' },
+                { key: 'manual',  label: '✏️ Manual' },
+              ] as { key: DistMode; label: string }[]).map(({ key, label }) => (
+                <TouchableOpacity
+                  key={key}
+                  style={[styles.distModeBtn, distMode === key && styles.distModeBtnActive]}
+                  onPress={() => changeDistMode(key)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.distModeTxt, distMode === key && styles.distModeTxtActive]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {distMode === 'auto' && (
+              <Text style={styles.distInfo}>
+                Jogadores distribuídos em serpentina pela ordem de seleção.
+              </Text>
+            )}
+
+            {distMode === 'ranking' && (
+              <Text style={styles.distInfo}>
+                Jogadores ordenados pelo ranking histórico e distribuídos em serpentina — grupos mais equilibrados.
+              </Text>
+            )}
+
+            {distMode === 'manual' && (
+              <View style={{ gap: Spacing.sm }}>
+                <Text style={styles.distInfo}>Toque nos botões de grupo para cada jogador.</Text>
+
+                {/* Atribuição por jogador */}
+                {selected.map(id => {
+                  const pl = allPlayers.find(p => p.id === id);
+                  if (!pl) return null;
+                  const g = manualGroups[id] ?? 0;
+                  return (
+                    <View key={id} style={styles.assignRow}>
+                      <Avatar name={pl.name} color={pl.color} size={30} />
+                      <Text style={styles.assignName} numberOfLines={1}>{pl.name.split(' ')[0]}</Text>
+                      <View style={styles.assignBtns}>
+                        {Array.from({ length: numGroups }, (_, gi) => (
+                          <TouchableOpacity
+                            key={gi}
+                            style={[styles.groupBadge, g === gi && styles.groupBadgeActive]}
+                            onPress={() => setManualGroups(prev => ({ ...prev, [id]: gi }))}
+                            activeOpacity={0.75}
+                          >
+                            <Text style={[styles.groupBadgeTxt, g === gi && styles.groupBadgeTxtActive]}>
+                              {String.fromCharCode(65 + gi)}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  );
+                })}
+
+                {/* Preview dos grupos */}
+                <View style={{ gap: 6, marginTop: 4 }}>
+                  {Array.from({ length: numGroups }, (_, gi) => {
+                    const inGroup = selected.filter(id => (manualGroups[id] ?? 0) === gi);
+                    return (
+                      <View key={gi} style={styles.groupPreview}>
+                        <Text style={styles.groupPreviewLabel}>
+                          Grupo {String.fromCharCode(65 + gi)} — {inGroup.length} jogadores
+                        </Text>
+                        <Text style={styles.groupPreviewNames} numberOfLines={1}>
+                          {inGroup.length > 0
+                            ? inGroup.map(id => allPlayers.find(p => p.id === id)?.name.split(' ')[0] ?? id).join(', ')
+                            : 'Nenhum'}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
         <View style={{ height: 100 }} />
       </ScrollView>
 
@@ -301,8 +453,15 @@ export default function ParticipantsStep() {
           <Text style={[styles.btnText, !canContinue && styles.btnTextDisabled]}>
             {canContinue
               ? 'Continuar'
-              : isDuplas ? 'Mínimo 2 duplas' : 'Mínimo 2 jogadores'}
+              : isDuplas
+                ? `Mínimo ${minDuplas} duplas`
+                : `Mínimo ${minIndividual} jogadores`}
           </Text>
+          {!canContinue && isSuper8 && params.unit === 'duplas' && (
+            <Text style={{ fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, marginTop: 2 }}>
+              (4 para gerar duplas automáticas)
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -440,6 +599,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.sm,
   },
+
+  // Distribuição de grupos
+  distSection: { gap: Spacing.sm, padding: Spacing.md, backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line },
+  distTitle: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
+  distInfo: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint, lineHeight: 18 },
+  distModeRow: { flexDirection: 'row', gap: Spacing.xs },
+  distModeBtn: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, backgroundColor: Colors.surf2 },
+  distModeBtnActive: { borderColor: Colors.gold + '88', backgroundColor: Colors.gold + '20' },
+  distModeTxt: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted },
+  distModeTxtActive: { color: Colors.gold },
+  // Atribuição manual
+  assignRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 4 },
+  assignName: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  assignBtns: { flexDirection: 'row', gap: 6 },
+  groupBadge: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surf2, borderWidth: 1, borderColor: Colors.line },
+  groupBadgeActive: { backgroundColor: Colors.gold, borderColor: Colors.gold },
+  groupBadgeTxt: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted },
+  groupBadgeTxtActive: { color: Colors.bg },
+  // Preview dos grupos
+  groupPreview: { backgroundColor: Colors.surf2, borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.line },
+  groupPreviewLabel: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.gold },
+  groupPreviewNames: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: 2 },
 
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: Spacing.md, paddingBottom: Spacing.lg, backgroundColor: Colors.bg, borderTopWidth: 1, borderTopColor: Colors.line },
   btnContinue: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' },

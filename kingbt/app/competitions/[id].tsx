@@ -20,6 +20,7 @@ import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { getBeachTennisScoreState, getScoreHint, isValidFinalScore } from '@/logic/btScoring';
 import { confirmParticipation, cancelParticipation } from '@/firebase/competitions';
+import { carregarAnalise, type BtAnalise } from '@/logic/btTracker';
 
 function getPlayer(id: string) {
   return PLAYERS.find(p => p.id === id);
@@ -33,7 +34,19 @@ function getCompetitor(comp: Competition, id: string) {
 function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
   comp: Competition; ids: string[]; matches: Match[]; highlightTop?: number;
 }) {
-  const st = standings(ids, matches, id => getPlayer(id)?.name ?? id);
+  const { findPlayer } = useGroupPlayers();
+
+  function resolveEntry(id: string): { name: string; color: string } {
+    const competitor = getCompetitor(comp, id);
+    if (competitor) return { name: competitor.name, color: competitor.color };
+    const gp = findPlayer(id);
+    if (gp) return { name: gp.name, color: gp.color };
+    const mock = getPlayer(id);
+    if (mock) return { name: mock.name, color: mock.color };
+    return { name: id, color: Colors.muted };
+  }
+
+  const st = standings(ids, matches, id => resolveEntry(id).name);
   return (
     <Card padding={0} style={{ overflow: 'hidden', marginBottom: Spacing.sm }}>
       <View style={[stRow.row, stRow.header]}>
@@ -42,14 +55,14 @@ function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
         ))}
       </View>
       {st.map((s, i) => {
-        const pl = getPlayer(s.id);
+        const pl = resolveEntry(s.id);
         const classified = highlightTop > 0 && i < highlightTop;
         return (
           <View key={s.id} style={[stRow.row, i < st.length - 1 && stRow.border, classified && stRow.classified]}>
             <Text style={[stRow.c0, stRow.pos]}>{i + 1}</Text>
             <View style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
-              {pl && <Avatar name={pl.name} color={pl.color} size={22} />}
-              <Text style={stRow.name} numberOfLines={1}>{pl?.name ?? s.id}</Text>
+              <Avatar name={pl.name} color={pl.color} size={22} />
+              <Text style={stRow.name} numberOfLines={1}>{pl.name}</Text>
             </View>
             <Text style={stRow.cN}>{s.played}</Text>
             <Text style={stRow.cN}>{s.wins}</Text>
@@ -816,14 +829,57 @@ function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }:
   const { defaultMaxScore } = useSettings();
   const [sA, setSA] = useState(match?.scoreA != null ? String(match.scoreA) : '');
   const [sB, setSB] = useState(match?.scoreB != null ? String(match.scoreB) : '');
+  const [analise, setAnalise] = useState<BtAnalise | null>(null);
+
+  useEffect(() => {
+    if (!match) return;
+    setSA(match.scoreA != null ? String(match.scoreA) : '');
+    setSB(match.scoreB != null ? String(match.scoreB) : '');
+    carregarAnalise(match.id, comp.id).then(a => setAnalise(a));
+  }, [match?.id]);
+
+  const analiseEncerrada = !!analise?.placarFinal;
+
   if (!match) return null;
+
+  const teamA = match.teamA ?? (match.aId ? [match.aId] : []);
+  const teamB = match.teamB ?? (match.bId ? [match.bId] : []);
+
+  function abrirBtTracker() {
+    onClose();
+    const wr = comp.config.winRule;
+    router.push({
+      pathname: '/analise/[matchId]/ponto',
+      params: {
+        matchId: match!.id,
+        compId: comp.id,
+        a1: teamA[0] ?? '',
+        a2: teamA[1] ?? '',
+        b1: teamB[0] ?? '',
+        b2: teamB[1] ?? '',
+        sets: String(wr?.sets ?? 3),
+        games: String(wr?.games ?? 6),
+        tiebreak: String(wr?.tiebreak ?? 7),
+        scoutMode: wr?.scoutMode ?? 'avancado',
+      },
+    });
+  }
+
+  function abrirRelatorio() {
+    onClose();
+    router.push({
+      pathname: '/analise/[matchId]/relatorio',
+      params: { matchId: match!.id, compId: comp.id },
+    });
+  }
   const a = parseInt(sA), b = parseInt(sB);
   const hasNumbers = !isNaN(a) && !isNaN(b) && a >= 0 && b >= 0;
   const draw = hasNumbers && a === b;
   const useOfficialRules = comp.config.useOfficialRules !== false;
-  const scoreState = hasNumbers && !draw ? getBeachTennisScoreState(a, b) : 'normal';
-  const hint = hasNumbers ? getScoreHint(a, b) : null;
-  const valid = hasNumbers && !draw && (useOfficialRules ? isValidFinalScore(a, b) : true);
+  const wr = { games: comp.config.winRule?.games ?? 6, tiebreak: comp.config.winRule?.tiebreak ?? 7 };
+  const scoreState = hasNumbers && !draw ? getBeachTennisScoreState(a, b, wr) : 'normal';
+  const hint = hasNumbers ? getScoreHint(a, b, wr) : null;
+  const valid = hasNumbers && !draw && (useOfficialRules ? isValidFinalScore(a, b, wr) : true);
   const alreadyScored = match.scoreA != null;
   const canEdit = !alreadyScored || isAdmin;
 
@@ -921,6 +977,36 @@ function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }:
           {isAdmin && alreadyScored && (
             <Text style={sc.adminNote}>⚙️ Admin — você pode corrigir ou apagar este placar.</Text>
           )}
+
+          {/* BT Tracker */}
+          {analise && !analiseEncerrada ? (
+            // Análise em andamento — permite continuar ou ver parcial
+            <View style={{ gap: 6 }}>
+              <TouchableOpacity style={[sc.btBtn, sc.btBtnContinuar]} onPress={abrirBtTracker}>
+                <Text style={sc.btBtnTxtContinuar}>▶ Continuar BT Tracker</Text>
+                <Text style={sc.btBtnSub}>{analise.pontos.length} pontos registrados</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={sc.btBtnSecundario} onPress={abrirRelatorio}>
+                <Text style={sc.btBtnSecundarioTxt}>📊 Ver análise parcial</Text>
+              </TouchableOpacity>
+            </View>
+          ) : analise && analiseEncerrada ? (
+            // Análise encerrada — só visualização + opção de nova análise
+            <View style={{ gap: 6 }}>
+              <TouchableOpacity style={sc.btBtn} onPress={abrirRelatorio}>
+                <Text style={sc.btBtnTxt}>📊 Ver análise BT salva</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={sc.btBtnSecundario} onPress={abrirBtTracker}>
+                <Text style={sc.btBtnSecundarioTxt}>🎾 Nova análise BT</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            // Sem análise — começa do zero
+            <TouchableOpacity style={sc.btBtn} onPress={abrirBtTracker}>
+              <Text style={sc.btBtnTxt}>🎾 Analisar ponto a ponto</Text>
+            </TouchableOpacity>
+          )}
+
           <View style={sc.btns}>
             <TouchableOpacity onPress={onClose} style={sc.cancel}>
               <Text style={sc.cancelText}>Cancelar</Text>
@@ -966,6 +1052,13 @@ const sc = StyleSheet.create({
   adminNote: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.gold, textAlign: 'center' },
   clearBtn: { alignItems: 'center', paddingVertical: Spacing.xs },
   clearBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.coral },
+  btBtn: { borderWidth: 1, borderColor: Colors.gold + '55', backgroundColor: Colors.gold + '15', borderRadius: Radius.md, padding: Spacing.sm + 2, alignItems: 'center' },
+  btBtnTxt: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.gold },
+  btBtnContinuar: { borderColor: Colors.teal + '88', backgroundColor: Colors.teal + '22' },
+  btBtnTxtContinuar: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.teal },
+  btBtnSub: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.teal, opacity: 0.7, marginTop: 2 },
+  btBtnSecundario: { alignItems: 'center', paddingVertical: 6 },
+  btBtnSecundarioTxt: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
   quickRow: { gap: 6 },
   quickLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center' },
   quickChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' },
@@ -1268,7 +1361,14 @@ export default function CompetitionDetail() {
   if (!comp) {
     return (
       <SafeAreaView style={main.container}>
-        <Text style={{ color: Colors.coral, padding: Spacing.md }}>Competição não encontrada.</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md }}>
+          <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)')}>
+            <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal }}>←</Text>
+          </TouchableOpacity>
+          <Text style={{ color: Colors.coral, fontFamily: FontFamily.body, fontSize: 14 }}>
+            Competição não encontrada.
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }

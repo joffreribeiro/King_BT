@@ -3,7 +3,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar } from '@/components';
-import { PLAYERS } from '@/mocks/data';
 import { buildCompetition } from '@/logic/formats';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
@@ -30,10 +29,13 @@ const FORMAT_ICON_COLOR: Record<Format, string> = {
 type Params = {
   format: Format; name: string; unit: string; gender: string; rounds: string;
   sets: string; games: string; tiebreak: string;
+  superTiebreak?: string; superTiebreakPts?: string;
+  scoutMode?: string;
   location?: string; notes?: string;
   useOfficialRules?: string;
   groups: string; qualifiers: string;
   thirdPlace: string; playerIds: string; guestData?: string;
+  groupMap?: string;
 };
 
 export default function ReviewStep() {
@@ -43,7 +45,9 @@ export default function ReviewStep() {
   const p = useLocalSearchParams<Params>();
   const [busy, setBusy] = useState(false);
 
-  const isDuplas = p.unit === 'duplas';
+  const isSuper8 = p.format === 'super8';
+  // No Super 8, sempre lista de jogadores individuais — duplas geradas automaticamente
+  const isDuplas = p.unit === 'duplas' && !isSuper8;
   const gender = (p.gender ?? 'misto') as Gender;
   const GENDER_LABEL: Record<Gender, string> = { masculino: 'Masculino', feminino: 'Feminino', misto: 'Misto' };
   const roundsLabel = p.rounds === 'double' ? 'Ida e volta' : 'Turno único';
@@ -56,7 +60,7 @@ export default function ReviewStep() {
   // Jogadores + convidados
   const guests: { id: string; name: string; color: string }[] = p.guestData ? JSON.parse(p.guestData) : [];
   const allPlayers = [
-    ...PLAYERS.map(pl => ({ id: pl.id, name: pl.name, color: pl.color })),
+    ...groupPlayers.map(pl => ({ id: pl.id, name: pl.name, color: pl.color })),
     ...guests,
   ];
 
@@ -85,20 +89,35 @@ export default function ReviewStep() {
     }).filter(Boolean) as Competitor[];
   })();
 
+  const preassignedGroups: string[][] | undefined = p.groupMap
+    ? (JSON.parse(p.groupMap) as string[][]).map(group =>
+        group.map(id => {
+          const pl = allPlayers.find(x => x.id === id);
+          return pl ? id : null;
+        }).filter(Boolean) as string[]
+      ).filter(g => g.length > 0)
+    : undefined;
+
   const comp = buildCompetition({
     name: p.name,
     format: p.format,
-    unit: isDuplas ? 'duplas' : 'individual',
+    unit: isDuplas || (isSuper8 && p.unit === 'duplas') ? 'duplas' : 'individual',
     gender,
     competitors,
     location: p.location?.trim() || undefined,
     notes: p.notes?.trim() || undefined,
+    preassignedGroups,
     config: {
       rounds: p.rounds === 'double' ? 'double' : 'single',
       groups: parseInt(p.groups ?? '2'),
       qualifiers: parseInt(p.qualifiers ?? '2'),
       thirdPlace: p.thirdPlace === 'true',
-      winRule: { sets: setsN, games: gamesN, tiebreak: tiebreakN },
+      winRule: {
+        sets: setsN, games: gamesN, tiebreak: tiebreakN,
+        superTiebreak: p.superTiebreak === 'true',
+        superTiebreakPts: parseInt(p.superTiebreakPts ?? '10', 10) || 10,
+        scoutMode: (p.scoutMode ?? 'avancado') as 'aovivo' | 'padrao' | 'avancado',
+      },
       useOfficialRules: p.useOfficialRules !== 'false',
     },
   });
@@ -175,7 +194,7 @@ export default function ReviewStep() {
           <SummaryRow label="Categoria" value={GENDER_LABEL[gender]} />
           <SummaryRow
             label="Competidores"
-            value={`${competitors.length} ${isDuplas ? 'duplas' : 'jogadores'}`}
+            value={`${competitors.length} ${isDuplas ? 'duplas' : 'jogadores'}${isSuper8 && p.unit === 'duplas' ? ' (duplas rotativas)' : ''}`}
           />
           {(p.format === 'liga' || p.format === 'grupos') && (
             <SummaryRow label="Turnos" value={roundsLabel} />
