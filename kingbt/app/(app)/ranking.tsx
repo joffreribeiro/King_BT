@@ -212,14 +212,31 @@ export default function RankingScreen() {
             const pl = findPlayer(s.id);
             const isMe = s.id === MY_ID;
             const sgColor = s.sg > 0 ? Colors.teal : s.sg < 0 ? Colors.coral : Colors.muted;
+            const d = deltas[s.id];
+            const trendDir = d?.dir ?? 'same';
+            const trendDiff = d?.diff ?? 0;
+            const isUp = trendDir === 'up';
+            const isDown = trendDir === 'down';
+            const aproveitamento = s.played > 0 ? Math.round((s.wins / s.played) * 100) : 0;
 
             return (
               <TouchableOpacity
                 key={s.id}
-                style={[styles.row, i < ranking.length - 1 && styles.rowBorder, isMe && styles.rowMe]}
+                style={[
+                  styles.row,
+                  i < ranking.length - 1 && styles.rowBorder,
+                  isMe && styles.rowMe,
+                  isUp && styles.rowUp,
+                  isDown && styles.rowDown,
+                ]}
                 onPress={() => router.push({ pathname: '/player/[id]', params: { id: s.id } })}
                 activeOpacity={0.7}
               >
+                {/* Trend border strip */}
+                {(isUp || isDown) && (
+                  <View style={[styles.trendBorder, { backgroundColor: isUp ? Colors.teal : Colors.coral }]} />
+                )}
+
                 <Text style={[styles.c0, styles.posText, isMe && { color: Colors.gold }]}>{i + 1}</Text>
 
                 <View style={[styles.cName, styles.rowPlayer]}>
@@ -229,20 +246,15 @@ export default function RankingScreen() {
                       <Text style={[styles.playerName, isMe && { color: Colors.gold }, { flexShrink: 1 }]} numberOfLines={1}>
                         {pl?.name ?? s.id}
                       </Text>
-
-                      {(() => {
-                        const d = deltas[s.id];
-                        if (!d || d.dir === 'same' || d.dir === 'new') return null;
-                        const isUp = d.dir === 'up';
-                        return (
-                          <View style={{ flexShrink: 0, flexDirection: 'row', alignItems: 'center', backgroundColor: isUp ? Colors.teal + '22' : Colors.coral + '22', borderRadius: Radius.full, paddingHorizontal: 4, paddingVertical: 1 }}>
-                            <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 9, color: isUp ? Colors.teal : Colors.coral }}>
-                              {isUp ? '↑' : '↓'}{d.diff > 1 ? d.diff : ''}
-                            </Text>
-                          </View>
-                        );
-                      })()}
+                      {(isUp || isDown) && (
+                        <View style={{ flexShrink: 0, flexDirection: 'row', alignItems: 'center', backgroundColor: isUp ? Colors.teal + '22' : Colors.coral + '22', borderRadius: Radius.full, paddingHorizontal: 4, paddingVertical: 1 }}>
+                          <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 9, color: isUp ? Colors.teal : Colors.coral }}>
+                            {isUp ? '▲' : '▼'}{trendDiff > 1 ? ` ${trendDiff}` : ''}
+                          </Text>
+                        </View>
+                      )}
                     </View>
+                    <Text style={styles.playerMeta}>{s.played}J · {aproveitamento}% aprov.</Text>
                   </View>
                 </View>
 
@@ -255,7 +267,14 @@ export default function RankingScreen() {
                   {s.sg > 0 ? '+' : ''}{s.sg}
                 </Text>
                 <Text style={[styles.cStat, styles.statText]}>{s.ga.toFixed(2)}</Text>
-                <Text style={[styles.cPts, styles.ptsText]}>{s.points.toFixed(2)}</Text>
+                <View style={styles.cPts}>
+                  <Text style={styles.ptsText}>{s.points.toFixed(2)}</Text>
+                  {(isUp || isDown || trendDir === 'same') && d && d.dir !== 'new' && (
+                    <Text style={[styles.trendSmall, { color: isUp ? Colors.teal : isDown ? Colors.coral : Colors.faint }]}>
+                      {isUp ? `▲ ${trendDiff}` : isDown ? `▼ ${trendDiff}` : '— 0'}
+                    </Text>
+                  )}
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -266,7 +285,7 @@ export default function RankingScreen() {
           <Text style={styles.legendText}>V: Vitórias · D: Derrotas · J: Partidas · GP: Games Pró · GC: Games Contra · SG: Saldo de Games · GA: Game Average (GP ÷ GC)</Text>
         </View>
 
-        <View style={{ height: Spacing.xl }} />
+        <View style={{ height: 140 }} />
       </ScrollView>
 
       {/* Card oculto para captura de imagem */}
@@ -599,12 +618,18 @@ const styles = StyleSheet.create({
   rowHeader: { paddingVertical: 7 },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.line },
   rowMe: { backgroundColor: Colors.gold + '14', borderLeftWidth: 3, borderLeftColor: Colors.gold },
+  rowUp: { borderColor: 'rgba(84,185,129,0.20)' },
+  rowDown: { borderColor: 'rgba(229,72,61,0.15)' },
+
+  trendBorder: {
+    position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,
+  },
 
   c0: { width: 22 },
   cName: { flex: 1 },
   cStat: { width: 30, textAlign: 'center' },
   cStatWide: { width: 36, textAlign: 'center' },
-  cPts: { width: 44, textAlign: 'right' },
+  cPts: { width: 44, alignItems: 'flex-end' },
 
   th: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 0.5 },
   posText: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted },
@@ -612,13 +637,15 @@ const styles = StyleSheet.create({
   nameBlock: { flex: 1, overflow: 'hidden' },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 3, overflow: 'hidden' },
   playerName: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, flexShrink: 1 },
+  playerMeta: { fontSize: 11, color: Colors.muted, fontFamily: FontFamily.body },
   youBadge: {
     backgroundColor: Colors.gold + '33', borderRadius: Radius.full,
     paddingHorizontal: 5, paddingVertical: 1,
   },
   youText: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.gold },
   statText: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.text, textAlign: 'center' },
-  ptsText: { fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.gold, textAlign: 'right' },
+  ptsText: { fontFamily: FontFamily.numberBold, fontSize: 15, color: Colors.gold, textAlign: 'right' },
+  trendSmall: { fontFamily: FontFamily.numberBold, fontSize: 10, fontWeight: '700', textAlign: 'right' },
 });
 
 const cmp = StyleSheet.create({

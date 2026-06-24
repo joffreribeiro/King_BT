@@ -1,4 +1,5 @@
 import type { Match, MatchSource, GroupDef, Competition, Standing, Competitor } from './types';
+import { generateSchedule, generateScheduleIndividual, generateScheduleDuplas } from './roundRobin';
 
 // ─── Liga (round-robin Circle method) ────────────────────────────────────────
 
@@ -225,7 +226,8 @@ export function resolveCompetition(comp: Competition): Competition {
   let changed = true, guard = 0;
   while (changed && guard++ < 30) {
     changed = false;
-    for (const m of matches) {
+    for (let mi = 0; mi < matches.length; mi++) {
+      const m = matches[mi];
       for (const side of ['a', 'b'] as const) {
         const src = m[`${side}Src`] as MatchSource | null;
         if (!src || m[`${side}Id`] != null) continue;
@@ -238,7 +240,11 @@ export function resolveCompetition(comp: Competition): Competition {
           const gr = groupRank[src.g!];
           if (gr && gr[src.pos! - 1]) val = gr[src.pos! - 1].id;
         }
-        if (val != null) { (m as unknown as Record<string, unknown>)[`${side}Id`] = val; changed = true; }
+        if (val != null) {
+          matches[mi] = { ...m, [`${side}Id`]: val };
+          byId[m.id] = matches[mi];
+          changed = true;
+        }
       }
     }
   }
@@ -336,7 +342,33 @@ export function extractPlayerGames(
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
 import type { Format, Unit, Gender, CompetitionConfig } from './types';
-import { generateSchedule } from './roundRobin';
+
+// ─── Grupos com distribuição manual ──────────────────────────────────────────
+
+function genGroupsManual(
+  groupArrays: string[][],
+  dbl: boolean,
+  qualifiers: number,
+  thirdPlace: boolean,
+): { groupDefs: GroupDef[]; matches: Match[] } {
+  const groupDefs: GroupDef[] = groupArrays.map((gids, i) => ({
+    name: 'Grupo ' + String.fromCharCode(65 + i), ids: gids,
+  }));
+  const matches: Match[] = [];
+  groupDefs.forEach((gd, gi) =>
+    genLeague(gd.ids, dbl).forEach(mm =>
+      matches.push({ ...mm, id: 'G' + gi + mm.id, stage: 'group', groupIdx: gi })
+    )
+  );
+  const tickets: MatchSource[] = [];
+  for (let pos = 1; pos <= qualifiers; pos++)
+    for (let g = 0; g < groupDefs.length; g++)
+      tickets.push({ type: 'group', g, pos });
+  const bracket = genBracket(tickets, thirdPlace, 'K');
+  return { groupDefs, matches: matches.concat(bracket) };
+}
+
+// ─── Factory ──────────────────────────────────────────────────────────────────
 
 export function buildCompetition(spec: {
   name: string;
@@ -347,8 +379,9 @@ export function buildCompetition(spec: {
   config: CompetitionConfig;
   location?: string;
   notes?: string;
+  preassignedGroups?: string[][];
 }): Competition {
-  const id = 'comp_' + Date.now();
+  const id = 'comp_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
   const comp: Competition = {
     id, name: spec.name, format: spec.format, unit: spec.unit,
     gender: spec.gender ?? 'misto',
@@ -364,11 +397,18 @@ export function buildCompetition(spec: {
   } else if (spec.format === 'mata') {
     comp.matches = genBracket(ids, config.thirdPlace, 'K');
   } else if (spec.format === 'grupos') {
-    const { groupDefs, matches } = genGroups(ids, config.groups, config.rounds === 'double', config.qualifiers, config.thirdPlace);
+    const { groupDefs, matches } = spec.preassignedGroups
+      ? genGroupsManual(spec.preassignedGroups, config.rounds === 'double', config.qualifiers, config.thirdPlace)
+      : genGroups(ids, config.groups, config.rounds === 'double', config.qualifiers, config.thirdPlace);
     comp.groupDefs = groupDefs; comp.matches = matches;
   } else if (spec.format === 'super8') {
-    const players = spec.competitors.map(c => ({ id: c.members[0] ?? c.id, name: c.name, short: c.short, color: c.color }));
-    comp.matches = generateSchedule(players);
+    if (spec.unit === 'duplas') {
+      // Duplas rotativas: o sistema sorteia os pares automaticamente
+      comp.matches = generateSchedule(spec.competitors.map(c => ({ id: c.members[0] ?? c.id })));
+    } else {
+      // Individual: todos contra todos (round-robin 1v1)
+      comp.matches = generateScheduleIndividual(spec.competitors);
+    }
   }
   // avulso: começa sem partidas — jogos são adicionados manualmente
   resolveCompetition(comp);

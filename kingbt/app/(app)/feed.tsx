@@ -103,7 +103,7 @@ const cm = StyleSheet.create({
   handle:      { width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.line, alignSelf: 'center', marginBottom: Spacing.sm },
   title:       { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text, marginBottom: Spacing.sm },
   list:        { maxHeight: 300 },
-  empty:       { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center', paddingVertical: Spacing.md },
+  empty:       { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', paddingVertical: Spacing.md },
   commentRow:  { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start' },
   commentDot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.gold, marginTop: 6 },
   commentAuthor: { fontFamily: FontFamily.title, fontSize: 12, color: Colors.gold },
@@ -528,11 +528,11 @@ export default function FeedScreen() {
 
 const s = StyleSheet.create({
   container:  { flex: 1, backgroundColor: Colors.bg },
-  list:       { padding: Spacing.md, paddingBottom: Spacing.xl },
+  list:       { padding: Spacing.md, paddingBottom: 140 },
   titleRow:   { marginBottom: Spacing.md },
   title:      { fontFamily: FontFamily.titleBold, fontSize: 24, color: Colors.text },
   groupName:  { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 2 },
   empty:      { alignItems: 'center', padding: Spacing.xl, gap: Spacing.sm },
   emptyTitle: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.muted },
-  emptySub:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center' },
+  emptySub:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
 });
