@@ -140,7 +140,7 @@ function DrawerMenu({ visible, onClose }: { visible: boolean; onClose: () => voi
 
           {/* Configurações */}
           <Text style={dr.sectionLabel}>CONFIGURAÇÕES</Text>
-          <TouchableOpacity style={dr.menuBtn} onPress={() => { onClose(); router.push('/(app)/settings'); }}>
+          <TouchableOpacity style={dr.menuBtn} onPress={() => { onClose(); router.push('/(app)/settings' as any); }}>
             <Text style={dr.menuBtnIcon}>⚙️</Text>
             <Text style={dr.menuBtnTxt}>Configurações</Text>
           </TouchableOpacity>

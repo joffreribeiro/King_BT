@@ -367,9 +367,7 @@ function AbaDinamica({ stats }: { stats: BtEstatisticas }) {
             noOfSections={6}
             maxValue={absMax}
             mostNegativeValue={-absMax}
-            referenceLinesConfig={[
-              { y: 0, color: Colors.muted, thickness: 1, type: 'solid', labelText: '0', labelTextStyle: { color: Colors.faint, fontSize: 8 } },
-            ]}
+            referenceLine1Config={{ color: Colors.muted, thickness: 1, type: 'solid', labelText: '0', labelTextStyle: { color: Colors.faint, fontSize: 8 } } as any}
           />
         </ScrollView>
       </Section>

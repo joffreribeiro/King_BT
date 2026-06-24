@@ -616,10 +616,11 @@ export default function PontoScreen() {
     const novosPontos = pontosRef.current.slice(0, -1);
     let pl = placardInicial(placardRef.current.rule);
     for (const p of novosPontos) pl = avancaPonto(pl, p.vencedorDupla, p.sacador);
-    const base = analiseRef.current ?? {
+    const base = (analiseRef.current ?? {
       id: matchId, competitionId: compId, matchId,
       criadaEm: Date.now(), jogadores: ids as BtAnalise['jogadores'], nomes, pontos: [],
-    };
+      rule: placardRef.current.rule,
+    }) as BtAnalise;
     const atualizada = { ...base, pontos: novosPontos };
     atualizarPlacard(pl); atualizarPontos(novosPontos); atualizarAnalise(atualizada);
     salvarAnalise(atualizada);
@@ -636,7 +637,7 @@ export default function PontoScreen() {
     await salvarAnalise(analiseComPlacar);
     if (group?.id) saveAnaliseFs(group.id, analiseComPlacar).catch(() => {});
     dispatch({ type: 'SAVE_SCORE', compId, matchId, scoreA: pl.setsA, scoreB: pl.setsB });
-    router.replace({ pathname: '/analise/[matchId]/relatorio', params: { matchId, compId } });
+    router.replace({ pathname: '/analise/[matchId]/relatorio' as any, params: { matchId, compId } });
   }
 
   async function salvarEdicaoPonto(pontoEditado: BtPonto) {
@@ -644,10 +645,11 @@ export default function PontoScreen() {
     // Reconstrói placar do zero com a edição aplicada
     let pl = placardInicial(placardRef.current.rule);
     for (const p of novosPontos) pl = avancaPonto(pl, p.vencedorDupla, p.sacador);
-    const base = analiseRef.current ?? {
+    const base = (analiseRef.current ?? {
       id: matchId, competitionId: compId, matchId,
       criadaEm: Date.now(), jogadores: ids as BtAnalise['jogadores'], nomes, pontos: [],
-    };
+      rule: placardRef.current.rule,
+    }) as BtAnalise;
     const atualizada = { ...base, pontos: novosPontos };
     atualizarPlacard(pl);
     atualizarPontos(novosPontos);
@@ -665,7 +667,7 @@ export default function PontoScreen() {
 
   function confirmarEncerrar() {
     setModalEncerrar(false);
-    const a = analise ?? { id: matchId, competitionId: compId, matchId, criadaEm: Date.now(), jogadores: ids as BtAnalise['jogadores'], nomes, pontos };
+    const a = (analise ?? { id: matchId, competitionId: compId, matchId, criadaEm: Date.now(), jogadores: ids as BtAnalise['jogadores'], nomes, pontos, rule: placard.rule }) as BtAnalise;
     encerrarPartida({ ...a, pontos }, placard);
   }
 

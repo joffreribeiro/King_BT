@@ -206,7 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function joinGroup(code: string): Promise<{ unlinkedPlayers: UnlinkedPlayer[] }> {
+  async function joinGroup(code: string): Promise<{ unlinkedPlayers: UnlinkedPlayer[]; needsLink?: boolean }> {
     if (!user) { setError('Faça login primeiro.'); return { unlinkedPlayers: [] }; }
     try {
       setError(null);

@@ -60,7 +60,7 @@ function Skeleton({ width = '100%' as number | string, height = 16, radius = 8 }
       ])
     ).start();
   }, []);
-  return <Animated.View style={{ width, height, borderRadius: radius, backgroundColor: Colors.surf2, opacity }} />;
+  return <Animated.View style={{ width: width as any, height, borderRadius: radius, backgroundColor: Colors.surf2, opacity }} />;
 }
 
 function SkeletonCard() {

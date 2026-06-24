@@ -112,7 +112,7 @@ function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activityData, 
         <Card>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm }}>
             <Text style={tab.sectionTitle}>Conquistas</Text>
-            <TouchableOpacity onPress={() => router.push('/(app)/achievements')}>
+            <TouchableOpacity onPress={() => router.push('/(app)/achievements' as any)}>
               <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.teal }}>Ver todas →</Text>
             </TouchableOpacity>
           </View>
@@ -136,7 +136,7 @@ function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activityData, 
 
       {/* Análise por Formato */}
       <TouchableOpacity
-        onPress={() => router.push('/(app)/stats')}
+        onPress={() => router.push('/(app)/stats' as any)}
         activeOpacity={0.8}
         style={{
           flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -794,7 +794,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/(app)/settings')} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/(app)/settings' as any)} activeOpacity={0.8}>
             <Text style={styles.settingsBtnText}>⚙️  Configurações</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.leaveGroupBtn} onPress={() => router.push('/(auth)/groups')} activeOpacity={0.8}>
