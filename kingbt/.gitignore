@@ -17,6 +17,14 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+*.keystore
+meu_keystore
+
+# Secrets — nunca commitar
+*serviceAccountKey.json
+*serviceAccount.json
+google-services.json
+GoogleService-Info.plist
 
 # Metro
 .metro-health-check*
