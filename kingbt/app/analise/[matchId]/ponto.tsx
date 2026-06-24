@@ -637,7 +637,7 @@ export default function PontoScreen() {
     await salvarAnalise(analiseComPlacar);
     if (group?.id) saveAnaliseFs(group.id, analiseComPlacar).catch(() => {});
     dispatch({ type: 'SAVE_SCORE', compId, matchId, scoreA: pl.setsA, scoreB: pl.setsB });
-    router.replace({ pathname: '/analise/[matchId]/relatorio' as any, params: { matchId, compId } });
+    router.replace({ pathname: '/analise/[matchId]/relatorio', params: { matchId, compId } });
   }
 
   async function salvarEdicaoPonto(pontoEditado: BtPonto) {

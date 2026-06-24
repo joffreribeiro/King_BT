@@ -27,7 +27,7 @@ function AnaliseCard({ analise }: { analise: BtAnalise }) {
       style={card.wrap}
       activeOpacity={0.8}
       onPress={() => router.push({
-        pathname: '/analise/[matchId]/relatorio' as any,
+        pathname: '/analise/[matchId]/relatorio',
         params: { matchId, compId: competitionId },
       })}
     >

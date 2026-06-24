@@ -1,16 +1,19 @@
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, Alert, Platform,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, Alert, Platform, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
-import { Card } from '@/components';
+import { Avatar, Card } from '@/components';
 import { useAuth } from '@/store/AuthContext';
 import { useSettings } from '@/store/SettingsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
-import { removeGuestPlayer, deleteGroup } from '@/firebase/groupPlayers';
+import { addGuestPlayer, removeGuestPlayer, updatePlayerHandicap, deleteGroup } from '@/firebase/groupPlayers';
 import type { Format } from '@/logic/types';
+
+const GUEST_COLORS = ['#FFD166', '#2DD4BF', '#A78BFA', '#34D399', '#F472B6', '#94A3B8', '#FB923C', '#60A5FA'];
 
 const MAX_SCORE_OPTIONS = [4, 6, 7, 8, 10];
 
@@ -28,6 +31,16 @@ const version = Constants.expoConfig?.version ?? '1.0.0';
 export default function SettingsScreen() {
   const { group, isAdmin, leaveGroup, user, removeFromGroup, promoteToAdmin } = useAuth();
   const { groupPlayers } = useGroupPlayers();
+  const [activeTab, setActiveTab] = useState<'geral' | 'admin'>('geral');
+  const [showAddGuest, setShowAddGuest] = useState(false);
+  const [guestName, setGuestName]       = useState('');
+  const [guestColor, setGuestColor]     = useState(GUEST_COLORS[0]);
+
+  async function handleAddGuest() {
+    if (!guestName.trim() || !group) return;
+    await addGuestPlayer(group.id, guestName.trim(), guestColor);
+    setGuestName(''); setGuestColor(GUEST_COLORS[0]); setShowAddGuest(false);
+  }
   const { defaultMaxScore, setDefaultMaxScore, defaultFormat, setDefaultFormat } = useSettings();
 
   async function handleShareInvite() {
@@ -119,7 +132,28 @@ export default function SettingsScreen() {
         <View style={{ width: 32 }} />
       </View>
 
+      {/* Tab bar — só aparece para admin */}
+      {isAdmin && (
+        <View style={s.tabBar}>
+          {(['geral', 'admin'] as const).map(tab => (
+            <TouchableOpacity
+              key={tab}
+              style={[s.tabItem, activeTab === tab && s.tabItemActive]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={[s.tabLabel, activeTab === tab && s.tabLabelActive]}>
+                {tab === 'geral' ? 'Geral' : '⚙️ Admin'}
+              </Text>
+              {activeTab === tab && <View style={s.tabIndicator} />}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+
+        {/* ── ABA GERAL ── */}
+        {activeTab === 'geral' && <>
 
         {/* Versão */}
         <Card style={s.versionCard}>
@@ -197,30 +231,54 @@ export default function SettingsScreen() {
           </View>
         )}
 
+        </> /* fim aba Geral */}
+
+        {/* ── ABA ADMIN ── */}
+        {activeTab === 'admin' && <>
+
         {/* Admin — Jogadores */}
-        {isAdmin && group && (
+        {group && (
           <View>
-            <Text style={s.sectionTitle}>Jogadores do grupo</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <Text style={s.sectionTitle}>Jogadores do grupo</Text>
+              <TouchableOpacity onPress={() => setShowAddGuest(v => !v)}
+                style={{ paddingHorizontal: Spacing.sm, paddingVertical: 3, backgroundColor: Colors.surf2, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.line }}>
+                <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.teal }}>
+                  {showAddGuest ? '− Cancelar' : '+ Convidado'}
+                </Text>
+              </TouchableOpacity>
+            </View>
             <Card padding={0} style={{ overflow: 'hidden' }}>
               {groupPlayers.length === 0 && (
                 <Text style={s.emptyPlayers}>Nenhum jogador cadastrado.</Text>
               )}
               {groupPlayers.map((p, i) => {
-                const isSelf = p.uid != null && p.uid === user?.uid;
-                const isPlayerAdmin = !p.guest && p.uid != null && group?.admins?.includes(p.uid);
-                const canPromote = !p.guest && p.uid != null && !isPlayerAdmin && !isSelf;
+                const isSelf       = p.uid != null && p.uid === user?.uid;
+                const isPlayerAdmin= !p.guest && p.uid != null && group?.admins?.includes(p.uid);
+                const canPromote   = !p.guest && p.uid != null && !isPlayerAdmin && !isSelf;
+                const h            = p.handicap ?? 0;
                 return (
                   <View key={p.id} style={[s.playerRow, i < groupPlayers.length - 1 && s.playerBorder]}>
-                    <View style={[s.playerDot, { backgroundColor: p.color }]} />
+                    <Avatar name={p.name} color={p.color} size={28} />
                     <Text style={s.playerName} numberOfLines={1}>{p.name}</Text>
-                    {isPlayerAdmin && (
-                      <View style={s.adminBadge}><Text style={s.adminText}>👑 admin</Text></View>
-                    )}
+                    {/* Handicap */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <TouchableOpacity onPress={() => updatePlayerHandicap(group.id, p.id, Math.max(-3, h - 1))} hitSlop={6}
+                        style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.line }}>
+                        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 14, color: Colors.text, lineHeight: 18 }}>−</Text>
+                      </TouchableOpacity>
+                      <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 13, width: 24, textAlign: 'center', color: h > 0 ? Colors.teal : h < 0 ? Colors.coral : Colors.faint }}>
+                        {h > 0 ? `+${h}` : h === 0 ? '0' : h}
+                      </Text>
+                      <TouchableOpacity onPress={() => updatePlayerHandicap(group.id, p.id, Math.min(3, h + 1))} hitSlop={6}
+                        style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.line }}>
+                        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 14, color: Colors.text, lineHeight: 18 }}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {isPlayerAdmin && <View style={s.adminBadge}><Text style={s.adminText}>👑 admin</Text></View>}
                     {!isPlayerAdmin && (
                       <View style={p.guest ? s.guestBadge : s.memberBadge}>
-                        <Text style={p.guest ? s.guestText : s.memberText}>
-                          {p.guest ? 'convidado' : 'membro'}
-                        </Text>
+                        <Text style={p.guest ? s.guestText : s.memberText}>{p.guest ? 'conv.' : 'membro'}</Text>
                       </View>
                     )}
                     {canPromote && (
@@ -237,26 +295,47 @@ export default function SettingsScreen() {
                 );
               })}
             </Card>
+            {/* Formulário adicionar convidado */}
+            {showAddGuest && (
+              <Card style={{ gap: Spacing.sm, marginTop: Spacing.sm }}>
+                <TextInput
+                  style={{ backgroundColor: Colors.bg, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: 10, fontFamily: FontFamily.body, fontSize: 15, color: Colors.text }}
+                  value={guestName} onChangeText={setGuestName}
+                  placeholder="Nome do convidado" placeholderTextColor={Colors.faint} autoFocus
+                />
+                <View style={{ flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' }}>
+                  {GUEST_COLORS.map(c => (
+                    <TouchableOpacity key={c} onPress={() => setGuestColor(c)}
+                      style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: c, borderWidth: guestColor === c ? 3 : 0, borderColor: Colors.text }} />
+                  ))}
+                </View>
+                <TouchableOpacity
+                  style={{ backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center', opacity: guestName.trim() ? 1 : 0.4 }}
+                  onPress={handleAddGuest} disabled={!guestName.trim()}>
+                  <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: Colors.bg }}>Adicionar convidado</Text>
+                </TouchableOpacity>
+              </Card>
+            )}
           </View>
         )}
 
-        {/* Admin — Zona de perigo */}
-        {isAdmin && (
-          <View>
-            <Text style={[s.sectionTitle, { color: Colors.coral }]}>Zona de perigo</Text>
-            <Card style={s.dangerCard}>
-              <Text style={s.dangerHint}>Ações irreversíveis. Use com cautela.</Text>
-              <TouchableOpacity style={s.dangerBtn} onPress={handleLeaveGroup}>
-                <Text style={s.dangerBtnText}>🚪 Sair do grupo</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[s.dangerBtn, s.dangerBtnRed]} onPress={handleDeleteGroup}>
-                <Text style={[s.dangerBtnText, s.dangerBtnTextRed]}>🗑️ Excluir grupo permanentemente</Text>
-              </TouchableOpacity>
-            </Card>
-          </View>
-        )}
+        {/* Zona de perigo */}
+        <View>
+          <Text style={[s.sectionTitle, { color: Colors.coral }]}>Zona de perigo</Text>
+          <Card style={s.dangerCard}>
+            <Text style={s.dangerHint}>Ações irreversíveis. Use com cautela.</Text>
+            <TouchableOpacity style={s.dangerBtn} onPress={handleLeaveGroup}>
+              <Text style={s.dangerBtnText}>🚪 Sair do grupo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[s.dangerBtn, s.dangerBtnRed]} onPress={handleDeleteGroup}>
+              <Text style={[s.dangerBtnText, s.dangerBtnTextRed]}>🗑️ Excluir grupo permanentemente</Text>
+            </TouchableOpacity>
+          </Card>
+        </View>
 
-        {/* Conta */}
+        </> /* fim aba Admin */}
+
+        {/* Conta — não admin */}
         {!isAdmin && (
           <View>
             <Text style={s.sectionTitle}>Conta</Text>
@@ -277,6 +356,12 @@ export default function SettingsScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
+  tabBar: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.line, backgroundColor: Colors.bg, paddingHorizontal: Spacing.md },
+  tabItem: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', position: 'relative' },
+  tabItemActive: {},
+  tabLabel: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.faint },
+  tabLabelActive: { color: Colors.gold, fontWeight: '700' },
+  tabIndicator: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 2.5, backgroundColor: Colors.gold, borderRadius: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,

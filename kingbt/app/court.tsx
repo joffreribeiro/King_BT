@@ -350,7 +350,7 @@ export default function CourtScreen() {
 
     const wr = selectedComp?.config?.winRule;
     router.push({
-      pathname: '/analise/[matchId]/ponto' as any,
+      pathname: '/analise/[matchId]/ponto',
       params: {
         matchId: pendingMatch.id,
         compId: selectedCompId,

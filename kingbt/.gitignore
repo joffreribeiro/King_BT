@@ -17,14 +17,6 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
-*.keystore
-meu_keystore
-
-# Secrets — nunca commitar
-*serviceAccountKey.json
-*serviceAccount.json
-google-services.json
-GoogleService-Info.plist
 
 # Metro
 .metro-health-check*
@@ -44,9 +36,8 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# Firebase Admin keys (nunca commitar)
+# Firebase Admin key (nunca commitar)
 scripts/serviceAccountKey.json
-scripts/serviceAccount.json
 
 # generated native folders
 /ios

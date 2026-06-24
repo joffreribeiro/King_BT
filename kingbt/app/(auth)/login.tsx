@@ -165,10 +165,10 @@ const deco = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
+  container: { flex: 1, backgroundColor: '#000000' },
   scroll: { flexGrow: 1, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
   logoWrap: { alignItems: 'center', paddingTop: Spacing.lg, paddingBottom: Spacing.sm },
-  logo: { width: 260, height: 260 },
+  logo: { width: 200, height: 200 },
   form: { gap: Spacing.md },
   title: { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text },
   errorBox: { backgroundColor: Colors.coral + '22', borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.coral + '44', marginBottom: Spacing.xs },

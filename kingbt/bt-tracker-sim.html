@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>BT Tracker — Simulador</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0B0B0D;
+    color: #F6EFDD;
+    font-family: system-ui, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 20px 0 60px;
+  }
+  .phone {
+    width: 390px;
+    min-height: 100vh;
+    background: #0B0B0D;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(214,175,70,0.16);
+  }
+  .back-btn { font-size: 22px; color: #54B981; cursor: pointer; width: 32px; }
+  .header-info { flex: 1; }
+  .header-title { font-size: 16px; font-weight: 700; }
+  .header-sub { font-size: 11px; color: #A99B7C; }
+  .encerrar-btn {
+    background: rgba(229,72,61,0.15);
+    border: 1px solid rgba(229,72,61,0.4);
+    color: #E5483D;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* Scoreboard */
+  .scoreboard {
+    display: flex;
+    align-items: center;
+    background: #16140F;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(214,175,70,0.16);
+  }
+  .score-team { flex: 1; text-align: center; }
+  .score-team-name { font-size: 11px; color: #A99B7C; margin-bottom: 4px; }
+  .score-games { font-size: 42px; font-weight: 700; line-height: 1; }
+  .score-sets { font-size: 10px; color: #6E6452; margin-top: 2px; }
+  .score-center { text-align: center; padding: 0 12px; }
+  .game-score { font-size: 20px; font-weight: 700; }
+  .game-label { font-size: 10px; color: #6E6452; margin-top: 2px; }
+  .tiebreak-badge {
+    background: rgba(243,197,68,0.15);
+    color: #F3C544;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-top: 4px;
+    display: none;
+  }
+
+  /* Form */
+  .scroll { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .label { font-size: 13px; color: #A99B7C; font-weight: 600; margin-top: 6px; }
+  .sublabel { font-size: 11px; color: #6E6452; margin-bottom: 2px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(214,175,70,0.16);
+    background: #221C12;
+    color: #A99B7C;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .chip.small { padding: 5px 10px; font-size: 11px; }
+  .chip.selected-gold { background: rgba(243,197,68,0.2); border-color: #F3C544; color: #F3C544; }
+  .chip.selected-teal { background: rgba(84,185,129,0.2); border-color: #54B981; color: #54B981; }
+  .chip.selected-coral { background: rgba(229,72,61,0.2); border-color: #E5483D; color: #E5483D; }
+
+  /* Vencedor */
+  .win-row { display: flex; gap: 8px; }
+  .win-btn {
+    flex: 1;
+    padding: 12px 8px;
+    border-radius: 12px;
+    border: 1px solid rgba(214,175,70,0.16);
+    background: #221C12;
+    color: #A99B7C;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .win-btn.selected-A { border-color: #F3C544; background: rgba(243,197,68,0.15); color: #F3C544; }
+  .win-btn.selected-B { border-color: #54B981; background: rgba(84,185,129,0.15); color: #54B981; }
+
+  /* Botão registrar */
+  .reg-btn {
+    background: #F3C544;
+    color: #0B0B0D;
+    border: none;
+    border-radius: 999px;
+    padding: 16px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 6px;
+    transition: opacity 0.15s;
+  }
+  .reg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* Log */
+  .log-header { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  .undo-btn { font-size: 12px; color: #54B981; cursor: pointer; font-weight: 600; }
+  .log-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 0;
+    border-top: 1px solid rgba(214,175,70,0.16);
+  }
+  .log-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+  .log-txt { font-size: 12px; color: #A99B7C; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    padding: 24px;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-card {
+    background: #16140F;
+    border: 1px solid rgba(214,175,70,0.16);
+    border-radius: 22px;
+    padding: 24px;
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .modal-title { font-size: 18px; font-weight: 700; text-align: center; }
+  .modal-sub { font-size: 14px; color: #F6EFDD; text-align: center; }
+  .modal-sub2 { font-size: 12px; color: #A99B7C; text-align: center; }
+  .modal-row { display: flex; gap: 10px; }
+  .modal-cancel {
+    flex: 1; padding: 12px; border-radius: 999px;
+    border: 1px solid rgba(214,175,70,0.16); background: transparent;
+    color: #A99B7C; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .modal-confirm {
+    flex: 1; padding: 12px; border-radius: 999px;
+    background: #54B981; border: none;
+    color: #0B0B0D; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+
+  .divider { height: 1px; background: rgba(214,175,70,0.16); }
+
+  /* Config inicial */
+  .config-screen {
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .config-title { font-size: 20px; font-weight: 700; color: #F3C544; text-align: center; }
+  .config-sub { font-size: 13px; color: #A99B7C; text-align: center; }
+  .input-group { display: flex; flex-direction: column; gap: 6px; }
+  .input-label { font-size: 12px; color: #A99B7C; font-weight: 600; }
+  .input-row { display: flex; gap: 8px; }
+  input[type=text] {
+    flex: 1;
+    background: #221C12;
+    border: 1px solid rgba(214,175,70,0.16);
+    border-radius: 10px;
+    color: #F6EFDD;
+    font-size: 14px;
+    padding: 10px 12px;
+    outline: none;
+  }
+  input[type=text]:focus { border-color: #F3C544; }
+  .start-btn {
+    background: #F3C544;
+    color: #0B0B0D;
+    border: none;
+    border-radius: 999px;
+    padding: 16px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .team-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    display: inline-block;
+    margin-bottom: 4px;
+  }
+  .team-a { background: rgba(243,197,68,0.15); color: #F3C544; }
+  .team-b { background: rgba(84,185,129,0.15); color: #54B981; }
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <!-- Config Screen -->
+  <div id="configScreen" class="config-screen">
+    <div style="text-align:center;font-size:40px;margin-bottom:4px">🎾</div>
+    <div class="config-title">BT Tracker</div>
+    <div class="config-sub">Configure os jogadores para começar</div>
+
+    <div class="input-group">
+      <span class="team-label team-a">DUPLA A</span>
+      <div class="input-row">
+        <input type="text" id="a1" placeholder="Jogador A1" value="Daniel">
+        <input type="text" id="a2" placeholder="Jogador A2" value="Rafael">
+      </div>
+    </div>
+
+    <div class="input-group">
+      <span class="team-label team-b">DUPLA B</span>
+      <div class="input-row">
+        <input type="text" id="b1" placeholder="Jogador B1" value="Eider">
+        <input type="text" id="b2" placeholder="Jogador B2" value="Lucas">
+      </div>
+    </div>
+
+    <button class="start-btn" onclick="iniciar()">Iniciar Análise →</button>
+  </div>
+
+  <!-- Tracker Screen (hidden initially) -->
+  <div id="trackerScreen" style="display:none; flex-direction:column; flex:1">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="back-btn" onclick="voltarConfig()">←</div>
+      <div class="header-info">
+        <div class="header-title">BT Tracker</div>
+        <div class="header-sub" id="pontosCount">0 pontos registrados</div>
+      </div>
+      <button class="encerrar-btn" onclick="pedirEncerrar()">Encerrar</button>
+    </div>
+
+    <!-- Scoreboard -->
+    <div class="scoreboard">
+      <div class="score-team">
+        <div class="score-team-name" id="nomeA">—</div>
+        <div class="score-games" id="gamesA" style="color:#F3C544">0</div>
+        <div class="score-sets" id="setsA">Set: 0</div>
+      </div>
+      <div class="score-center">
+        <div class="game-score" id="gameScore">0x0</div>
+        <div class="game-label">Game</div>
+        <div class="tiebreak-badge" id="tiebreakBadge">TIEBREAK</div>
+      </div>
+      <div class="score-team">
+        <div class="score-team-name" id="nomeB">—</div>
+        <div class="score-games" id="gamesB" style="color:#A99B7C">0</div>
+        <div class="score-sets" id="setsB">Set: 0</div>
+      </div>
+    </div>
+
+    <!-- Form -->
+    <div class="scroll" id="formScroll">
+
+      <!-- Sacador -->
+      <div class="label">Sacador</div>
+      <div class="chips" id="chipsSacador"></div>
+
+      <!-- Posição saque -->
+      <div class="label">Posição do Saque</div>
+      <div class="sublabel">Direita</div>
+      <div class="chips" id="chipsDireita"></div>
+      <div class="sublabel">Esquerda</div>
+      <div class="chips" id="chipsEsquerda"></div>
+
+      <!-- Finalização -->
+      <div class="label">Finalização</div>
+      <div class="chips" id="chipsFin"></div>
+
+      <!-- Tipo finalização -->
+      <div id="tipoFinGroup" style="display:none">
+        <div class="label">Tipo</div>
+        <div class="chips" id="chipsTipo"></div>
+      </div>
+
+      <!-- Vencedor -->
+      <div class="label">Quem ganhou o ponto?</div>
+      <div class="win-row">
+        <button class="win-btn" id="winA" onclick="setVencedor('A')"></button>
+        <button class="win-btn" id="winB" onclick="setVencedor('B')"></button>
+      </div>
+
+      <!-- Registrar -->
+      <button class="reg-btn" id="regBtn" onclick="registrarPonto()" disabled>Registrar Ponto</button>
+
+      <!-- Log -->
+      <div id="logSection" style="display:none">
+        <div class="log-header">
+          <div class="label" style="margin-top:0">Últimos pontos</div>
+          <div class="undo-btn" onclick="desfazer()">↩ Desfazer</div>
+        </div>
+        <div id="logRows"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Modal encerrar -->
+  <div class="modal-overlay" id="modalEncerrar">
+    <div class="modal-card">
+      <div class="modal-title">Encerrar partida?</div>
+      <div class="modal-sub" id="modalPlacar"></div>
+      <div class="modal-sub2">O placar será salvo no torneio.</div>
+      <div class="modal-row">
+        <button class="modal-cancel" onclick="fecharModal()">Cancelar</button>
+        <button class="modal-confirm" onclick="confirmarEncerrar()">Ver Relatório</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── Estado ───────────────────────────────────────────────────────────────────
+
+const GAME_SEQ = [0, 15, 30, 40];
+const FINS = [
+  { key: 'Ace', label: 'Ace', cls: 'selected-gold' },
+  { key: 'Winner', label: 'Winner', cls: 'selected-teal' },
+  { key: 'ForçouErro', label: 'Forçou Erro', cls: 'selected-teal' },
+  { key: 'ErroDev', label: 'Erro Dev.', cls: 'selected-coral' },
+  { key: 'ErroSaque', label: 'Erro Saque', cls: 'selected-coral' },
+  { key: 'ErroNF', label: 'Erro N. Forçado', cls: 'selected-coral' },
+];
+const TIPOS = ['Smash','LobChutado','Avanço','Curta','Voleio','Devolução','Defesa','Gancho'];
+const POS_DIR = ['D1','D2','D3','D4','D5','DLob'];
+const POS_ESQ = ['E1','E2','E3','E4','E5','ELob'];
+
+let jogadores = { a1:'', a2:'', b1:'', b2:'' };
+let placard = novoPlacard();
+let pontos = [];
+let sacador = '';
+let posicao = null;
+let finalizacao = null;
+let tipoFin = null;
+let vencedor = null;
+
+function novoPlacard() {
+  return { setsA:0, setsB:0, gamesA:0, gamesB:0, pontosA:0, pontosB:0, tiebreak:false, encerrada:false, winner:null };
+}
+
+function jogadoresA() { return [jogadores.a1, jogadores.a2].filter(Boolean); }
+function jogadoresB() { return [jogadores.b1, jogadores.b2].filter(Boolean); }
+function todosJogadores() { return [...jogadoresA(), ...jogadoresB()]; }
+function duplaDoJogador(id) { return jogadoresA().includes(id) ? 'A' : 'B'; }
+
+// ─── Lógica de placar ──────────────────────────────────────────────────────
+
+function avancaGame(pl, dupla) {
+  const s = JSON.parse(JSON.stringify(pl));
+  if (dupla === 'A') s.gamesA++; else s.gamesB++;
+  s.pontosA = 0; s.pontosB = 0; s.tiebreak = false;
+
+  const { gamesA, gamesB } = s;
+  const fechouA = (gamesA >= 6 && gamesA - gamesB >= 2) || (gamesA === 7 && gamesB === 5) || (gamesA === 7 && gamesB === 6);
+  const fechouB = (gamesB >= 6 && gamesB - gamesA >= 2) || (gamesB === 7 && gamesA === 5) || (gamesB === 7 && gamesA === 6);
+
+  if (fechouA || fechouB) {
+    if (fechouA) s.setsA++; else s.setsB++;
+    s.gamesA = 0; s.gamesB = 0;
+    if (s.setsA === 2 || s.setsB === 2) {
+      s.encerrada = true;
+      s.winner = s.setsA === 2 ? 'A' : 'B';
+    }
+  }
+  // Ativa tiebreak se 6-6
+  if (s.gamesA === 6 && s.gamesB === 6) { s.tiebreak = true; s.pontosA = 0; s.pontosB = 0; }
+  return s;
+}
+
+function avancaPonto(pl, dupla) {
+  if (pl.encerrada) return pl;
+  const s = JSON.parse(JSON.stringify(pl));
+
+  if (s.tiebreak) {
+    if (dupla === 'A') s.pontosA++; else s.pontosB++;
+    if ((s.pontosA >= 7 || s.pontosB >= 7) && Math.abs(s.pontosA - s.pontosB) >= 2) return avancaGame(s, dupla);
+    return s;
+  }
+
+  // Beach tennis: sem deuce — 40x40 próximo ponto ganha
+  if (dupla === 'A') s.pontosA++; else s.pontosB++;
+  if (s.pontosA >= 4) return avancaGame(s, 'A');
+  if (s.pontosB >= 4) return avancaGame(s, 'B');
+  return s;
+}
+
+function formatGame(pl) {
+  if (pl.tiebreak) return `${pl.pontosA}x${pl.pontosB}`;
+  const a = GAME_SEQ[Math.min(pl.pontosA, 3)] ?? 40;
+  const b = GAME_SEQ[Math.min(pl.pontosB, 3)] ?? 40;
+  return `${a}x${b}`;
+}
+
+// ─── UI ───────────────────────────────────────────────────────────────────────
+
+function iniciar() {
+  jogadores.a1 = document.getElementById('a1').value.trim() || 'A1';
+  jogadores.a2 = document.getElementById('a2').value.trim() || 'A2';
+  jogadores.b1 = document.getElementById('b1').value.trim() || 'B1';
+  jogadores.b2 = document.getElementById('b2').value.trim() || 'B2';
+  placard = novoPlacard();
+  pontos = [];
+  sacador = jogadores.a1;
+  posicao = null; finalizacao = null; tipoFin = null; vencedor = null;
+
+  document.getElementById('configScreen').style.display = 'none';
+  document.getElementById('trackerScreen').style.display = 'flex';
+
+  document.getElementById('nomeA').textContent = jogadoresA().join(' / ');
+  document.getElementById('nomeB').textContent = jogadoresB().join(' / ');
+  document.getElementById('winA').textContent = jogadoresA().join(' / ') + ' (A)';
+  document.getElementById('winB').textContent = jogadoresB().join(' / ') + ' (B)';
+
+  buildChips();
+  atualizarUI();
+}
+
+function voltarConfig() {
+  document.getElementById('configScreen').style.display = 'flex';
+  document.getElementById('trackerScreen').style.display = 'none';
+}
+
+function buildChips() {
+  // Sacador
+  const cs = document.getElementById('chipsSacador');
+  cs.innerHTML = '';
+  todosJogadores().forEach(id => {
+    const cls = duplaDoJogador(id) === 'A' ? 'selected-gold' : 'selected-teal';
+    const c = chip(id, id, cls, () => { sacador = id; atualizarUI(); });
+    cs.appendChild(c);
+  });
+
+  // Posições
+  buildChipsPos(document.getElementById('chipsDireita'), POS_DIR);
+  buildChipsPos(document.getElementById('chipsEsquerda'), POS_ESQ);
+
+  // Finalizações
+  const cf = document.getElementById('chipsFin');
+  cf.innerHTML = '';
+  FINS.forEach(f => {
+    const c = chip(f.key, f.label, f.cls, () => { finalizacao = f.key; tipoFin = null; atualizarUI(); });
+    cf.appendChild(c);
+  });
+
+  // Tipos
+  const ct = document.getElementById('chipsTipo');
+  ct.innerHTML = '';
+  TIPOS.forEach(t => {
+    const c = chip('tipo_'+t, t, 'selected-gold', () => { tipoFin = tipoFin === t ? null : t; atualizarUI(); });
+    ct.appendChild(c);
+  });
+}
+
+function buildChipsPos(container, positions) {
+  container.innerHTML = '';
+  positions.forEach(p => {
+    const c = chip('pos_'+p, p, 'selected-gold', () => { posicao = p; atualizarUI(); }, true);
+    container.appendChild(c);
+  });
+}
+
+function chip(key, label, selectedCls, onClick, small = false) {
+  const el = document.createElement('div');
+  el.className = 'chip' + (small ? ' small' : '');
+  el.dataset.key = key;
+  el.dataset.selectedCls = selectedCls;
+  el.textContent = label;
+  el.addEventListener('click', onClick);
+  return el;
+}
+
+function setVencedor(v) {
+  vencedor = v;
+  atualizarUI();
+}
+
+function vencedorResolvido() {
+  if (finalizacao === 'Ace') return duplaDoJogador(sacador);
+  if (finalizacao === 'ErroSaque') return duplaDoJogador(sacador) === 'A' ? 'B' : 'A';
+  return vencedor;
+}
+
+function atualizarUI() {
+  // Placar
+  document.getElementById('gamesA').textContent = placard.gamesA;
+  document.getElementById('gamesB').textContent = placard.gamesB;
+  document.getElementById('setsA').textContent = 'Set: ' + placard.setsA;
+  document.getElementById('setsB').textContent = 'Set: ' + placard.setsB;
+  document.getElementById('gameScore').textContent = formatGame(placard);
+  document.getElementById('gamesA').style.color = placard.gamesA >= placard.gamesB ? '#F3C544' : '#A99B7C';
+  document.getElementById('gamesB').style.color = placard.gamesB >= placard.gamesA ? '#F3C544' : '#A99B7C';
+  document.getElementById('tiebreakBadge').style.display = placard.tiebreak ? 'block' : 'none';
+  document.getElementById('pontosCount').textContent = pontos.length + ' pontos registrados';
+
+  // Chips sacador
+  document.querySelectorAll('#chipsSacador .chip').forEach(el => {
+    el.className = 'chip';
+    if (el.dataset.key === sacador) el.classList.add(el.dataset.selectedCls);
+  });
+
+  // Chips posição
+  document.querySelectorAll('#chipsDireita .chip, #chipsEsquerda .chip').forEach(el => {
+    el.className = 'chip small';
+    if (el.dataset.key === 'pos_' + posicao) el.classList.add(el.dataset.selectedCls);
+  });
+
+  // Chips finalização
+  document.querySelectorAll('#chipsFin .chip').forEach(el => {
+    el.className = 'chip';
+    if (el.dataset.key === finalizacao) el.classList.add(el.dataset.selectedCls);
+  });
+
+  // Tipo finalização
+  const showTipo = ['Winner','ForçouErro','ErroNF'].includes(finalizacao);
+  document.getElementById('tipoFinGroup').style.display = showTipo ? 'block' : 'none';
+  document.querySelectorAll('#chipsTipo .chip').forEach(el => {
+    el.className = 'chip small';
+    if (el.dataset.key === 'tipo_' + tipoFin) el.classList.add(el.dataset.selectedCls);
+  });
+
+  // Vencedor
+  const vr = vencedorResolvido();
+  const winA = document.getElementById('winA');
+  const winB = document.getElementById('winB');
+  winA.className = 'win-btn' + (vr === 'A' ? ' selected-A' : '');
+  winB.className = 'win-btn' + (vr === 'B' ? ' selected-B' : '');
+
+  // Botão registrar
+  const pode = sacador && posicao && finalizacao && vr;
+  document.getElementById('regBtn').disabled = !pode;
+
+  // Log
+  atualizarLog();
+}
+
+function atualizarLog() {
+  const sec = document.getElementById('logSection');
+  if (pontos.length === 0) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  const container = document.getElementById('logRows');
+  container.innerHTML = '';
+  const ultimos = pontos.slice(-3).reverse();
+  ultimos.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'log-row';
+    const dot = document.createElement('div');
+    dot.className = 'log-dot';
+    dot.style.background = p.vencedor === 'A' ? '#F3C544' : '#54B981';
+    const txt = document.createElement('div');
+    txt.className = 'log-txt';
+    txt.textContent = `${p.setScore} · ${p.gameScore} · ${p.sacador} · ${p.finalizacao}${p.tipo ? ' · ' + p.tipo : ''}`;
+    row.appendChild(dot);
+    row.appendChild(txt);
+    container.appendChild(row);
+  });
+}
+
+function registrarPonto() {
+  const vr = vencedorResolvido();
+  if (!sacador || !posicao || !finalizacao || !vr) return;
+
+  const ponto = {
+    id: Date.now(),
+    gameScore: formatGame(placard),
+    setScore: `${placard.setsA}x${placard.setsB}`,
+    sacador,
+    posicao,
+    finalizacao,
+    tipo: tipoFin,
+    vencedor: vr,
+  };
+
+  pontos.push(ponto);
+  placard = avancaPonto(placard, vr);
+
+  // Reset form
+  posicao = null; finalizacao = null; tipoFin = null; vencedor = null;
+
+  atualizarUI();
+
+  if (placard.encerrada) {
+    setTimeout(() => pedirEncerrar(), 300);
+  }
+}
+
+function desfazer() {
+  if (pontos.length === 0) return;
+  pontos.pop();
+  placard = novoPlacard();
+  pontos.forEach(p => { placard = avancaPonto(placard, p.vencedor); });
+  posicao = null; finalizacao = null; tipoFin = null; vencedor = null;
+  atualizarUI();
+}
+
+function pedirEncerrar() {
+  if (pontos.length === 0) { alert('Registre ao menos um ponto antes de encerrar.'); return; }
+  document.getElementById('modalPlacar').textContent =
+    `Placar: ${placard.setsA} × ${placard.setsB} sets · ${pontos.length} pontos`;
+  document.getElementById('modalEncerrar').classList.add('show');
+}
+
+function fecharModal() {
+  document.getElementById('modalEncerrar').classList.remove('show');
+}
+
+function confirmarEncerrar() {
+  fecharModal();
+  mostrarRelatorio();
+}
+
+function mostrarRelatorio() {
+  // Gera relatório simples como alerta formatado
+  const totalPontos = pontos.length;
+  const ptA = pontos.filter(p => p.vencedor === 'A').length;
+  const ptB = pontos.filter(p => p.vencedor === 'B').length;
+  const acesA = pontos.filter(p => p.finalizacao === 'Ace' && duplaDoJogador(p.sacador) === 'A').length;
+  const acesB = pontos.filter(p => p.finalizacao === 'Ace' && duplaDoJogador(p.sacador) === 'B').length;
+  const winnersA = pontos.filter(p => p.finalizacao === 'Winner' && p.vencedor === 'A').length;
+  const winnersB = pontos.filter(p => p.finalizacao === 'Winner' && p.vencedor === 'B').length;
+  const errosA = pontos.filter(p => (p.finalizacao === 'ErroNF' || p.finalizacao === 'ErroDev') && p.vencedor === 'B').length;
+  const errosB = pontos.filter(p => (p.finalizacao === 'ErroNF' || p.finalizacao === 'ErroDev') && p.vencedor === 'A').length;
+
+  const nA = jogadoresA().join('/');
+  const nB = jogadoresB().join('/');
+
+  alert(
+    `🎾 RELATÓRIO FINAL\n\n` +
+    `Sets: ${placard.setsA} × ${placard.setsB}\n` +
+    `Total de pontos: ${totalPontos}\n\n` +
+    `          ${nA}    ${nB}\n` +
+    `Pontos:   ${ptA} (${Math.round(ptA/totalPontos*100)}%)   ${ptB} (${Math.round(ptB/totalPontos*100)}%)\n` +
+    `Winners:  ${winnersA}          ${winnersB}\n` +
+    `Aces:     ${acesA}          ${acesB}\n` +
+    `Erros:    ${errosA}          ${errosB}\n\n` +
+    `Vencedor: Dupla ${placard.winner ?? '?'} (${placard.winner === 'A' ? nA : nB})`
+  );
+}
+</script>
+</body>
+</html>
