@@ -4,7 +4,9 @@
       "Read(//d/KINGBT/android/**)",
       "Read(//d/KINGBT/app/player/**)",
       "Skill(claude-api)",
-      "Skill(claude-api:*)"
+      "Skill(claude-api:*)",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Joffre\\.claude"

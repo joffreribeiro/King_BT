@@ -1,5 +1,21 @@
 {
   "enabledPlugins": {
     "expo@claude-plugins-official": true
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "cd \"e:\\MEUS DOCUMENTOS\\OneDrive\\Documentos\\Sistemas\\King_BT\\kingbt\" ; npx expo export --platform web ; firebase deploy --only hosting",
+            "timeout": 300,
+            "statusMessage": "Publicando no Firebase Hosting..."
+          }
+        ]
+      }
+    ]
   }
 }

@@ -1,20 +1,140 @@
 import {
   View, Text, StyleSheet, TouchableOpacity, Image,
   ActivityIndicator, TextInput, KeyboardAvoidingView,
-  Platform, ScrollView,
+  Platform, ScrollView, Animated, Easing, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { useAuth } from '@/store/AuthContext';
 
+const { width: SW, height: SH } = Dimensions.get('window');
+// Centro aproximado do ícone (topo da tela + padding)
+const ICON_CX = SW / 2;
+const ICON_CY = 140;
+
 type Mode = 'options' | 'signin' | 'signup';
+
+// ── Anéis pulsantes ───────────────────────────────────────────────────────────
+function PulseRing({ size, delay, borderColor }: { size: number; delay: number; borderColor: string }) {
+  const scale = useRef(new Animated.Value(0.93)).current;
+  const alpha = useRef(new Animated.Value(0.2)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(scale, { toValue: 1.07, duration: 1900, useNativeDriver: true }),
+          Animated.timing(alpha, { toValue: 0.6, duration: 1900, useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(scale, { toValue: 0.93, duration: 1900, useNativeDriver: true }),
+          Animated.timing(alpha, { toValue: 0.2, duration: 1900, useNativeDriver: true }),
+        ]),
+      ])
+    );
+    const t = setTimeout(() => loop.start(), delay);
+    return () => { clearTimeout(t); loop.stop(); };
+  }, []);
+
+  return (
+    <Animated.View style={{
+      position: 'absolute',
+      width: size, height: size, borderRadius: size / 2,
+      borderWidth: 1.5, borderColor,
+      left: SW / 2 - size / 2,
+      top: ICON_CY - size / 2,
+      opacity: alpha,
+      transform: [{ scale }],
+    }} />
+  );
+}
+
+// ── Partículas ────────────────────────────────────────────────────────────────
+type Particle = { x: Animated.Value; y: Animated.Value; alpha: Animated.Value; size: number; key: number };
+
+function useLoginParticles(count: number) {
+  const particles = useRef<Particle[]>([]);
+  if (particles.current.length === 0) {
+    for (let i = 0; i < count; i++) {
+      particles.current.push({
+        x: new Animated.Value(0), y: new Animated.Value(0),
+        alpha: new Animated.Value(0), size: Math.random() * 2 + 0.8, key: i,
+      });
+    }
+  }
+  const animate = useCallback((p: Particle, delay: number) => {
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = 40 + Math.random() * 80;
+    const sx = ICON_CX + Math.cos(angle) * dist;
+    const sy = ICON_CY + Math.sin(angle) * dist;
+    const vx = (Math.random() - 0.5) * 50;
+    const vy = -(Math.random() * 60 + 20);
+    const dur = 1000 + Math.random() * 800;
+    p.x.setValue(sx); p.y.setValue(sy); p.alpha.setValue(0);
+    Animated.sequence([
+      Animated.delay(delay),
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(p.alpha, { toValue: 0.8, duration: dur * 0.2, useNativeDriver: true }),
+          Animated.timing(p.alpha, { toValue: 0,   duration: dur * 0.8, useNativeDriver: true }),
+        ]),
+        Animated.timing(p.x, { toValue: sx + vx, duration: dur, useNativeDriver: true }),
+        Animated.timing(p.y, { toValue: sy + vy, duration: dur, useNativeDriver: false }),
+      ]),
+    ]).start(() => animate(p, Math.random() * 500));
+  }, []);
+
+  useEffect(() => {
+    particles.current.forEach((p, i) => animate(p, 800 + i * 40));
+  }, []);
+
+  return particles.current;
+}
 
 export default function LoginScreen() {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, error, clearError, user, group, loading } = useAuth();
   const router = useRouter();
-  const [mode, setMode]         = useState<Mode>('options');
+  const [mode, setMode] = useState<Mode>('options');
+
+  // Raios rotativos
+  const raysRotate  = useRef(new Animated.Value(0)).current;
+  const raysOpacity = useRef(new Animated.Value(0)).current;
+
+  // Glow pulsante
+  const glowOpacity = useRef(new Animated.Value(0.04)).current;
+
+  // Shimmer em loop
+  const shimmerX = useRef(new Animated.Value(-200)).current;
+
+  const particles = useLoginParticles(30);
+
+  useEffect(() => {
+    // Raios aparecem e giram
+    Animated.timing(raysOpacity, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+    Animated.loop(
+      Animated.timing(raysRotate, { toValue: 1, duration: 20000, useNativeDriver: true, easing: Easing.linear })
+    ).start();
+
+    // Glow pulsa bem sutil
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowOpacity, { toValue: 1,   duration: 2000, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+        Animated.timing(glowOpacity, { toValue: 0.3, duration: 2000, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+      ])
+    ).start();
+
+    // Shimmer varre em loop
+    const runShimmer = () => {
+      shimmerX.setValue(-200);
+      Animated.timing(shimmerX, { toValue: 260, duration: 1200, useNativeDriver: true, easing: Easing.inOut(Easing.ease) })
+        .start(() => setTimeout(runShimmer, 2000));
+    };
+    setTimeout(runShimmer, 1000);
+  }, []);
+
+  const raysRotateDeg = raysRotate.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   useEffect(() => {
     if (loading) return;
@@ -48,14 +168,48 @@ export default function LoginScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          {/* Glow decorativo */}
+          {/* ── Anéis pulsantes (fora do ScrollView para cobrir a tela) ── */}
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            <View style={deco.glow} />
+            <PulseRing size={230} delay={0}    borderColor="rgba(243,197,68,0.35)" />
+            <PulseRing size={290} delay={500}  borderColor="rgba(243,197,68,0.18)" />
+            <PulseRing size={360} delay={1000} borderColor="rgba(243,197,68,0.09)" />
           </View>
 
-          {/* Logo */}
+          {/* ── Camada de animação (atrás de tudo) ── */}
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+
+            {/* Raios rotativos */}
+            <Animated.View style={[deco.raysWrap, { opacity: raysOpacity, transform: [{ rotate: raysRotateDeg }] }]}>
+              {[0, 52, 105, 160, 215, 270, 325].map((angle, i) => (
+                <View key={i} style={[deco.rayLine, { transform: [{ rotate: `${angle}deg` }] }]}>
+                  <View style={{ width: SW * 2.5, height: 1.5, backgroundColor: `rgba(243,197,68,${0.04 + (i % 3) * 0.012})` }} />
+                </View>
+              ))}
+            </Animated.View>
+
+            {/* Glow dourado atrás do ícone */}
+            <Animated.View style={[deco.glow, { opacity: glowOpacity }]} />
+
+            {/* Partículas */}
+            {particles.map(p => (
+              <Animated.View key={p.key} style={{
+                position: 'absolute', width: p.size * 5, height: p.size * 5,
+                borderRadius: p.size * 2.5, backgroundColor: '#FFDC50',
+                left: 0, top: 0, opacity: p.alpha,
+                transform: [{ translateX: p.x as any }, { translateY: p.y as any }],
+              }} />
+            ))}
+          </View>
+
+          {/* Logo com shimmer */}
           <View style={styles.logoWrap}>
-            <Image source={require('../../assets/kingbt-icon.png')} style={styles.logo} resizeMode="contain" />
+            <View style={styles.logoGlow}>
+              <View style={{ overflow: 'hidden', borderRadius: 100, width: 200, height: 200 }}>
+                <Image source={require('../../assets/kingbt-icon.png')} style={styles.logo} resizeMode="contain" />
+                {/* Shimmer sweep */}
+                <Animated.View style={[deco.shimmer, { transform: [{ translateX: shimmerX }, { skewX: '-20deg' }] }]} />
+              </View>
+            </View>
           </View>
 
           {/* Erro */}
@@ -157,10 +311,27 @@ export default function LoginScreen() {
 }
 
 const deco = StyleSheet.create({
+  raysWrap: {
+    position: 'absolute',
+    width: SW * 2.5, height: SW * 2.5,
+    left: -(SW * 0.75), top: ICON_CY - SW * 1.25,
+  },
+  rayLine: {
+    position: 'absolute',
+    width: SW * 2.5, height: SW * 2.5,
+    left: 0, top: 0,
+    alignItems: 'center', justifyContent: 'center',
+  },
   glow: {
-    position: 'absolute', top: 60, alignSelf: 'center',
-    width: 280, height: 280, borderRadius: 140,
-    backgroundColor: Colors.gold, opacity: 0.07,
+    position: 'absolute',
+    top: ICON_CY - 120, left: SW / 2 - 120,
+    width: 240, height: 240, borderRadius: 120,
+    backgroundColor: 'rgba(243,197,68,0.08)',
+  },
+  shimmer: {
+    position: 'absolute', top: '-40%',
+    width: '50%', height: '180%',
+    backgroundColor: 'rgba(255,255,255,0.18)',
   },
 });
 
@@ -168,7 +339,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
   scroll: { flexGrow: 1, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
   logoWrap: { alignItems: 'center', paddingTop: Spacing.lg, paddingBottom: Spacing.sm },
-  logo: { width: 200, height: 200 },
+  logoGlow: {
+    width: 200, height: 200, borderRadius: 100,
+  },
+  logo: { width: 200, height: 200, borderRadius: 100 },
   form: { gap: Spacing.md },
   title: { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text },
   errorBox: { backgroundColor: Colors.coral + '22', borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.coral + '44', marginBottom: Spacing.xs },
