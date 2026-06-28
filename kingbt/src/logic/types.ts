@@ -53,6 +53,8 @@ export interface Match {
   liveScore?: LiveScore | null;
   /** Detalhe set a set (games de cada set), quando o jogo usa sets. */
   sets?: SetScore[] | null;
+  /** Placar rascunho — salvo mas não conta no ranking até estar completo. */
+  draftSets?: SetScore[] | null;
   /** Data/horário do jogo (ISO). */
   playedAt?: string | null;
   /** Observações do jogo (W.O., lesão, etc.). */

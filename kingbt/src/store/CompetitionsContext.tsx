@@ -25,6 +25,8 @@ type Action =
   | { type: 'CLEAR_SCORE'; compId: string; matchId: string }
   | { type: 'UPDATE_LIVE_SCORE'; compId: string; matchId: string; gamesA: number; gamesB: number; setsA: number; setsB: number }
   | { type: 'CLEAR_LIVE_SCORE'; compId: string; matchId: string }
+  | { type: 'SAVE_DRAFT'; compId: string; matchId: string; draftSets: { a: number; b: number }[] }
+  | { type: 'CLEAR_DRAFT'; compId: string; matchId: string }
   | { type: 'DELETE'; compId: string }
   | { type: 'RENAME'; compId: string; name: string }
   | { type: 'SUBSTITUTE_PLAYER'; compId: string; sub: Substitution }
@@ -145,6 +147,30 @@ function reducer(state: State, action: Action): State {
           }
         ),
       };
+    case 'SAVE_DRAFT':
+      return {
+        ...state,
+        competitions: state.competitions.map(c =>
+          c.id !== action.compId ? c : {
+            ...c,
+            matches: c.matches.map(m =>
+              m.id !== action.matchId ? m : { ...m, draftSets: action.draftSets }
+            ),
+          }
+        ),
+      };
+    case 'CLEAR_DRAFT':
+      return {
+        ...state,
+        competitions: state.competitions.map(c =>
+          c.id !== action.compId ? c : {
+            ...c,
+            matches: c.matches.map(m =>
+              m.id !== action.matchId ? m : { ...m, draftSets: null }
+            ),
+          }
+        ),
+      };
     case 'UPDATE':
       return { ...state, competitions: state.competitions.map(c => c.id === action.comp.id ? action.comp : c) };
   }
@@ -202,6 +228,18 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
         const { id, ...data } = cloned;
         try { await createCompetition(group.id, data); }
         catch { console.error('[KingBT] Sync error: CLONE'); }
+      }
+    }
+
+    if (action.type === 'SAVE_DRAFT' || action.type === 'CLEAR_DRAFT') {
+      const comp = state.competitions.find(c => c.id === action.compId);
+      if (comp) {
+        const updatedMatches = comp.matches.map(m => {
+          if (m.id !== action.matchId) return m;
+          if (action.type === 'CLEAR_DRAFT') return { ...m, draftSets: null };
+          return { ...m, draftSets: action.draftSets };
+        });
+        try { await updateLiveScore(group.id, comp.id, updatedMatches); } catch { /* silent */ }
       }
     }
 

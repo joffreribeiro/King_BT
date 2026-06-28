@@ -118,6 +118,11 @@ function GameRow({ match: m, index, comp, isNext, onPress, onLongPress }: {
             <Text style={gRow.liveBadgeText}>EM ANDAMENTO  {m.liveScore.gamesA}–{m.liveScore.gamesB}</Text>
           </View>
         )}
+        {m.draftSets?.length && !has && !m.liveScore && (
+          <View style={gRow.draftBadge}>
+            <Text style={gRow.draftBadgeText}>📝 RASCUNHO  {m.draftSets.map(s => `${s.a}–${s.b}`).join('  ')}</Text>
+          </View>
+        )}
         <View style={gRow.row}>
           <View style={gRow.team}>
             <View style={gRow.pair}>
@@ -168,7 +173,9 @@ const gRow = StyleSheet.create({
   liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: Colors.coral + '22', borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, marginBottom: 6 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.coral },
   liveBadgeText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.coral, letterSpacing: 1 },
-  liveScore: { fontFamily: FontFamily.numberBold, fontSize: 14, color: Colors.coral },
+  liveScore:    { fontFamily: FontFamily.numberBold, fontSize: 14, color: Colors.coral },
+  draftBadge:   { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: Colors.muted + '18', borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, marginBottom: 6 },
+  draftBadgeText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.muted, letterSpacing: 1 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   team: { flex: 1, gap: 4 },
   pair: { flexDirection: 'row', gap: -6 },
@@ -843,10 +850,11 @@ const tabs = StyleSheet.create({
 
 // ─── Scorer Modal ─────────────────────────────────────────────────────────────
 
-function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }: {
+function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear, isAdmin = false }: {
   match: Match | null; comp: Competition;
   onClose: () => void;
   onSave: (id: string, a: number, b: number, sets?: { a: number; b: number }[]) => void;
+  onSaveDraft: (id: string, sets: { a: number; b: number }[]) => void;
   onClear: (matchId: string) => void;
   isAdmin?: boolean;
 }) {
@@ -898,7 +906,13 @@ function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }:
         return;
       }
 
-      // Prioridade 3: placar já registrado no Match
+      // Prioridade 3: rascunho salvo
+      if (match.draftSets?.length) {
+        setSetScores(match.draftSets.map(s => ({ a: String(s.a), b: String(s.b) })));
+        return;
+      }
+
+      // Prioridade 4: placar já registrado no Match
       if (match.sets?.length) {
         setSetScores(match.sets.map(s => ({ a: String(s.a), b: String(s.b) })));
         return;
@@ -1139,6 +1153,13 @@ function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }:
             </View>
           </View>
 
+          {/* Badge de rascunho salvo */}
+          {match?.draftSets?.length && !alreadyScored && (
+            <View style={sc.draftBadge}>
+              <Text style={sc.draftBadgeTxt}>📝 Rascunho salvo — não conta no ranking até finalizar</Text>
+            </View>
+          )}
+
           {alreadyScored && !isAdmin && (
             <Text style={sc.lockedText}>🔒 Placar já registrado. Apenas admin pode corrigir.</Text>
           )}
@@ -1179,6 +1200,19 @@ function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }:
             <TouchableOpacity onPress={onClose} style={sc.cancel}>
               <Text style={sc.cancelText}>Cancelar</Text>
             </TouchableOpacity>
+            {/* Salvar rascunho — só quando não tem vencedor e tem algum game preenchido */}
+            {!hasWinner && !alreadyScored && validSets.length > 0 && (
+              <TouchableOpacity
+                style={sc.draft}
+                onPress={() => {
+                  onSaveDraft(match.id, validSets);
+                  onClose();
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={sc.draftText}>📝 Rascunho</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               onPress={() => {
                 if (hasWinner && canEdit) {
@@ -1218,6 +1252,10 @@ const sc = StyleSheet.create({
   btns: { flexDirection: 'row', gap: Spacing.md },
   cancel: { flex: 1, padding: Spacing.md, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, alignItems: 'center' },
   cancelText: { fontFamily: FontFamily.body, color: Colors.muted },
+  draft: { flex: 1, padding: Spacing.md, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.muted + '66', alignItems: 'center' },
+  draftText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
+  draftBadge: { backgroundColor: Colors.surf2, borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.muted + '44' },
+  draftBadgeTxt: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, textAlign: 'center' },
   save: { flex: 1, padding: Spacing.md, borderRadius: Radius.md, backgroundColor: Colors.gold, alignItems: 'center' },
   saveOff: { opacity: 0.4 },
   saveText: { fontFamily: FontFamily.title, color: Colors.bg },
@@ -1754,13 +1792,20 @@ export default function CompetitionDetail() {
   const champDisplayName = champPlayer?.name ?? '';
 
   function handleSave(matchId: string, a: number, b: number, sets?: { a: number; b: number }[]) {
+    // Ao salvar o placar final, limpa o rascunho
+    dispatch({ type: 'CLEAR_DRAFT', compId: id!, matchId });
     dispatch({ type: 'SAVE_SCORE', compId: id!, matchId, scoreA: a, scoreB: b, sets });
     setScoring(null);
   }
 
   function handleCorrect(matchId: string, a: number, b: number, sets?: { a: number; b: number }[]) {
+    dispatch({ type: 'CLEAR_DRAFT', compId: id!, matchId });
     dispatch({ type: 'CORRECT_SCORE', compId: id!, matchId, scoreA: a, scoreB: b, sets });
     setScoring(null);
+  }
+
+  function handleSaveDraft(matchId: string, draftSets: { a: number; b: number }[]) {
+    dispatch({ type: 'SAVE_DRAFT', compId: id!, matchId, draftSets });
   }
 
   function handleClear(matchId: string) {
@@ -2127,6 +2172,7 @@ export default function CompetitionDetail() {
         comp={comp}
         onClose={() => setScoring(null)}
         onSave={isAdmin && scoring?.scoreA != null ? handleCorrect : handleSave}
+        onSaveDraft={handleSaveDraft}
         onClear={handleClear}
         isAdmin={isAdmin}
       />
