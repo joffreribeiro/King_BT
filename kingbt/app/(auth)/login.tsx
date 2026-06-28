@@ -81,7 +81,7 @@ function useLoginParticles(count: number) {
           Animated.timing(p.alpha, { toValue: 0,   duration: dur * 0.8, useNativeDriver: true }),
         ]),
         Animated.timing(p.x, { toValue: sx + vx, duration: dur, useNativeDriver: true }),
-        Animated.timing(p.y, { toValue: sy + vy, duration: dur, useNativeDriver: false }),
+        Animated.timing(p.y, { toValue: sy + vy, duration: dur, useNativeDriver: true }),
       ]),
     ]).start(() => animate(p, Math.random() * 500));
   }, []);

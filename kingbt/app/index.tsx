@@ -13,7 +13,7 @@ export default function Root() {
   const router = useRouter();
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [onboardingDone, setOnboardingDone] = useState(false);
-  const [splashDone, setSplashDone] = useState(false);
+  const [splashDone, setSplashDone] = useState(true); // splash desativada temporariamente
 
   useEffect(() => {
     AsyncStorage.getItem(ONBOARDING_KEY).then(val => {
