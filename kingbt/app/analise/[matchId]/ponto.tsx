@@ -18,6 +18,7 @@ import {
   type BtTipoPrimeiraBola, type BtDirecaoPrimeiraBola, type BtQualidadePrimeiraBola,
 } from '@/logic/btTracker';
 import { saveAnaliseFs, loadAnaliseFs } from '@/firebase/analises';
+import { updateLiveScore } from '@/firebase/competitions';
 import { useAuth } from '@/store/AuthContext';
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
@@ -249,7 +250,7 @@ export default function PontoScreen() {
   }>();
 
   const { findPlayer } = useGroupPlayers();
-  const { dispatch } = useCompetitions();
+  const { dispatch, state } = useCompetitions();
   const { group } = useAuth();
 
   const matchId = params.matchId;
@@ -590,7 +591,13 @@ export default function PontoScreen() {
 
     commit();
 
+    // Publica placar ao vivo via dispatch (o wrappedDispatch persiste no Firestore)
+    if (!novoPlaycard.encerrada) {
+      dispatch({ type: 'UPDATE_LIVE_SCORE', compId, matchId, gamesA: novoPlaycard.gamesA, gamesB: novoPlaycard.gamesB, setsA: novoPlaycard.setsA, setsB: novoPlaycard.setsB });
+    }
+
     if (novoPlaycard.encerrada) {
+      dispatch({ type: 'CLEAR_LIVE_SCORE', compId, matchId });
       await encerrarPartida(analiseAtualizada, novoPlaycard);
     }
   };
@@ -636,7 +643,8 @@ export default function PontoScreen() {
     };
     await salvarAnalise(analiseComPlacar);
     if (group?.id) saveAnaliseFs(group.id, analiseComPlacar).catch(() => {});
-    dispatch({ type: 'SAVE_SCORE', compId, matchId, scoreA: pl.setsA, scoreB: pl.setsB });
+    const sets = pl.historicGamesA.map((gA, i) => ({ a: gA, b: pl.historicGamesB[i] ?? 0 }));
+    dispatch({ type: 'SAVE_SCORE', compId, matchId, scoreA: pl.setsA, scoreB: pl.setsB, sets });
     router.replace({ pathname: '/analise/[matchId]/relatorio', params: { matchId, compId } });
   }
 
@@ -677,6 +685,63 @@ export default function PontoScreen() {
     : 'TIEBREAK';
 
   // ────────────────────────────────────────────────────────────────────────
+  // ── Partida encerrada: bloqueia novos pontos ─────────────────────────────
+  if (analise?.placarFinal) {
+    const pf = analise.placarFinal;
+    return (
+      <SafeAreaView style={s.safe} edges={['top']}>
+        <StatusBar barStyle="light-content" />
+        <View style={s.header}>
+          <TouchableOpacity onPress={() => {
+            if (router.canGoBack()) router.back();
+            else router.replace({ pathname: '/competitions/[id]', params: { id: compId } });
+          }}>
+            <Text style={s.back}>←</Text>
+          </TouchableOpacity>
+          <Text style={s.headerTitle}>King Scout</Text>
+        </View>
+        <ScrollView contentContainerStyle={{ padding: 24, gap: 20, alignItems: 'center' }}>
+          <View style={{ alignItems: 'center', gap: 8, marginTop: 16 }}>
+            <Text style={{ fontSize: 40 }}>✅</Text>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 20, color: '#F6EFDD' }}>Partida Encerrada</Text>
+            <Text style={{ fontFamily: 'SpaceGrotesk-Regular', fontSize: 13, color: '#A99B7C', textAlign: 'center' }}>
+              Esta partida já foi finalizada e o placar foi registrado.{'\n'}Você pode apenas editar os pontos existentes.
+            </Text>
+          </View>
+          {/* Placar final */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 24, backgroundColor: '#121008', borderRadius: 16, padding: 20, width: '100%', justifyContent: 'center' }}>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ fontFamily: 'SpaceGrotesk-Regular', fontSize: 11, color: '#6E6452' }} numberOfLines={1}>{nomes.a1 ?? 'Dupla A'}</Text>
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 40, color: pf.setsA > pf.setsB ? '#54C98A' : '#A99B7C' }}>{pf.setsA}</Text>
+            </View>
+            <View style={{ alignItems: 'center', gap: 4 }}>
+              <Text style={{ fontFamily: 'SpaceGrotesk-Regular', fontSize: 14, color: '#6E6452' }}>sets</Text>
+              {pf.gamesA.map((gA, i) => (
+                <Text key={i} style={{ fontFamily: 'SpaceGrotesk-Regular', fontSize: 12, color: '#6E6452' }}>
+                  Set {i + 1}: {gA}–{pf.gamesB[i] ?? 0}
+                </Text>
+              ))}
+            </View>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ fontFamily: 'SpaceGrotesk-Regular', fontSize: 11, color: '#6E6452' }} numberOfLines={1}>{nomes.b1 ?? 'Dupla B'}</Text>
+              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 40, color: pf.setsB > pf.setsA ? '#54C98A' : '#A99B7C' }}>{pf.setsB}</Text>
+            </View>
+          </View>
+          {/* Botões */}
+          <TouchableOpacity
+            style={{ backgroundColor: '#F3C544', borderRadius: 12, padding: 14, width: '100%', alignItems: 'center' }}
+            onPress={() => router.replace({ pathname: '/analise/[matchId]/relatorio', params: { matchId, compId } })}
+          >
+            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 15, color: '#000' }}>📊 Ver Relatório</Text>
+          </TouchableOpacity>
+          <Text style={{ fontFamily: 'SpaceGrotesk-Regular', fontSize: 12, color: '#6E6452', textAlign: 'center' }}>
+            {pontos.length} pontos registrados · toque em qualquer ponto no relatório para editar
+          </Text>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
       <StatusBar barStyle="light-content" />
@@ -690,7 +755,7 @@ export default function PontoScreen() {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={s.headerTitle}>BT Tracker</Text>
+            <Text style={s.headerTitle}>King Scout</Text>
             <View style={[s.modeBadge, {
               backgroundColor: isAoVivo ? 'rgba(84,185,129,0.15)' : isPadrao ? 'rgba(107,127,215,0.15)' : 'rgba(192,132,252,0.15)',
               borderColor: isAoVivo ? 'rgba(84,185,129,0.4)' : isPadrao ? 'rgba(107,127,215,0.4)' : 'rgba(192,132,252,0.4)',
@@ -710,24 +775,53 @@ export default function PontoScreen() {
       </View>
 
       <View style={s.scoreboard}>
-        <View style={s.scoreTeam}>
-          <Text style={s.scoreTeamName} numberOfLines={1}>{jogadoresA.map(nome).join(' / ')}</Text>
-          <Text style={[s.scoreNum, { color: placard.gamesA >= placard.gamesB ? Colors.gold : Colors.muted }]}>
-            {placard.gamesA}
-          </Text>
-          <Text style={s.setsLabel}>Set: {placard.setsA}</Text>
+        {/* Times e placar atual */}
+        <View style={s.scoreRow}>
+          <View style={s.scoreTeam}>
+            <Text style={s.scoreTeamName} numberOfLines={1}>{jogadoresA.map(nome).join(' / ')}</Text>
+            <Text style={[s.scoreNum, { color: placard.gamesA >= placard.gamesB ? Colors.gold : Colors.muted }]}>
+              {placard.gamesA}
+            </Text>
+            <Text style={s.setsLabel}>Sets: {placard.setsA}</Text>
+          </View>
+          <View style={s.scoreCenter}>
+            <Text style={s.gameScore}>{gameScore}</Text>
+            <Text style={s.setScoreLabel}>MD{rule.sets} · {rule.games} games</Text>
+            {placard.tiebreak && <Text style={s.tiebreakLabel}>{tiebreakLabel}</Text>}
+          </View>
+          <View style={s.scoreTeam}>
+            <Text style={s.scoreTeamName} numberOfLines={1}>{jogadoresB.map(nome).join(' / ')}</Text>
+            <Text style={[s.scoreNum, { color: placard.gamesB >= placard.gamesA ? Colors.gold : Colors.muted }]}>
+              {placard.gamesB}
+            </Text>
+            <Text style={s.setsLabel}>Sets: {placard.setsB}</Text>
+          </View>
         </View>
-        <View style={s.scoreCenter}>
-          <Text style={s.gameScore}>{gameScore}</Text>
-          <Text style={s.setScoreLabel}>MD{rule.sets} · {rule.games} games</Text>
-          {placard.tiebreak && <Text style={s.tiebreakLabel}>{tiebreakLabel}</Text>}
-        </View>
-        <View style={s.scoreTeam}>
-          <Text style={s.scoreTeamName} numberOfLines={1}>{jogadoresB.map(nome).join(' / ')}</Text>
-          <Text style={[s.scoreNum, { color: placard.gamesB >= placard.gamesA ? Colors.gold : Colors.muted }]}>
-            {placard.gamesB}
-          </Text>
-          <Text style={s.setsLabel}>Set: {placard.setsB}</Text>
+
+        {/* Sets encerrados + set atual sempre visível */}
+        <View style={s.setsHistoryRow}>
+          {placard.historicGamesA.map((gA, i) => {
+            const gB = placard.historicGamesB[i] ?? 0;
+            const aWon = gA > gB;
+            const isSuperTb = rule.superTiebreak && i === rule.sets - 1;
+            return (
+              <View key={i} style={[s.setHistChip, { borderColor: aWon ? Colors.teal + '66' : Colors.coral + '66' }]}>
+                <Text style={s.setHistLabel}>{isSuperTb ? 'STB' : `S${i + 1}`}</Text>
+                <Text style={[s.setHistScore, aWon && { color: Colors.teal }]}>{gA}</Text>
+                <Text style={s.setHistDash}>–</Text>
+                <Text style={[s.setHistScore, !aWon && { color: Colors.teal }]}>{gB}</Text>
+              </View>
+            );
+          })}
+          {/* Set atual em andamento */}
+          <View style={[s.setHistChip, { borderColor: Colors.gold + '66', backgroundColor: Colors.gold + '0A' }]}>
+            <Text style={[s.setHistLabel, { color: Colors.gold }]}>
+              {rule.superTiebreak && placard.historicGamesA.length === rule.sets - 1 ? 'STB' : `S${placard.historicGamesA.length + 1}`}
+            </Text>
+            <Text style={[s.setHistScore, { color: Colors.gold }]}>{placard.gamesA}</Text>
+            <Text style={[s.setHistDash, { color: Colors.gold }]}>–</Text>
+            <Text style={[s.setHistScore, { color: Colors.gold }]}>{placard.gamesB}</Text>
+          </View>
         </View>
       </View>
 
@@ -735,7 +829,17 @@ export default function PontoScreen() {
 
         {/* ── MODO DE SCOUT ─────────────────────────────────────────────── */}
         <View style={s.modeBar}>
-          {([
+          {pontos.length > 0 && (
+            <View style={[s.modeLockedBadge, {
+              backgroundColor: isAoVivo ? Colors.teal + '15' : isPadrao ? '#6B7FD715' : '#C084FC15',
+              borderColor: isAoVivo ? Colors.teal + '44' : isPadrao ? '#6B7FD744' : '#C084FC44',
+            }]}>
+              <Text style={[s.modeLockedTxt, { color: isAoVivo ? Colors.teal : isPadrao ? '#6B7FD7' : '#C084FC' }]}>
+                🔒 {isAoVivo ? 'Ao Vivo' : isPadrao ? 'Padrão' : 'Avançado'} — modo travado
+              </Text>
+            </View>
+          )}
+          {pontos.length === 0 && ([
             { key: 'aovivo',   label: 'Ao Vivo',   color: Colors.teal },
             { key: 'padrao',   label: 'Padrão',    color: '#6B7FD7'  },
             { key: 'avancado', label: 'Avançado',  color: '#C084FC'  },
@@ -745,7 +849,6 @@ export default function PontoScreen() {
               style={[s.modeBtn, mode === m.key && { backgroundColor: `${m.color}22`, borderColor: `${m.color}66` }]}
               onPress={() => {
                 setMode(m.key);
-                // Limpa campos do ponto ao trocar de modo para evitar valores residuais
                 setFinalizacaoRally(null);
                 setVencedorJogador(null);
                 setTipoFin(null);
@@ -1290,11 +1393,17 @@ const s = StyleSheet.create({
   headerSub: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
   encerrarBtn: { backgroundColor: Colors.coral + '22', borderRadius: Radius.full, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: Colors.coral + '66' },
   encerrarTxt: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.coral },
-  scoreboard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surf, padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  scoreboard: { backgroundColor: Colors.surf, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  scoreRow:      { flexDirection: 'row', alignItems: 'center', padding: Spacing.md },
   scoreTeam:     { flex: 1, alignItems: 'center', gap: 4 },
   scoreTeamName: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, textAlign: 'center' },
   scoreNum:      { fontFamily: FontFamily.numberBold, fontSize: 42, lineHeight: 48 },
   setsLabel:     { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
+  setsHistoryRow: { flexDirection: 'row', gap: 6, justifyContent: 'center', paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm, flexWrap: 'wrap' },
+  setHistChip:   { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.surf2, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: Colors.line },
+  setHistLabel:  { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, marginRight: 3 },
+  setHistScore:  { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted },
+  setHistDash:   { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   scoreCenter:   { alignItems: 'center', paddingHorizontal: Spacing.md, gap: 2 },
   gameScore:     { fontFamily: FontFamily.numberBold, fontSize: 20, color: Colors.text },
   setScoreLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
@@ -1319,6 +1428,8 @@ const s = StyleSheet.create({
   modeBar: { flexDirection: 'row', gap: Spacing.xs, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderBottomWidth: 1, borderBottomColor: Colors.line },
   modeBtn: { flex: 1, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1, borderColor: 'transparent', alignItems: 'center' },
   modeBtnTxt: { fontFamily: FontFamily.bodyMed, fontSize: 12 },
+  modeLockedBadge: { flex: 1, paddingVertical: 7, borderRadius: Radius.full, borderWidth: 1, alignItems: 'center' },
+  modeLockedTxt: { fontFamily: FontFamily.bodyMed, fontSize: 11 },
   extrasToggle: { borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: 8, alignItems: 'center', marginTop: Spacing.sm },
   extrasToggleTxt: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted },
   commentWrap: { backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, paddingHorizontal: Spacing.sm, marginTop: 4 },

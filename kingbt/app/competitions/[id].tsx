@@ -20,7 +20,7 @@ import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { getBeachTennisScoreState, getScoreHint, isValidFinalScore } from '@/logic/btScoring';
 import { confirmParticipation, cancelParticipation } from '@/firebase/competitions';
-import { carregarAnalise, type BtAnalise } from '@/logic/btTracker';
+import { carregarAnalise, placardInicial, avancaPonto, winRuleFromComp, type BtAnalise } from '@/logic/btTracker';
 
 function getPlayer(id: string) {
   return PLAYERS.find(p => p.id === id);
@@ -112,6 +112,12 @@ function GameRow({ match: m, index, comp, isNext, onPress, onLongPress }: {
             <Text style={gRow.nextBadgeText}>PRÓXIMO</Text>
           </View>
         )}
+        {m.liveScore && !has && (
+          <View style={gRow.liveBadge}>
+            <View style={gRow.liveDot} />
+            <Text style={gRow.liveBadgeText}>EM ANDAMENTO  {m.liveScore.gamesA}–{m.liveScore.gamesB}</Text>
+          </View>
+        )}
         <View style={gRow.row}>
           <View style={gRow.team}>
             <View style={gRow.pair}>
@@ -128,7 +134,9 @@ function GameRow({ match: m, index, comp, isNext, onPress, onLongPress }: {
                   {' – '}
                   <Text style={!aWon ? gRow.win : gRow.lose}>{m.scoreB}</Text>
                 </Text>
-              : <Text style={gRow.pending}>Jogo {index + 1}</Text>
+              : m.liveScore
+                ? <Text style={gRow.liveScore}>{m.liveScore.setsA}–{m.liveScore.setsB} sets</Text>
+                : <Text style={gRow.pending}>Jogo {index + 1}</Text>
             }
           </View>
           <View style={[gRow.team, { alignItems: 'flex-end' }]}>
@@ -157,6 +165,10 @@ const gRow = StyleSheet.create({
     marginBottom: 6,
   },
   nextBadgeText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold, letterSpacing: 1 },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: Colors.coral + '22', borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, marginBottom: 6 },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.coral },
+  liveBadgeText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.coral, letterSpacing: 1 },
+  liveScore: { fontFamily: FontFamily.numberBold, fontSize: 14, color: Colors.coral },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   team: { flex: 1, gap: 4 },
   pair: { flexDirection: 'row', gap: -6 },
@@ -189,6 +201,12 @@ function MatchRow({ match: m, comp, isNext, onPress, onLongPress }: {
         {isNext && (
           <View style={mRow.nextBadge}>
             <Text style={mRow.nextBadgeText}>PRÓXIMO</Text>
+          </View>
+        )}
+        {m.liveScore && !has && (
+          <View style={mRow.liveBadge}>
+            <View style={mRow.liveDot} />
+            <Text style={mRow.liveBadgeText}>EM ANDAMENTO  {m.liveScore.gamesA}–{m.liveScore.gamesB}</Text>
           </View>
         )}
         <View style={mRow.row}>
@@ -224,6 +242,9 @@ const mRow = StyleSheet.create({
     marginBottom: 6,
   },
   nextBadgeText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold, letterSpacing: 1 },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: Colors.coral + '22', borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, marginBottom: 6 },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.coral },
+  liveBadgeText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.coral, letterSpacing: 1 },
   disabled: { opacity: 0.45 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   side: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
@@ -419,8 +440,10 @@ function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: Competit
       if (m.scoreA == null || m.scoreA === m.scoreB) return;
       const inA = m.teamA?.includes(pid);
       const inB = m.teamB?.includes(pid);
-      if (inA) { gf += m.scoreA!; gc += m.scoreB!; if (m.scoreA! > m.scoreB!) wins++; else losses++; }
-      if (inB) { gf += m.scoreB!; gc += m.scoreA!; if (m.scoreB! > m.scoreA!) wins++; else losses++; }
+      const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA!;
+      const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB!;
+      if (inA) { gf += gA; gc += gB; if (m.scoreA! > m.scoreB!) wins++; else losses++; }
+      if (inB) { gf += gB; gc += gA; if (m.scoreB! > m.scoreA!) wins++; else losses++; }
     });
     const played = wins + losses;
     const ga = gc > 0 ? gf / gc : gf > 0 ? 999 : 0;
@@ -467,12 +490,14 @@ function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: Competit
       const keyB = [...m.teamB!].sort().join('|');
       if (!map.has(keyA)) map.set(keyA, { key: keyA, ids: [...m.teamA!].sort() as [string, string], wins: 0, losses: 0, played: 0, gf: 0, gc: 0 });
       if (!map.has(keyB)) map.set(keyB, { key: keyB, ids: [...m.teamB!].sort() as [string, string], wins: 0, losses: 0, played: 0, gf: 0, gc: 0 });
+      const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA!;
+      const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB!;
       const sa = map.get(keyA)!;
       if (aWon) sa.wins++; else sa.losses++;
-      sa.played++; sa.gf += m.scoreA!; sa.gc += m.scoreB!;
+      sa.played++; sa.gf += gA; sa.gc += gB;
       const sb = map.get(keyB)!;
       if (!aWon) sb.wins++; else sb.losses++;
-      sb.played++; sb.gf += m.scoreB!; sb.gc += m.scoreA!;
+      sb.played++; sb.gf += gB; sb.gc += gA;
     });
     duplasStats.push(...[...map.values()].sort((a, b) => {
       if (b.wins !== a.wins) return b.wins - a.wins;
@@ -821,29 +846,170 @@ const tabs = StyleSheet.create({
 function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }: {
   match: Match | null; comp: Competition;
   onClose: () => void;
-  onSave: (id: string, a: number, b: number) => void;
+  onSave: (id: string, a: number, b: number, sets?: { a: number; b: number }[]) => void;
   onClear: (matchId: string) => void;
   isAdmin?: boolean;
 }) {
   const { findPlayer } = useGroupPlayers();
-  const { defaultMaxScore } = useSettings();
-  const [sA, setSA] = useState(match?.scoreA != null ? String(match.scoreA) : '');
-  const [sB, setSB] = useState(match?.scoreB != null ? String(match.scoreB) : '');
   const [analise, setAnalise] = useState<BtAnalise | null>(null);
+
+  const maxSets      = comp.config.winRule?.sets ?? 3;
+  const setsToWin    = Math.ceil(maxSets / 2);
+  const gamesWin     = comp.config.winRule?.games ?? 6;
+  const superTb      = comp.config.winRule?.superTiebreak ?? true;
+  const superTbPts   = comp.config.winRule?.superTiebreakPts ?? 10;
+  // 'deuce': tie em gamesWin-1 x gamesWin-1 (ex: 3-3 num set de 4 games)
+  // 'full':  tie em gamesWin x gamesWin     (ex: 4-4 num set de 4 games)
+  const tbAt         = comp.config.winRule?.tiebreakAt ?? 'deuce';
+  const tieAt        = tbAt === 'full' ? gamesWin : gamesWin - 1;
+
+  // Estado: games por set. Começa com 1 set vazio.
+  const initSets = (): { a: string; b: string }[] => {
+    if (match?.sets?.length) return match.sets.map(s => ({ a: String(s.a), b: String(s.b) }));
+    return [{ a: '', b: '' }];
+  };
+  const [setScores, setSetScores] = useState<{ a: string; b: string }[]>(initSets);
 
   useEffect(() => {
     if (!match) return;
-    setSA(match.scoreA != null ? String(match.scoreA) : '');
-    setSB(match.scoreB != null ? String(match.scoreB) : '');
-    carregarAnalise(match.id, comp.id).then(a => setAnalise(a));
-  }, [match?.id]);
 
-  const analiseEncerrada = !!analise?.placarFinal;
+    carregarAnalise(match.id, comp.id).then(a => {
+      setAnalise(a);
+
+      // Prioridade 1: placar final do King Scout (partida encerrada)
+      if (a?.placarFinal) {
+        const { gamesA, gamesB } = a.placarFinal;
+        const sets = gamesA.map((gA, i) => ({ a: String(gA), b: String(gamesB[i] ?? 0) }));
+        setSetScores(sets.length > 0 ? sets : [{ a: '', b: '' }]);
+        return;
+      }
+
+      // Prioridade 2: King Scout em andamento — reconstrói placard dos pontos
+      if (a?.pontos?.length) {
+        const rule = winRuleFromComp(comp.config.winRule);
+        let pl = placardInicial(rule);
+        for (const p of a.pontos) pl = avancaPonto(pl, p.vencedorDupla, p.sacador);
+        // Monta sets encerrados + set atual
+        const sets: { a: string; b: string }[] = pl.historicGamesA.map((gA: number, i: number) => ({
+          a: String(gA), b: String(pl.historicGamesB[i] ?? 0),
+        }));
+        sets.push({ a: String(pl.gamesA), b: String(pl.gamesB) });
+        setSetScores(sets);
+        return;
+      }
+
+      // Prioridade 3: placar já registrado no Match
+      if (match.sets?.length) {
+        setSetScores(match.sets.map(s => ({ a: String(s.a), b: String(s.b) })));
+        return;
+      }
+
+      setSetScores([{ a: '', b: '' }]);
+    });
+  }, [match?.id]);
 
   if (!match) return null;
 
   const teamA = match.teamA ?? (match.aId ? [match.aId] : []);
   const teamB = match.teamB ?? (match.bId ? [match.bId] : []);
+  const nameA = match.teamA
+    ? match.teamA.map(id => findPlayer(id)?.name.split(' ')[0]).join(' / ')
+    : (match.aId ? getCompetitor(comp, match.aId)?.name : '?') ?? '?';
+  const nameB = match.teamB
+    ? match.teamB.map(id => findPlayer(id)?.name.split(' ')[0]).join(' / ')
+    : (match.bId ? getCompetitor(comp, match.bId)?.name : '?') ?? '?';
+
+  // Calcula sets vencidos a partir dos games/pontos
+  const computedSets = setScores.reduce(
+    (acc, s, idx) => {
+      const gA = parseInt(s.a) || 0;
+      const gB = parseInt(s.b) || 0;
+      if (gA === 0 && gB === 0) return acc;
+
+      if (isDecidingSet(idx)) {
+        // Super tie-break: primeiro a superTbPts com diff ≥ 2
+        const aWins = gA >= superTbPts && gA - gB >= 2;
+        const bWins = gB >= superTbPts && gB - gA >= 2;
+        if (aWins) return { a: acc.a + 1, b: acc.b };
+        if (bWins) return { a: acc.a, b: acc.b + 1 };
+        return acc;
+      }
+
+      // Set normal: primeiro a gamesWin vence, tie-break quando ambos chegam em tieAt
+      const tied = gA === tieAt && gB === tieAt;
+      if (tied) {
+        // Após tie: quem chegar a tieAt+1 vence
+        if (gA >= tieAt + 1 && gA > gB) return { a: acc.a + 1, b: acc.b };
+        if (gB >= tieAt + 1 && gB > gA) return { a: acc.a, b: acc.b + 1 };
+        return acc;
+      }
+      if (gA >= gamesWin && gA > gB) return { a: acc.a + 1, b: acc.b };
+      if (gB >= gamesWin && gB > gA) return { a: acc.a, b: acc.b + 1 };
+      return acc;
+    },
+    { a: 0, b: 0 }
+  );
+
+  const setsA = computedSets.a;
+  const setsB = computedSets.b;
+  const totalSetsPlayed = setScores.filter(s => (parseInt(s.a) || 0) + (parseInt(s.b) || 0) > 0).length;
+  const matchFinished = setsA >= setsToWin || setsB >= setsToWin;
+  const hasWinner = matchFinished && setsA !== setsB;
+  const canAddSet = !matchFinished && totalSetsPlayed < maxSets;
+  const alreadyScored = match.scoreA != null;
+  const canEdit = !alreadyScored || isAdmin;
+  const analiseEncerrada = !!analise?.placarFinal;
+
+  const tbPoints = comp.config.winRule?.tiebreak ?? 7;
+
+  // Verifica se o set atual (pelo índice) é o super tie-break decisivo
+  function isDecidingSet(setIdx: number): boolean {
+    if (!superTb) return false;
+    if (setIdx !== maxSets - 1) return false; // só o último set pode ser STB
+    // Conta sets vencidos nos sets anteriores (quem tiver mais pontos venceu o set)
+    let sA = 0, sB = 0;
+    for (let i = 0; i < setIdx; i++) {
+      const gA = parseInt(setScores[i]?.a) || 0;
+      const gB = parseInt(setScores[i]?.b) || 0;
+      if (gA > gB) sA++;
+      else if (gB > gA) sB++;
+    }
+    return sA === setsToWin - 1 && sB === setsToWin - 1;
+  }
+
+  // Limite máximo de pontos/games que um lado pode ter num set
+  function maxGamesForSide(myVal: number, otherVal: number, setIdx: number): number {
+    if (isDecidingSet(setIdx)) {
+      const minPts = superTbPts;
+      const leading = Math.max(myVal, otherVal);
+      if (myVal >= minPts && myVal - otherVal >= 2) return myVal;
+      if (otherVal >= minPts && otherVal - myVal >= 2) return myVal;
+      return Math.max(minPts, leading + 1);
+    }
+    // Set normal: tie quando ambos chegam em tieAt
+    if (otherVal >= tieAt && myVal >= tieAt) return tieAt + 1; // permite tie-break
+    if (otherVal >= tieAt + 1) return tieAt + 2;               // tie-break em andamento
+    return gamesWin;
+  }
+
+  function updateGame(setIdx: number, side: 'a' | 'b', rawVal: string | number) {
+    const newVal = typeof rawVal === 'number' ? rawVal : (parseInt(rawVal) || 0);
+    setSetScores(prev => prev.map((s, i) => {
+      if (i !== setIdx) return s;
+      const other = parseInt(side === 'a' ? s.b : s.a) || 0;
+      const max = maxGamesForSide(newVal, other, setIdx);
+      const clamped = Math.max(0, Math.min(newVal, max));
+      return { ...s, [side]: String(clamped) };
+    }));
+  }
+
+  function addSet() {
+    if (canAddSet) setSetScores(prev => [...prev, { a: '', b: '' }]);
+  }
+
+  function removeLastSet() {
+    if (setScores.length > 1) setSetScores(prev => prev.slice(0, -1));
+  }
 
   function abrirBtTracker() {
     onClose();
@@ -851,44 +1017,19 @@ function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }:
     router.push({
       pathname: '/analise/[matchId]/ponto',
       params: {
-        matchId: match!.id,
-        compId: comp.id,
-        a1: teamA[0] ?? '',
-        a2: teamA[1] ?? '',
-        b1: teamB[0] ?? '',
-        b2: teamB[1] ?? '',
-        sets: String(wr?.sets ?? 3),
-        games: String(wr?.games ?? 6),
-        tiebreak: String(wr?.tiebreak ?? 7),
-        scoutMode: wr?.scoutMode ?? 'avancado',
+        matchId: match!.id, compId: comp.id,
+        a1: teamA[0] ?? '', a2: teamA[1] ?? '',
+        b1: teamB[0] ?? '', b2: teamB[1] ?? '',
+        sets: String(wr?.sets ?? 3), games: String(wr?.games ?? 6),
+        tiebreak: String(wr?.tiebreak ?? 7), scoutMode: wr?.scoutMode ?? 'avancado',
       },
     });
   }
 
   function abrirRelatorio() {
     onClose();
-    router.push({
-      pathname: '/analise/[matchId]/relatorio',
-      params: { matchId: match!.id, compId: comp.id },
-    });
+    router.push({ pathname: '/analise/[matchId]/relatorio', params: { matchId: match!.id, compId: comp.id } });
   }
-  const a = parseInt(sA), b = parseInt(sB);
-  const hasNumbers = !isNaN(a) && !isNaN(b) && a >= 0 && b >= 0;
-  const draw = hasNumbers && a === b;
-  const useOfficialRules = comp.config.useOfficialRules !== false;
-  const wr = { games: comp.config.winRule?.games ?? 6, tiebreak: comp.config.winRule?.tiebreak ?? 7 };
-  const scoreState = hasNumbers && !draw ? getBeachTennisScoreState(a, b, wr) : 'normal';
-  const hint = hasNumbers ? getScoreHint(a, b, wr) : null;
-  const valid = hasNumbers && !draw && (useOfficialRules ? isValidFinalScore(a, b, wr) : true);
-  const alreadyScored = match.scoreA != null;
-  const canEdit = !alreadyScored || isAdmin;
-
-  const nameA = match.teamA
-    ? match.teamA.map(id => findPlayer(id)?.name.split(' ')[0]).join(' / ')
-    : (match.aId ? getCompetitor(comp, match.aId)?.name : '?') ?? '?';
-  const nameB = match.teamB
-    ? match.teamB.map(id => findPlayer(id)?.name.split(' ')[0]).join(' / ')
-    : (match.bId ? getCompetitor(comp, match.bId)?.name : '?') ?? '?';
 
   function confirmClear() {
     if (Platform.OS === 'web') {
@@ -901,76 +1042,103 @@ function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }:
     }
   }
 
+  const validSets = setScores.filter(s => {
+    const gA = parseInt(s.a) || 0, gB = parseInt(s.b) || 0;
+    return gA > 0 || gB > 0;
+  }).map(s => ({ a: parseInt(s.a) || 0, b: parseInt(s.b) || 0 }));
+
   return (
     <Modal visible transparent animationType="slide">
       <View style={sc.overlay}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ justifyContent: 'flex-end', flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <View style={sc.sheet}>
           <Text style={sc.title}>Registrar Placar</Text>
           <Text style={sc.sub}>{nameA}{'\nvs\n'}{nameB}</Text>
-          {useOfficialRules && scoreState !== 'normal' && (
-            <View style={[sc.stateBadge, {
-              backgroundColor:
-                scoreState === 'tiebreak'  ? Colors.coral  + '22' :
-                scoreState === 'advantage' ? Colors.gold   + '22' :
-                scoreState === 'done'      ? Colors.teal   + '22' :
-                Colors.surf2,
-              borderColor:
-                scoreState === 'tiebreak'  ? Colors.coral  + '55' :
-                scoreState === 'advantage' ? Colors.gold   + '55' :
-                scoreState === 'done'      ? Colors.teal   + '55' :
-                Colors.line,
-            }]}>
-              <Text style={{ fontSize: 14 }}>
-                {scoreState === 'tiebreak'  ? '⚡' :
-                 scoreState === 'advantage' ? '⚠️' :
-                 scoreState === 'done'      ? '✅' : '❌'}
-              </Text>
-              <Text style={[sc.stateText, {
-                color:
-                  scoreState === 'tiebreak'  ? Colors.coral  :
-                  scoreState === 'advantage' ? Colors.gold   :
-                  scoreState === 'done'      ? Colors.teal   :
-                  Colors.muted,
-              }]}>
-                {scoreState === 'tiebreak'  ? 'TIE-BREAK'  :
-                 scoreState === 'advantage' ? 'ADVANTAGE'  :
-                 scoreState === 'done'      ? 'VÁLIDO'      : 'INVÁLIDO'}
-              </Text>
+          <Text style={sc.setsRule}>Melhor de {maxSets} sets · {gamesWin} games por set</Text>
+
+          {/* Placar calculado automaticamente */}
+          <View style={sc.autoScore}>
+            <View style={sc.autoSide}>
+              <Text style={sc.autoName} numberOfLines={1}>{nameA}</Text>
+              <Text style={[sc.autoSets, setsA > setsB ? { color: Colors.teal } : {}]}>{setsA}</Text>
             </View>
-          )}
-          <View style={sc.inputRow}>
-            {[{ val: sA, set: setSA, label: nameA }, { val: sB, set: setSB, label: nameB }].map(({ val, set, label }, idx) => (
-              <View key={idx} style={sc.inputBlock}>
-                <Text style={sc.inputLabel} numberOfLines={1}>{label}</Text>
-                <View style={sc.stepper}>
-                  <TouchableOpacity style={sc.btn} onPress={() => set(s => String(Math.max(0, parseInt(s || '0') - 1)))}>
-                    <Text style={sc.btnText}>−</Text>
-                  </TouchableOpacity>
-                  <TextInput style={sc.input} value={val} onChangeText={set} keyboardType="number-pad" maxLength={2} />
-                  <TouchableOpacity style={sc.btn} onPress={() => set(s => String(parseInt(s || '0') + 1))}>
-                    <Text style={sc.btnText}>+</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
+            <View style={sc.autoCenter}>
+              <Text style={sc.autoLabel}>sets</Text>
+              {hasWinner && <Text style={sc.autoWinner}>{setsA > setsB ? '🏆 ' + nameA.split('/')[0] : '🏆 ' + nameB.split('/')[0]}</Text>}
+              {matchFinished && !hasWinner && <Text style={[sc.autoLabel, { color: Colors.coral }]}>⚠️ Empate</Text>}
+            </View>
+            <View style={sc.autoSide}>
+              <Text style={sc.autoName} numberOfLines={1}>{nameB}</Text>
+              <Text style={[sc.autoSets, setsB > setsA ? { color: Colors.teal } : {}]}>{setsB}</Text>
+            </View>
           </View>
-          {useOfficialRules && hint && (
-            <Text style={sc.hint}>{hint}</Text>
-          )}
-          {/* Quick score chips */}
-          {!alreadyScored && (
-            <View style={sc.quickRow}>
-              <Text style={sc.quickLabel}>Placar rápido:</Text>
-              <View style={sc.quickChips}>
-                {Array.from({ length: defaultMaxScore }, (_, i) => i).map(v => (
-                  <TouchableOpacity key={v} style={sc.quickChip} onPress={() => { setSA(String(defaultMaxScore)); setSB(String(v)); }}>
-                    <Text style={sc.quickChipText}>{defaultMaxScore}-{v}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+
+          {/* Sets com games */}
+          <View style={sc.setsSection}>
+            <Text style={sc.setsTitle}>GAMES POR SET</Text>
+            {setScores.map((s, i) => {
+              const gA = parseInt(s.a) || 0, gB = parseInt(s.b) || 0;
+              const deciding = isDecidingSet(i);
+              const pts = deciding ? superTbPts : gamesWin;
+              const aWon = deciding
+                ? (gA >= pts && gA - gB >= 2)
+                : (gA >= gamesWin && gA > gB);
+              const bWon = deciding
+                ? (gB >= pts && gB - gA >= 2)
+                : (gB >= gamesWin && gB > gA);
+              const filled = gA > 0 || gB > 0;
+              const maxA = maxGamesForSide(gA, gB, i);
+              const maxB = maxGamesForSide(gB, gA, i);
+              const canIncA = gA < maxA;
+              const canIncB = gB < maxB;
+              return (
+                <View key={i} style={sc.setRow}>
+                  <Text style={[sc.setLabel, deciding && { color: Colors.gold }]}>
+                    {deciding ? `STB` : `Set ${i + 1}`}
+                  </Text>
+                  {/* Games lado A */}
+                  <View style={sc.gameStepperWrap}>
+                    <TouchableOpacity style={[sc.gameBtn, gA === 0 && { opacity: 0.3 }]} onPress={() => updateGame(i, 'a', gA - 1)} disabled={gA === 0}>
+                      <Text style={sc.gameBtnTxt}>−</Text>
+                    </TouchableOpacity>
+                    <View style={[sc.gameVal, aWon && filled && { borderColor: Colors.teal }]}>
+                      <Text style={[sc.gameValTxt, aWon && filled && { color: Colors.teal }]}>{s.a || '0'}</Text>
+                    </View>
+                    <TouchableOpacity style={[sc.gameBtn, !canIncA && { opacity: 0.3 }]} onPress={() => updateGame(i, 'a', gA + 1)} disabled={!canIncA}>
+                      <Text style={sc.gameBtnTxt}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={sc.setDash}>–</Text>
+                  {/* Games lado B */}
+                  <View style={sc.gameStepperWrap}>
+                    <TouchableOpacity style={[sc.gameBtn, gB === 0 && { opacity: 0.3 }]} onPress={() => updateGame(i, 'b', gB - 1)} disabled={gB === 0}>
+                      <Text style={sc.gameBtnTxt}>−</Text>
+                    </TouchableOpacity>
+                    <View style={[sc.gameVal, bWon && filled && { borderColor: Colors.teal }]}>
+                      <Text style={[sc.gameValTxt, bWon && filled && { color: Colors.teal }]}>{s.b || '0'}</Text>
+                    </View>
+                    <TouchableOpacity style={[sc.gameBtn, !canIncB && { opacity: 0.3 }]} onPress={() => updateGame(i, 'b', gB + 1)} disabled={!canIncB}>
+                      <Text style={sc.gameBtnTxt}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+            {/* Botões add/remove set */}
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+              {canAddSet && (
+                <TouchableOpacity style={sc.addSetBtn} onPress={addSet}>
+                  <Text style={sc.addSetTxt}>+ Adicionar set</Text>
+                </TouchableOpacity>
+              )}
+              {setScores.length > 1 && (
+                <TouchableOpacity style={[sc.addSetBtn, { borderColor: Colors.coral + '55' }]} onPress={removeLastSet}>
+                  <Text style={[sc.addSetTxt, { color: Colors.coral }]}>− Remover</Text>
+                </TouchableOpacity>
+              )}
             </View>
-          )}
-          {draw && <Text style={sc.warn}>⚠️ Empate não permitido</Text>}
+          </View>
+
           {alreadyScored && !isAdmin && (
             <Text style={sc.lockedText}>🔒 Placar já registrado. Apenas admin pode corrigir.</Text>
           )}
@@ -978,12 +1146,12 @@ function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }:
             <Text style={sc.adminNote}>⚙️ Admin — você pode corrigir ou apagar este placar.</Text>
           )}
 
-          {/* BT Tracker */}
+          {/* King Scout */}
           {analise && !analiseEncerrada ? (
             // Análise em andamento — permite continuar ou ver parcial
             <View style={{ gap: 6 }}>
               <TouchableOpacity style={[sc.btBtn, sc.btBtnContinuar]} onPress={abrirBtTracker}>
-                <Text style={sc.btBtnTxtContinuar}>▶ Continuar BT Tracker</Text>
+                <Text style={sc.btBtnTxtContinuar}>▶ Continuar King Scout</Text>
                 <Text style={sc.btBtnSub}>{analise.pontos.length} pontos registrados</Text>
               </TouchableOpacity>
               <TouchableOpacity style={sc.btBtnSecundario} onPress={abrirRelatorio}>
@@ -1003,7 +1171,7 @@ function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }:
           ) : (
             // Sem análise — começa do zero
             <TouchableOpacity style={sc.btBtn} onPress={abrirBtTracker}>
-              <Text style={sc.btBtnTxt}>🎾 Analisar ponto a ponto</Text>
+              <Text style={sc.btBtnTxt}>👑 Usar King Scout</Text>
             </TouchableOpacity>
           )}
 
@@ -1012,9 +1180,13 @@ function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }:
               <Text style={sc.cancelText}>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => { if (valid && canEdit) onSave(match.id, a, b); }}
-              style={[sc.save, (!valid || !canEdit) && sc.saveOff]}
-              disabled={!valid || !canEdit}
+              onPress={() => {
+                if (hasWinner && canEdit) {
+                  onSave(match.id, setsA, setsB, validSets.length > 0 ? validSets : undefined);
+                }
+              }}
+              style={[sc.save, (!hasWinner || !canEdit) && sc.saveOff]}
+              disabled={!hasWinner || !canEdit}
             >
               <Text style={sc.saveText}>{alreadyScored && isAdmin ? 'Corrigir' : 'Salvar'}</Text>
             </TouchableOpacity>
@@ -1025,6 +1197,7 @@ function ScorerModal({ match, comp, onClose, onSave, onClear, isAdmin = false }:
             </TouchableOpacity>
           )}
         </View>
+        </ScrollView>
       </View>
     </Modal>
   );
@@ -1059,6 +1232,31 @@ const sc = StyleSheet.create({
   btBtnSub: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.teal, opacity: 0.7, marginTop: 2 },
   btBtnSecundario: { alignItems: 'center', paddingVertical: 6 },
   btBtnSecundarioTxt: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  setsRule: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center', marginTop: -4 },
+  // Auto score display
+  autoScore: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.md },
+  autoSide: { flex: 1, alignItems: 'center', gap: 4 },
+  autoName: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, textAlign: 'center' },
+  autoSets: { fontFamily: FontFamily.numberBold, fontSize: 40, color: Colors.muted },
+  autoCenter: { alignItems: 'center', gap: 2, paddingHorizontal: Spacing.sm },
+  autoLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
+  autoWinner: { fontFamily: FontFamily.bodyMed, fontSize: 10, color: Colors.teal, textAlign: 'center' },
+  // Sets
+  setsSection: { gap: 8 },
+  setsTitle: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.muted, letterSpacing: 1, textAlign: 'center' },
+  setRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  setLabel: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.faint, width: 36 },
+  setDash: { fontFamily: FontFamily.body, fontSize: 16, color: Colors.faint },
+  gameStepperWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  gameBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
+  gameBtnTxt: { fontFamily: FontFamily.titleBold, fontSize: 16, color: Colors.gold, lineHeight: 20 },
+  gameVal: { flex: 1, height: 36, borderRadius: Radius.sm, borderWidth: 1.5, borderColor: Colors.line, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center' },
+  gameValTxt: { fontFamily: FontFamily.numberBold, fontSize: 18, color: Colors.text },
+  addSetBtn: { flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.sm, paddingVertical: 6, alignItems: 'center' },
+  addSetTxt: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted },
+  // Legacy
+  setsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
+  setInput: { width: 36, height: 34, borderRadius: 4, backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.line, fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.gold, textAlign: 'center' },
   quickRow: { gap: 6 },
   quickLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center' },
   quickChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' },
@@ -1178,8 +1376,10 @@ function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
       if (m.scoreA == null || m.scoreA === m.scoreB) return;
       const inA = m.teamA?.includes(pid);
       const inB = m.teamB?.includes(pid);
-      if (inA) { gf += m.scoreA!; gc += m.scoreB!; if (m.scoreA! > m.scoreB!) wins++; else losses++; }
-      if (inB) { gf += m.scoreB!; gc += m.scoreA!; if (m.scoreB! > m.scoreA!) wins++; else losses++; }
+      const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA!;
+      const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB!;
+      if (inA) { gf += gA; gc += gB; if (m.scoreA! > m.scoreB!) wins++; else losses++; }
+      if (inB) { gf += gB; gc += gA; if (m.scoreB! > m.scoreA!) wins++; else losses++; }
     });
     const played = wins + losses;
     const ga = gc > 0 ? gf / gc : gf > 0 ? 999 : 0;
@@ -1208,11 +1408,24 @@ function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
             const namesB = (m.teamB ?? []).map(id => findPlayer(id)?.name ?? id).join(' / ');
             return (
               <TouchableOpacity key={m.id} onPress={() => onScore(m)} activeOpacity={0.8}>
-                <Card style={avulsoS.matchCard}>
-                  <View style={avulsoS.matchSide}><Text style={avulsoS.matchName} numberOfLines={1}>{namesA}</Text></View>
-                  <View style={avulsoS.matchCenter}><Text style={avulsoS.vsText}>vs</Text></View>
-                  <View style={[avulsoS.matchSide, { alignItems: 'flex-end' }]}>
-                    <Text style={avulsoS.matchName} numberOfLines={1}>{namesB}</Text>
+                <Card style={[avulsoS.matchCard, m.liveScore ? avulsoS.matchCardLive : {}] as any}>
+                  {m.liveScore && (
+                    <View style={avulsoS.liveRow}>
+                      <View style={avulsoS.liveDot} />
+                      <Text style={avulsoS.liveText}>EM ANDAMENTO  {m.liveScore.gamesA}–{m.liveScore.gamesB}</Text>
+                    </View>
+                  )}
+                  <View style={avulsoS.matchRow}>
+                    <View style={avulsoS.matchSide}><Text style={avulsoS.matchName} numberOfLines={1}>{namesA}</Text></View>
+                    <View style={avulsoS.matchCenter}>
+                      {m.liveScore
+                        ? <Text style={avulsoS.liveScoreText}>{m.liveScore.setsA}–{m.liveScore.setsB}</Text>
+                        : <Text style={avulsoS.vsText}>vs</Text>
+                      }
+                    </View>
+                    <View style={[avulsoS.matchSide, { alignItems: 'flex-end' }]}>
+                      <Text style={avulsoS.matchName} numberOfLines={1}>{namesB}</Text>
+                    </View>
                   </View>
                 </Card>
               </TouchableOpacity>
@@ -1232,15 +1445,32 @@ function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
             return (
               <TouchableOpacity key={m.id} onPress={() => onScore(m)} onLongPress={() => onClear(m.id)} activeOpacity={0.8}>
                 <Card style={avulsoS.matchCard}>
-                  <View style={avulsoS.matchSide}>
-                    <Text style={[avulsoS.matchName, aWon && { color: Colors.teal }]} numberOfLines={1}>{namesA}</Text>
+                  <View style={avulsoS.matchRow}>
+                    <View style={avulsoS.matchSide}>
+                      <Text style={[avulsoS.matchName, aWon && { color: Colors.teal }]} numberOfLines={1}>{namesA}</Text>
+                    </View>
+                    <View style={avulsoS.matchCenter}>
+                      <Text style={avulsoS.scoreText}>{m.scoreA} – {m.scoreB}</Text>
+                      <Text style={avulsoS.scoreSub}>sets</Text>
+                    </View>
+                    <View style={[avulsoS.matchSide, { alignItems: 'flex-end' }]}>
+                      <Text style={[avulsoS.matchName, !aWon && { color: Colors.teal }]} numberOfLines={1}>{namesB}</Text>
+                    </View>
                   </View>
-                  <View style={avulsoS.matchCenter}>
-                    <Text style={avulsoS.scoreText}>{m.scoreA} – {m.scoreB}</Text>
-                  </View>
-                  <View style={[avulsoS.matchSide, { alignItems: 'flex-end' }]}>
-                    <Text style={[avulsoS.matchName, !aWon && { color: Colors.teal }]} numberOfLines={1}>{namesB}</Text>
-                  </View>
+                  {m.sets && m.sets.length > 0 && (
+                    <View style={avulsoS.setsRow}>
+                      {m.sets.map((s, i) => {
+                        const aWonSet = s.a > s.b;
+                        return (
+                          <View key={i} style={avulsoS.setChip}>
+                            <Text style={[avulsoS.setScore, aWonSet && avulsoS.setScoreWin]}>{s.a}</Text>
+                            <Text style={avulsoS.setDash}>-</Text>
+                            <Text style={[avulsoS.setScore, !aWonSet && avulsoS.setScoreWin]}>{s.b}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
                 </Card>
               </TouchableOpacity>
             );
@@ -1289,12 +1519,24 @@ const avulsoS = StyleSheet.create({
   addBtnIcon:  { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.bg },
   addBtnText:  { fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg },
   sectionTitle:{ fontFamily: FontFamily.title, fontSize: 12, color: Colors.muted, letterSpacing: 1 },
-  matchCard:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  matchSide:   { flex: 1 },
-  matchCenter: { alignItems: 'center', paddingHorizontal: Spacing.xs },
-  matchName:   { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
-  vsText:      { fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint },
+  matchCard:     { gap: 4 },
+  matchCardLive: { borderColor: Colors.coral + '55', borderWidth: 1.5 },
+  matchRow:      { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  matchSide:     { flex: 1 },
+  matchCenter:   { alignItems: 'center', paddingHorizontal: Spacing.xs },
+  matchName:     { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
+  vsText:        { fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint },
+  liveRow:       { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  liveDot:       { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.coral },
+  liveText:      { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.coral, letterSpacing: 1 },
+  liveScoreText: { fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.coral },
   scoreText:   { fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.gold },
+  scoreSub:    { fontFamily: FontFamily.body, fontSize: 9, color: Colors.faint, textAlign: 'center', marginTop: -2 },
+  setsRow:     { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: Colors.line },
+  setChip:     { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: Colors.surf2, borderRadius: Radius.sm, paddingHorizontal: 8, paddingVertical: 3 },
+  setScore:    { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted },
+  setScoreWin: { color: Colors.teal },
+  setDash:     { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   rankRow:     { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8 },
   rankPos:     { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted, width: 20, textAlign: 'center' },
   rankName:    { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text, flex: 1 },
@@ -1304,6 +1546,137 @@ const avulsoS = StyleSheet.create({
   emptyIcon:   { fontSize: 40 },
   emptyText:   { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
   emptyHint:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
+});
+
+// ─── Rules View ───────────────────────────────────────────────────────────────
+
+function RulesView({ comp }: { comp: Competition }) {
+  const wr = comp.config.winRule;
+
+  const formatName: Record<string, string> = {
+    liga: 'Liga', grupos: 'Grupos + Mata-mata', mata: 'Mata-mata', avulso: 'Avulso', super8: 'Super 8',
+  };
+  const unitName: Record<string, string> = { individual: 'Individual', duplas: 'Duplas' };
+  const genderName: Record<string, string> = { masculino: 'Masculino', feminino: 'Feminino', misto: 'Misto' };
+
+  const sets = wr.sets ?? 3;
+  const games = wr.games ?? 6;
+  const tb = wr.tiebreak ?? 7;
+  const superTb = wr.superTiebreak ?? false;
+  const superTbPts = wr.superTiebreakPts ?? 10;
+
+  function RuleRow({ icon, label, value, valueColor }: { icon: string; label: string; value: string; valueColor?: string }) {
+    return (
+      <View style={rls.row}>
+        <Text style={rls.icon}>{icon}</Text>
+        <Text style={rls.label}>{label}</Text>
+        <Text style={[rls.value, valueColor ? { color: valueColor } : {}]}>{value}</Text>
+      </View>
+    );
+  }
+
+  function Section({ title, children }: { title: string; children: React.ReactNode }) {
+    return (
+      <View style={rls.section}>
+        <Text style={rls.sectionTitle}>{title}</Text>
+        <View style={rls.card}>{children}</View>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView contentContainerStyle={rls.scroll} showsVerticalScrollIndicator={false}>
+
+      {/* Informações gerais */}
+      <Section title="INFORMAÇÕES GERAIS">
+        <RuleRow icon="🏆" label="Formato" value={formatName[comp.format] ?? comp.format} />
+        <View style={rls.divider} />
+        <RuleRow icon="👥" label="Modalidade" value={unitName[comp.unit] ?? comp.unit} />
+        <View style={rls.divider} />
+        <RuleRow icon="⚧" label="Categoria" value={genderName[comp.gender] ?? comp.gender} />
+        {comp.location && (
+          <>
+            <View style={rls.divider} />
+            <RuleRow icon="📍" label="Local" value={comp.location} />
+          </>
+        )}
+        <View style={rls.divider} />
+        <RuleRow icon="📅" label="Data" value={new Date(comp.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} />
+        <View style={rls.divider} />
+        <RuleRow icon="🎮" label="Participantes" value={`${comp.competitors.length} jogadores`} />
+      </Section>
+
+      {/* Regras do jogo */}
+      <Section title="REGRAS DO JOGO">
+        <RuleRow icon="🎯" label="Sets para vencer" value={`Melhor de ${sets} set${sets > 1 ? 's' : ''}`} valueColor={Colors.gold} />
+        <View style={rls.divider} />
+        <RuleRow icon="🎾" label="Games por set" value={`${games} games`} valueColor={Colors.gold} />
+        <View style={rls.divider} />
+        <RuleRow icon="⚡" label="Tie-break" value={`Primeiro a ${tb} pontos`} />
+        <View style={rls.divider} />
+        <RuleRow
+          icon="🔥"
+          label={`Set decisivo (${sets}º set)`}
+          value={superTb ? `Super Tie-Break (${superTbPts} pts)` : `Set completo (${games} games)`}
+          valueColor={superTb ? Colors.coral : Colors.muted}
+        />
+      </Section>
+
+      {/* Pontuação */}
+      <Section title="PONTUAÇÃO">
+        <RuleRow icon="🥇" label="Vitória" value="+3 pontos" valueColor={Colors.teal} />
+        <View style={rls.divider} />
+        <RuleRow icon="🥈" label="Derrota" value="+0 pontos" valueColor={Colors.muted} />
+        <View style={rls.divider} />
+        <RuleRow icon="📊" label="Jogo disputado" value="+0.5 pontos" />
+      </Section>
+
+      {/* Critérios de desempate */}
+      <Section title="CRITÉRIOS DE DESEMPATE">
+        {[
+          { n: '1º', label: 'Confronto direto entre empatados' },
+          { n: '2º', label: 'Maior saldo de games (GP − GC)' },
+          { n: '3º', label: 'Maior GA (games pró ÷ games contra)' },
+          { n: '4º', label: 'Maior número de vitórias' },
+          { n: '5º', label: 'Sorteio' },
+        ].map((c, i) => (
+          <View key={i}>
+            {i > 0 && <View style={rls.divider} />}
+            <View style={rls.row}>
+              <View style={rls.tiebreakBadge}>
+                <Text style={rls.tiebreakN}>{c.n}</Text>
+              </View>
+              <Text style={[rls.label, { flex: 1 }]}>{c.label}</Text>
+            </View>
+          </View>
+        ))}
+      </Section>
+
+      {/* Observações */}
+      {comp.notes && (
+        <Section title="OBSERVAÇÕES">
+          <Text style={rls.notes}>{comp.notes}</Text>
+        </Section>
+      )}
+
+      <View style={{ height: Spacing.xl }} />
+    </ScrollView>
+  );
+}
+
+const rls = StyleSheet.create({
+  scroll: { padding: Spacing.md, gap: Spacing.md },
+  section: { gap: Spacing.xs },
+  sectionTitle: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted, letterSpacing: 1.5, paddingLeft: 2 },
+  card: { backgroundColor: Colors.surf, borderRadius: Radius.md, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
+  divider: { height: 1, backgroundColor: Colors.line, marginHorizontal: Spacing.md },
+  icon: { fontSize: 16, width: 24, textAlign: 'center' },
+  label: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, flex: 1 },
+  value: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text, textAlign: 'right', flexShrink: 0, maxWidth: '55%' },
+  tiebreakBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.gold + '22', alignItems: 'center', justifyContent: 'center' },
+  tiebreakN: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold },
+  notes: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, lineHeight: 20, padding: Spacing.md },
 });
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
@@ -1321,6 +1694,7 @@ export default function CompetitionDetail() {
   const [showChampion, setShowChampion]   = useState(false);
   const [confirmBusy, setConfirmBusy]     = useState(false);
   const [showAddAvulso, setShowAddAvulso] = useState(false);
+  const [showRules, setShowRules] = useState(false);
   const [avulsoTeamA, setAvulsoTeamA]     = useState<string[]>([]);
   const [avulsoTeamB, setAvulsoTeamB]     = useState<string[]>([]);
   const champAnim  = useRef(new Animated.Value(0)).current;
@@ -1379,13 +1753,13 @@ export default function CompetitionDetail() {
     : null;
   const champDisplayName = champPlayer?.name ?? '';
 
-  function handleSave(matchId: string, a: number, b: number) {
-    dispatch({ type: 'SAVE_SCORE', compId: id!, matchId, scoreA: a, scoreB: b });
+  function handleSave(matchId: string, a: number, b: number, sets?: { a: number; b: number }[]) {
+    dispatch({ type: 'SAVE_SCORE', compId: id!, matchId, scoreA: a, scoreB: b, sets });
     setScoring(null);
   }
 
-  function handleCorrect(matchId: string, a: number, b: number) {
-    dispatch({ type: 'CORRECT_SCORE', compId: id!, matchId, scoreA: a, scoreB: b });
+  function handleCorrect(matchId: string, a: number, b: number, sets?: { a: number; b: number }[]) {
+    dispatch({ type: 'CORRECT_SCORE', compId: id!, matchId, scoreA: a, scoreB: b, sets });
     setScoring(null);
   }
 
@@ -1642,20 +2016,44 @@ export default function CompetitionDetail() {
         </ScrollView>
       )}
 
-      {/* Conteúdo por formato */}
+      {/* Abas Jogos / Regras */}
       {comp.status !== 'upcoming' && (
-        comp.format === 'grupos'
-          ? <GroupsView comp={comp} onScore={setScoring} onClear={handleClear} />
-          : comp.format === 'liga'
-            ? <LeagueView comp={comp} onScore={setScoring} onClear={handleClear}
-                onSubstitute={isAdmin ? handleSubstitute : undefined} />
-            : comp.format === 'mata'
-              ? <KOView comp={comp} onScore={setScoring} onClear={handleClear} />
-              : comp.format === 'avulso'
-                ? <AvulsoView comp={comp} onScore={setScoring} onClear={handleClear}
-                    onAddMatch={() => setShowAddAvulso(true)} />
-                : <RotatingView comp={comp} onScore={setScoring} onClear={handleClear}
+        <View style={{ flex: 1 }}>
+          {/* Tab bar */}
+          <View style={main.tabBar}>
+            <TouchableOpacity
+              style={[main.tab, showRules && main.tabActive]}
+              onPress={() => setShowRules(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={[main.tabLabel, showRules && main.tabLabelActive]}>📋 Regras</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[main.tab, !showRules && main.tabActive]}
+              onPress={() => setShowRules(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={[main.tabLabel, !showRules && main.tabLabelActive]}>🎾 Jogos</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Conteúdo */}
+          {showRules
+            ? <RulesView comp={comp} />
+            : comp.format === 'grupos'
+              ? <GroupsView comp={comp} onScore={setScoring} onClear={handleClear} />
+              : comp.format === 'liga'
+                ? <LeagueView comp={comp} onScore={setScoring} onClear={handleClear}
                     onSubstitute={isAdmin ? handleSubstitute : undefined} />
+                : comp.format === 'mata'
+                  ? <KOView comp={comp} onScore={setScoring} onClear={handleClear} />
+                  : comp.format === 'avulso'
+                    ? <AvulsoView comp={comp} onScore={setScoring} onClear={handleClear}
+                        onAddMatch={() => setShowAddAvulso(true)} />
+                    : <RotatingView comp={comp} onScore={setScoring} onClear={handleClear}
+                        onSubstitute={isAdmin ? handleSubstitute : undefined} />
+          }
+        </View>
       )}
 
       {/* Modal: adicionar jogo avulso */}
@@ -1759,6 +2157,11 @@ const main = StyleSheet.create({
   adminMenuAction: { paddingVertical: Spacing.xs },
   adminMenuText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
   adminMenuDanger: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.coral },
+  tabBar: { flexDirection: 'row', backgroundColor: Colors.surf2, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabActive: { borderBottomColor: Colors.gold },
+  tabLabel: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.faint },
+  tabLabelActive: { color: Colors.gold },
   // Champion banner
   champBanner: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100,

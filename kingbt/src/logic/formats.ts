@@ -145,9 +145,12 @@ export function standings(ids: string[], matches: Match[], nameOf?: (id: string)
   matches.forEach(m => {
     if (m.scoreA == null || m.scoreB == null) return;
     if (!m.aId || !m.bId || !acc[m.aId] || !acc[m.bId]) return;
+    // Usa games reais quando disponíveis, caso contrário usa sets como fallback
+    const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA;
+    const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB;
     acc[m.aId].played++; acc[m.bId].played++;
-    acc[m.aId].gf += m.scoreA; acc[m.aId].gc += m.scoreB;
-    acc[m.bId].gf += m.scoreB; acc[m.bId].gc += m.scoreA;
+    acc[m.aId].gf += gA; acc[m.aId].gc += gB;
+    acc[m.bId].gf += gB; acc[m.bId].gc += gA;
     if (m.scoreA > m.scoreB) { acc[m.aId].wins++; acc[m.bId].losses++; }
     else { acc[m.bId].wins++; acc[m.aId].losses++; }
   });
@@ -329,12 +332,21 @@ export function extractPlayerGames(
   const out: Array<{ teamA: string[]; teamB: string[]; scoreA: number; scoreB: number }> = [];
   comp.matches.forEach(m => {
     if (m.scoreA == null || m.scoreB == null || m.scoreA === m.scoreB) return;
+
+    // Usa games reais (soma dos sets) quando disponível, caso contrário usa sets como fallback
+    let gA = m.scoreA;
+    let gB = m.scoreB;
+    if (m.sets && m.sets.length > 0) {
+      gA = m.sets.reduce((acc, s) => acc + s.a, 0);
+      gB = m.sets.reduce((acc, s) => acc + s.b, 0);
+    }
+
     if (m.teamA && m.teamB) {
-      out.push({ teamA: m.teamA, teamB: m.teamB, scoreA: m.scoreA, scoreB: m.scoreB });
+      out.push({ teamA: m.teamA, teamB: m.teamB, scoreA: gA, scoreB: gB });
       return;
     }
     if (!m.aId || !m.bId) return;
-    out.push({ teamA: membersOf(comp, m.aId), teamB: membersOf(comp, m.bId), scoreA: m.scoreA, scoreB: m.scoreB });
+    out.push({ teamA: membersOf(comp, m.aId), teamB: membersOf(comp, m.bId), scoreA: gA, scoreB: gB });
   });
   return out;
 }

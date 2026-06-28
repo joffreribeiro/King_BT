@@ -3,7 +3,7 @@ import type { Competition, Substitution } from '@/logic/types';
 import { resolveCompetition, extractPlayerGames, buildCompetition } from '@/logic/formats';
 import { computeRivalries } from '@/logic/rivalries';
 import { MOCK_COMPETITIONS } from '@/mocks/competitions';
-import { subscribeCompetitions, createCompetition, updateCompetition as fsUpdateComp, deleteCompetition as fsDeleteComp } from '@/firebase/competitions';
+import { subscribeCompetitions, createCompetition, updateCompetition as fsUpdateComp, deleteCompetition as fsDeleteComp, updateLiveScore } from '@/firebase/competitions';
 import { createFeedItem } from '@/firebase/feed';
 import { Timestamp } from 'firebase/firestore';
 import { buildRanking } from '@/logic/scoring';
@@ -20,19 +20,21 @@ type Action =
   | { type: 'SET'; competitions: Competition[] }
   | { type: 'ADD'; comp: Competition }
   | { type: 'CLONE'; compId: string }
-  | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number }
-  | { type: 'CORRECT_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number }
+  | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; sets?: { a: number; b: number }[] }
+  | { type: 'CORRECT_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; sets?: { a: number; b: number }[] }
   | { type: 'CLEAR_SCORE'; compId: string; matchId: string }
+  | { type: 'UPDATE_LIVE_SCORE'; compId: string; matchId: string; gamesA: number; gamesB: number; setsA: number; setsB: number }
+  | { type: 'CLEAR_LIVE_SCORE'; compId: string; matchId: string }
   | { type: 'DELETE'; compId: string }
   | { type: 'RENAME'; compId: string; name: string }
   | { type: 'SUBSTITUTE_PLAYER'; compId: string; sub: Substitution }
   | { type: 'UPDATE'; comp: Competition };
 
-function applyScore(comp: Competition, matchId: string, scoreA: number, scoreB: number): Competition {
+function applyScore(comp: Competition, matchId: string, scoreA: number, scoreB: number, sets?: { a: number; b: number }[]): Competition {
   const updated = {
     ...comp,
     matches: comp.matches.map(m =>
-      m.id === matchId ? { ...m, scoreA, scoreB } : m
+      m.id === matchId ? { ...m, scoreA, scoreB, ...(sets ? { sets } : {}) } : m
     ),
   };
   resolveCompetition(updated);
@@ -77,7 +79,7 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         competitions: state.competitions.map(c =>
-          c.id !== action.compId ? c : applyScore(c, action.matchId, action.scoreA, action.scoreB)
+          c.id !== action.compId ? c : applyScore(c, action.matchId, action.scoreA, action.scoreB, action.sets)
         ),
       };
     case 'SUBSTITUTE_PLAYER': {
@@ -116,6 +118,33 @@ function reducer(state: State, action: Action): State {
         }),
       };
     }
+    case 'UPDATE_LIVE_SCORE':
+      return {
+        ...state,
+        competitions: state.competitions.map(c =>
+          c.id !== action.compId ? c : {
+            ...c,
+            matches: c.matches.map(m =>
+              m.id !== action.matchId ? m : {
+                ...m,
+                liveScore: { gamesA: action.gamesA, gamesB: action.gamesB, setsA: action.setsA, setsB: action.setsB, updatedAt: new Date().toISOString() },
+              }
+            ),
+          }
+        ),
+      };
+    case 'CLEAR_LIVE_SCORE':
+      return {
+        ...state,
+        competitions: state.competitions.map(c =>
+          c.id !== action.compId ? c : {
+            ...c,
+            matches: c.matches.map(m =>
+              m.id !== action.matchId ? m : { ...m, liveScore: null }
+            ),
+          }
+        ),
+      };
     case 'UPDATE':
       return { ...state, competitions: state.competitions.map(c => c.id === action.comp.id ? action.comp : c) };
   }
@@ -176,10 +205,25 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    if (action.type === 'UPDATE_LIVE_SCORE' || action.type === 'CLEAR_LIVE_SCORE') {
+      const comp = state.competitions.find(c => c.id === action.compId);
+      if (comp) {
+        const updatedMatches = comp.matches.map(m => {
+          if (m.id !== action.matchId) return m;
+          if (action.type === 'CLEAR_LIVE_SCORE') return { ...m, liveScore: null };
+          return {
+            ...m,
+            liveScore: { gamesA: action.gamesA, gamesB: action.gamesB, setsA: action.setsA, setsB: action.setsB, updatedAt: new Date().toISOString() },
+          };
+        });
+        try { await updateLiveScore(group.id, comp.id, updatedMatches); } catch { /* silent */ }
+      }
+    }
+
     if (action.type === 'SAVE_SCORE' || action.type === 'CORRECT_SCORE') {
       const comp = state.competitions.find(c => c.id === action.compId);
       if (comp) {
-        const updated = applyScore(comp, action.matchId, action.scoreA, action.scoreB);
+        const updated = applyScore(comp, action.matchId, action.scoreA, action.scoreB, action.sets);
         try { await fsUpdateComp(group.id, updated); }
         catch {
           await enqueue({ type: 'UPDATE_COMP', payload: { groupId: group.id, data: updated } });

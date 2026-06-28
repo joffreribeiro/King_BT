@@ -31,6 +31,14 @@ export interface SetScore {
   b: number;
 }
 
+export interface LiveScore {
+  gamesA: number;
+  gamesB: number;
+  setsA: number;
+  setsB: number;
+  updatedAt: string;
+}
+
 export interface Match {
   id: string;
   stage: Stage;
@@ -41,6 +49,8 @@ export interface Match {
   /** Resultado decisivo do jogo. Com modelo de sets, = sets vencidos por lado. */
   scoreA: number | null;
   scoreB: number | null;
+  /** Placar ao vivo durante a partida (apagado ao finalizar). */
+  liveScore?: LiveScore | null;
   /** Detalhe set a set (games de cada set), quando o jogo usa sets. */
   sets?: SetScore[] | null;
   /** Data/horário do jogo (ISO). */
@@ -75,6 +85,13 @@ export interface WinRule {
   games?: number;
   /** Pontos do tie-break. */
   tiebreak?: number;
+  /**
+   * Em qual placar de games o tie-break é ativado.
+   * 'deuce': tie em gamesWin-1 x gamesWin-1 (ex: 3-3 num set de 4 games).
+   * 'full':  tie em gamesWin x gamesWin (ex: 4-4 num set de 4 games).
+   * Padrão: 'deuce'.
+   */
+  tiebreakAt?: 'deuce' | 'full';
   /** Super tie-break no set decisivo em vez de jogar o set completo. */
   superTiebreak?: boolean;
   /** Pontos do super tie-break (padrão 10). */

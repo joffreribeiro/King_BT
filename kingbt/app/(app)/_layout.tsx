@@ -314,8 +314,15 @@ function AppHeader({ onMenuPress }: { onMenuPress: () => void }) {
           </View>
         </View>
 
-        {/* Avatar + Menu */}
+        {/* Sino + Avatar + Menu */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <TouchableOpacity
+            onPress={() => router.push('/(app)/notifications')}
+            style={hd.bellBtn}
+            activeOpacity={0.75}
+          >
+            <Text style={hd.bellIcon}>🔔</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/(app)/profile')} activeOpacity={0.8}>
             <Avatar
               name={myPlayer?.name ?? user?.displayName ?? '?'}
@@ -359,6 +366,8 @@ export default function AppLayout() {
         <Tabs.Screen name="history"      options={{ href: null }} />
         <Tabs.Screen name="stats"        options={{ href: null }} />
         <Tabs.Screen name="settings"     options={{ href: null }} />
+        <Tabs.Screen name="h2h"          options={{ href: null }} />
+        <Tabs.Screen name="notifications" options={{ href: null }} />
       </Tabs>
 
       <FABMenu insetBottom={insets.bottom} />
@@ -376,6 +385,8 @@ const hd = StyleSheet.create({
   logoImg: { width: 64, height: 64, borderRadius: 14 },
   groupLabel: { fontFamily: FontFamily.numberBold, fontSize: 11, color: '#888', letterSpacing: 1 },
   groupName: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text },
+  bellBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center' },
+  bellIcon: { fontSize: 16 },
   menuBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center' },
   menuIcon: { fontSize: 20, color: '#888' },
 });

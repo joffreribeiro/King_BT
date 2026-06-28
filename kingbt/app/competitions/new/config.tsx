@@ -96,6 +96,8 @@ export default function ConfigStep() {
   const [useOfficialRules, setUseOfficialRules]     = useState(true);
   const [superTiebreak, setSuperTiebreak]           = useState(true);
   const [superTiebreakPts, setSuperTiebreakPts]     = useState(10);
+  const [tiebreakAt, setTiebreakAt]                 = useState<'deuce' | 'full'>('deuce');
+  const [selectedPreset, setSelectedPreset]         = useState<number | null>(0);
 
   function next() {
     router.push({
@@ -103,6 +105,7 @@ export default function ConfigStep() {
       params: {
         format, name, unit, gender, rounds,
         sets: String(sets), games: String(games), tiebreak: String(tiebreak),
+        tiebreakAt,
         location, notes,
         useOfficialRules: String(useOfficialRules),
         superTiebreak: String(superTiebreak),
@@ -210,9 +213,51 @@ export default function ConfigStep() {
           </>
         )}
 
-        {/* Como vencer — sets, games e tie-break independentes */}
+        {/* Presets de formato de disputa */}
         <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Como vencer cada jogo</Text>
+          <Text style={styles.fieldLabel}>Formato de disputa</Text>
+          <Text style={[styles.fieldLabel, { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: -4 }]}>
+            Escolha um preset ou configure manualmente abaixo
+          </Text>
+          <View style={preset.grid}>
+            {([
+              // MD1 ordenado por games
+              { label: 'MD1 · 4 games', desc: 'Com tie 7 em 3-3',            sets: 1, games: 4, tb: 7, tbAt: 'deuce', stb: false, stbPts: 10 },
+              { label: 'MD1 · 4 games', desc: 'Com tie 7 em 4-4',            sets: 1, games: 4, tb: 7, tbAt: 'full',  stb: false, stbPts: 10 },
+              { label: 'MD1 · 6 games', desc: 'Com tie 7 em 5-5',            sets: 1, games: 6, tb: 7, tbAt: 'deuce', stb: false, stbPts: 10 },
+              { label: 'MD1 · 7 games', desc: 'Com tie 7 em 6-6',            sets: 1, games: 7, tb: 7, tbAt: 'deuce', stb: false, stbPts: 10 },
+              { label: 'MD1 · 8 games', desc: 'Com tie 7 em 8-8',            sets: 1, games: 8, tb: 7, tbAt: 'full',  stb: false, stbPts: 10 },
+              { label: 'Super TB · 10', desc: 'Apenas super tie-break',       sets: 1, games: 1, tb: 7, tbAt: 'deuce', stb: true,  stbPts: 10 },
+              // MD3 ordenado por games
+              { label: 'MD3 · 4 games', desc: 'Com tie 7 em 3-3 e super 10', sets: 3, games: 4, tb: 7, tbAt: 'deuce', stb: true,  stbPts: 10 },
+              { label: 'MD3 · 4 games', desc: 'Com tie 7 em 4-4',            sets: 3, games: 4, tb: 7, tbAt: 'full',  stb: false, stbPts: 10 },
+              { label: 'MD3 · 6 games', desc: 'Com tie 7 em 5-5 e super 10', sets: 3, games: 6, tb: 7, tbAt: 'deuce', stb: true,  stbPts: 10 },
+              { label: 'MD3 · 6 games', desc: 'Com tie 7 em 5-5, sem super', sets: 3, games: 6, tb: 7, tbAt: 'deuce', stb: false, stbPts: 10 },
+            ] as { label: string; desc: string; sets: number; games: number; tb: number; tbAt: 'deuce'|'full'; stb: boolean; stbPts: number }[]).map((p, i) => {
+              const isActive = selectedPreset === i;
+              return (
+                <TouchableOpacity
+                  key={i}
+                  style={[preset.card, isActive && preset.cardActive]}
+                  onPress={() => {
+                    setSelectedPreset(i);
+                    setSets(p.sets); setGames(p.games); setTiebreak(p.tb);
+                    setTiebreakAt(p.tbAt);
+                    setSuperTiebreak(p.stb); setSuperTiebreakPts(p.stbPts);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[preset.label, isActive && preset.labelActive]}>{p.label}</Text>
+                  <Text style={[preset.desc, isActive && preset.descActive]}>{p.desc}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Configuração manual */}
+        <View style={styles.field}>
+          <Text style={styles.fieldLabel}>Configurar manualmente</Text>
           <SegmentControl
             options={[
               { value: '1', label: '1 set' },
@@ -229,10 +274,10 @@ export default function ConfigStep() {
           />
         </View>
         <View style={styles.field}>
-          <Stepper label="Games por set" value={games} min={1} max={9} onChange={setGames} />
+          <Stepper label="Games por set" value={games} min={1} max={12} onChange={v => { setGames(v); setSelectedPreset(null); }} />
         </View>
         <View style={styles.field}>
-          <Stepper label="Pontos do tie-break" value={tiebreak} min={5} max={15} onChange={setTiebreak} />
+          <Stepper label="Pontos do tie-break" value={tiebreak} min={5} max={15} onChange={v => { setTiebreak(v); setSelectedPreset(null); }} />
         </View>
 
         {/* Super tie-break no set decisivo — só para Melhor de 3 ou 5 */}
@@ -311,6 +356,16 @@ export default function ConfigStep() {
     </SafeAreaView>
   );
 }
+
+const preset = StyleSheet.create({
+  grid:        { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  card:        { width: '47%', backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, padding: Spacing.sm, gap: 2 },
+  cardActive:  { borderColor: Colors.gold, backgroundColor: Colors.gold + '15' },
+  label:       { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
+  labelActive: { color: Colors.gold },
+  desc:        { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+  descActive:  { color: Colors.gold + 'BB' },
+});
 
 const tog = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xs },

@@ -6,6 +6,8 @@ import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { useAuth } from '@/store/AuthContext';
+import { updateLiveScore } from '@/firebase/competitions';
 import {
   carregarAnalise, placardInicial, avancaPonto, formatGameScore,
   winRuleFromComp, type BtAnalise, type BtPlacardState,
@@ -80,11 +82,12 @@ function LiveBadge() {
   );
 }
 
-function CourtLive({ comp, match, onSave, onBack }: {
+function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
   comp: Competition;
   match: Match;
-  onSave: (a: number, b: number) => void;
+  onSave: (a: number, b: number, sets?: { a: number; b: number }[]) => void;
   onBack: () => void;
+  onLiveScore?: (gamesA: number, gamesB: number, setsA: number, setsB: number) => void;
 }) {
   const { findPlayer } = useGroupPlayers();
 
@@ -125,8 +128,11 @@ function CourtLive({ comp, match, onSave, onBack }: {
     historyRef.current = [...historyRef.current, placard];
     const next = avancaPonto(placard, dupla);
     setPlacard(next);
+    // Publica placar ao vivo
+    onLiveScore?.(next.gamesA, next.gamesB, next.setsA, next.setsB);
     if (next.encerrada) {
-      onSave(next.setsA, next.setsB);
+      const sets = next.historicGamesA.map((gA, i) => ({ a: gA, b: next.historicGamesB[i] ?? 0 }));
+      onSave(next.setsA, next.setsB, sets);
     }
   }
 
@@ -290,6 +296,7 @@ function MatchMiniCard({
 export default function CourtScreen() {
   const { state, dispatch } = useCompetitions();
   const { findPlayer } = useGroupPlayers();
+  const { group } = useAuth();
   const params = useLocalSearchParams<{ compId?: string }>();
   const [selectedCompId, setSelectedCompId] = useState<string | null>(params.compId ?? null);
   const [liveMatch, setLiveMatch] = useState<Match | null>(null);
@@ -375,10 +382,12 @@ export default function CourtScreen() {
     });
   }
 
-  function handleSave(a: number, b: number) {
+  function handleSave(a: number, b: number, sets?: { a: number; b: number }[]) {
     if (!liveMatch || !selectedCompId) return;
     const comp = state.competitions.find(c => c.id === selectedCompId);
-    dispatch({ type: 'SAVE_SCORE', compId: selectedCompId, matchId: liveMatch.id, scoreA: a, scoreB: b });
+    // Limpa liveScore ao finalizar
+    dispatch({ type: 'CLEAR_LIVE_SCORE', compId: selectedCompId, matchId: liveMatch.id });
+    dispatch({ type: 'SAVE_SCORE', compId: selectedCompId, matchId: liveMatch.id, scoreA: a, scoreB: b, sets });
 
     // Navegar para tela de vitória
     const winner = a > b ? 'A' : 'B';
@@ -425,7 +434,7 @@ export default function CourtScreen() {
             // Análise em andamento: botão principal é Continuar
             <>
               <TouchableOpacity style={[md.btnBt, md.btnBtContinuar]} onPress={escolherBtTracker}>
-                <Text style={md.btnBtTxtContinuar}>▶ Continuar BT Tracker</Text>
+                <Text style={md.btnBtTxtContinuar}>▶ Continuar King Scout</Text>
                 <Text style={md.btnBtSub}>{analisePendente.pontos.length} pontos registrados</Text>
               </TouchableOpacity>
               <TouchableOpacity style={md.btnRelatorio} onPress={verRelatorio}>
@@ -468,8 +477,14 @@ export default function CourtScreen() {
         <CourtLive
           comp={selectedComp}
           match={liveMatch}
-          onSave={handleSave}
-          onBack={() => setLiveMatch(null)}
+          onSave={(a, b, sets) => handleSave(a, b, sets)}
+          onBack={() => {
+            dispatch({ type: 'CLEAR_LIVE_SCORE', compId: selectedCompId!, matchId: liveMatch.id });
+            setLiveMatch(null);
+          }}
+          onLiveScore={(gA, gB, sA, sB) => {
+            dispatch({ type: 'UPDATE_LIVE_SCORE', compId: selectedCompId!, matchId: liveMatch.id, gamesA: gA, gamesB: gB, setsA: sA, setsB: sB });
+          }}
         />
         {modoModalEl}
       </>

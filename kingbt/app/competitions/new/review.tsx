@@ -28,7 +28,7 @@ const FORMAT_ICON_COLOR: Record<Format, string> = {
 
 type Params = {
   format: Format; name: string; unit: string; gender: string; rounds: string;
-  sets: string; games: string; tiebreak: string;
+  sets: string; games: string; tiebreak: string; tiebreakAt?: string;
   superTiebreak?: string; superTiebreakPts?: string;
   scoutMode?: string;
   location?: string; notes?: string;
@@ -114,6 +114,7 @@ export default function ReviewStep() {
       thirdPlace: p.thirdPlace === 'true',
       winRule: {
         sets: setsN, games: gamesN, tiebreak: tiebreakN,
+        tiebreakAt: (p.tiebreakAt ?? 'deuce') as 'deuce' | 'full',
         superTiebreak: p.superTiebreak === 'true',
         superTiebreakPts: parseInt(p.superTiebreakPts ?? '10', 10) || 10,
         scoutMode: (p.scoutMode ?? 'avancado') as 'aovivo' | 'padrao' | 'avancado',

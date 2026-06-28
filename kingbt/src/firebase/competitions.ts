@@ -65,6 +65,15 @@ export async function updateCompetition(
   await updateDoc(compDoc(groupId, id), data);
 }
 
+/** Atualiza placar ao vivo de um jogo (durante a partida) */
+export async function updateLiveScore(
+  groupId: string,
+  compId: string,
+  updatedMatches: Match[]
+): Promise<void> {
+  await updateDoc(compDoc(groupId, compId), { matches: updatedMatches });
+}
+
 /** Confirma participação de um jogador em competição upcoming */
 export async function confirmParticipation(
   groupId: string,

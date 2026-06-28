@@ -253,6 +253,20 @@ export default function RankingScreen() {
                           </Text>
                         </View>
                       )}
+                      {!isMe && MY_ID && (
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            router.push({ pathname: '/(app)/h2h', params: { playerId1: MY_ID, playerId2: s.id } });
+                          }}
+                          style={{ flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: Colors.gold + '18', borderRadius: Radius.full, paddingHorizontal: 5, paddingVertical: 1 }}
+                          activeOpacity={0.7}
+                          hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                        >
+                          <Text style={{ fontSize: 9 }}>⚔️</Text>
+                          <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.gold }}>vs</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                     <Text style={styles.playerMeta}>{s.played}J · {aproveitamento}% aprov.</Text>
                   </View>
