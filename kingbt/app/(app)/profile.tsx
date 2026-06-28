@@ -21,12 +21,124 @@ import { computeFormatStats } from '@/logic/formatStats';
 import { computeRivalries } from '@/logic/rivalries';
 import { computeAchievementStats } from '@/logic/achievementStats';
 import { ACHIEVEMENTS } from '@/constants/achievements';
-import Svg, { Polyline, Line, Circle, Text as SvgText } from 'react-native-svg';
+import Svg, { Polyline, Line, Circle, Text as SvgText, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 const GUEST_COLORS = ['#FFD166', '#2DD4BF', '#A78BFA', '#34D399', '#F472B6', '#94A3B8', '#FB923C', '#60A5FA'];
 const screenW = Dimensions.get('window').width - Spacing.md * 4 - 32;
+const chartFullW = Dimensions.get('window').width - Spacing.md * 2;
 
 type Tab = 'resumo' | 'historico' | 'rivalidades';
+
+// ─── Gráfico de Evolução de Pontos ────────────────────────────────────────────
+function PointsTimeline({ data }: { data: { label: string; pts: number; pos: number }[] }) {
+  const [selected, setSelected] = useState<number | null>(null);
+
+  if (data.length < 2) return null;
+
+  const W = chartFullW;
+  const H = 150;
+  const PAD = { top: 16, bottom: 28, left: 28, right: 12 };
+  const chartW = W - PAD.left - PAD.right;
+  const chartH = H - PAD.top - PAD.bottom;
+
+  const maxPts = Math.max(...data.map(d => d.pts), 1);
+  const minPts = Math.min(...data.map(d => d.pts), 0);
+  const range  = maxPts - minPts || 1;
+
+  const pts = data.map((d, i) => ({
+    x: PAD.left + (i / Math.max(data.length - 1, 1)) * chartW,
+    y: PAD.top + chartH - ((d.pts - minPts) / range) * chartH,
+    ...d,
+  }));
+
+  const linePoints = pts.map(p => `${p.x},${p.y}`).join(' ');
+  const areaPath = `M${pts[0].x},${PAD.top + chartH} ` +
+    pts.map(p => `L${p.x},${p.y}`).join(' ') +
+    ` L${pts[pts.length - 1].x},${PAD.top + chartH} Z`;
+
+  const trend = data[data.length - 1].pts - data[0].pts;
+  const trendColor = trend > 0 ? Colors.teal : trend < 0 ? Colors.coral : Colors.muted;
+
+  return (
+    <Card style={{ gap: 6, paddingHorizontal: 0, paddingTop: Spacing.sm }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md }}>
+        <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.muted, letterSpacing: 1.5 }}>
+          EVOLUÇÃO DE PONTOS
+        </Text>
+        <View style={{ backgroundColor: trendColor + '22', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>
+          <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 11, color: trendColor }}>
+            {trend > 0 ? '↑' : trend < 0 ? '↓' : '—'} {Math.abs(trend).toFixed(2)}
+          </Text>
+        </View>
+      </View>
+
+      <Svg width={W} height={H}>
+        <Defs>
+          <LinearGradient id="profAreaGrad" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0%" stopColor={Colors.gold} stopOpacity="0.25" />
+            <Stop offset="100%" stopColor={Colors.gold} stopOpacity="0" />
+          </LinearGradient>
+        </Defs>
+
+        {/* Grid */}
+        {[0, 0.5, 1].map((t, i) => {
+          const y = PAD.top + chartH * (1 - t);
+          const val = (minPts + range * t).toFixed(0);
+          return (
+            <Line key={i} x1={PAD.left} y1={y} x2={PAD.left + chartW} y2={y}
+              stroke={Colors.line} strokeWidth="1" />
+          );
+        })}
+        {[0, 0.5, 1].map((t, i) => (
+          <SvgText key={i} x={PAD.left - 4} y={PAD.top + chartH * (1 - t) + 4}
+            fontSize="8" fill={Colors.faint} textAnchor="end">
+            {(minPts + range * t).toFixed(0)}
+          </SvgText>
+        ))}
+
+        {/* Área + linha */}
+        <Path d={areaPath} fill="url(#profAreaGrad)" />
+        <Polyline points={linePoints} fill="none"
+          stroke={Colors.gold} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+
+        {/* Pontos */}
+        {pts.map((p, i) => (
+          <Circle key={i} cx={p.x} cy={p.y} r={selected === i ? 7 : 4}
+            fill={selected === i ? Colors.gold : Colors.bg}
+            stroke={Colors.gold} strokeWidth="2"
+            onPress={() => setSelected(selected === i ? null : i)} />
+        ))}
+
+        {/* Labels X */}
+        {pts.map((p, i) => (
+          <SvgText key={i} x={p.x} y={H - 4} fontSize="8"
+            fill={selected === i ? Colors.gold : Colors.faint} textAnchor="middle">
+            {p.label}
+          </SvgText>
+        ))}
+
+        {/* Tooltip */}
+        {selected !== null && (() => {
+          const p = pts[selected];
+          const bx = Math.min(Math.max(p.x - 40, 0), W - 92);
+          const by = Math.max(p.y - 44, 0);
+          return (
+            <>
+              <Line x1={p.x} y1={p.y} x2={p.x} y2={PAD.top + chartH}
+                stroke={Colors.gold} strokeWidth="1" strokeDasharray="3,3" />
+              <Path d={`M${bx},${by} h80 a4,4 0 0 1 4,4 v24 a4,4 0 0 1 -4,4 h-80 a4,4 0 0 1 -4,-4 v-24 a4,4 0 0 1 4,-4 z`}
+                fill="#1C1810" />
+              <SvgText x={bx + 40} y={by + 14} fontSize="10" fill={Colors.gold}
+                textAnchor="middle" fontWeight="700">{p.pts.toFixed(2)} pts</SvgText>
+              <SvgText x={bx + 40} y={by + 26} fontSize="8" fill={Colors.muted}
+                textAnchor="middle">{p.pos}° lugar</SvgText>
+            </>
+          );
+        })()}
+      </Svg>
+    </Card>
+  );
+}
 
 // ─── Aba Resumo ───────────────────────────────────────────────────────────────
 function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activityData, ratingHistory, nextAchievement, unlockedAchievements }: any) {
@@ -46,6 +158,32 @@ function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activityData, 
           {me.points.toFixed(2)}
         </Text>
       </Card>
+
+      {/* Últimos 20 jogos — logo abaixo da pontuação */}
+      {last20.length > 0 && (
+        <Card>
+          <Text style={tab.sectionTitle}>Últimos {last20.length} jogos</Text>
+          <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+            <View style={l20.resultBox}>
+              <Text style={l20.resultIcon}>✅</Text>
+              <Text style={[l20.resultNum, { color: Colors.teal }]}>{last20Wins}</Text>
+              <Text style={l20.resultLbl}>Vitórias</Text>
+            </View>
+            <View style={l20.resultBox}>
+              <Text style={l20.resultIcon}>❌</Text>
+              <Text style={[l20.resultNum, { color: Colors.coral }]}>{last20Losses}</Text>
+              <Text style={l20.resultLbl}>Derrotas</Text>
+            </View>
+            <View style={l20.resultBox}>
+              <Text style={l20.resultIcon}>📊</Text>
+              <Text style={[l20.resultNum, { color: Colors.gold }]}>
+                {last20.length > 0 ? Math.round((last20Wins / last20.length) * 100) : 0}%
+              </Text>
+              <Text style={l20.resultLbl}>Aproveit.</Text>
+            </View>
+          </View>
+        </Card>
+      )}
 
       {/* Stats 3 colunas */}
       <Card style={{ paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xs }}>
@@ -180,74 +318,18 @@ function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activityData, 
       )}
 
       {/* Evolução de pontos */}
-      {evoPoints.length >= 2 && (() => {
-        const chartH = 100;
-        const maxPts = Math.max(...evoPoints.map((p: any) => p.pts));
-        const minPts = Math.min(...evoPoints.map((p: any) => p.pts));
-        const range  = Math.max(maxPts - minPts, 1);
-        const pad    = 12;
-        const xStep  = evoPoints.length > 1 ? (screenW - pad * 2) / (evoPoints.length - 1) : screenW - pad * 2;
-        const toY    = (pts: number) => pad + ((maxPts - pts) / range) * (chartH - pad * 2);
-        const pts    = evoPoints.map((p: any, i: number) => `${pad + i * xStep},${toY(p.pts)}`).join(' ');
-        return (
-          <Card>
-            <Text style={tab.sectionTitle}>Evolução de pontos</Text>
-            <Svg width={screenW} height={chartH}>
-              <Line x1={pad} y1={chartH - pad} x2={screenW - pad} y2={chartH - pad} stroke={Colors.line} strokeWidth={1} />
-              <Polyline points={pts} fill="none" stroke={Colors.gold} strokeWidth={2} />
-              {evoPoints.map((p: any, i: number) => (
-                <Circle key={i} cx={pad + i * xStep} cy={toY(p.pts)} r={4}
-                  fill={i === evoPoints.length - 1 ? Colors.goldBright : Colors.gold} />
-              ))}
-              {evoPoints.map((p: any, i: number) => (
-                <SvgText key={i} x={pad + i * xStep} y={chartH - 2} fontSize={9} fill={Colors.faint} textAnchor="middle">
-                  {p.label}
-                </SvgText>
-              ))}
-            </Svg>
-          </Card>
-        );
-      })()}
+      <PointsTimeline data={evoPoints.map((p: any, i: number) => ({ ...p, pos: i + 1 }))} />
 
-      {/* Heatmap */}
-      <Card style={{ gap: Spacing.sm }}>
-        <Text style={tab.sectionTitle}>Atividade — últimas 4 semanas</Text>
-        <ActivityHeatmap activityData={activityData} />
-      </Card>
 
-      {/* Rating chart */}
+
+      {/* Pontos por competição */}
       {ratingHistory.length >= 2 && (
         <Card style={{ gap: Spacing.sm }}>
-          <Text style={tab.sectionTitle}>Evolução por competição</Text>
+          <Text style={tab.sectionTitle}>Pontos por competição</Text>
           <RatingChart ratings={ratingHistory} />
         </Card>
       )}
 
-      {/* Últimos 20 jogos */}
-      {last20.length > 0 && (
-        <Card>
-          <Text style={tab.sectionTitle}>Últimos 20 jogos</Text>
-          <View style={{ flexDirection: 'row', gap: Spacing.md }}>
-            <View style={l20.resultBox}>
-              <Text style={l20.resultIcon}>✅</Text>
-              <Text style={[l20.resultNum, { color: Colors.teal }]}>{last20Wins}</Text>
-              <Text style={l20.resultLbl}>Vitórias</Text>
-            </View>
-            <View style={l20.resultBox}>
-              <Text style={l20.resultIcon}>❌</Text>
-              <Text style={[l20.resultNum, { color: Colors.coral }]}>{last20Losses}</Text>
-              <Text style={l20.resultLbl}>Derrotas</Text>
-            </View>
-            <View style={l20.resultBox}>
-              <Text style={l20.resultIcon}>📊</Text>
-              <Text style={[l20.resultNum, { color: Colors.gold }]}>
-                {last20.length > 0 ? Math.round((last20Wins / last20.length) * 100) : 0}%
-              </Text>
-              <Text style={l20.resultLbl}>Aproveit.</Text>
-            </View>
-          </View>
-        </Card>
-      )}
     </View>
   );
 }
@@ -631,23 +713,24 @@ export default function ProfileScreen() {
   matchHistory.reverse();
 
   // Evo points
-  const evoPoints: { label: string; pts: number }[] = state.competitions
-    .filter(c => c.status === 'done' || c.matches.some(m => m.scoreA != null))
-    .map(comp => {
-      const games = extractPlayerGames(comp).filter(g => g.teamA.includes(MY_ID) || g.teamB.includes(MY_ID));
-      if (games.length === 0) return null;
-      let wins = 0, played = 0, gp = 0, gc = 0;
-      games.forEach(g => {
-        const inA = g.teamA.includes(MY_ID);
-        played++;
-        if (inA) { gp += g.scoreA; gc += g.scoreB; if (g.scoreA > g.scoreB) wins++; }
-        else { gp += g.scoreB; gc += g.scoreA; if (g.scoreB > g.scoreA) wins++; }
-      });
-      const ga = gc > 0 ? gp / gc : gp > 0 ? 999 : 0;
-      return { label: comp.name.slice(0, 8), pts: Math.round((wins * 3 + played * 0.5 + ga * 2) * 100) / 100 };
-    })
-    .filter(Boolean) as { label: string; pts: number }[];
-  evoPoints.reverse();
+  const evoPoints: { label: string; pts: number; pos: number }[] = (() => {
+    const players = groupPlayers.map(p => ({ id: p.id, name: p.name, short: '', color: p.color, handicap: p.handicap }));
+    const compsWithMe = state.competitions
+      .filter(c => c.matches.some(m => {
+        const ids = [...(m.teamA ?? []), ...(m.teamB ?? []), m.aId, m.bId].filter(Boolean);
+        return ids.includes(MY_ID) && m.scoreA != null;
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    return compsWithMe.map((comp, idx) => {
+      const compsUpTo = compsWithMe.slice(0, idx + 1);
+      const games = compsUpTo.flatMap(extractPlayerGames);
+      const rank = buildRanking(players, games);
+      const me = rank.find(r => r.id === MY_ID);
+      const pos = rank.findIndex(r => r.id === MY_ID) + 1;
+      return { label: comp.name.slice(0, 7), pts: me?.points ?? 0, pos };
+    });
+  })();
 
   // Activity heatmap
   const activityData: Record<string, number> = {};
@@ -664,10 +747,11 @@ export default function ProfileScreen() {
   });
 
   // Rating history
-  const ratingHistory = state.competitions
+  const ratingHistory: { label: string; pts: number; wins: number; played: number }[] = state.competitions
     .filter(c => c.matches.some(m => m.scoreA != null && (
       m.teamA?.includes(MY_ID) || m.teamB?.includes(MY_ID) || m.aId === MY_ID || m.bId === MY_ID
     )))
+    .sort((a, b) => a.date.localeCompare(b.date))
     .slice(-8)
     .map(comp => {
       const games = extractPlayerGames(comp).filter(g => g.teamA.includes(MY_ID) || g.teamB.includes(MY_ID));
@@ -679,7 +763,8 @@ export default function ProfileScreen() {
         else { gp += g.scoreB; gc += g.scoreA; if (g.scoreB > g.scoreA) wins++; }
       });
       const ga = gc > 0 ? gp / gc : gp > 0 ? 2 : 0;
-      return Math.round((wins * 3 + played * 0.5 + ga * 2) * 100) / 100;
+      const pts = Math.round((wins * 3 + played * 0.5 + ga * 2) * 100) / 100;
+      return { label: comp.name.length > 9 ? comp.name.slice(0, 9) + '…' : comp.name, pts, wins, played };
     });
 
   // Partnerships

@@ -1,7 +1,7 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -23,6 +23,16 @@ export default function H2HScreen() {
   const { state } = useCompetitions();
   const { findPlayer } = useGroupPlayers();
   const [tab, setTab] = useState<Tab>('geral');
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  function changeTab(newTab: Tab) {
+    Animated.sequence([
+      Animated.timing(fadeAnim, { toValue: 0, duration: 120, useNativeDriver: true }),
+    ]).start(() => {
+      setTab(newTab);
+      Animated.timing(fadeAnim, { toValue: 1, duration: 150, useNativeDriver: true }).start();
+    });
+  }
 
   const p1 = findPlayer(playerId1 ?? '');
   const p2 = findPlayer(playerId2 ?? '');
@@ -127,7 +137,7 @@ export default function H2HScreen() {
           <TouchableOpacity
             key={t.key}
             style={[s.tab, tab === t.key && s.tabActive]}
-            onPress={() => setTab(t.key)}
+            onPress={() => changeTab(t.key)}
             activeOpacity={0.7}
           >
             <Text style={[s.tabLabel, tab === t.key && s.tabLabelActive]}>{t.label}</Text>
@@ -135,7 +145,7 @@ export default function H2HScreen() {
         ))}
       </View>
 
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+      <Animated.ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} style={{ opacity: fadeAnim }}>
 
         {/* ── GERAL ── */}
         {tab === 'geral' && (
@@ -274,7 +284,7 @@ export default function H2HScreen() {
         )}
 
         <View style={{ height: Spacing.xl }} />
-      </ScrollView>
+      </Animated.ScrollView>
     </SafeAreaView>
   );
 }

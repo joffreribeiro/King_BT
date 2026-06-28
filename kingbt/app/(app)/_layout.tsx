@@ -314,7 +314,7 @@ function AppHeader({ onMenuPress }: { onMenuPress: () => void }) {
           </View>
         </View>
 
-        {/* Sino + Avatar + Menu */}
+        {/* Sino + Lupa + Avatar + Menu */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <TouchableOpacity
             onPress={() => router.push('/(app)/notifications')}

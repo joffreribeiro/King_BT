@@ -269,15 +269,6 @@ export default function HubScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View>
-            {/* Search toggle */}
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: Spacing.md, paddingTop: Spacing.sm }}>
-              <TouchableOpacity onPress={() => { setShowSearch(v => !v); if (showSearch) setSearch(''); }}>
-                <View style={[styles.iconBtn, showSearch && styles.iconBtnActive]}>
-                  <Text style={styles.iconBtnText}>⌕</Text>
-                </View>
-              </TouchableOpacity>
-            </View>
-
             {/* Offline indicator */}
             {!state.synced && (
               <View style={styles.offlineBanner}>
@@ -285,7 +276,35 @@ export default function HubScreen() {
               </View>
             )}
 
-            {/* Search bar */}
+            {/* Streak banner */}
+            <StreakBanner
+              streak={myStreak}
+              onPress={() => router.push('/(app)/ranking')}
+            />
+
+            {/* Filter chips — status + lupa */}
+            <View style={[styles.filterRow, { justifyContent: 'space-between' }]}>
+              <View style={{ flexDirection: 'row', gap: Spacing.xs, flexWrap: 'wrap', flex: 1 }}>
+                {STATUS_FILTERS.map(f => (
+                  <TouchableOpacity
+                    key={f.key}
+                    style={[styles.chip, statusFilter === f.key && styles.chipActive]}
+                    onPress={() => setStatusFilter(f.key)}
+                  >
+                    <Text style={[styles.chipText, statusFilter === f.key && styles.chipTextActive]}>{f.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {/* Lupa */}
+              <TouchableOpacity
+                onPress={() => { setShowSearch(v => !v); if (showSearch) setSearch(''); }}
+                style={[styles.iconBtn, showSearch && styles.iconBtnActive]}
+              >
+                <Text style={styles.iconBtnText}>⌕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Search bar expandida */}
             {showSearch && (
               <View style={styles.searchBar}>
                 <TextInput
@@ -304,25 +323,6 @@ export default function HubScreen() {
                 )}
               </View>
             )}
-
-            {/* Streak banner */}
-            <StreakBanner
-              streak={myStreak}
-              onPress={() => router.push('/(app)/ranking')}
-            />
-
-            {/* Filter chips — status */}
-            <View style={styles.filterRow}>
-              {STATUS_FILTERS.map(f => (
-                <TouchableOpacity
-                  key={f.key}
-                  style={[styles.chip, statusFilter === f.key && styles.chipActive]}
-                  onPress={() => setStatusFilter(f.key)}
-                >
-                  <Text style={[styles.chipText, statusFilter === f.key && styles.chipTextActive]}>{f.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
 
             {/* Filter chips — format */}
             <View style={[styles.filterRow, { marginBottom: Spacing.md }]}>

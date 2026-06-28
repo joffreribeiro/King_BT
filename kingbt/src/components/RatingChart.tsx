@@ -1,72 +1,154 @@
-import { View, Text, StyleSheet } from 'react-native';
-import { FontFamily } from '@/theme';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { Colors, FontFamily, Radius, Spacing } from '@/theme';
 
-const MAX_HEIGHT = 60;
+const BAR_H    = 80;  // altura máxima da barra
+const BAR_W    = 44;  // largura fixa de cada barra
+const BAR_GAP  = 10;  // espaço entre barras
+
+interface Entry {
+  label: string;
+  pts: number;
+  wins?: number;
+  played?: number;
+}
 
 interface Props {
-  ratings: number[];
+  ratings: Entry[] | number[];
+}
+
+function normalize(ratings: Entry[] | number[]): Entry[] {
+  if (ratings.length === 0) return [];
+  if (typeof ratings[0] === 'number') {
+    return (ratings as number[]).map((pts, i) => ({ label: `J${i + 1}`, pts }));
+  }
+  return ratings as Entry[];
 }
 
 export function RatingChart({ ratings }: Props) {
-  if (ratings.length < 2) return null;
+  const data = normalize(ratings);
+  if (data.length < 2) return null;
 
-  const max = Math.max(...ratings);
-  const min = Math.min(...ratings) * 0.95;
-  const range = Math.max(max - min, 0.01);
+  const maxPts = Math.max(...data.map(d => d.pts), 0.01);
+  const best   = Math.max(...data.map(d => d.pts));
 
   return (
-    <View style={rc.container}>
-      {ratings.map((r, i) => {
-        const height = Math.max(4, ((r - min) / range) * MAX_HEIGHT);
-        const isLast = i === ratings.length - 1;
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={rc.scroll}
+    >
+      {data.map((item, i) => {
+        const isLast   = i === data.length - 1;
+        const isBest   = item.pts === best && best > 0;
+        const barH     = Math.max(6, (item.pts / maxPts) * BAR_H);
+        const opacity  = 0.35 + (item.pts / maxPts) * 0.65;
+        const barColor = isBest ? Colors.gold : `rgba(243,197,68,${opacity})`;
+        const aprov    = item.played ? Math.round((item.wins ?? 0) / item.played * 100) : null;
+
         return (
-          <View key={i} style={rc.barCol}>
-            {isLast && (
-              <Text style={rc.valLabel}>{r.toFixed(1)}</Text>
+          <View key={i} style={rc.col}>
+            {/* Valor acima da barra */}
+            <Text style={[rc.pts, isBest && rc.ptsBest]}>
+              {item.pts.toFixed(1)}
+            </Text>
+
+            {/* Badge "melhor" */}
+            {isBest && (
+              <View style={rc.bestBadge}>
+                <Text style={rc.bestTxt}>↑</Text>
+              </View>
             )}
-            <View style={[
-              rc.bar,
-              {
-                height,
-                backgroundColor: isLast
-                  ? '#F3C544'
-                  : `rgba(243,197,68,${0.2 + (i / ratings.length) * 0.5})`,
-              },
-            ]} />
-            <Text style={rc.barLabel}>J{i + 1}</Text>
+
+            {/* Barra */}
+            <View style={rc.barWrap}>
+              <View style={[
+                rc.bar,
+                { height: barH, backgroundColor: barColor },
+                isBest && rc.barBest,
+              ]} />
+            </View>
+
+            {/* Label da competição */}
+            <Text style={[rc.label, isBest && rc.labelBest]} numberOfLines={1}>
+              {item.label}
+            </Text>
+
+            {/* Aproveitamento (se disponível) */}
+            {aprov !== null && (
+              <Text style={rc.aprov}>{aprov}%</Text>
+            )}
           </View>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 
 const rc = StyleSheet.create({
-  container: {
+  scroll: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 6,
-    height: MAX_HEIGHT + 32,
+    gap: BAR_GAP,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: 2,
   },
-  barCol: {
-    flex: 1,
+  col: {
+    width: BAR_W,
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 4,
+    gap: 3,
   },
-  bar: {
-    width: '80%',
-    borderRadius: 3,
-    minHeight: 4,
+  pts: {
+    fontFamily: FontFamily.numberBold,
+    fontSize: 10,
+    color: Colors.faint,
   },
-  barLabel: {
-    fontFamily: FontFamily.number,
-    fontSize: 9,
-    color: '#6E6452',
+  ptsBest: {
+    color: Colors.gold,
+    fontSize: 11,
   },
-  valLabel: {
+  bestBadge: {
+    width: 16, height: 16, borderRadius: 8,
+    backgroundColor: Colors.gold + '33',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  bestTxt: {
     fontFamily: FontFamily.numberBold,
     fontSize: 9,
-    color: '#F3C544',
+    color: Colors.gold,
+  },
+  barWrap: {
+    width: BAR_W,
+    height: BAR_H,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  bar: {
+    width: BAR_W - 6,
+    borderRadius: 4,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+  },
+  barBest: {
+    shadowColor: Colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  label: {
+    fontFamily: FontFamily.body,
+    fontSize: 9,
+    color: Colors.faint,
+    textAlign: 'center',
+    width: BAR_W,
+  },
+  labelBest: {
+    color: Colors.gold,
+    fontFamily: FontFamily.bodyMed,
+  },
+  aprov: {
+    fontFamily: FontFamily.number,
+    fontSize: 8,
+    color: Colors.faint,
   },
 });
