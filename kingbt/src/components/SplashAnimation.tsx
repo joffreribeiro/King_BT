@@ -61,7 +61,7 @@ function useParticles(count: number, active: boolean): Particle[] {
           Animated.timing(p.alpha, { toValue: 0, duration: duration * 0.8, useNativeDriver: true }),
         ]),
         Animated.timing(p.x, { toValue: startX + vx, duration, useNativeDriver: true }),
-        Animated.timing(p.y, { toValue: startY + vy, duration, useNativeDriver: false }),
+        Animated.timing(p.y, { toValue: startY + vy, duration, useNativeDriver: true }),
       ]),
     ]).start(() => {
       if (active) animateParticle(p, Math.random() * 400);
