@@ -89,10 +89,10 @@ export function buildRanking(
   const EPS = 1e-9;
   return ranked.sort((a, b) => {
     const byPts = b.points - a.points;   if (Math.abs(byPts) > EPS) return byPts;
-    const byGa  = b.ga    - a.ga;        if (Math.abs(byGa)  > EPS) return byGa;
-    const bySg  = b.sg    - a.sg;        if (bySg  !== 0) return bySg;
-    const byW   = b.wins  - a.wins;      if (byW   !== 0) return byW;
-    const byH2H = h2h(a.id, b.id);       if (byH2H !== 0) return byH2H;
+    const byH2H = h2h(a.id, b.id);       if (byH2H !== 0) return byH2H;   // 1° desempate: confronto direto
+    const bySg  = b.sg    - a.sg;        if (bySg  !== 0) return bySg;     // 2° desempate: saldo de games
+    const byGa  = b.ga    - a.ga;        if (Math.abs(byGa) > EPS) return byGa; // 3° desempate: GA
+    const byW   = b.wins  - a.wins;      if (byW   !== 0) return byW;      // 4° desempate: vitórias
     return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
   });
 }

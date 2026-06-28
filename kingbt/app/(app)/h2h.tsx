@@ -54,8 +54,14 @@ export default function H2HScreen() {
         const p2Score = p1Side === 'A' ? m.scoreB : m.scoreA;
 
         if (p1Score > p2Score) wins1++; else wins2++;
-        gp1 += p1Score;
-        gc1 += p2Score;
+
+        // Usa games reais quando disponíveis, fallback para sets
+        const rawGa = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA;
+        const rawGb = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB;
+        const p1Games = p1Side === 'A' ? rawGa : rawGb;
+        const p2Games = p1Side === 'A' ? rawGb : rawGa;
+        gp1 += p1Games;
+        gc1 += p2Games;
 
         matches.push({
           id: m.id,

@@ -180,11 +180,11 @@ export function standings(ids: string[], matches: Match[], nameOf?: (id: string)
 
   const EPS = 1e-9;
   return rows.sort((a, b) => {
-    const byPts = b.pts - a.pts;   if (Math.abs(byPts) > EPS) return byPts;
-    const byGa  = b.ga  - a.ga;   if (Math.abs(byGa)  > EPS) return byGa;
-    const byGd  = b.gd  - a.gd;   if (byGd  !== 0) return byGd;
-    const byW   = b.wins - a.wins; if (byW   !== 0) return byW;
-    const byH2H = h2h(a.id, b.id); if (byH2H !== 0) return byH2H;
+    const byPts = b.pts - a.pts;    if (Math.abs(byPts) > EPS) return byPts;
+    const byH2H = h2h(a.id, b.id); if (byH2H !== 0) return byH2H;  // 1° confronto direto
+    const byGd  = b.gd  - a.gd;    if (byGd  !== 0) return byGd;   // 2° saldo de games
+    const byGa  = b.ga  - a.ga;    if (Math.abs(byGa) > EPS) return byGa; // 3° GA
+    const byW   = b.wins - a.wins;  if (byW   !== 0) return byW;    // 4° vitórias
     const nA = nameOf ? nameOf(a.id) : a.id;
     const nB = nameOf ? nameOf(b.id) : b.id;
     return nA.localeCompare(nB, 'pt-BR', { sensitivity: 'base' });
@@ -266,14 +266,17 @@ export function competitionChampion(comp: Competition, nameOf?: (id: string) => 
     const stats: Record<string, { wins: number; played: number; pro: number; con: number }> = {};
     for (const m of scored) {
       const aWin = m.scoreA! > m.scoreB!;
+      // Usa games reais quando disponíveis, fallback para sets
+      const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA!;
+      const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB!;
       for (const id of m.teamA!) {
         if (!stats[id]) stats[id] = { wins: 0, played: 0, pro: 0, con: 0 };
-        stats[id].played++; stats[id].pro += m.scoreA!; stats[id].con += m.scoreB!;
+        stats[id].played++; stats[id].pro += gA; stats[id].con += gB;
         if (aWin) stats[id].wins++;
       }
       for (const id of m.teamB!) {
         if (!stats[id]) stats[id] = { wins: 0, played: 0, pro: 0, con: 0 };
-        stats[id].played++; stats[id].pro += m.scoreB!; stats[id].con += m.scoreA!;
+        stats[id].played++; stats[id].pro += gB; stats[id].con += gA;
         if (!aWin) stats[id].wins++;
       }
     }

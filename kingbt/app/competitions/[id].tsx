@@ -1638,7 +1638,7 @@ function RulesView({ comp }: { comp: Competition }) {
           { n: '2º', label: 'Maior saldo de games (GP − GC)' },
           { n: '3º', label: 'Maior GA (games pró ÷ games contra)' },
           { n: '4º', label: 'Maior número de vitórias' },
-          { n: '5º', label: 'Sorteio' },
+          { n: '5º', label: 'Alfabético (último recurso)' },
         ].map((c, i) => (
           <View key={i}>
             {i > 0 && <View style={rls.divider} />}
