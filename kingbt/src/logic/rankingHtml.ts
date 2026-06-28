@@ -46,10 +46,13 @@ export function generateRankingHtml(
     `;
   }).join('');
 
+  const byPlayed = ranking.slice().sort((a, b) => b.played - a.played);
+  const byGa = ranking.filter(r => r.played > 0).sort((a, b) => b.ga - a.ga);
+
   const destaques = [
     { titulo: 'REI DAS AREIAS', nome: getPlayer(ranking[0]?.id)?.name ?? '' },
-    { titulo: 'MAIOR PARTICIPAÇÃO', nome: ranking.slice().sort((a, b) => b.played - a.played)[0] ? getPlayer(ranking.slice().sort((a, b) => b.played - a.played)[0].id)?.name ?? '' : '' },
-    { titulo: 'MAIOR EFICIÊNCIA (GA)', nome: ranking.filter(r => r.played > 0).slice().sort((a, b) => b.ga - a.ga)[0] ? getPlayer(ranking.filter(r => r.played > 0).slice().sort((a, b) => b.ga - a.ga)[0].id)?.name ?? '' : '' },
+    { titulo: 'MAIOR PARTICIPAÇÃO', nome: getPlayer(byPlayed[0]?.id)?.name ?? '' },
+    { titulo: 'MAIOR EFICIÊNCIA (GA)', nome: getPlayer(byGa[0]?.id)?.name ?? '' },
     { titulo: 'REVELAÇÃO DA TEMPORADA', nome: getPlayer(ranking[ranking.length > 4 ? 4 : ranking.length - 1]?.id)?.name ?? '' },
   ];
 
@@ -228,7 +231,7 @@ export function generateRankingHtml(
 <div style="background:linear-gradient(135deg,#0d0d10,#1a1400,#0d0d10);padding:16px 24px;border-top:2px solid #F3C544;display:flex;align-items:center;justify-content:space-between;">
   <div style="font-size:10px;color:#666;">
     <div style="color:#F3C544;font-weight:700;font-size:12px;">CRITÉRIOS DE DESEMPATE</div>
-    <div>1° Pontuação King BT &nbsp; 2° Game Average &nbsp; 3° Saldo de Games</div>
+    <div>1° Confronto Direto (H2H) &nbsp; 2° Saldo de Games &nbsp; 3° Game Average</div>
   </div>
   <div style="text-align:center;">
     <div style="font-size:20px;font-weight:900;color:#F3C544;letter-spacing:3px;font-family:'Oswald',sans-serif;">BEE MODE</div>

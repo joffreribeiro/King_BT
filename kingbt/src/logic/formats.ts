@@ -157,7 +157,7 @@ export function standings(ids: string[], matches: Match[], nameOf?: (id: string)
 
   const rows: Standing[] = ids.map(id => {
     const s = acc[id];
-    const ga = s.gc > 0 ? s.gf / s.gc : s.gf > 0 ? 999 : 0; // Game Average = GP÷GC
+    const ga = s.gf / Math.max(1, s.gc); // Game Average = GP÷GC (nunca divide por 0)
     const pts = s.wins * 3 + s.played * 0.5 + ga * 2;
     return { id, played: s.played, wins: s.wins, losses: s.losses, gf: s.gf, ga, gd: s.gf - s.gc, pts };
   });
@@ -300,10 +300,10 @@ export function competitionChampion(comp: Competition, nameOf?: (id: string) => 
       const ptA = a.wins * 3 + a.played * 0.5 + gaA * 2;
       const ptB = b.wins * 3 + b.played * 0.5 + gaB * 2;
       const byPts = ptB - ptA;                               if (Math.abs(byPts) > EPS) return byPts;
-      const byGa  = gaB - gaA;                               if (Math.abs(byGa)  > EPS) return byGa;
-      const bySg  = (b.pro - b.con) - (a.pro - a.con);      if (bySg !== 0) return bySg;
-      const byW   = b.wins - a.wins;                         if (byW  !== 0) return byW;
-      const byH2H = h2hAvulso(idA, idB);                     if (byH2H !== 0) return byH2H;
+      const byH2H = h2hAvulso(idA, idB);                     if (byH2H !== 0) return byH2H;  // 1° confronto direto
+      const bySg  = (b.pro - b.con) - (a.pro - a.con);      if (bySg !== 0) return bySg;     // 2° saldo de games
+      const byGa  = gaB - gaA;                               if (Math.abs(byGa)  > EPS) return byGa; // 3° GA
+      const byW   = b.wins - a.wins;                         if (byW  !== 0) return byW;      // 4° vitórias
       return resolveNameOf(idA).localeCompare(resolveNameOf(idB), 'pt-BR', { sensitivity: 'base' });
     });
     if (!sorted.length) return null;
@@ -312,7 +312,7 @@ export function competitionChampion(comp: Competition, nameOf?: (id: string) => 
   }
   if (comp.format === 'liga') {
     const st = standings(comp.competitors.map(c => c.id), comp.matches);
-    const allDone = comp.matches.every(m => m.scoreA != null);
+    const allDone = comp.matches.every(m => m.scoreA != null && m.scoreB != null);
     return allDone && st[0] ? comp.competitors.find(c => c.id === st[0].id) ?? null : null;
   }
   const finals = comp.matches.filter(m => m.stage === 'ko' && !m.third);
