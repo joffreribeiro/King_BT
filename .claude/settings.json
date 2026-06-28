@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Read(//d/KINGBT/android/**)",
-      "Read(//d/KINGBT/app/player/**)"
+      "Read(//d/KINGBT/app/player/**)",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Joffre\\.claude"

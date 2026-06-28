@@ -227,13 +227,13 @@ export default function SplashAnimation({ onFinish }: Props) {
       ]),
     ]).start();
 
-    // 8. Show replay button at 3.8s
-    setTimeout(() => setShowReplay(true), 3800);
+    // 8. Show replay button at 5.0s
+    setTimeout(() => setShowReplay(true), 5000);
 
-    // 9. Auto-finish at 4.5s
+    // 9. Auto-finish at 5.5s (fade out em 500ms)
     Animated.sequence([
-      Animated.delay(4500),
-      Animated.timing(screenOpacity, { toValue: 0, duration: 400, useNativeDriver: true }),
+      Animated.delay(5500),
+      Animated.timing(screenOpacity, { toValue: 0, duration: 500, useNativeDriver: true }),
     ]).start(() => onFinish());
   }, []);
 
