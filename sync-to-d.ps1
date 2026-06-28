@@ -4,7 +4,7 @@
 $src = "e:\MEUS DOCUMENTOS\OneDrive\Documentos\Sistemas\King_BT\kingbt"
 $dst = "D:\KINGBT"
 
-$excludeDirs  = @("node_modules", ".expo", "android", "ios", "dist", ".git")
+$excludeDirs  = @("node_modules", ".expo", "ios", "dist", ".git", "android\build", "android\.gradle")
 $excludeFiles = @("meu_keystore", "king-bt-release.keystore", "*.keystore")
 
 Write-Host ""
