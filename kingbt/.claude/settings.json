@@ -10,9 +10,9 @@
           {
             "type": "command",
             "shell": "powershell",
-            "command": "cd \"e:\\MEUS DOCUMENTOS\\OneDrive\\Documentos\\Sistemas\\King_BT\\kingbt\" ; npx expo export --platform web ; firebase deploy --only hosting",
-            "timeout": 300,
-            "statusMessage": "Publicando no Firebase Hosting..."
+            "command": "$src = 'e:\\MEUS DOCUMENTOS\\OneDrive\\Documentos\\Sistemas\\King_BT\\kingbt'; $dst = 'D:\\KINGBT'; $exc = @('node_modules','dist','.git','.expo','android\\build','android\\.gradle','ios'); $files = [System.IO.Directory]::GetFiles($src,'*',[System.IO.SearchOption]::AllDirectories); foreach ($f in $files) { $skip=$false; foreach ($e in $exc) { if ($f.Contains(\"\\$e\\\") -or $f.EndsWith(\"\\$e\")) { $skip=$true; break } }; if ($skip) { continue }; $fname=[System.IO.Path]::GetFileName($f); if ($fname -like '*.keystore' -or $fname -like '*.log') { continue }; $rel=$f.Substring($src.Length); $d=$dst+$rel; $dir=[System.IO.Path]::GetDirectoryName($d); if (-not [System.IO.Directory]::Exists($dir)) { [System.IO.Directory]::CreateDirectory($dir)|Out-Null }; [System.IO.File]::Copy($f,$d,$true) }; cd \"e:\\MEUS DOCUMENTOS\\OneDrive\\Documentos\\Sistemas\\King_BT\\kingbt\" ; npx expo export --platform web ; firebase deploy --only hosting",
+            "timeout": 600,
+            "statusMessage": "Sincronizando D:\\KINGBT e publicando no Firebase..."
           }
         ]
       }

@@ -21,9 +21,10 @@ export function blankStat(): PlayerStat {
   return { id: '', played: 0, wins: 0, losses: 0, gamesPro: 0, gamesCon: 0 };
 }
 
-/** GA = GamesPró ÷ GamesContra (nunca divide por 0) */
+/** GA = GamesPró ÷ GamesContra (nunca divide por 0, máximo 9.99) */
 export function gameAverage(s: Pick<PlayerStat, 'gamesPro' | 'gamesCon'>): number {
-  return s.gamesPro / Math.max(1, s.gamesCon);
+  if (s.gamesCon === 0) return s.gamesPro > 0 ? 9.99 : 0;
+  return Math.min(9.99, s.gamesPro / s.gamesCon);
 }
 
 /** Pts = (V×3) + (J×0,5) + (GA×2) */

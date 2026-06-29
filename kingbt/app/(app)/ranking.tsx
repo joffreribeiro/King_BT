@@ -281,13 +281,11 @@ export default function RankingScreen() {
                   {s.sg > 0 ? '+' : ''}{s.sg}
                 </Text>
                 <Text style={[styles.cStat, styles.statText]}>{s.ga.toFixed(2)}</Text>
-                <View style={styles.cPts}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', width: 80 }}>
                   <Text style={styles.ptsText}>{s.points.toFixed(2)}</Text>
-                  {(isUp || isDown || trendDir === 'same') && d && d.dir !== 'new' && (
-                    <Text style={[styles.trendSmall, { color: isUp ? Colors.teal : isDown ? Colors.coral : Colors.faint }]}>
-                      {isUp ? `▲ ${trendDiff}` : isDown ? `▼ ${trendDiff}` : '— 0'}
-                    </Text>
-                  )}
+                  <Text style={[styles.trendSmall, { width: 24, textAlign: 'right', color: isUp ? Colors.teal : isDown ? Colors.coral : Colors.faint }]}>
+                    {isUp ? `▲${trendDiff}` : isDown ? `▼${trendDiff}` : ' —'}
+                  </Text>
                 </View>
               </TouchableOpacity>
             );

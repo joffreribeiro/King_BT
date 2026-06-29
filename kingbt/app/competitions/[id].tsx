@@ -69,7 +69,7 @@ function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
             <Text style={[stRow.cN, { color: s.gd >= 0 ? Colors.teal : Colors.coral }]}>
               {s.gd >= 0 ? '+' : ''}{s.gd}
             </Text>
-            <Text style={[stRow.cN, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>{s.pts}</Text>
+            <Text style={[stRow.cN, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>{Number(s.pts).toFixed(2)}</Text>
           </View>
         );
       })}
@@ -83,11 +83,11 @@ const stRow = StyleSheet.create({
   classified: { borderLeftWidth: 3, borderLeftColor: Colors.teal },
   legend: { paddingHorizontal: Spacing.sm, paddingVertical: 6, borderTopWidth: 1, borderTopColor: Colors.line },
   legendText: { fontFamily: FontFamily.body, fontSize: 9, color: Colors.faint, textAlign: 'center' },
-  c0: { width: 20 },
+  c0: { width: 22 },
   cName: { flex: 1 },
-  cN: { width: 28, textAlign: 'center', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
-  cNw: { width: 34, textAlign: 'center', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
-  cPts: { width: 38, textAlign: 'right', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
+  cN: { width: 32, textAlign: 'center', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
+  cNw: { width: 44, textAlign: 'center', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
+  cPts: { width: 56, textAlign: 'right', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
   th: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 0.3 },
   pos: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted },
   name: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.text, flex: 1 },
@@ -134,11 +134,14 @@ function GameRow({ match: m, index, comp, isNext, onPress, onLongPress }: {
           </View>
           <View style={gRow.score}>
             {has
-              ? <Text style={gRow.scoreText}>
-                  <Text style={aWon ? gRow.win : gRow.lose}>{m.scoreA}</Text>
-                  {' – '}
-                  <Text style={!aWon ? gRow.win : gRow.lose}>{m.scoreB}</Text>
-                </Text>
+              ? <>
+                  <Text style={gRow.scoreText}>
+                    <Text style={aWon ? gRow.win : gRow.lose}>{m.scoreA}</Text>
+                    {' – '}
+                    <Text style={!aWon ? gRow.win : gRow.lose}>{m.scoreB}</Text>
+                  </Text>
+                  <Text style={gRow.scoreSub}>sets</Text>
+                </>
               : m.liveScore
                 ? <Text style={gRow.liveScore}>{m.liveScore.setsA}–{m.liveScore.setsB} sets</Text>
                 : <Text style={gRow.pending}>Jogo {index + 1}</Text>
@@ -153,6 +156,21 @@ function GameRow({ match: m, index, comp, isNext, onPress, onLongPress }: {
             </Text>
           </View>
         </View>
+        {/* Games por set */}
+        {has && m.sets && m.sets.length > 0 && (
+          <View style={gRow.setsRow}>
+            {m.sets.map((s, i) => {
+              const aWonSet = s.a > s.b;
+              return (
+                <View key={i} style={gRow.setChip}>
+                  <Text style={[gRow.setScore, aWonSet && gRow.setScoreWin]}>{s.a}</Text>
+                  <Text style={gRow.setDash}>-</Text>
+                  <Text style={[gRow.setScore, !aWonSet && gRow.setScoreWin]}>{s.b}</Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
         {!has && <Text style={gRow.hint}>Toque para registrar placar</Text>}
       </Card>
     </TouchableOpacity>
@@ -182,10 +200,16 @@ const gRow = StyleSheet.create({
   names: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
   score: { alignItems: 'center', minWidth: 64 },
   scoreText: { fontFamily: FontFamily.numberBold, fontSize: 20 },
+  scoreSub:  { fontFamily: FontFamily.body, fontSize: 9, color: Colors.faint, textAlign: 'center', marginTop: -2 },
   win: { color: Colors.teal },
   lose: { color: Colors.muted },
   pending: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
   hint: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center', marginTop: Spacing.xs, borderTopWidth: 1, borderTopColor: Colors.line, paddingTop: Spacing.xs },
+  setsRow:     { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: Colors.line },
+  setChip:     { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: Colors.surf2, borderRadius: Radius.sm, paddingHorizontal: 8, paddingVertical: 3 },
+  setScore:    { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted },
+  setScoreWin: { color: Colors.teal },
+  setDash:     { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
 });
 
 // ─── Match Row (liga/grupos/mata-mata) ────────────────────────────────────────
@@ -223,9 +247,12 @@ function MatchRow({ match: m, comp, isNext, onPress, onLongPress }: {
               {cA?.name ?? '?'}
             </Text>
           </View>
-          <Text style={mRow.vs}>
-            {has ? `${m.scoreA} – ${m.scoreB}` : pending ? 'A definir' : 'vs'}
-          </Text>
+          <View style={{ alignItems: 'center' }}>
+            <Text style={mRow.vs}>
+              {has ? `${m.scoreA} – ${m.scoreB}` : pending ? 'A definir' : 'vs'}
+            </Text>
+            {has && <Text style={{ fontFamily: FontFamily.body, fontSize: 9, color: Colors.faint }}>sets</Text>}
+          </View>
           <View style={[mRow.side, mRow.sideRight]}>
             <Text style={[mRow.name, { textAlign: 'right' }, !aWon && has && { color: Colors.gold }]} numberOfLines={1}>
               {cB?.name ?? '?'}
@@ -233,6 +260,21 @@ function MatchRow({ match: m, comp, isNext, onPress, onLongPress }: {
             {pB && <Avatar name={pB.name} color={pB.color} size={28} />}
           </View>
         </View>
+        {/* Games por set */}
+        {has && m.sets && m.sets.length > 0 && (
+          <View style={mRow.setsRow}>
+            {m.sets.map((s, i) => {
+              const aWonSet = s.a > s.b;
+              return (
+                <View key={i} style={mRow.setChip}>
+                  <Text style={[mRow.setScore, aWonSet && mRow.setScoreWin]}>{s.a}</Text>
+                  <Text style={mRow.setDash}>-</Text>
+                  <Text style={[mRow.setScore, !aWonSet && mRow.setScoreWin]}>{s.b}</Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
       </Card>
     </TouchableOpacity>
   );
@@ -252,6 +294,11 @@ const mRow = StyleSheet.create({
   liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: Colors.coral + '22', borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2, marginBottom: 6 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.coral },
   liveBadgeText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.coral, letterSpacing: 1 },
+  setsRow:     { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: Colors.line, marginTop: 4 },
+  setChip:     { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: Colors.surf2, borderRadius: Radius.sm, paddingHorizontal: 8, paddingVertical: 3 },
+  setScore:    { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted },
+  setScoreWin: { color: Colors.teal },
+  setDash:     { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   disabled: { opacity: 0.45 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   side: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
@@ -453,7 +500,7 @@ function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: Competit
       if (inB) { gf += gB; gc += gA; if (m.scoreB! > m.scoreA!) wins++; else losses++; }
     });
     const played = wins + losses;
-    const ga = gc > 0 ? gf / gc : gf > 0 ? 999 : 0;
+    const ga = gc > 0 ? Math.min(9.99, gf / gc) : gf > 0 ? 9.99 : 0;
     const sg = gf - gc;
     const pts = wins * 3 + played * 0.5 + ga * 2;
     return { pid, wins, losses, played, gf, gc, ga, sg, pts };
@@ -514,20 +561,8 @@ function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: Competit
     }));
   }
 
-  const tabKeys = isDuplas ? (['ranking', 'duplas', 'jogos'] as const) : (['ranking', 'jogos'] as const);
-  const tabLabels: Record<string, string> = { ranking: 'Ranking', duplas: 'Duplas', jogos: 'Jogos' };
-
   return (
-    <View style={{ flex: 1 }}>
-      <View style={tabs.bar}>
-        {tabKeys.map(t => (
-          <TouchableOpacity key={t} style={[tabs.tab, tab === t && tabs.active]} onPress={() => setTab(t as any)}>
-            <Text style={[tabs.text, tab === t && tabs.textActive]}>{tabLabels[t]}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <ScrollView contentContainerStyle={vw.scroll}>
+    <ScrollView contentContainerStyle={vw.scroll}>
         <Card style={vw.prog}>
           <View style={vw.progRow}>
             <Text style={vw.progLabel}>Progresso</Text>
@@ -539,16 +574,13 @@ function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: Competit
           {done === total && total > 0 && <Text style={vw.rei}>👑 Todos os jogos concluídos!</Text>}
         </Card>
 
-        {tab === 'ranking' && (
+        {false && (
           <Card padding={0} style={{ overflow: 'hidden' }}>
             <View style={[stRow.row, stRow.header]}>
               <Text style={[stRow.c0, stRow.th]}>#</Text>
               <Text style={[stRow.cName, stRow.th]}>JOGADOR</Text>
-              <Text style={[stRow.cN, stRow.th]}>V</Text>
-              <Text style={[stRow.cN, stRow.th]}>D</Text>
               <Text style={[stRow.cN, stRow.th]}>J</Text>
-              <Text style={[stRow.cN, stRow.th]}>GP</Text>
-              <Text style={[stRow.cN, stRow.th]}>GC</Text>
+              <Text style={[stRow.cN, stRow.th]}>V</Text>
               <Text style={[stRow.cNw, stRow.th]}>SG</Text>
               <Text style={[stRow.cN, stRow.th]}>GA</Text>
               <Text style={[stRow.cPts, stRow.th]}>PTS</Text>
@@ -563,11 +595,8 @@ function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: Competit
                     {pl && <Avatar name={pl.name} color={pl.color} size={20} />}
                     <Text style={stRow.name} numberOfLines={1}>{pl?.name ?? s.pid}</Text>
                   </View>
-                  <Text style={stRow.cN}>{s.wins}</Text>
-                  <Text style={stRow.cN}>{s.losses}</Text>
                   <Text style={stRow.cN}>{s.played}</Text>
-                  <Text style={stRow.cN}>{s.gf}</Text>
-                  <Text style={stRow.cN}>{s.gc}</Text>
+                  <Text style={stRow.cN}>{s.wins}</Text>
                   <Text style={[stRow.cNw, { color: sgColor }]}>{s.sg > 0 ? '+' : ''}{s.sg}</Text>
                   <Text style={stRow.cN}>{s.ga.toFixed(2)}</Text>
                   <Text style={[stRow.cPts, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>
@@ -584,7 +613,7 @@ function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: Competit
           </Card>
         )}
 
-        {tab === 'duplas' && (
+        {false && (
           <Card padding={0} style={{ overflow: 'hidden' }}>
             <View style={[stRow.row, stRow.header]}>
               {['#', 'DUPLA', 'J', 'V', '%'].map(h => (
@@ -625,7 +654,7 @@ function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: Competit
           </Card>
         )}
 
-        {tab === 'jogos' && comp.matches.map((m, i) => (
+        {comp.matches.map((m, i) => (
           <GameRow key={m.id} match={m} index={i} comp={comp} isNext={m.id === nextId}
             onPress={() => onScore(m)}
             onLongPress={() => {
@@ -646,7 +675,89 @@ function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: Competit
 
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
-    </View>
+  );
+}
+
+// ─── Classificação unificada ──────────────────────────────────────────────────
+function ClassificacaoView({ comp }: { comp: Competition }) {
+  const { findPlayer } = useGroupPlayers();
+
+  // Liga
+  if (comp.format === 'liga') {
+    return (
+      <ScrollView contentContainerStyle={vw.scroll}>
+        <StandingsTable comp={comp} ids={comp.competitors.map(c => c.id)} matches={comp.matches} />
+        <View style={{ height: Spacing.xl }} />
+      </ScrollView>
+    );
+  }
+
+  // Grupos
+  if (comp.format === 'grupos') {
+    return (
+      <ScrollView contentContainerStyle={vw.scroll}>
+        {comp.groupDefs?.map((gd, gi) => (
+          <View key={gi}>
+            <Text style={vw.section}>{gd.name}</Text>
+            <StandingsTable comp={comp} ids={gd.ids}
+              matches={comp.matches.filter(m => m.stage === 'group' && m.groupIdx === gi)} />
+          </View>
+        ))}
+        <View style={{ height: Spacing.xl }} />
+      </ScrollView>
+    );
+  }
+
+  // Avulso / Super8 — ranking por jogador
+  const playerIds = [...new Set(comp.matches.flatMap(m => [...(m.teamA ?? []), ...(m.teamB ?? [])]))];
+  const rankingStats = playerIds.map(pid => {
+    let wins = 0, losses = 0, gf = 0, gc = 0;
+    comp.matches.forEach(m => {
+      if (m.scoreA == null || m.scoreA === m.scoreB) return;
+      const inA = m.teamA?.includes(pid), inB = m.teamB?.includes(pid);
+      const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA!;
+      const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB!;
+      if (inA) { gf += gA; gc += gB; if (m.scoreA! > m.scoreB!) wins++; else losses++; }
+      if (inB) { gf += gB; gc += gA; if (m.scoreB! > m.scoreA!) wins++; else losses++; }
+    });
+    const played = wins + losses;
+    const ga = gc > 0 ? Math.min(9.99, gf / gc) : gf > 0 ? 9.99 : 0;
+    const pts = wins * 3 + played * 0.5 + ga * 2;
+    return { pid, wins, losses, played, gf, gc, pts };
+  }).sort((a, b) => b.pts - a.pts);
+
+  return (
+    <ScrollView contentContainerStyle={vw.scroll}>
+      <Card padding={0} style={{ overflow: 'hidden' }}>
+        <View style={[stRow.row, stRow.header]}>
+          <Text style={[stRow.c0, stRow.th]}>#</Text>
+          <Text style={[stRow.cName, stRow.th]}>JOGADOR</Text>
+          <Text style={[stRow.cN, stRow.th]}>J</Text>
+          <Text style={[stRow.cN, stRow.th]}>V</Text>
+          <Text style={[stRow.cNw, stRow.th]}>SG</Text>
+          <Text style={[stRow.cPts, stRow.th]}>PTS</Text>
+        </View>
+        {rankingStats.map((r, i) => {
+          const pl = findPlayer(r.pid);
+          const sg = r.gf - r.gc;
+          const sgColor = sg > 0 ? Colors.teal : sg < 0 ? Colors.coral : Colors.muted;
+          return (
+            <View key={r.pid} style={[stRow.row, i < rankingStats.length - 1 && stRow.border]}>
+              <Text style={[stRow.c0, stRow.pos]}>{i + 1}</Text>
+              <View style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+                {pl && <Avatar name={pl.name} color={pl.color} size={22} />}
+                <Text style={stRow.name} numberOfLines={1}>{pl?.name ?? r.pid}</Text>
+              </View>
+              <Text style={stRow.cN}>{r.played}</Text>
+              <Text style={stRow.cN}>{r.wins}</Text>
+              <Text style={[stRow.cNw, { color: sgColor }]}>{sg > 0 ? '+' : ''}{sg}</Text>
+              <Text style={[stRow.cPts, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>{r.pts.toFixed(2)}</Text>
+            </View>
+          );
+        })}
+      </Card>
+      <View style={{ height: Spacing.xl }} />
+    </ScrollView>
   );
 }
 
@@ -655,8 +766,6 @@ function LeagueView({ comp, onScore, onClear, onSubstitute }: { comp: Competitio
   const nextId = firstUnscored(comp.matches);
   return (
     <ScrollView contentContainerStyle={vw.scroll}>
-      <Text style={vw.section}>Classificação</Text>
-      <StandingsTable comp={comp} ids={comp.competitors.map(c => c.id)} matches={comp.matches} />
       {rounds.map(r => (
         <View key={r}>
           <Text style={vw.section}>Rodada {r}</Text>
@@ -672,68 +781,39 @@ function LeagueView({ comp, onScore, onClear, onSubstitute }: { comp: Competitio
 }
 
 function GroupsView({ comp, onScore, onClear }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void }) {
-  const [tab, setTab] = useState<'grupos' | 'jogos' | 'chave'>('grupos');
-  const allGroupsDone = comp.groupDefs?.every((_, gi) => groupComplete(comp.matches, gi)) ?? false;
+  const allGroupsDone = comp.status === 'done' ||
+    (comp.groupDefs?.every((_, gi) => groupComplete(comp.matches, gi)) ?? false);
   const groupMatches = (gi: number) => comp.matches.filter(m => m.stage === 'group' && m.groupIdx === gi);
   const nextId = firstUnscored(comp.matches);
 
   return (
-    <View style={{ flex: 1 }}>
-      <View style={tabs.bar}>
-        {(['grupos', 'jogos', 'chave'] as const).map(t => (
-          <TouchableOpacity key={t} style={[tabs.tab, tab === t && tabs.active]} onPress={() => setTab(t)}>
-            <Text style={[tabs.text, tab === t && tabs.textActive]}>
-              {t === 'grupos' ? 'Grupos' : t === 'jogos' ? 'Jogos' : 'Mata-mata'}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+    <ScrollView contentContainerStyle={vw.scroll}>
+      {/* Jogos por grupo */}
+      {comp.groupDefs?.map((gd, gi) => (
+        <View key={gi}>
+          <Text style={vw.section}>{gd.name}</Text>
+          {groupMatches(gi).map(m => (
+            <MatchRow key={m.id} match={m} comp={comp} isNext={m.id === nextId}
+              onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
+          ))}
+        </View>
+      ))}
 
-      {/* Chave tab: KOView handles its own scroll */}
-      {tab === 'chave' && (
-        allGroupsDone
-          ? <KOView comp={comp} onScore={onScore} onClear={onClear} />
-          : <ScrollView contentContainerStyle={vw.scroll}>
-              <Card style={vw.locked}>
-                <Text style={vw.lockedText}>⏳ Termine a fase de grupos para desbloquear o mata-mata.</Text>
-              </Card>
-              <View style={{ height: Spacing.xl }} />
-            </ScrollView>
+      {/* Mata-mata */}
+      {allGroupsDone && (
+        <View>
+          <Text style={vw.section}>⚔️ Mata-mata</Text>
+          <KOView comp={comp} onScore={onScore} onClear={onClear} />
+        </View>
+      )}
+      {!allGroupsDone && (
+        <Card style={vw.locked}>
+          <Text style={vw.lockedText}>⏳ Termine a fase de grupos para desbloquear o mata-mata.</Text>
+        </Card>
       )}
 
-      {/* Grupos and Jogos tabs */}
-      {tab !== 'chave' && (
-        <ScrollView contentContainerStyle={vw.scroll}>
-          {tab === 'grupos' && comp.groupDefs?.map((gd, gi) => (
-            <View key={gi}>
-              <Text style={vw.section}>{gd.name}</Text>
-              <StandingsTable comp={comp} ids={gd.ids} matches={groupMatches(gi)} highlightTop={comp.config.qualifiers} />
-            </View>
-          ))}
-
-          {tab === 'grupos' && allGroupsDone && (
-            <View style={vw.groupsDoneBanner}>
-              <Text style={vw.groupsDoneTitle}>✅ Fase de grupos concluída!</Text>
-              <TouchableOpacity style={vw.groupsDoneBtn} onPress={() => setTab('chave')}>
-                <Text style={vw.groupsDoneBtnText}>Ver Mata-mata →</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {tab === 'jogos' && comp.groupDefs?.map((gd, gi) => (
-            <View key={gi}>
-              <Text style={vw.section}>{gd.name}</Text>
-              {groupMatches(gi).map(m => (
-                <MatchRow key={m.id} match={m} comp={comp} isNext={m.id === nextId}
-                  onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
-              ))}
-            </View>
-          ))}
-
-          <View style={{ height: Spacing.xl }} />
-        </ScrollView>
-      )}
-    </View>
+      <View style={{ height: Spacing.xl }} />
+    </ScrollView>
   );
 }
 
@@ -779,7 +859,7 @@ function KOView({ comp, onScore, onClear }: { comp: Competition; onScore: (m: Ma
         {(['chave', 'lista'] as const).map(t => (
           <TouchableOpacity key={t} style={[tabs.tab, viewMode === t && tabs.active]} onPress={() => setViewMode(t)}>
             <Text style={[tabs.text, viewMode === t && tabs.textActive]}>
-              {t === 'chave' ? 'Chaveamento' : 'Lista'}
+              {t === 'chave' ? '⚔️ Chaveamento' : '🎾 Jogos'}
             </Text>
           </TouchableOpacity>
         ))}
@@ -1061,6 +1141,8 @@ function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear, isAdm
     return gA > 0 || gB > 0;
   }).map(s => ({ a: parseInt(s.a) || 0, b: parseInt(s.b) || 0 }));
 
+  // Só permite salvar se todos os sets do placar têm games preenchidos
+
   return (
     <Modal visible transparent animationType="slide">
       <View style={sc.overlay}>
@@ -1216,6 +1298,7 @@ function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear, isAdm
             <TouchableOpacity
               onPress={() => {
                 if (hasWinner && canEdit) {
+                  console.log('[KingBT] Salvando placar:', { setsA, setsB, validSets, setScores });
                   onSave(match.id, setsA, setsB, validSets.length > 0 ? validSets : undefined);
                 }
               }}
@@ -1420,7 +1503,7 @@ function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
       if (inB) { gf += gB; gc += gA; if (m.scoreB! > m.scoreA!) wins++; else losses++; }
     });
     const played = wins + losses;
-    const ga = gc > 0 ? gf / gc : gf > 0 ? 999 : 0;
+    const ga = gc > 0 ? Math.min(9.99, gf / gc) : gf > 0 ? 9.99 : 0;
     const pts = wins * 3 + played * 0.5 + ga * 2;
     return { pid, wins, losses, played, gf, gc, pts };
   }).sort((a, b) => b.pts - a.pts);
@@ -1732,7 +1815,7 @@ export default function CompetitionDetail() {
   const [showChampion, setShowChampion]   = useState(false);
   const [confirmBusy, setConfirmBusy]     = useState(false);
   const [showAddAvulso, setShowAddAvulso] = useState(false);
-  const [showRules, setShowRules] = useState(false);
+  const [activeTab, setActiveTab] = useState<'regras' | 'classificacao' | 'partidas'>('partidas');
   const [avulsoTeamA, setAvulsoTeamA]     = useState<string[]>([]);
   const [avulsoTeamB, setAvulsoTeamB]     = useState<string[]>([]);
   const champAnim  = useRef(new Animated.Value(0)).current;
@@ -2061,31 +2144,40 @@ export default function CompetitionDetail() {
         </ScrollView>
       )}
 
-      {/* Abas Jogos / Regras */}
+      {/* Abas unificadas */}
       {comp.status !== 'upcoming' && (
         <View style={{ flex: 1 }}>
-          {/* Tab bar */}
           <View style={main.tabBar}>
-            <TouchableOpacity
-              style={[main.tab, showRules && main.tabActive]}
-              onPress={() => setShowRules(true)}
-              activeOpacity={0.7}
-            >
-              <Text style={[main.tabLabel, showRules && main.tabLabelActive]}>📋 Regras</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[main.tab, !showRules && main.tabActive]}
-              onPress={() => setShowRules(false)}
-              activeOpacity={0.7}
-            >
-              <Text style={[main.tabLabel, !showRules && main.tabLabelActive]}>🎾 Jogos</Text>
-            </TouchableOpacity>
+            {([
+              { key: 'regras',        label: '📋 Regras' },
+              { key: 'classificacao', label: '🏆 Classificação' },
+              { key: 'partidas',      label: '🎾 Partidas' },
+            ] as const).map(t => (
+              <TouchableOpacity
+                key={t.key}
+                style={[main.tab, activeTab === t.key && main.tabActive]}
+                onPress={() => setActiveTab(t.key)}
+                activeOpacity={0.7}
+              >
+                <Text style={[main.tabLabel, activeTab === t.key && main.tabLabelActive]}>{t.label}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
-          {/* Conteúdo */}
-          {showRules
-            ? <RulesView comp={comp} />
-            : comp.format === 'grupos'
+          {activeTab === 'regras' && <RulesView comp={comp} />}
+
+          {activeTab === 'classificacao' && (
+            comp.format === 'liga' || comp.format === 'grupos' || comp.format === 'avulso' || comp.format === 'super8'
+              ? <ClassificacaoView comp={comp} />
+              : <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+                  <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', marginTop: 32 }}>
+                    Formato mata-mata não possui classificação.
+                  </Text>
+                </ScrollView>
+          )}
+
+          {activeTab === 'partidas' && (
+            comp.format === 'grupos'
               ? <GroupsView comp={comp} onScore={setScoring} onClear={handleClear} />
               : comp.format === 'liga'
                 ? <LeagueView comp={comp} onScore={setScoring} onClear={handleClear}
@@ -2097,7 +2189,7 @@ export default function CompetitionDetail() {
                         onAddMatch={() => setShowAddAvulso(true)} />
                     : <RotatingView comp={comp} onScore={setScoring} onClear={handleClear}
                         onSubstitute={isAdmin ? handleSubstitute : undefined} />
-          }
+          )}
         </View>
       )}
 
