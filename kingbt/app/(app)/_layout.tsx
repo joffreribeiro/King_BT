@@ -9,6 +9,7 @@ import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { useSyncQueue } from '@/store/SyncQueueContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Avatar } from '@/components';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import Svg, { Path, Rect, Circle, Polyline } from 'react-native-svg';
@@ -345,7 +346,7 @@ export default function AppLayout() {
   const insets = useSafeAreaInsets();
 
   return (
-    <>
+    <ErrorBoundary label="AppLayout">
       <OfflineBanner />
       <AppHeader onMenuPress={() => setDrawerOpen(true)} />
 
@@ -372,7 +373,7 @@ export default function AppLayout() {
 
       <FABMenu insetBottom={insets.bottom} />
       <DrawerMenu visible={drawerOpen} onClose={() => setDrawerOpen(false)} />
-    </>
+    </ErrorBoundary>
   );
 }
 

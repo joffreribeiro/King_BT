@@ -14,3 +14,4 @@ export { RatingChart } from './RatingChart';
 export { BadgeGrid } from './BadgeGrid';
 export { AchievementCard } from './AchievementCard';
 export { AchievementUnlockedModal } from './AchievementUnlockedModal';
+export { ErrorBoundary } from './ErrorBoundary';
