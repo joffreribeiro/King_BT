@@ -253,12 +253,13 @@ function MatchResultCard({ item }: { item: FeedItem }) {
         visible={showComments}
         onClose={() => setShowComments(false)}
       />
-    </Card>
+    </View>
+    </Animated.View>
   );
 }
 
 const mc = StyleSheet.create({
-  card:            { padding: 0, overflow: 'hidden' },
+  card:            { padding: 0, overflow: 'hidden', backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line },
   accentBar:       { height: 3 },
   body:            { padding: Spacing.md, gap: Spacing.sm },
   header:          { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -294,8 +295,24 @@ function MilestoneCard({ item }: { item: FeedItem }) {
     .map(id => findPlayer(id))
     .filter(Boolean) as NonNullable<ReturnType<typeof findPlayer>>[];
 
+  const cardOpacity = useRef(new Animated.Value(0)).current;
+  const cardY       = useRef(new Animated.Value(16)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(cardOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.timing(cardY,       { toValue: 0, duration: 400, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
   return (
-    <Card style={mil.card}>
+    <Animated.View style={{ opacity: cardOpacity, transform: [{ translateY: cardY }] }}>
+    <View style={[mil.card, { overflow: 'hidden' }]}>
+      <LinearGradient
+        colors={[`${Colors.gold}28`, `${Colors.coral}10`]}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       <View style={mil.inner}>
         <Text style={mil.emoji}>{item.milestoneEmoji ?? '🏅'}</Text>
         <View style={mil.info}>
@@ -304,20 +321,37 @@ function MilestoneCard({ item }: { item: FeedItem }) {
           {players.length > 0 && (
             <View style={mil.avatars}>
               {players.map((p, i) => (
-                <Avatar key={i} name={p.name} color={p.color} size={24} />
+                <FadeAvatar key={i} name={p.name} color={p.color} size={24} delay={i * 80} />
               ))}
             </View>
           )}
         </View>
         <Text style={mil.time}>{timeAgo(item.timestamp)}</Text>
       </View>
-    </Card>
+    </View>
+    </Animated.View>
+  );
+}
+
+function FadeAvatar({ name, color, size, delay }: { name: string; color: string; size: number; delay: number }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scale   = useRef(new Animated.Value(0.8)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 500, delay, useNativeDriver: true }),
+      Animated.timing(scale,   { toValue: 1, duration: 500, delay, useNativeDriver: true }),
+    ]).start();
+  }, []);
+  return (
+    <Animated.View style={{ opacity, transform: [{ scale }] }}>
+      <Avatar name={name} color={color} size={size} />
+    </Animated.View>
   );
 }
 
 const mil = StyleSheet.create({
-  card:    { borderWidth: 1, borderColor: Colors.gold + '33' },
-  inner:   { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  card:    { borderWidth: 1, borderColor: Colors.gold + '33', borderRadius: Radius.md, backgroundColor: Colors.surf },
+  inner:   { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, padding: Spacing.md },
   emoji:   { fontSize: 28, lineHeight: 34 },
   info:    { flex: 1, gap: 3 },
   title:   { fontFamily: FontFamily.title, fontSize: 13, color: Colors.gold },
@@ -333,11 +367,34 @@ function RankChangeCard({ item }: { item: FeedItem }) {
   const pl = item.playerId ? findPlayer(item.playerId) : null;
   const climbed = (item.oldPos ?? 0) - (item.newPos ?? 0);
 
+  const cardOpacity = useRef(new Animated.Value(0)).current;
+  const cardY       = useRef(new Animated.Value(16)).current;
+  const badgePulse  = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(cardOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.timing(cardY,       { toValue: 0, duration: 400, useNativeDriver: true }),
+    ]).start();
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(badgePulse, { toValue: 1.15, duration: 1000, useNativeDriver: true }),
+        Animated.timing(badgePulse, { toValue: 1,    duration: 1000, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
   return (
-    <Card style={rc.card}>
+    <Animated.View style={{ opacity: cardOpacity, transform: [{ translateY: cardY }] }}>
+    <View style={[rc.card, { overflow: 'hidden' }]}>
+      <LinearGradient
+        colors={[`${Colors.teal}22`, `${Colors.gold}10`]}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       <View style={rc.left}>
         {pl
-          ? <Avatar name={pl.name} color={pl.color} size={40} />
+          ? <FadeAvatar name={pl.name} color={pl.color} size={40} delay={0} />
           : <Text style={{ fontSize: 28 }}>📊</Text>
         }
         <View style={rc.info}>
@@ -350,15 +407,16 @@ function RankChangeCard({ item }: { item: FeedItem }) {
           </Text>
         </View>
       </View>
-      <View style={rc.badge}>
+      <Animated.View style={[rc.badge, { transform: [{ scale: badgePulse }] }]}>
         <Text style={rc.arrow}>↑{climbed}</Text>
-      </View>
-    </Card>
+      </Animated.View>
+    </View>
+    </Animated.View>
   );
 }
 
 const rc = StyleSheet.create({
-  card:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  card:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.md, borderRadius: Radius.md, backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line },
   left:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
   info:  { flex: 1 },
   title: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.text },
@@ -393,8 +451,25 @@ function FeedSkeleton() {
 function CompGroupCard({ compName, matches }: { compName: string; matches: FeedItem[] }) {
   const accent = FORMAT_COLOR[matches[0]?.format ?? ''] ?? Colors.gold;
   const time = timeAgo(matches[0]?.timestamp);
+
+  const cardOpacity = useRef(new Animated.Value(0)).current;
+  const cardY       = useRef(new Animated.Value(16)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(cardOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.timing(cardY,       { toValue: 0, duration: 400, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
   return (
-    <Card style={mc.card}>
+    <Animated.View style={{ opacity: cardOpacity, transform: [{ translateY: cardY }] }}>
+    <View style={[mc.card, { overflow: 'hidden' }]}>
+      <LinearGradient
+        colors={[`#9C27B026`, `#E91E6312`]}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       <View style={[mc.accentBar, { backgroundColor: accent }]} />
       <View style={mc.body}>
         <View style={mc.header}>
@@ -405,7 +480,8 @@ function CompGroupCard({ compName, matches }: { compName: string; matches: FeedI
           <MatchRow key={item.id} item={item} last={i === matches.length - 1} />
         ))}
       </View>
-    </Card>
+    </View>
+    </Animated.View>
   );
 }
 
