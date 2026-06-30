@@ -514,9 +514,14 @@ function RivalidadesTab({ rivalries, partnerships, findPlayer }: any) {
   function H2HCard({ item, type }: { item: any; type: 'rival' | 'partner' }) {
     const pl = findPlayer(item.id);
     if (!pl) return null;
-    const total = (item.wins ?? 0) + (item.losses ?? 0);
-    const wr = total > 0 ? Math.round(((item.wins ?? 0) / total) * 100) : 0;
-    const played = item.played ?? total;
+
+    const played  = item.played ?? 0;
+    // wins = minhas vitórias contra esse rival
+    // losses = minhas derrotas (played - wins)
+    const myWins   = item.wins ?? 0;
+    const myLosses = played - myWins;
+    const wr = played > 0 ? Math.round((myWins / played) * 100) : 0;
+
     return (
       <TouchableOpacity
         style={rv.card}
@@ -534,11 +539,11 @@ function RivalidadesTab({ rivalries, partnerships, findPlayer }: any) {
         </View>
         <View style={rv.stats}>
           <View style={rv.statCell}>
-            <Text style={[rv.statVal, { color: Colors.teal }]}>{item.wins ?? 0}</Text>
+            <Text style={[rv.statVal, { color: Colors.teal }]}>{myWins}</Text>
             <Text style={rv.statLbl}>Vitórias</Text>
           </View>
           <View style={[rv.statCell, rv.statBorder]}>
-            <Text style={[rv.statVal, { color: Colors.coral }]}>{item.losses ?? 0}</Text>
+            <Text style={[rv.statVal, { color: Colors.coral }]}>{myLosses}</Text>
             <Text style={rv.statLbl}>Derrotas</Text>
           </View>
           <View style={[rv.statCell, rv.statBorder]}>

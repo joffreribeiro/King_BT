@@ -15,3 +15,7 @@ export { BadgeGrid } from './BadgeGrid';
 export { AchievementCard } from './AchievementCard';
 export { AchievementUnlockedModal } from './AchievementUnlockedModal';
 export { ErrorBoundary } from './ErrorBoundary';
+export { AnimatedNumber } from './AnimatedNumber';
+export { SkeletonRow, SkeletonRanking } from './SkeletonLoader';
+export { TrendBadge } from './TrendBadge';
+export { BottomSheet } from './BottomSheet';

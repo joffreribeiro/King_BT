@@ -5,6 +5,7 @@ import {
 import Svg, { Defs, LinearGradient, Stop, Rect, Polygon, Circle, Ellipse } from 'react-native-svg';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { FontFamily } from '@/theme';
+import { AnimatedNumber } from './AnimatedNumber';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -190,19 +191,21 @@ function Pedestal({
           >
             {entry.name.toUpperCase()}
           </Text>
-          <Text style={{
-            fontFamily: FontFamily.numberBold,
-            fontSize: scoreSize,
-            color: rank === 1 ? C.gold : rank === 2 ? C.silver : C.bronze,
-            letterSpacing: 1,
-            ...(rank === 1 ? {
-              textShadowColor: 'rgba(245,200,66,0.6)',
-              textShadowRadius: 14,
-              textShadowOffset: { width: 0, height: 0 },
-            } : {}),
-          }}>
-            {entry.points.toFixed(2).replace('.', ',')}
-          </Text>
+          <AnimatedNumber
+            value={entry.points}
+            decimals={2}
+            duration={rank === 1 ? 1200 : 900}
+            color={rank === 1 ? C.gold : rank === 2 ? C.silver : C.bronze}
+            style={{
+              fontSize: scoreSize,
+              letterSpacing: 1,
+              ...(rank === 1 ? {
+                textShadowColor: 'rgba(245,200,66,0.6)',
+                textShadowRadius: 14,
+                textShadowOffset: { width: 0, height: 0 },
+              } : {}),
+            }}
+          />
         </View>
       </View>
     </Animated.View>

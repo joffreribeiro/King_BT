@@ -4,7 +4,13 @@ import { useState, useRef, useMemo } from 'react';
 import ViewShot from 'react-native-view-shot';
 import { router } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { Shadows } from '@/theme/shadows';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, Card } from '@/components';
+import { AnimatedNumber } from '@/components/AnimatedNumber';
+import { SkeletonRanking } from '@/components/SkeletonLoader';
+import { TrendBadge } from '@/components/TrendBadge';
+import { BottomSheet } from '@/components/BottomSheet';
 import { GROUP } from '@/mocks/data';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
@@ -133,7 +139,13 @@ export default function RankingScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
 
-        {/* Header */}
+        {/* Header com gradiente */}
+        <LinearGradient
+          colors={['#1A150A', Colors.bg]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerGradient}
+        >
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>Ranking</Text>
@@ -160,6 +172,7 @@ export default function RankingScreen() {
             </TouchableOpacity>
           </View>
         </View>
+        </LinearGradient>
 
         {/* Filtro de período */}
         <View style={{ flexDirection: 'row', backgroundColor: Colors.surf2, borderRadius: Radius.md, margin: Spacing.md, marginTop: 0, padding: 3 }}>
@@ -193,8 +206,11 @@ export default function RankingScreen() {
           );
         })()}
 
+        {/* Skeleton enquanto carrega */}
+        {!state.synced && <SkeletonRanking />}
+
         {/* Tabela */}
-        <View style={styles.table}>
+        {state.synced && <View style={styles.table}>
           <View style={[styles.row, styles.rowHeader]}>
             <Text style={[styles.c0, styles.th]}>#</Text>
             <Text style={[styles.cName, styles.th]}>JOGADOR</Text>
@@ -246,13 +262,6 @@ export default function RankingScreen() {
                       <Text style={[styles.playerName, isMe && { color: Colors.gold }, { flexShrink: 1 }]} numberOfLines={1}>
                         {pl?.name ?? s.id}
                       </Text>
-                      {(isUp || isDown) && (
-                        <View style={{ flexShrink: 0, flexDirection: 'row', alignItems: 'center', backgroundColor: isUp ? Colors.teal + '22' : Colors.coral + '22', borderRadius: Radius.full, paddingHorizontal: 4, paddingVertical: 1 }}>
-                          <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 9, color: isUp ? Colors.teal : Colors.coral }}>
-                            {isUp ? '▲' : '▼'}{trendDiff > 1 ? ` ${trendDiff}` : ''}
-                          </Text>
-                        </View>
-                      )}
                       {!isMe && MY_ID && (
                         <TouchableOpacity
                           onPress={(e) => {
@@ -281,21 +290,28 @@ export default function RankingScreen() {
                   {s.sg > 0 ? '+' : ''}{s.sg}
                 </Text>
                 <Text style={[styles.cStat, styles.statText]}>{s.ga.toFixed(2)}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', width: 80 }}>
-                  <Text style={styles.ptsText}>{s.points.toFixed(2)}</Text>
-                  <Text style={[styles.trendSmall, { width: 24, textAlign: 'right', color: isUp ? Colors.teal : isDown ? Colors.coral : Colors.faint }]}>
-                    {isUp ? `▲${trendDiff}` : isDown ? `▼${trendDiff}` : ' —'}
-                  </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', width: 80, gap: 3 }}>
+                  <AnimatedNumber
+                    value={s.points}
+                    decimals={2}
+                    duration={700}
+                    style={styles.ptsText}
+                    color={Colors.gold}
+                  />
+                  {(isUp || isDown)
+                    ? <TrendBadge direction={isUp ? 'up' : 'down'} diff={trendDiff} />
+                    : <Text style={[styles.trendSmall, { width: 16, textAlign: 'right', color: Colors.faint }]}>—</Text>
+                  }
                 </View>
               </TouchableOpacity>
             );
           })}
-        </View>
+        </View>}
 
         {/* Legenda */}
-        <View style={styles.legend}>
+        {state.synced && <View style={styles.legend}>
           <Text style={styles.legendText}>V: Vitórias · D: Derrotas · J: Partidas · GP: Games Pró · GC: Games Contra · SG: Saldo de Games · GA: Game Average (GP ÷ GC)</Text>
-        </View>
+        </View>}
 
         <View style={{ height: 140 }} />
       </ScrollView>
@@ -316,9 +332,8 @@ export default function RankingScreen() {
       </View>
 
       {/* Modal comparar jogadores */}
-      <Modal visible={showCompare} transparent animationType="slide">
-        <TouchableOpacity style={modal.overlay} onPress={() => setShowCompare(false)} activeOpacity={1}>
-          <View style={modal.sheet}>
+      <BottomSheet visible={showCompare} onClose={() => setShowCompare(false)} height={520}>
+          <View style={{ paddingHorizontal: Spacing.md }}>
             <Text style={modal.title}>Comparar jogadores</Text>
             <View style={{ flexDirection: 'row', gap: Spacing.md }}>
               {([compareA, compareB] as const).map((sel, side) => (
@@ -389,75 +404,65 @@ export default function RankingScreen() {
               <Text style={modal.closeBtnText}>Fechar</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </Modal>
+      </BottomSheet>
 
-      {/* Modal fórmula */}
-      {/* Modal exportar PDF */}
-      <Modal visible={showExport} transparent animationType="slide">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md }}>
-            <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text, textAlign: 'center' }}>Exportar Ranking</Text>
-            <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' }}>
-              Gera PDF com o layout oficial do Ranking Geral King BT.
-            </Text>
-            <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
-              <TouchableOpacity
-                style={{ flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' }}
-                onPress={() => setShowExport(false)}
-              >
-                <Text style={{ fontFamily: FontFamily.body, color: Colors.muted }}>Fechar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={{ flex: 2, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' }}
-                onPress={shareAsPDF}
-                disabled={exporting}
-              >
-                <Text style={{ fontFamily: FontFamily.title, color: Colors.bg }}>
-                  {exporting ? '⏳ Gerando...' : '📄 Gerar e Compartilhar'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={showFormula} transparent animationType="slide">
-        <TouchableOpacity style={modal.overlay} onPress={() => setShowFormula(false)} activeOpacity={1}>
-          <View style={modal.sheet}>
-            <Text style={modal.title}>Como pontua?</Text>
-            <Text style={modal.formula}>
-              <Text style={{ color: Colors.gold }}>Pts</Text>
-              {' = '}
-              <Text style={{ color: Colors.teal }}>(V × 3)</Text>
-              {' + '}
-              <Text style={{ color: Colors.text }}>(J × 0,5)</Text>
-              {' + '}
-              <Text style={{ color: Colors.goldBright }}>(GA × 2)</Text>
-            </Text>
-            <Text style={modal.note}>GA = Games Pró ÷ Games Contra</Text>
-
-            <View style={modal.divider} />
-
-            <View style={modal.example}>
-              <Text style={modal.exTitle}>Exemplo — Joffre:</Text>
-              <Text style={modal.exText}>(11×3) + (15×0,5) + (1,36×2)</Text>
-              <Text style={modal.exText}>= 33 + 7,5 + 2,72 = <Text style={{ color: Colors.gold }}>43,21 pts</Text></Text>
-            </View>
-
-            <View style={modal.divider} />
-
-            <Text style={modal.desempateTitle}>Critérios de desempate</Text>
-            {['1° Pontuação King BT', '2° Game Average (GA)', '3° Saldo de Games (SG)', '4° Nº de Vitórias', '5° Confronto Direto'].map(d => (
-              <Text key={d} style={modal.desempateItem}>{d}</Text>
-            ))}
-
-            <TouchableOpacity style={modal.closeBtn} onPress={() => setShowFormula(false)}>
-              <Text style={modal.closeBtnText}>Fechar</Text>
+      {/* PDF BottomSheet */}
+      <BottomSheet visible={showExport} onClose={() => setShowExport(false)} height={220}>
+        <View style={{ paddingHorizontal: Spacing.md, gap: Spacing.md }}>
+          <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text, textAlign: 'center' }}>Exportar Ranking</Text>
+          <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' }}>
+            Gera PDF com o layout oficial do Ranking Geral King BT.
+          </Text>
+          <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+            <TouchableOpacity
+              style={{ flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' }}
+              onPress={() => setShowExport(false)}
+            >
+              <Text style={{ fontFamily: FontFamily.body, color: Colors.muted }}>Fechar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 2, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' }}
+              onPress={shareAsPDF}
+              disabled={exporting}
+            >
+              <Text style={{ fontFamily: FontFamily.title, color: Colors.bg }}>
+                {exporting ? '⏳ Gerando...' : '📄 Gerar e Compartilhar'}
+              </Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </Modal>
+        </View>
+      </BottomSheet>
+
+      {/* Fórmula BottomSheet */}
+      <BottomSheet visible={showFormula} onClose={() => setShowFormula(false)} height={400}>
+        <View style={{ paddingHorizontal: Spacing.md, gap: Spacing.sm }}>
+          <Text style={modal.title}>Como pontua?</Text>
+          <Text style={modal.formula}>
+            <Text style={{ color: Colors.gold }}>Pts</Text>
+            {' = '}
+            <Text style={{ color: Colors.teal }}>(V × 3)</Text>
+            {' + '}
+            <Text style={{ color: Colors.text }}>(J × 0,5)</Text>
+            {' + '}
+            <Text style={{ color: Colors.goldBright }}>(GA × 2)</Text>
+          </Text>
+          <Text style={modal.note}>GA = Games Pró ÷ Games Contra</Text>
+          <View style={modal.divider} />
+          <View style={modal.example}>
+            <Text style={modal.exTitle}>Exemplo — Joffre:</Text>
+            <Text style={modal.exText}>(11×3) + (15×0,5) + (1,36×2)</Text>
+            <Text style={modal.exText}>= 33 + 7,5 + 2,72 = <Text style={{ color: Colors.gold }}>43,21 pts</Text></Text>
+          </View>
+          <View style={modal.divider} />
+          <Text style={modal.desempateTitle}>Critérios de desempate</Text>
+          {['1° Pontuação King BT', '2° Game Average (GA)', '3° Saldo de Games (SG)', '4° Nº de Vitórias', '5° Confronto Direto'].map(d => (
+            <Text key={d} style={modal.desempateItem}>{d}</Text>
+          ))}
+          <TouchableOpacity style={modal.closeBtn} onPress={() => setShowFormula(false)}>
+            <Text style={modal.closeBtnText}>Fechar</Text>
+          </TouchableOpacity>
+        </View>
+      </BottomSheet>
     </SafeAreaView>
     </FadeScreen>
   );
@@ -583,6 +588,7 @@ const pod = StyleSheet.create({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
 
+  headerGradient: { borderRadius: 0 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
     paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm,

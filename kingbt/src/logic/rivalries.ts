@@ -3,11 +3,11 @@ import { extractPlayerGames } from './formats';
 
 export interface RivalryStats {
   /** Com quem jogou mais vezes (independente de resultado) */
-  biggestPartner:    { id: string; played: number } | null;
+  biggestPartner:    { id: string; played: number; wins: number } | null;
   /** Com quem tem melhor aproveitamento em dupla (mín. 2 jogos) */
   bestPartner:       { id: string; wins: number; played: number; pct: number } | null;
   /** Oponente que enfrentou mais vezes */
-  biggestRival:      { id: string; played: number } | null;
+  biggestRival:      { id: string; played: number; wins: number } | null;
   /** Oponente que mais venceu contra você */
   carrasco:          { id: string; wins: number; played: number } | null;
   /** Oponente que você mais venceu */
@@ -72,7 +72,7 @@ export function computeRivalries(
   let biggestPartner: RivalryStats['biggestPartner'] = null;
   for (const [id, s] of partnerMap) {
     if (!biggestPartner || s.played > biggestPartner.played) {
-      biggestPartner = { id, played: s.played };
+      biggestPartner = { id, played: s.played, wins: s.wins };
     }
   }
 
@@ -90,7 +90,7 @@ export function computeRivalries(
   let biggestRival: RivalryStats['biggestRival'] = null;
   for (const [id, r] of rivalMap) {
     if (!biggestRival || r.played > biggestRival.played) {
-      biggestRival = { id, played: r.played };
+      biggestRival = { id, played: r.played, wins: r.iWon };
     }
   }
 

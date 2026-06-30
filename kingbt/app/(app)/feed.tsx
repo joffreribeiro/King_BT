@@ -1,8 +1,9 @@
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Card } from '@/components';
 import { useFeed } from '@/store/FeedContext';
@@ -123,6 +124,28 @@ function MatchResultCard({ item }: { item: FeedItem }) {
   const aWon = (item.sideA?.score ?? 0) > (item.sideB?.score ?? 0);
   const accent = FORMAT_COLOR[item.format ?? ''] ?? Colors.gold;
 
+  // Score glow animado
+  const scoreGlow = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(scoreGlow, { toValue: 1, duration: 1500, useNativeDriver: false }),
+        Animated.timing(scoreGlow, { toValue: 0, duration: 1500, useNativeDriver: false }),
+      ])
+    ).start();
+  }, []);
+  const scoreShadow = scoreGlow.interpolate({ inputRange: [0, 1], outputRange: [4, 16] });
+
+  // Card fade-in ao montar
+  const cardOpacity = useRef(new Animated.Value(0)).current;
+  const cardY       = useRef(new Animated.Value(16)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(cardOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.timing(cardY,       { toValue: 0, duration: 400, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
   async function handleReaction(emoji: string) {
     if (!user || !group) return;
     const has = (item.reactions[emoji] ?? []).includes(user.uid);
@@ -131,7 +154,15 @@ function MatchResultCard({ item }: { item: FeedItem }) {
   }
 
   return (
-    <Card style={mc.card}>
+    <Animated.View style={{ opacity: cardOpacity, transform: [{ translateY: cardY }] }}>
+    <View style={[mc.card, { borderColor: `${accent}33`, overflow: 'hidden' }]}>
+      {/* Gradiente de fundo por formato */}
+      <LinearGradient
+        colors={[`${accent}18`, `${accent}06`]}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       {/* Barra colorida de formato */}
       <View style={[mc.accentBar, { backgroundColor: accent }]} />
 
@@ -159,14 +190,14 @@ function MatchResultCard({ item }: { item: FeedItem }) {
             </Text>
           </View>
 
-          {/* Placar central */}
-          <View style={mc.scoreBox}>
+          {/* Placar central com glow */}
+          <Animated.View style={[mc.scoreBox, { shadowColor: Colors.gold, shadowRadius: scoreShadow, shadowOpacity: 0.6, shadowOffset: { width: 0, height: 0 } }]}>
             <Text style={mc.scoreText}>
               <Text style={{ color: aWon ? Colors.teal : Colors.muted }}>{item.sideA?.score}</Text>
               <Text style={{ color: Colors.faint }}> – </Text>
               <Text style={{ color: !aWon ? Colors.teal : Colors.muted }}>{item.sideB?.score}</Text>
             </Text>
-          </View>
+          </Animated.View>
 
           {/* Side B */}
           <View style={[mc.side, mc.sideRight]}>

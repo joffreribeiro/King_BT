@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useState, useRef, useEffect } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
-import { Avatar, Badge, Card, EmptyState } from '@/components';
+import { Avatar, Badge, Card, EmptyState, SkeletonRanking } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -103,6 +103,39 @@ function SectionHeader({ label, color }: { label: string; color: string }) {
   );
 }
 
+// Avatar com fade-in animado
+function AvatarBubble({ color, short, delay }: { color: string; short: string; delay: number }) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scale   = useRef(new Animated.Value(0.6)).current;
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 300, delay, useNativeDriver: true }),
+      Animated.spring(scale,   { toValue: 1, delay, useNativeDriver: true, tension: 80, friction: 6 }),
+    ]).start();
+  }, []);
+  return (
+    <Animated.View style={{ opacity, transform: [{ scale }], width: 26, height: 26, borderRadius: 13, backgroundColor: color, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.3)' }}>
+      <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.bg }}>{short}</Text>
+    </Animated.View>
+  );
+}
+
+// Skeleton para competições
+function CompSkeleton() {
+  const opacity = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.9, duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.4, duration: 700, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  return (
+    <Animated.View style={{ opacity, backgroundColor: Colors.surf, borderRadius: Radius.lg, marginBottom: Spacing.sm, height: 130, borderWidth: 1, borderColor: Colors.line }} />
+  );
+}
+
 function CompCard({ comp, onDelete, onClone }: {
   comp: Competition; onDelete: (id: string) => void; onClone: (id: string) => void;
 }) {
@@ -137,6 +170,17 @@ function CompCard({ comp, onDelete, onClone }: {
     ? pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.1, 0.45] })
     : new Animated.Value(0);
 
+  // Badge pulse para todos os cards
+  const badgePulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(badgePulse, { toValue: 0.6, duration: 1200, useNativeDriver: true }),
+        Animated.timing(badgePulse, { toValue: 1,   duration: 1200, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
   // Player bubbles
   const ids = new Set<string>();
   comp.matches.forEach(m => {
@@ -159,16 +203,32 @@ function CompCard({ comp, onDelete, onClone }: {
     >
       <Animated.View style={[
         styles.compCard,
-        { borderColor: isDone ? 'rgba(110,100,82,0.20)' : `${accent}33` },
         {
-          shadowColor: accent,
+          borderColor: isDone ? `${Colors.teal}33` : isActive ? `${Colors.gold}55` : `${accent}33`,
+          borderWidth: isActive ? 1.5 : 1,
+        },
+        {
+          shadowColor: isActive ? Colors.gold : isDone ? Colors.teal : accent,
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity,
           shadowRadius: 16,
-          elevation: isActive ? 6 : 0,
-          opacity: isDone ? 0.85 : 1,
+          elevation: isActive ? 8 : isDone ? 3 : 0,
         },
       ]}>
+        {/* Gradiente de fundo por status */}
+        <LinearGradient
+          colors={
+            isActive
+              ? [`${Colors.gold}12`, `${Colors.bg}00`]
+              : isDone
+                ? [`${Colors.teal}08`, `${Colors.bg}00`]
+                : ['transparent', 'transparent']
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{ ...StyleSheet.absoluteFillObject, borderRadius: Radius.lg }}
+          pointerEvents="none"
+        />
         {/* Header strip with gradient */}
         <LinearGradient
           colors={[`${accent}30`, `${accent}10`]}
@@ -180,7 +240,9 @@ function CompCard({ comp, onDelete, onClone }: {
             <Text style={[styles.fmtIconText, { color: accent }]}>{FORMAT_ICON[comp.format]}</Text>
           </View>
           <Text style={[styles.formatLabel, { color: accent }]}>{FORMAT_LABEL[comp.format]?.toUpperCase()}</Text>
-          <Badge label={isActive ? 'EM ANDAMENTO' : 'ENCERRADA'} variant={isActive ? 'gold' : 'teal'} small />
+          <Animated.View style={{ opacity: badgePulse }}>
+            <Badge label={isActive ? 'EM ANDAMENTO' : 'ENCERRADA'} variant={isActive ? 'gold' : 'teal'} small />
+          </Animated.View>
         </LinearGradient>
 
         {/* Card body */}
@@ -188,13 +250,11 @@ function CompCard({ comp, onDelete, onClone }: {
           <Text style={styles.cardName}>{comp.name}</Text>
           <Text style={styles.cardMetaText}>{formatDate(comp.date)} · {comp.competitors.length} jogadores</Text>
 
-          {/* Player bubbles */}
+          {/* Player bubbles com fade-in */}
           {players.length > 0 && (
             <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
-              {players.map(p => (
-                <View key={p.id} style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: p.color, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.bg }}>{p.short}</Text>
-                </View>
+              {players.map((p, idx) => (
+                <AvatarBubble key={p.id} color={p.color} short={p.short} delay={idx * 50} />
               ))}
             </View>
           )}
@@ -269,10 +329,10 @@ export default function HubScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View>
-            {/* Offline indicator */}
+            {/* Skeleton loading */}
             {!state.synced && (
-              <View style={styles.offlineBanner}>
-                <Text style={styles.offlineText}>⟳  Sincronizando com o servidor…</Text>
+              <View style={{ paddingHorizontal: Spacing.md, paddingTop: Spacing.sm }}>
+                {[1,2,3].map(i => <CompSkeleton key={i} />)}
               </View>
             )}
 
