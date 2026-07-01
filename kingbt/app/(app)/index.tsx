@@ -94,9 +94,9 @@ function formatDate(iso: string) {
 
 function SectionHeader({ label, color }: { label: string; color: string }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, marginTop: 4 }}>
-      <View style={{ width: 4, height: 18, borderRadius: 2, backgroundColor: color }} />
-      <Text style={{ fontFamily: FontFamily.number, fontSize: 11, color, letterSpacing: 1.2, fontWeight: '700' }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14, marginTop: 10 }}>
+      <View style={{ width: 5, height: 20, borderRadius: 2, backgroundColor: color }} />
+      <Text style={{ fontFamily: FontFamily.number, fontSize: 12, color, letterSpacing: 1.5, fontWeight: '700' }}>
         {label.toUpperCase()}
       </Text>
     </View>
@@ -114,8 +114,8 @@ function AvatarBubble({ color, short, delay }: { color: string; short: string; d
     ]).start();
   }, []);
   return (
-    <Animated.View style={{ opacity, transform: [{ scale }], width: 26, height: 26, borderRadius: 13, backgroundColor: color, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.3)' }}>
-      <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.bg }}>{short}</Text>
+    <Animated.View style={{ opacity, transform: [{ scale }], width: 28, height: 28, borderRadius: 14, backgroundColor: color, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.3)' }}>
+      <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.bg }}>{short}</Text>
     </Animated.View>
   );
 }
@@ -188,11 +188,13 @@ function CompCard({ comp, onDelete, onClone }: {
     (m.teamB ?? (m.bId ? [m.bId] : [])).forEach(id => ids.add(id));
   });
   if (comp.competitors.length > 0) comp.competitors.forEach(c => ids.add(c.id));
-  const players = [...ids].slice(0, 12).map(id => {
+  const allPlayerIds = [...ids];
+  const players = allPlayerIds.slice(0, 8).map(id => {
     const c = comp.competitors.find(x => x.id === id);
     const p = findPlayer(id);
     return { id, color: c?.color ?? p?.color ?? Colors.gold, short: c?.short ?? p?.name?.slice(0, 2).toUpperCase() ?? '?' };
   });
+  const extraPlayers = allPlayerIds.length > 8 ? allPlayerIds.length - 8 : 0;
 
   return (
     <TouchableOpacity
@@ -252,17 +254,22 @@ function CompCard({ comp, onDelete, onClone }: {
 
           {/* Player bubbles com fade-in */}
           {players.length > 0 && (
-            <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+            <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap', marginTop: 6, alignItems: 'center' }}>
               {players.map((p, idx) => (
                 <AvatarBubble key={p.id} color={p.color} short={p.short} delay={idx * 50} />
               ))}
+              {extraPlayers > 0 && (
+                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: Colors.line }}>
+                  <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.muted }}>+{extraPlayers}</Text>
+                </View>
+              )}
             </View>
           )}
 
           {champ ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
               <Text style={{ fontSize: 14 }}>👑</Text>
-              <Text style={{ fontFamily: FontFamily.title, fontSize: 13, color: Colors.gold, flex: 1 }}>{champ.name}</Text>
+              <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: Colors.gold, flex: 1 }}>{champ.name}</Text>
               <Text style={styles.dateText}>{formatDate(comp.date)}</Text>
               <TouchableOpacity onPress={() => onClone(comp.id)} hitSlop={8} style={{ padding: 4 }}>
                 <Text style={{ fontSize: 15 }}>🔁</Text>
@@ -343,7 +350,8 @@ export default function HubScreen() {
             />
 
             {/* Filter chips — status + lupa */}
-            <View style={[styles.filterRow, { justifyContent: 'space-between' }]}>
+            <Text style={styles.filterLabel}>STATUS</Text>
+            <View style={[styles.filterRow, { justifyContent: 'space-between', marginBottom: Spacing.sm }]}>
               <View style={{ flexDirection: 'row', gap: Spacing.xs, flexWrap: 'wrap', flex: 1 }}>
                 {STATUS_FILTERS.map(f => (
                   <TouchableOpacity
@@ -385,6 +393,7 @@ export default function HubScreen() {
             )}
 
             {/* Filter chips — format */}
+            <Text style={styles.filterLabel}>FORMATO</Text>
             <View style={[styles.filterRow, { marginBottom: Spacing.md }]}>
               {FORMAT_FILTERS.map(f => (
                 <TouchableOpacity
@@ -552,6 +561,14 @@ const styles = StyleSheet.create({
     color: Colors.bg,
   },
 
+  filterLabel: {
+    fontFamily: FontFamily.numberBold,
+    fontSize: 10,
+    color: Colors.muted,
+    letterSpacing: 1.5,
+    marginBottom: 6,
+  },
+
   compCard: {
     backgroundColor: '#16140F',
     borderRadius: 14,
@@ -562,32 +579,32 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingVertical: 11,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     borderBottomWidth: 1,
   },
   fmtIconContainer: {
-    width: 24, height: 24, borderRadius: 7,
+    width: 28, height: 28, borderRadius: 8,
     alignItems: 'center', justifyContent: 'center',
   },
-  fmtIconText: { fontSize: 13 },
+  fmtIconText: { fontSize: 15 },
   formatLabel: {
-    fontSize: 9, fontWeight: '700',
+    fontSize: 10, fontWeight: '700',
     fontFamily: FontFamily.numberBold,
     letterSpacing: 1, flex: 1,
   },
   cardBody: {
-    padding: 10, paddingHorizontal: 12,
+    padding: 12, paddingHorizontal: 14,
   },
-  cardName: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
-  cardMetaText: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, marginTop: 2 },
-  progressRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: 6 },
-  progressTrack: { flex: 1, height: 4, borderRadius: 3, backgroundColor: '#221C12', overflow: 'hidden' },
-  progressFill: { height: 4, borderRadius: 3 },
-  progressLabel: { fontSize: 9, fontWeight: '700', fontFamily: FontFamily.numberBold },
-  dateText: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
+  cardName: { fontFamily: FontFamily.titleBold, fontSize: 17, color: Colors.text },
+  cardMetaText: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, marginTop: 4 },
+  progressRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: 8 },
+  progressTrack: { flex: 1, height: 6, borderRadius: 4, backgroundColor: '#221C12', overflow: 'hidden' },
+  progressFill: { height: 6, borderRadius: 4 },
+  progressLabel: { fontSize: 11, fontWeight: '700', fontFamily: FontFamily.numberBold },
+  dateText: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.faint },
 
   empty: { alignItems: 'center', padding: Spacing.xl, gap: Spacing.sm, marginTop: Spacing.lg },
   emptyText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.muted },
