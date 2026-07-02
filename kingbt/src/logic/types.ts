@@ -20,10 +20,12 @@ export interface Competitor {
 }
 
 export interface MatchSource {
-  type: 'winner' | 'loser' | 'group';
+  type: 'winner' | 'loser' | 'group' | 'best3';
   match?: string;
   g?: number;
   pos?: number;
+  /** Para type='best3': qual posição entre os melhores 3ºs (1=melhor, 2=segundo melhor...) */
+  best3Rank?: number;
 }
 
 export interface SetScore {
@@ -108,6 +110,8 @@ export interface CompetitionConfig {
   rounds: 'single' | 'double';
   groups: number;
   qualifiers: number;
+  /** Quantos melhores 3ºs colocados (de todos os grupos) avançam para o KO. 0 = nenhum. */
+  bestThirds?: number;
   thirdPlace: boolean;
   winRule: WinRule;
   useOfficialRules?: boolean;

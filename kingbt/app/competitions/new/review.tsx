@@ -33,7 +33,7 @@ type Params = {
   scoutMode?: string;
   location?: string; notes?: string;
   useOfficialRules?: string;
-  groups: string; qualifiers: string;
+  groups: string; qualifiers: string; bestThirds?: string;
   thirdPlace: string; playerIds: string; guestData?: string;
   groupMap?: string;
 };
@@ -111,6 +111,7 @@ export default function ReviewStep() {
       rounds: p.rounds === 'double' ? 'double' : 'single',
       groups: parseInt(p.groups ?? '2'),
       qualifiers: parseInt(p.qualifiers ?? '2'),
+      bestThirds: parseInt(p.bestThirds ?? '0'),
       thirdPlace: p.thirdPlace === 'true',
       winRule: {
         sets: setsN, games: gamesN, tiebreak: tiebreakN,

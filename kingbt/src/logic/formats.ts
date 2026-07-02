@@ -111,7 +111,8 @@ export function genGroups(
   numGroups: number,
   dbl: boolean,
   qualifiers: number,
-  thirdPlace: boolean
+  thirdPlace: boolean,
+  bestThirds = 0
 ): { groupDefs: GroupDef[]; matches: Match[] } {
   const groups: string[][] = Array.from({ length: numGroups }, () => []);
   ids.forEach((id, i) => {
@@ -132,6 +133,8 @@ export function genGroups(
   for (let pos = 1; pos <= qualifiers; pos++)
     for (let g = 0; g < numGroups; g++)
       tickets.push({ type: 'group', g, pos });
+  for (let r = 1; r <= bestThirds; r++)
+    tickets.push({ type: 'best3', best3Rank: r });
   const bracket = genBracket(tickets, thirdPlace, 'K');
   return { groupDefs, matches: matches.concat(bracket) };
 }
@@ -218,12 +221,35 @@ export function resolveCompetition(comp: Competition): Competition {
   const { matches, groupDefs } = comp;
   const byId: Record<string, Match> = Object.fromEntries(matches.map(m => [m.id, m]));
 
+  // Calcula standings de cada grupo (mesmo que incompleto, para preencher slots parcialmente)
   const groupRank: Record<number, Standing[]> = {};
+  const groupDone: Record<number, boolean> = {};
   if (groupDefs) {
     groupDefs.forEach((gd, gi) => {
-      if (groupComplete(matches, gi))
-        groupRank[gi] = standings(gd.ids, matches.filter(m => m.stage === 'group' && m.groupIdx === gi));
+      const done = groupComplete(matches, gi);
+      groupDone[gi] = done;
+      // Calcula mesmo incompleto para pré-visualização (mas só fecha slot quando done)
+      groupRank[gi] = standings(gd.ids, matches.filter(m => m.stage === 'group' && m.groupIdx === gi));
     });
+  }
+
+  // Melhores 3ºs de todos os grupos (só resolve quando TODOS os grupos terminaram)
+  const allGroupsDone = groupDefs ? groupDefs.every((_, gi) => groupDone[gi]) : true;
+  let best3List: Standing[] = [];
+  if (allGroupsDone && groupDefs) {
+    // Pega o 3º de cada grupo (pos=2 no índice 0-based) e ordena pelo critério de standings
+    const thirds: (Standing & { groupIdx: number })[] = [];
+    groupDefs.forEach((gd, gi) => {
+      const rank = groupRank[gi];
+      if (rank && rank[2]) thirds.push({ ...rank[2], groupIdx: gi });
+    });
+    // Ordena os 3ºs entre si pelos mesmos critérios (pts > gd > gf)
+    thirds.sort((a, b) => {
+      const byPts = b.pts - a.pts; if (Math.abs(byPts) > 1e-9) return byPts;
+      const byGd = b.gd - a.gd;   if (byGd !== 0) return byGd;
+      return b.gf - a.gf;
+    });
+    best3List = thirds;
   }
 
   let changed = true, guard = 0;
@@ -241,7 +267,11 @@ export function resolveCompetition(comp: Competition): Competition {
           const sm = byId[src.match!]; if (sm) val = matchLoser(sm);
         } else if (src.type === 'group') {
           const gr = groupRank[src.g!];
-          if (gr && gr[src.pos! - 1]) val = gr[src.pos! - 1].id;
+          // Só preenche o slot se o grupo terminou
+          if (gr && groupDone[src.g!] && gr[src.pos! - 1]) val = gr[src.pos! - 1].id;
+        } else if (src.type === 'best3') {
+          const rank = src.best3Rank ?? 1;
+          if (best3List[rank - 1]) val = best3List[rank - 1].id;
         }
         if (val != null) {
           matches[mi] = { ...m, [`${side}Id`]: val };
@@ -365,6 +395,7 @@ function genGroupsManual(
   dbl: boolean,
   qualifiers: number,
   thirdPlace: boolean,
+  bestThirds = 0,
 ): { groupDefs: GroupDef[]; matches: Match[] } {
   const groupDefs: GroupDef[] = groupArrays.map((gids, i) => ({
     name: 'Grupo ' + String.fromCharCode(65 + i), ids: gids,
@@ -379,6 +410,8 @@ function genGroupsManual(
   for (let pos = 1; pos <= qualifiers; pos++)
     for (let g = 0; g < groupDefs.length; g++)
       tickets.push({ type: 'group', g, pos });
+  for (let r = 1; r <= bestThirds; r++)
+    tickets.push({ type: 'best3', best3Rank: r });
   const bracket = genBracket(tickets, thirdPlace, 'K');
   return { groupDefs, matches: matches.concat(bracket) };
 }
@@ -413,8 +446,8 @@ export function buildCompetition(spec: {
     comp.matches = genBracket(ids, config.thirdPlace, 'K');
   } else if (spec.format === 'grupos') {
     const { groupDefs, matches } = spec.preassignedGroups
-      ? genGroupsManual(spec.preassignedGroups, config.rounds === 'double', config.qualifiers, config.thirdPlace)
-      : genGroups(ids, config.groups, config.rounds === 'double', config.qualifiers, config.thirdPlace);
+      ? genGroupsManual(spec.preassignedGroups, config.rounds === 'double', config.qualifiers, config.thirdPlace, config.bestThirds ?? 0)
+      : genGroups(ids, config.groups, config.rounds === 'double', config.qualifiers, config.thirdPlace, config.bestThirds ?? 0);
     comp.groupDefs = groupDefs; comp.matches = matches;
   } else if (spec.format === 'super8') {
     if (spec.unit === 'duplas') {

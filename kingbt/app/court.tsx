@@ -480,7 +480,11 @@ export default function CourtScreen() {
           onSave={(a, b, sets) => handleSave(a, b, sets)}
           onBack={() => {
             dispatch({ type: 'CLEAR_LIVE_SCORE', compId: selectedCompId!, matchId: liveMatch.id });
-            setLiveMatch(null);
+            if (params.compId) {
+              router.replace('/(app)');
+            } else {
+              setLiveMatch(null);
+            }
           }}
           onLiveScore={(gA, gB, sA, sB) => {
             dispatch({ type: 'UPDATE_LIVE_SCORE', compId: selectedCompId!, matchId: liveMatch.id, gamesA: gA, gamesB: gB, setsA: sA, setsB: sB });
@@ -501,7 +505,7 @@ export default function CourtScreen() {
       <>
         <SafeAreaView style={s.container} edges={['top']}>
           <View style={s.header}>
-            <TouchableOpacity onPress={() => { setSelectedCompId(null); setLiveMatch(null); }}>
+            <TouchableOpacity onPress={() => { if (params.compId) { router.replace('/(app)'); } else { setSelectedCompId(null); setLiveMatch(null); } }}>
               <Text style={s.back}>←</Text>
             </TouchableOpacity>
             <View style={{ flex: 1 }}>

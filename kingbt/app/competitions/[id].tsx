@@ -29,6 +29,27 @@ function getCompetitor(comp: Competition, id: string) {
   return comp.competitors.find(c => c.id === id);
 }
 
+// Retorna label de placeholder para um slot ainda não resolvido no bracket
+function srcLabel(comp: Competition, src: import('@/logic/types').MatchSource | null | undefined): string | null {
+  if (!src) return null;
+  const ordinal = (n: number) => n === 1 ? '1º' : n === 2 ? '2º' : n === 3 ? '3º' : `${n}º`;
+  if (src.type === 'group') {
+    const gName = comp.groupDefs?.[src.g ?? 0]?.name ?? `Grupo ${src.g ?? 0 + 1}`;
+    return `${ordinal(src.pos ?? 1)} ${gName}`;
+  }
+  if (src.type === 'best3') {
+    return `${ordinal(src.best3Rank ?? 1)} melhor 3º`;
+  }
+  if (src.type === 'winner') return 'Vencedor';
+  if (src.type === 'loser') return 'Perdedor';
+  return null;
+}
+
+// Retorna true se o slot é BYE estrutural (não tem src nem id atribuído)
+function isByeSlot(id: string | null | undefined, src: import('@/logic/types').MatchSource | null | undefined): boolean {
+  return !id && !src;
+}
+
 // ─── Standings Table ──────────────────────────────────────────────────────────
 
 function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
@@ -49,10 +70,18 @@ function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
   const st = standings(ids, matches, id => resolveEntry(id).name);
   return (
     <Card padding={0} style={{ overflow: 'hidden', marginBottom: Spacing.sm }}>
+      {/* Cabeçalho */}
       <View style={[stRow.row, stRow.header]}>
-        {['#', 'JOGADOR', 'J', 'V', 'SG', 'PTS'].map(h => (
-          <Text key={h} style={[h === 'JOGADOR' ? stRow.cName : h === '#' ? stRow.c0 : stRow.cN, stRow.th]}>{h}</Text>
-        ))}
+        <Text style={[stRow.c0,    stRow.th]}>#</Text>
+        <Text style={[stRow.cName, stRow.th]}>JOGADOR</Text>
+        <Text style={[stRow.cN,    stRow.th]}>V</Text>
+        <Text style={[stRow.cN,    stRow.th]}>D</Text>
+        <Text style={[stRow.cN,    stRow.th]}>J</Text>
+        <Text style={[stRow.cN,    stRow.th]}>GP</Text>
+        <Text style={[stRow.cN,    stRow.th]}>GC</Text>
+        <Text style={[stRow.cN,    stRow.th]}>SG</Text>
+        <Text style={[stRow.cN,    stRow.th]}>GA</Text>
+        <Text style={[stRow.cPts,  stRow.th]}>PTS</Text>
       </View>
       {st.map((s, i) => {
         const pl = resolveEntry(s.id);
@@ -64,15 +93,23 @@ function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
               <Avatar name={pl.name} color={pl.color} size={22} />
               <Text style={stRow.name} numberOfLines={1}>{pl.name}</Text>
             </View>
-            <Text style={stRow.cN}>{s.played}</Text>
             <Text style={stRow.cN}>{s.wins}</Text>
+            <Text style={stRow.cN}>{s.losses}</Text>
+            <Text style={stRow.cN}>{s.played}</Text>
+            <Text style={stRow.cN}>{s.gf}</Text>
+            <Text style={stRow.cN}>{Math.round(s.gf - s.gd)}</Text>
             <Text style={[stRow.cN, { color: s.gd >= 0 ? Colors.teal : Colors.coral }]}>
               {s.gd >= 0 ? '+' : ''}{s.gd}
             </Text>
-            <Text style={[stRow.cN, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>{Number(s.pts).toFixed(2)}</Text>
+            <Text style={stRow.cN}>{Number(s.ga).toFixed(2)}</Text>
+            <Text style={[stRow.cPts, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>{Number(s.pts).toFixed(2)}</Text>
           </View>
         );
       })}
+      {/* Legenda */}
+      <View style={stRow.legend}>
+        <Text style={stRow.legendText}>V: Vitórias · D: Derrotas · J: Partidas · GP: Games Pró · GC: Games Contra · SG: Saldo · GA: Game Average · PTS: Pontuação</Text>
+      </View>
     </Card>
   );
 }
@@ -85,7 +122,7 @@ const stRow = StyleSheet.create({
   legendText: { fontFamily: FontFamily.body, fontSize: 9, color: Colors.faint, textAlign: 'center' },
   c0: { width: 22 },
   cName: { flex: 1 },
-  cN: { width: 32, textAlign: 'center', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
+  cN: { width: 28, textAlign: 'center', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
   cNw: { width: 44, textAlign: 'center', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
   cPts: { width: 56, textAlign: 'right', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
   th: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 0.3 },
@@ -224,7 +261,12 @@ function MatchRow({ match: m, comp, isNext, onPress, onLongPress }: {
   const pB = cB?.members[0] ? getPlayer(cB.members[0]) : null;
   const has = m.scoreA != null && m.scoreB != null;
   const aWon = has && m.scoreA! > m.scoreB!;
+  const byeA = isByeSlot(m.aId, m.aSrc);
+  const byeB = isByeSlot(m.bId, m.bSrc);
   const pending = !cA || !cB;
+
+  const nameA = cA?.name ?? (byeA ? 'BYE' : srcLabel(comp, m.aSrc) ?? '?');
+  const nameB = cB?.name ?? (byeB ? 'BYE' : srcLabel(comp, m.bSrc) ?? '?');
 
   return (
     <TouchableOpacity onPress={onPress} onLongPress={onLongPress} disabled={pending} activeOpacity={0.8}>
@@ -242,22 +284,22 @@ function MatchRow({ match: m, comp, isNext, onPress, onLongPress }: {
         )}
         <View style={mRow.row}>
           <View style={mRow.side}>
-            {pA && <Avatar name={pA.name} color={pA.color} size={28} />}
-            <Text style={[mRow.name, aWon && { color: Colors.gold }]} numberOfLines={1}>
-              {cA?.name ?? '?'}
+            {pA && !byeA && <Avatar name={pA.name} color={pA.color} size={28} />}
+            <Text style={[mRow.name, aWon && { color: Colors.gold }, byeA && mRow.byeText, !cA && !byeA && mRow.placeholderText]} numberOfLines={1}>
+              {nameA}
             </Text>
           </View>
           <View style={{ alignItems: 'center' }}>
             <Text style={mRow.vs}>
-              {has ? `${m.scoreA} – ${m.scoreB}` : pending ? 'A definir' : 'vs'}
+              {has ? `${m.scoreA} – ${m.scoreB}` : (byeA || byeB) ? 'BYE' : pending ? 'A definir' : 'vs'}
             </Text>
             {has && <Text style={{ fontFamily: FontFamily.body, fontSize: 9, color: Colors.faint }}>sets</Text>}
           </View>
           <View style={[mRow.side, mRow.sideRight]}>
-            <Text style={[mRow.name, { textAlign: 'right' }, !aWon && has && { color: Colors.gold }]} numberOfLines={1}>
-              {cB?.name ?? '?'}
+            <Text style={[mRow.name, { textAlign: 'right' }, !aWon && has && { color: Colors.gold }, byeB && mRow.byeText, !cB && !byeB && mRow.placeholderText]} numberOfLines={1}>
+              {nameB}
             </Text>
-            {pB && <Avatar name={pB.name} color={pB.color} size={28} />}
+            {pB && !byeB && <Avatar name={pB.name} color={pB.color} size={28} />}
           </View>
         </View>
         {/* Games por set */}
@@ -300,6 +342,8 @@ const mRow = StyleSheet.create({
   setScoreWin: { color: Colors.teal },
   setDash:     { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   disabled: { opacity: 0.45 },
+  byeText: { color: Colors.faint, fontFamily: FontFamily.numberBold, fontSize: 11, letterSpacing: 1 },
+  placeholderText: { color: Colors.faint, fontStyle: 'italic', fontSize: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   side: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   sideRight: { justifyContent: 'flex-end' },
@@ -321,19 +365,26 @@ function BracketMatchCard({ match: m, comp, onPress }: {
   const cB = m.bId ? getCompetitor(comp, m.bId) : null;
   const has = m.scoreA != null && m.scoreB != null;
   const aWon = has && m.scoreA! > m.scoreB!;
+  const byeA = isByeSlot(m.aId, m.aSrc);
+  const byeB = isByeSlot(m.bId, m.bSrc);
   const pending = !cA || !cB;
+
+  const nameA = cA?.name ?? (byeA ? 'BYE' : srcLabel(comp, m.aSrc) ?? '—');
+  const nameB = cB?.name ?? (byeB ? 'BYE' : srcLabel(comp, m.bSrc) ?? '—');
+  const isPlaceholderA = !cA && !byeA;
+  const isPlaceholderB = !cB && !byeB;
 
   return (
     <TouchableOpacity onPress={onPress} disabled={pending} activeOpacity={0.8}>
-      <View style={[bkCard.card, pending && { opacity: 0.5 }]}>
-        <View style={[bkCard.row, aWon && bkCard.winRow]}>
-          <Text style={[bkCard.name, aWon && bkCard.winName]} numberOfLines={1}>{cA?.name ?? '—'}</Text>
-          <Text style={[bkCard.score, aWon && bkCard.winScore]}>{has ? m.scoreA : '–'}</Text>
+      <View style={[bkCard.card, pending && !byeA && !byeB && { opacity: 0.65 }]}>
+        <View style={[bkCard.row, aWon && bkCard.winRow, byeA && bkCard.byeRow]}>
+          <Text style={[bkCard.name, aWon && bkCard.winName, byeA && bkCard.byeName, isPlaceholderA && bkCard.placeholderName]} numberOfLines={1}>{nameA}</Text>
+          <Text style={[bkCard.score, aWon && bkCard.winScore]}>{has && !byeA ? m.scoreA : byeA ? '' : '–'}</Text>
         </View>
         <View style={bkCard.div} />
-        <View style={[bkCard.row, !aWon && has && bkCard.winRow]}>
-          <Text style={[bkCard.name, !aWon && has && bkCard.winName]} numberOfLines={1}>{cB?.name ?? '—'}</Text>
-          <Text style={[bkCard.score, !aWon && has && bkCard.winScore]}>{has ? m.scoreB : '–'}</Text>
+        <View style={[bkCard.row, !aWon && has && bkCard.winRow, byeB && bkCard.byeRow]}>
+          <Text style={[bkCard.name, !aWon && has && bkCard.winName, byeB && bkCard.byeName, isPlaceholderB && bkCard.placeholderName]} numberOfLines={1}>{nameB}</Text>
+          <Text style={[bkCard.score, !aWon && has && bkCard.winScore]}>{has && !byeB ? m.scoreB : byeB ? '' : '–'}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -351,9 +402,12 @@ const bkCard = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, height: (BK_CARD_H - 1) / 2 },
   winRow: { backgroundColor: Colors.gold + '22' },
   div: { height: 1, backgroundColor: Colors.line },
-  name: { flex: 1, fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+  name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.text },
   winName: { color: Colors.gold, fontFamily: FontFamily.bodyMed },
-  score: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.faint },
+  byeRow: { backgroundColor: Colors.surf2 },
+  byeName: { color: Colors.text, fontFamily: FontFamily.numberBold, fontSize: 10, letterSpacing: 1 },
+  placeholderName: { color: Colors.text, fontStyle: 'italic', fontSize: 10 },
+  score: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.text },
   winScore: { color: Colors.gold },
 });
 
@@ -785,6 +839,7 @@ function GroupsView({ comp, onScore, onClear }: { comp: Competition; onScore: (m
     (comp.groupDefs?.every((_, gi) => groupComplete(comp.matches, gi)) ?? false);
   const groupMatches = (gi: number) => comp.matches.filter(m => m.stage === 'group' && m.groupIdx === gi);
   const nextId = firstUnscored(comp.matches);
+  const hasKO = comp.matches.some(m => m.stage === 'ko');
 
   return (
     <ScrollView contentContainerStyle={vw.scroll}>
@@ -799,17 +854,19 @@ function GroupsView({ comp, onScore, onClear }: { comp: Competition; onScore: (m
         </View>
       ))}
 
-      {/* Mata-mata */}
-      {allGroupsDone && (
-        <View>
-          <Text style={vw.section}>⚔️ Mata-mata</Text>
-          <KOView comp={comp} onScore={onScore} onClear={onClear} />
+      {/* Mata-mata — sempre visível, com placeholders quando grupos ainda não terminaram */}
+      {hasKO && (
+        <View style={{ marginTop: Spacing.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.xs }}>
+            <Text style={vw.section}>⚔️ Mata-mata</Text>
+            {!allGroupsDone && (
+              <View style={{ backgroundColor: Colors.gold + '22', borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: Colors.gold + '55' }}>
+                <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold }}>PRÉVIA</Text>
+              </View>
+            )}
+          </View>
+          <KOView comp={comp} onScore={onScore} onClear={onClear} preview={!allGroupsDone} />
         </View>
-      )}
-      {!allGroupsDone && (
-        <Card style={vw.locked}>
-          <Text style={vw.lockedText}>⏳ Termine a fase de grupos para desbloquear o mata-mata.</Text>
-        </Card>
       )}
 
       <View style={{ height: Spacing.xl }} />
@@ -847,7 +904,7 @@ function buildBracketShareText(comp: Competition): string {
   return lines.join('\n');
 }
 
-function KOView({ comp, onScore, onClear }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void }) {
+function KOView({ comp, onScore, onClear, preview = false }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void; preview?: boolean }) {
   const [viewMode, setViewMode] = useState<'chave' | 'lista'>('chave');
   const koRounds = [...new Set(comp.matches.filter(m => m.stage === 'ko').map(m => m.koRound))]
     .sort((a, b) => (a ?? 0) - (b ?? 0));
@@ -2314,10 +2371,10 @@ const main = StyleSheet.create({
   champTitle: { fontFamily: FontFamily.titleBold, fontSize: 13, color: Colors.gold, letterSpacing: 3 },
   champName: { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text, textAlign: 'center' },
   champComp: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
-  champActions: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.md },
-  champBtn: { flex: 1, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' },
+  champActions: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.md, width: '100%' },
+  champBtn: { flex: 1, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, paddingHorizontal: Spacing.sm, alignItems: 'center' },
   champBtnText: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.bg },
-  champClose: { flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' },
+  champClose: { flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, paddingHorizontal: Spacing.sm, alignItems: 'center' },
   champCloseText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted },
 });
 

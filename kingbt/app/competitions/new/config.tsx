@@ -91,6 +91,7 @@ export default function ConfigStep() {
   const [tiebreak, setTiebreak] = useState(7);
   const [groups, setGroups]   = useState(2);
   const [qualifiers, setQualifiers] = useState(2);
+  const [bestThirds, setBestThirds] = useState(0);
   const [location, setLocation] = useState('');
   const [notes, setNotes]     = useState('');
   const [useOfficialRules, setUseOfficialRules]     = useState(true);
@@ -110,7 +111,7 @@ export default function ConfigStep() {
         useOfficialRules: String(useOfficialRules),
         superTiebreak: String(superTiebreak),
         superTiebreakPts: String(superTiebreakPts),
-        groups: String(groups), qualifiers: String(qualifiers), thirdPlace: 'false',
+        groups: String(groups), qualifiers: String(qualifiers), bestThirds: String(bestThirds), thirdPlace: 'false',
       },
     });
   }
@@ -209,6 +210,12 @@ export default function ConfigStep() {
             </View>
             <View style={styles.field}>
               <Stepper label="Classificados por grupo" value={qualifiers} min={1} max={4} onChange={setQualifiers} />
+            </View>
+            <View style={styles.field}>
+              <Stepper label="Melhores 3ºs que avançam" value={bestThirds} min={0} max={groups} onChange={setBestThirds} />
+              <Text style={{ fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted }}>
+                {bestThirds === 0 ? 'Nenhum 3º colocado avança.' : `Os ${bestThirds} melhores 3ºs de todos os grupos avançam.`}
+              </Text>
             </View>
           </>
         )}
