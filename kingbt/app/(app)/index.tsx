@@ -564,9 +564,11 @@ const styles = StyleSheet.create({
   filterLabel: {
     fontFamily: FontFamily.numberBold,
     fontSize: 10,
-    color: Colors.muted,
+    color: Colors.text,
     letterSpacing: 1.5,
     marginBottom: 6,
+    marginTop: 4,
+    opacity: 0.45,
   },
 
   compCard: {
