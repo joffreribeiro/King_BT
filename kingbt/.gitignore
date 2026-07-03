@@ -37,7 +37,8 @@ yarn-error.*
 *.tsbuildinfo
 
 # Firebase Admin key (nunca commitar)
-scripts/serviceAccountKey.json
+serviceAccount*.json
+**/serviceAccount*.json
 
 # generated native folders
 /ios

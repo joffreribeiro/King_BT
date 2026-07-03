@@ -236,19 +236,6 @@ export function PodiumHQ({ first, second, third }: PodiumHQProps) {
 
   return (
     <View style={{ marginHorizontal: 12, marginBottom: 8, overflow: 'hidden', borderRadius: 12 }}>
-      {/* Fundo */}
-      <ExpoLinearGradient
-        colors={['#060504', '#0a0806', '#060504']}
-        style={[StyleSheet.absoluteFill, { borderRadius: 12 }]}
-      />
-      {/* Sparkles */}
-      <Sparkle x={SW * 0.38} y={8}  delay={0}   size={6} />
-      <Sparkle x={SW * 0.42} y={18} delay={300} size={4} />
-      <Sparkle x={SW * 0.52} y={12} delay={600} size={5} />
-      <Sparkle x={SW * 0.56} y={28} delay={900} size={3} />
-      <Sparkle x={SW * 0.35} y={22} delay={450} size={4} />
-      <Sparkle x={SW * 0.60} y={16} delay={750} size={5} />
-
       {/* Pedestais */}
       <View style={{
         flexDirection: 'row',

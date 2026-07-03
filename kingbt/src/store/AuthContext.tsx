@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -10,8 +10,9 @@ import {
   type User,
 } from 'firebase/auth';
 import { Platform } from 'react-native';
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { auth, db } from '@/firebase/config';
+import { Logger } from '@/services/Logger';
 import * as Device from 'expo-device';
 import * as Localization from 'expo-localization';
 
@@ -96,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ...collectDeviceInfo('google'),
           }, { merge: true });
         }
-      }).catch(() => {});
+      }).catch((e) => Logger.warn('getRedirectResult falhou', { error: e?.message }));
     });
   }, []);
 
@@ -125,14 +126,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setGroup(g);
                 const admins: string[] = gData.admins ?? [];
                 setIsAdmin(admins.includes(u.uid));
-                const playersSnap = await getDocs(collection(db, 'groups', groupId, 'players'));
-                const myPlayer = playersSnap.docs.find(d => d.data().uid === u.uid);
-                setMyPlayerId(myPlayer?.id ?? null);
+                const myPlayerSnap = await getDocs(query(
+                  collection(db, 'groups', groupId, 'players'),
+                  where('uid', '==', u.uid),
+                  limit(1),
+                ));
+                setMyPlayerId(myPlayerSnap.docs[0]?.id ?? null);
               }
             }
           }
         } catch (e) {
           // erro de rede — continua sem grupo
+          Logger.error('Falha ao carregar grupo no login', e as Error, { uid: u.uid });
         }
         setLoading(false);
       } else {
@@ -240,15 +245,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAdmin(admins.includes(user.uid));
 
       // Verifica se o usuário já tem player vinculado (cadastro anterior no mesmo grupo)
-      const playersSnap = await getDocs(collection(db, 'groups', groupId, 'players'));
-      const myPlayer = playersSnap.docs.find(d => d.data().uid === user.uid);
-      if (myPlayer) {
+      const myPlayerSnap = await getDocs(query(
+        collection(db, 'groups', groupId, 'players'),
+        where('uid', '==', user.uid),
+        limit(1),
+      ));
+      if (!myPlayerSnap.empty) {
         // Já tem player vinculado — entra direto sem perguntar
-        setMyPlayerId(myPlayer.id);
+        setMyPlayerId(myPlayerSnap.docs[0].id);
         return { unlinkedPlayers: [], needsLink: false };
       }
 
       // Usuário novo no grupo — retorna jogadores sem uid para vincular
+      const playersSnap = await getDocs(collection(db, 'groups', groupId, 'players'));
       const unlinked: UnlinkedPlayer[] = playersSnap.docs
         .filter(d => !d.data().uid)
         .map(d => ({ id: d.id, name: d.data().name ?? '?', color: d.data().color ?? '#FFD166' }));
@@ -256,6 +265,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Sempre mostra o modal para o usuário escolher/criar perfil
       return { unlinkedPlayers: unlinked, needsLink: true };
     } catch (e: any) {
+      Logger.error('Falha ao entrar no grupo', e, { code });
       setError('Erro ao entrar no grupo. Tente novamente.');
       return { unlinkedPlayers: [] };
     }
@@ -289,6 +299,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!group || !isAdmin) return;
     const members = (group as any).members?.filter((m: string) => m !== uid) ?? [];
     await setDoc(doc(db, 'groups', group.id), { members }, { merge: true });
+    // Desassocia o grupo do usuário removido — senão ele continua vendo o grupo
+    const userSnap = await getDoc(doc(db, 'users', uid));
+    if (userSnap.data()?.groupId === group.id) {
+      await setDoc(doc(db, 'users', uid), { groupId: null }, { merge: true });
+    }
   }
 
   async function getMyGroups(): Promise<Group[]> {
@@ -340,8 +355,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) { setError('Faça login primeiro.'); return; }
     try {
       setError(null);
-      // Gera código a partir do nome (sem espaços, maiúsculo, max 8 chars)
-      const code = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'GRUPO' + Math.floor(Math.random() * 1000);
+      // Gera código a partir do nome (sem espaços, maiúsculo, max 8 chars).
+      // Se já existir grupo com esse código, adiciona sufixo numérico até ficar único.
+      const base = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'GRUPO' + Math.floor(Math.random() * 1000);
+      let code = base;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const clash = await getDocs(query(collection(db, 'groups'), where('code', '==', code), limit(1)));
+        if (clash.empty) break;
+        const suffix = String(Math.floor(Math.random() * 90) + 10); // 2 dígitos
+        code = base.slice(0, 8 - suffix.length) + suffix;
+      }
       const groupRef = doc(collection(db, 'groups'));
       await setDoc(groupRef, {
         name,
@@ -373,8 +396,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setGroup(null);
   }
 
+  // Memoiza o value para não re-renderizar toda a árvore a cada render do provider.
+  // As funções fecham sobre user/group/isAdmin, todos presentes nas deps.
+  const value = useMemo<AuthContextType>(() => ({
+    user, group, isAdmin, loading, error, myPlayerId, playerLoading,
+    signInWithGoogle, signInWithEmail, signUpWithEmail, joinGroup, linkToPlayer,
+    createGroup, leaveGroup, switchGroup, getMyGroups, logout,
+    clearError: () => setError(null), promoteToAdmin, removeFromGroup,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [user, group, isAdmin, loading, error, myPlayerId, playerLoading]);
+
   return (
-    <Ctx.Provider value={{ user, group, isAdmin, loading, error, myPlayerId, playerLoading, signInWithGoogle, signInWithEmail, signUpWithEmail, joinGroup, linkToPlayer, createGroup, leaveGroup, switchGroup, getMyGroups, logout, clearError: () => setError(null), promoteToAdmin, removeFromGroup }}>
+    <Ctx.Provider value={value}>
       {children}
     </Ctx.Provider>
   );

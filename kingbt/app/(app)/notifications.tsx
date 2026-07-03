@@ -45,7 +45,7 @@ const NOTIF_META: Record<NotifType, { icon: string; color: string }> = {
   comp_started:      { icon: '🏆', color: Colors.teal },
   achievement_unlock:{ icon: '🏅', color: Colors.teal },
   player_ranked_up:  { icon: '📈', color: Colors.gold },
-  invite:            { icon: '📬', color: Colors.blue ?? '#6B91F0' },
+  invite:            { icon: '📬', color: '#6B91F0' },
 };
 
 // ── Item de Notificação ────────────────────────────────────────────────────────
