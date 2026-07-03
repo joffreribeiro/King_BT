@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, TouchableOpacity, Share, Animated, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, ScrollView } from 'react-native';
+import { shareText, notifyCopied } from '@/services/share';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -67,9 +68,10 @@ export default function VictoryScreen() {
   }, []);
 
   async function handleShare() {
-    await Share.share({
-      message: `🏆 Resultado King BT\n${params.winnerName ?? 'Vencedor'} ${params.winnerScore ?? '—'} × ${params.loserScore ?? '—'} ${params.loserName ?? ''}\n${params.competitionName ?? ''}\n\n#KingBT #BeachTennis`,
-    });
+    const result = await shareText(
+      `🏆 Resultado King BT\n${params.winnerName ?? 'Vencedor'} ${params.winnerScore ?? '—'} × ${params.loserScore ?? '—'} ${params.loserName ?? ''}\n${params.competitionName ?? ''}\n\n#KingBT #BeachTennis`,
+    );
+    if (result === 'copied') notifyCopied('Resultado');
   }
 
   return (

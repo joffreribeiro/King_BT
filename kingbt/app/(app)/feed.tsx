@@ -9,6 +9,7 @@ import { Avatar, Card } from '@/components';
 import { useFeed } from '@/store/FeedContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { useCompetitions } from '@/store/CompetitionsContext';
 import { toggleReaction, addComment, type FeedItem } from '@/firebase/feed';
 
 const EMOJIS = ['👑', '🔥', '💪'] as const;
@@ -30,6 +31,74 @@ function timeAgo(ts: any): string {
   if (h < 24) return `${h}h`;
   return `${Math.floor(h / 24)}d`;
 }
+
+// O feed guarda só o placar em sets (ex.: 1–0); os games por set vivem no jogo
+// original da competição — busca via compId/matchId (funciona para posts antigos).
+function useMatchGames(item: FeedItem): { a: number; b: number }[] | null {
+  const { state } = useCompetitions();
+  const comp = state.competitions.find(c => c.id === item.compId);
+  const match = item.matchId ? comp?.matches.find(m => m.id === item.matchId) : undefined;
+  return match?.sets?.length ? match.sets : null;
+}
+
+// Placar estilo painel de TV: cada lado numa linha, games por set em colunas
+// alinhadas da esquerda (mesmo visual do ScoreboardCard das competições)
+function FeedScoreboard({ item, sets }: { item: FeedItem; sets: { a: number; b: number }[] | null }) {
+  const { findPlayer } = useGroupPlayers();
+  const aWon = (item.sideA?.score ?? 0) > (item.sideB?.score ?? 0);
+
+  function Row({ side }: { side: 'a' | 'b' }) {
+    const info = side === 'a' ? item.sideA : item.sideB;
+    const won = side === 'a' ? aWon : !aWon;
+    return (
+      <View style={fsb.row}>
+        {(info?.ids ?? []).slice(0, 2).map((id, i) => {
+          const pl = findPlayer(id);
+          return pl ? <Avatar key={i} name={pl.name} color={pl.color} size={24} /> : null;
+        })}
+        <Text style={[fsb.name, won && fsb.nameWin]} numberOfLines={1}>{info?.name}</Text>
+        <View style={fsb.scoreZone}>
+          {sets
+            ? sets.map((s, i) => {
+                const win = side === 'a' ? s.a > s.b : s.b > s.a;
+                return (
+                  <Text key={i} style={[fsb.col, win && fsb.colWin]}>
+                    {side === 'a' ? s.a : s.b}
+                  </Text>
+                );
+              })
+            // Jogo antigo sem games gravados: troféu no vencedor, sem placar em sets
+            : won ? <Text style={fsb.trophy}>🏆</Text> : null}
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={fsb.box}>
+      <Row side="a" />
+      <View style={fsb.div} />
+      <Row side="b" />
+    </View>
+  );
+}
+
+const fsb = StyleSheet.create({
+  box: { borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.sm, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: Spacing.sm, height: 42 },
+  name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 14, color: '#FFFFFF' },
+  nameWin: { color: Colors.gold, fontFamily: FontFamily.title },
+  scoreZone: {
+    width: 100, alignSelf: 'stretch',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start',
+    borderLeftWidth: 1, borderLeftColor: Colors.line,
+    paddingLeft: 6, backgroundColor: Colors.surf2,
+  },
+  col: { width: 30, textAlign: 'center', fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.muted },
+  colWin: { color: Colors.teal },
+  trophy: { fontSize: 14, paddingLeft: 4 },
+  div: { height: 1, backgroundColor: Colors.line, marginHorizontal: Spacing.sm },
+});
 
 // ─── Card de resultado de partida ────────────────────────────────────────────
 
@@ -120,6 +189,7 @@ function MatchResultCard({ item }: { item: FeedItem }) {
   const { user, group } = useAuth();
   const { findPlayer } = useGroupPlayers();
   const [showComments, setShowComments] = useState(false);
+  const gameSets = useMatchGames(item);
 
   const aWon = (item.sideA?.score ?? 0) > (item.sideB?.score ?? 0);
   const accent = FORMAT_COLOR[item.format ?? ''] ?? Colors.gold;
@@ -173,47 +243,8 @@ function MatchResultCard({ item }: { item: FeedItem }) {
           <Text style={mc.time}>{timeAgo(item.timestamp)}</Text>
         </View>
 
-        {/* Placar */}
-        <View style={mc.scoreRow}>
-          {/* Side A */}
-          <View style={mc.side}>
-            <View style={mc.avatarRow}>
-              {(item.sideA?.ids ?? []).slice(0, 2).map((id, i) => {
-                const pl = findPlayer(id);
-                return pl
-                  ? <Avatar key={i} name={pl.name} color={pl.color} size={30} />
-                  : <View key={i} style={[mc.avatarFallback, { backgroundColor: Colors.surf2 }]}><Text style={mc.avatarFallbackTxt}>?</Text></View>;
-              })}
-            </View>
-            <Text style={[mc.sideName, aWon && mc.sideNameWin]} numberOfLines={1}>
-              {item.sideA?.name}
-            </Text>
-          </View>
-
-          {/* Placar central com glow */}
-          <Animated.View style={[mc.scoreBox, { shadowColor: Colors.gold, shadowRadius: scoreShadow, shadowOpacity: 0.6, shadowOffset: { width: 0, height: 0 } }]}>
-            <Text style={mc.scoreText}>
-              <Text style={{ color: aWon ? Colors.teal : Colors.muted }}>{item.sideA?.score}</Text>
-              <Text style={{ color: Colors.faint }}> – </Text>
-              <Text style={{ color: !aWon ? Colors.teal : Colors.muted }}>{item.sideB?.score}</Text>
-            </Text>
-          </Animated.View>
-
-          {/* Side B */}
-          <View style={[mc.side, mc.sideRight]}>
-            <View style={[mc.avatarRow, { justifyContent: 'flex-end' }]}>
-              {(item.sideB?.ids ?? []).slice(0, 2).map((id, i) => {
-                const pl = findPlayer(id);
-                return pl
-                  ? <Avatar key={i} name={pl.name} color={pl.color} size={30} />
-                  : <View key={i} style={[mc.avatarFallback, { backgroundColor: Colors.surf2 }]}><Text style={mc.avatarFallbackTxt}>?</Text></View>;
-              })}
-            </View>
-            <Text style={[mc.sideName, mc.sideNameRight, !aWon && mc.sideNameWin]} numberOfLines={1}>
-              {item.sideB?.name}
-            </Text>
-          </View>
-        </View>
+        {/* Placar — cada lado numa linha, games em colunas */}
+        <FeedScoreboard item={item} sets={gameSets} />
 
         {/* Reações */}
         <View style={mc.reactRow}>
@@ -489,6 +520,7 @@ function MatchRow({ item, last }: { item: FeedItem; last: boolean }) {
   const { user, group } = useAuth();
   const { findPlayer } = useGroupPlayers();
   const [showComments, setShowComments] = useState(false);
+  const gameSets = useMatchGames(item);
   const aWon = (item.sideA?.score ?? 0) > (item.sideB?.score ?? 0);
 
   async function handleReaction(emoji: string) {
@@ -500,20 +532,8 @@ function MatchRow({ item, last }: { item: FeedItem; last: boolean }) {
 
   return (
     <View style={[mr.wrap, !last && mr.border]}>
-      {/* Placar */}
-      <View style={mr.scoreRow}>
-        <View style={mr.side}>
-          <Text style={[mr.sideName, aWon && mr.win]} numberOfLines={1}>{item.sideA?.name}</Text>
-        </View>
-        <Text style={mr.score}>
-          <Text style={{ color: aWon ? Colors.teal : Colors.muted }}>{item.sideA?.score}</Text>
-          <Text style={{ color: Colors.faint }}> – </Text>
-          <Text style={{ color: !aWon ? Colors.teal : Colors.muted }}>{item.sideB?.score}</Text>
-        </Text>
-        <View style={[mr.side, { alignItems: 'flex-end' }]}>
-          <Text style={[mr.sideName, !aWon && mr.win]} numberOfLines={1}>{item.sideB?.name}</Text>
-        </View>
-      </View>
+      {/* Placar — cada lado numa linha, games em colunas */}
+      <FeedScoreboard item={item} sets={gameSets} />
       {/* Reações */}
       <View style={mr.reactRow}>
         {EMOJIS.map(emoji => {

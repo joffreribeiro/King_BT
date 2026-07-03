@@ -62,7 +62,10 @@ export async function updateCompetition(
   comp: Competition
 ): Promise<void> {
   const { id, ...data } = comp;
-  await updateDoc(compDoc(groupId, id), data);
+  // Remove chaves com valor undefined — o Firestore rejeita a gravação inteira
+  // se qualquer campo aninhado (ex.: match.aId) for undefined.
+  const sanitized = JSON.parse(JSON.stringify(data));
+  await updateDoc(compDoc(groupId, id), sanitized);
 }
 
 /** Atualiza placar ao vivo de um jogo (durante a partida) */

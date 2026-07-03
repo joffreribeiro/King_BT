@@ -1,5 +1,5 @@
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform, Share,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform,
   Animated, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,7 +7,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useState, useRef, useEffect } from 'react';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
-import { competitionChampion } from '@/logic/formats';
+import { competitionChampion, groupComplete } from '@/logic/formats';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -16,13 +16,14 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { confirmParticipation, cancelParticipation } from '@/firebase/competitions';
+import { shareText, notifyCopied } from '@/services/share';
 import { buildShareText } from '@/components/competition/helpers';
 import { EditNameModal } from '@/components/competition/EditNameModal';
 import { RulesView } from '@/components/competition/RulesView';
 import { ScorerModal } from '@/components/competition/ScorerModal';
 import { AvulsoView } from '@/components/competition/AvulsoView';
 import {
-  RotatingView, ClassificacaoView, LeagueView, GroupsView, KOView,
+  RotatingView, ClassificacaoView, LeagueView, GroupsPhaseView, KOView,
 } from '@/components/competition/FormatViews';
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
@@ -135,9 +136,10 @@ export default function CompetitionDetail() {
     }
   }
 
-  function handleShare() {
+  async function handleShare() {
     const text = buildShareText(comp!, findPlayer);
-    Share.share({ message: text, title: comp!.name }).catch(() => {});
+    const result = await shareText(text, comp!.name);
+    if (result === 'copied') notifyCopied('Resultados');
   }
 
   async function handleToggleConfirm() {
@@ -192,30 +194,18 @@ export default function CompetitionDetail() {
     });
   }
 
-  function handleSubstitute(match: Match, originalId: string) {
+  function handleSubstitute(match: Match, originalId: string, substituteId: string) {
     if (!isAdmin) return;
-    const options = groupPlayers
-      .filter(p => p.id !== originalId)
-      .slice(0, 6)
-      .map(p => ({
-        text: p.name,
-        onPress: () => {
-          dispatch({
-            type: 'SUBSTITUTE_PLAYER',
-            compId: comp!.id,
-            sub: {
-              originalId,
-              substituteId: p.id,
-              fromMatchId: match.id,
-              timestamp: new Date().toISOString(),
-            },
-          });
-        },
-      }));
-    Alert.alert('Substituir jogador', 'Escolha quem vai entrar:', [
-      { text: 'Cancelar', style: 'cancel' },
-      ...options,
-    ]);
+    dispatch({
+      type: 'SUBSTITUTE_PLAYER',
+      compId: comp!.id,
+      sub: {
+        originalId,
+        substituteId,
+        fromMatchId: match.id,
+        timestamp: new Date().toISOString(),
+      },
+    });
   }
 
   return (
@@ -373,11 +363,18 @@ export default function CompetitionDetail() {
       {comp.status !== 'upcoming' && (
         <View style={{ flex: 1 }}>
           <View style={main.tabBar}>
-            {([
-              { key: 'regras',        label: '📋 Regras' },
-              { key: 'classificacao', label: '🏆 Classificação' },
-              { key: 'partidas',      label: '🎾 Partidas' },
-            ] as const).map(t => (
+            {(comp.format === 'grupos'
+              ? [
+                  { key: 'regras',        label: '📋 Regras' },
+                  { key: 'classificacao', label: '🏆 Fase de Grupos' },
+                  { key: 'partidas',      label: '⚔️ Mata-mata' },
+                ] as const
+              : [
+                  { key: 'regras',        label: '📋 Regras' },
+                  { key: 'classificacao', label: '🏆 Classificação' },
+                  { key: 'partidas',      label: '🎾 Partidas' },
+                ] as const
+            ).map(t => (
               <TouchableOpacity
                 key={t.key}
                 style={[main.tab, activeTab === t.key && main.tabActive]}
@@ -392,18 +389,21 @@ export default function CompetitionDetail() {
           {activeTab === 'regras' && <RulesView comp={comp} />}
 
           {activeTab === 'classificacao' && (
-            comp.format === 'liga' || comp.format === 'grupos' || comp.format === 'avulso' || comp.format === 'super8'
-              ? <ClassificacaoView comp={comp} />
-              : <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-                  <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', marginTop: 32 }}>
-                    Formato mata-mata não possui classificação.
-                  </Text>
-                </ScrollView>
+            comp.format === 'grupos'
+              ? <GroupsPhaseView comp={comp} onScore={setScoring} onClear={handleClear} />
+              : comp.format === 'liga' || comp.format === 'avulso' || comp.format === 'super8'
+                ? <ClassificacaoView comp={comp} />
+                : <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+                    <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', marginTop: 32 }}>
+                      Formato mata-mata não possui classificação.
+                    </Text>
+                  </ScrollView>
           )}
 
           {activeTab === 'partidas' && (
             comp.format === 'grupos'
-              ? <GroupsView comp={comp} onScore={setScoring} onClear={handleClear} />
+              ? <KOView comp={comp} onScore={setScoring} onClear={handleClear}
+                  preview={comp.status !== 'done' && !(comp.groupDefs?.every((_, gi) => groupComplete(comp.matches, gi)) ?? false)} />
               : comp.format === 'liga'
                 ? <LeagueView comp={comp} onScore={setScoring} onClear={handleClear}
                     onSubstitute={isAdmin ? handleSubstitute : undefined} />
@@ -501,6 +501,7 @@ export default function CompetitionDetail() {
           onSave={(name) => dispatch({ type: 'RENAME', compId: id!, name })}
         />
       )}
+
     </SafeAreaView>
   );
 }

@@ -35,6 +35,7 @@ export default function SettingsScreen() {
   const [showAddGuest, setShowAddGuest] = useState(false);
   const [guestName, setGuestName]       = useState('');
   const [guestColor, setGuestColor]     = useState(GUEST_COLORS[0]);
+  const [copied, setCopied]             = useState<'code' | 'invite' | null>(null);
 
   async function handleAddGuest() {
     if (!guestName.trim() || !group) return;
@@ -43,15 +44,31 @@ export default function SettingsScreen() {
   }
   const { defaultMaxScore, setDefaultMaxScore, defaultFormat, setDefaultFormat } = useSettings();
 
+  // Na web o Share.share abre o painel de compartilhamento do sistema, que
+  // falha no desktop ("Não foi possível mostrar todas as maneiras de
+  // compartilhar") — então copiamos para a área de transferência.
+  async function shareOrCopy(msg: string, which: 'code' | 'invite') {
+    if (Platform.OS === 'web') {
+      try {
+        await navigator.clipboard.writeText(msg);
+        setCopied(which);
+        setTimeout(() => setCopied(null), 2500);
+      } catch {
+        window.prompt('Copie o convite:', msg);
+      }
+    } else {
+      Share.share({ message: msg }).catch(() => {});
+    }
+  }
+
   async function handleShareInvite() {
     if (!group) return;
-    const msg = `Entra no grupo "${group.name}" no King BT!\nCódigo: ${group.code}`;
-    Share.share({ message: msg }).catch(() => {});
+    await shareOrCopy(`Entra no grupo "${group.name}" no King BT!\nCódigo: ${group.code}`, 'invite');
   }
 
   async function handleShareCode() {
     if (!group) return;
-    Share.share({ message: group.code, title: 'Código do grupo King BT' }).catch(() => {});
+    await shareOrCopy(group.code, 'code');
   }
 
   function handleRemovePlayer(playerId: string, playerUid: string | null | undefined, name: string) {
@@ -221,11 +238,13 @@ export default function SettingsScreen() {
                 <Text style={s.codeLabel}>Código</Text>
                 <Text style={s.code}>{group.code}</Text>
                 <TouchableOpacity style={s.codeShareBtn} onPress={handleShareCode}>
-                  <Text style={s.codeShareText}>Copiar</Text>
+                  <Text style={s.codeShareText}>{copied === 'code' ? '✓ Copiado!' : 'Copiar'}</Text>
                 </TouchableOpacity>
               </View>
               <TouchableOpacity style={s.inviteBtn} onPress={handleShareInvite}>
-                <Text style={s.inviteBtnText}>🔗 Convidar para o grupo</Text>
+                <Text style={s.inviteBtnText}>
+                  {copied === 'invite' ? '✓ Convite copiado! Cole no WhatsApp' : '🔗 Convidar para o grupo'}
+                </Text>
               </TouchableOpacity>
             </Card>
           </View>

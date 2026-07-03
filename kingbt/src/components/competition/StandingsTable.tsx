@@ -34,7 +34,7 @@ export function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
         <Text style={[stRow.cN,    stRow.th]}>GP</Text>
         <Text style={[stRow.cN,    stRow.th]}>GC</Text>
         <Text style={[stRow.cN,    stRow.th]}>SG</Text>
-        <Text style={[stRow.cN,    stRow.th]}>GA</Text>
+        <Text style={[stRow.cNw,   stRow.th]}>GA</Text>
         <Text style={[stRow.cPts,  stRow.th]}>PTS</Text>
       </View>
       {st.map((s, i) => {
@@ -55,7 +55,9 @@ export function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
             <Text style={[stRow.cN, { color: s.gd >= 0 ? Colors.teal : Colors.coral }]}>
               {s.gd >= 0 ? '+' : ''}{s.gd}
             </Text>
-            <Text style={stRow.cN}>{Number(s.ga).toFixed(2)}</Text>
+            <Text style={stRow.cNw} numberOfLines={1}>
+              {Number(s.ga) >= 10 ? Number(s.ga).toFixed(1) : Number(s.ga).toFixed(2)}
+            </Text>
             <Text style={[stRow.cPts, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>{Number(s.pts).toFixed(2)}</Text>
           </View>
         );

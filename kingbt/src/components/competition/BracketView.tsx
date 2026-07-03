@@ -7,10 +7,10 @@ import { getCompetitor, srcLabel, isByeSlot, firstUnscored } from './helpers';
 import { MatchRow } from './MatchRow';
 import { vw } from './viewStyles';
 
-const BK_CARD_H  = 62;
-const BK_GAP     = 10;
-const BK_ROUND_W = 150;
-const BK_CONN_W  = 30;
+const BK_CARD_H  = 80;
+const BK_GAP     = 14;
+const BK_ROUND_W = 210;
+const BK_CONN_W  = 36;
 
 function BracketMatchCard({ match: m, comp, onPress }: {
   match: Match; comp: Competition; onPress: () => void;
@@ -22,23 +22,38 @@ function BracketMatchCard({ match: m, comp, onPress }: {
   const byeA = isByeSlot(m.aId, m.aSrc);
   const byeB = isByeSlot(m.bId, m.bSrc);
   const pending = !cA || !cB;
+  const sets = has && m.sets?.length ? m.sets : null;
 
   const nameA = cA?.name ?? (byeA ? 'BYE' : srcLabel(comp, m.aSrc) ?? '—');
   const nameB = cB?.name ?? (byeB ? 'BYE' : srcLabel(comp, m.bSrc) ?? '—');
   const isPlaceholderA = !cA && !byeA;
   const isPlaceholderB = !cB && !byeB;
 
+  // Colunas de games por set (sem placar em sets)
+  function scoreCols(side: 'a' | 'b', bye: boolean) {
+    if (bye) return null;
+    if (sets) {
+      return sets.map((s, i) => (
+        <Text key={i} style={[bkCard.score, (side === 'a' ? s.a > s.b : s.b > s.a) && bkCard.winScore]}>
+          {side === 'a' ? s.a : s.b}
+        </Text>
+      ));
+    }
+    if (!has) return <Text style={bkCard.score}>–</Text>;
+    return null; // jogo antigo sem games gravados — só o destaque dourado do vencedor
+  }
+
   return (
     <TouchableOpacity onPress={onPress} disabled={pending} activeOpacity={0.8}>
       <View style={[bkCard.card, pending && !byeA && !byeB && { opacity: 0.9 }]}>
         <View style={[bkCard.row, aWon && bkCard.winRow, byeA && bkCard.byeRow]}>
           <Text style={[bkCard.name, aWon && bkCard.winName, byeA && bkCard.byeName, isPlaceholderA && bkCard.placeholderName]} numberOfLines={1}>{nameA}</Text>
-          <Text style={[bkCard.score, aWon && bkCard.winScore]}>{has && !byeA ? m.scoreA : byeA ? '' : '–'}</Text>
+          {scoreCols('a', byeA)}
         </View>
         <View style={bkCard.div} />
         <View style={[bkCard.row, !aWon && has && bkCard.winRow, byeB && bkCard.byeRow]}>
           <Text style={[bkCard.name, !aWon && has && bkCard.winName, byeB && bkCard.byeName, isPlaceholderB && bkCard.placeholderName]} numberOfLines={1}>{nameB}</Text>
-          <Text style={[bkCard.score, !aWon && has && bkCard.winScore]}>{has && !byeB ? m.scoreB : byeB ? '' : '–'}</Text>
+          {scoreCols('b', byeB)}
         </View>
       </View>
     </TouchableOpacity>
@@ -53,16 +68,16 @@ const bkCard = StyleSheet.create({
     backgroundColor: Colors.surf,
     overflow: 'hidden',
   },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, height: (BK_CARD_H - 1) / 2 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: (BK_CARD_H - 1) / 2 },
   winRow: { backgroundColor: Colors.gold + '22' },
   div: { height: 1, backgroundColor: Colors.line },
-  name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 11, color: '#FFFFFF' },
+  name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 14, color: '#FFFFFF' },
   winName: { color: Colors.gold, fontFamily: FontFamily.bodyMed },
   byeRow: { backgroundColor: Colors.surf2 },
-  byeName: { color: '#FFFFFF', fontFamily: FontFamily.numberBold, fontSize: 10, letterSpacing: 1 },
-  placeholderName: { color: '#FFFFFF', fontStyle: 'italic', fontSize: 11 },
-  score: { fontFamily: FontFamily.numberBold, fontSize: 13, color: '#FFFFFF' },
-  winScore: { color: Colors.gold },
+  byeName: { color: '#FFFFFF', fontFamily: FontFamily.numberBold, fontSize: 12, letterSpacing: 1 },
+  placeholderName: { color: '#FFFFFF', fontStyle: 'italic', fontSize: 13 },
+  score: { fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.muted, width: 22, textAlign: 'center' },
+  winScore: { color: Colors.teal },
 });
 
 export function BracketView({ comp, onScore, onClear }: {
@@ -175,7 +190,7 @@ export function BracketView({ comp, onScore, onClear }: {
 
 const bk = StyleSheet.create({
   roundLabel: {
-    fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.muted,
-    letterSpacing: 1, textAlign: 'center',
+    fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.muted,
+    letterSpacing: 1.5, textAlign: 'center',
   },
 });

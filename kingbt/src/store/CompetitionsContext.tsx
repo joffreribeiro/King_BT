@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
 import type { Competition, Substitution } from '@/logic/types';
+import { applySubstitution } from '@/logic/substitution';
 import { resolveCompetition, extractPlayerGames, buildCompetition } from '@/logic/formats';
 import { computeRivalries } from '@/logic/rivalries';
 import { MOCK_COMPETITIONS } from '@/mocks/competitions';
@@ -87,20 +88,9 @@ function reducer(state: State, action: Action): State {
     case 'SUBSTITUTE_PLAYER': {
       const comp = state.competitions.find(c => c.id === action.compId);
       if (!comp) return state;
-      const fromIdx = comp.matches.findIndex(m => m.id === action.sub.fromMatchId);
-      const updatedMatches = comp.matches.map((m, i) => {
-        if (i < fromIdx || m.scoreA != null) return m;
-        return {
-          ...m,
-          aId: m.aId === action.sub.originalId ? action.sub.substituteId : m.aId,
-          bId: m.bId === action.sub.originalId ? action.sub.substituteId : m.bId,
-          teamA: m.teamA?.map(id => id === action.sub.originalId ? action.sub.substituteId : id),
-          teamB: m.teamB?.map(id => id === action.sub.originalId ? action.sub.substituteId : id),
-        };
-      });
       const updated = {
         ...comp,
-        matches: updatedMatches,
+        matches: applySubstitution(comp.matches, action.sub),
         substitutions: [...(comp.substitutions ?? []), action.sub],
       };
       return { ...state, competitions: state.competitions.map(c => c.id === comp.id ? updated : c) };
@@ -514,24 +504,13 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
     if (action.type === 'SUBSTITUTE_PLAYER') {
       const comp = state.competitions.find(c => c.id === action.compId);
       if (comp) {
-        const fromIdx = comp.matches.findIndex(m => m.id === action.sub.fromMatchId);
-        const updatedMatches = comp.matches.map((m, i) => {
-          if (i < fromIdx || m.scoreA != null) return m;
-          return {
-            ...m,
-            aId: m.aId === action.sub.originalId ? action.sub.substituteId : m.aId,
-            bId: m.bId === action.sub.originalId ? action.sub.substituteId : m.bId,
-            teamA: m.teamA?.map(id => id === action.sub.originalId ? action.sub.substituteId : id),
-            teamB: m.teamB?.map(id => id === action.sub.originalId ? action.sub.substituteId : id),
-          };
-        });
         const updated = {
           ...comp,
-          matches: updatedMatches,
+          matches: applySubstitution(comp.matches, action.sub),
           substitutions: [...(comp.substitutions ?? []), action.sub],
         };
         try { await fsUpdateComp(group.id, updated); }
-        catch { console.error('[KingBT] Sync error: SUBSTITUTE_PLAYER'); }
+        catch (e) { console.error('[KingBT] Sync error: SUBSTITUTE_PLAYER', e); }
       }
     }
 
