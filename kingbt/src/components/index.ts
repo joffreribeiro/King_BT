@@ -19,3 +19,5 @@ export { AnimatedNumber } from './AnimatedNumber';
 export { SkeletonRow, SkeletonRanking } from './SkeletonLoader';
 export { TrendBadge } from './TrendBadge';
 export { BottomSheet } from './BottomSheet';
+export { OptionModal } from './OptionModal';
+export type { OptionItem } from './OptionModal';
