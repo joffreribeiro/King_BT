@@ -2,6 +2,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { useState, useRef, useEffect } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
@@ -32,6 +33,10 @@ function timeAgo(ts: any): string {
   return `${Math.floor(h / 24)}d`;
 }
 
+function goToPlayer(id: string) {
+  router.push({ pathname: '/player/[id]', params: { id } });
+}
+
 // O feed guarda só o placar em sets (ex.: 1–0); os games por set vivem no jogo
 // original da competição — busca via compId/matchId (funciona para posts antigos).
 function useMatchGames(item: FeedItem): { a: number; b: number }[] | null {
@@ -54,13 +59,34 @@ function FeedScoreboard({ item, sets }: { item: FeedItem; sets: { a: number; b: 
   function Row({ side }: { side: 'a' | 'b' }) {
     const info = side === 'a' ? item.sideA : item.sideB;
     const won = side === 'a' ? aWon : !aWon;
+    const ids = info?.ids ?? [];
     return (
       <View style={fsb.row}>
-        {(info?.ids ?? []).slice(0, 2).map((id, i) => {
+        {ids.slice(0, 2).map(id => {
           const pl = findPlayer(id);
-          return pl ? <Avatar key={i} name={pl.name} color={pl.color} size={24} /> : null;
+          return pl
+            ? <TouchableOpacity key={id} onPress={() => goToPlayer(id)} hitSlop={4}>
+                <Avatar name={pl.name} color={pl.color} size={24} />
+              </TouchableOpacity>
+            : null;
         })}
-        <Text style={[fsb.name, won && fsb.nameWin]} numberOfLines={1}>{info?.name}</Text>
+        {ids.length > 0 ? (
+          <View style={fsb.nameWrap}>
+            {ids.map((id, i) => {
+              const pl = findPlayer(id);
+              return (
+                <View key={id} style={{ flexDirection: 'row' }}>
+                  <TouchableOpacity onPress={() => goToPlayer(id)}>
+                    <Text style={[fsb.name, won && fsb.nameWin]} numberOfLines={1}>{pl?.name ?? id}</Text>
+                  </TouchableOpacity>
+                  {i < ids.length - 1 && <Text style={[fsb.name, won && fsb.nameWin]}> / </Text>}
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          <Text style={[fsb.name, won && fsb.nameWin]} numberOfLines={1}>{info?.name}</Text>
+        )}
         <View style={fsb.scoreZone}>
           {sets
             ? sets.map((s, i) => {
@@ -90,7 +116,8 @@ function FeedScoreboard({ item, sets }: { item: FeedItem; sets: { a: number; b: 
 const fsb = StyleSheet.create({
   box: { borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.sm, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: Spacing.sm, height: 42 },
-  name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 14, color: '#FFFFFF' },
+  nameWrap: { flex: 1, flexDirection: 'row', flexWrap: 'nowrap' },
+  name: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: '#FFFFFF' },
   nameWin: { color: Colors.gold, fontFamily: FontFamily.title },
   scoreZone: {
     width: 100, alignSelf: 'stretch',
@@ -356,7 +383,9 @@ function MilestoneCard({ item }: { item: FeedItem }) {
           {players.length > 0 && (
             <View style={mil.avatars}>
               {players.map((p, i) => (
-                <FadeAvatar key={i} name={p.name} color={p.color} size={24} delay={i * 80} />
+                <TouchableOpacity key={i} onPress={() => goToPlayer(p.id)} hitSlop={4}>
+                  <FadeAvatar name={p.name} color={p.color} size={24} delay={i * 80} />
+                </TouchableOpacity>
               ))}
             </View>
           )}
@@ -427,7 +456,12 @@ function RankChangeCard({ item }: { item: FeedItem }) {
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
-      <View style={rc.left}>
+      <TouchableOpacity
+        style={rc.left}
+        onPress={() => item.playerId && goToPlayer(item.playerId)}
+        disabled={!item.playerId}
+        activeOpacity={0.7}
+      >
         {pl
           ? <FadeAvatar name={pl.name} color={pl.color} size={40} delay={0} />
           : <Text style={{ fontSize: 28 }}>📊</Text>
@@ -441,7 +475,7 @@ function RankChangeCard({ item }: { item: FeedItem }) {
             {' · '}{item.newPoints?.toFixed(2)} pts
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
       <Animated.View style={[rc.badge, { transform: [{ scale: badgePulse }] }]}>
         <Text style={rc.arrow}>↑{climbed}</Text>
       </Animated.View>

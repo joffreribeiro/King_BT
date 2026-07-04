@@ -1,10 +1,19 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 import { Colors, FontFamily, Spacing } from '@/theme';
 import { Avatar, Card } from '@/components';
 import { standings } from '@/logic/formats';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import type { Match, Competition } from '@/logic/types';
 import { getPlayer, getCompetitor } from './helpers';
+
+// Em duplas fixas, o id da linha é o time (sem perfil próprio) — só navega
+// quando dá pra resolver um único jogador real por trás do id.
+function resolvePlayerLink(comp: Competition, id: string): string | null {
+  const competitor = getCompetitor(comp, id);
+  if (competitor) return competitor.members.length === 1 ? competitor.members[0] : null;
+  return id; // sem competitor cadastrado: o próprio id já é o jogador (avulso/individual)
+}
 
 export function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
   comp: Competition; ids: string[]; matches: Match[]; highlightTop?: number;
@@ -30,7 +39,6 @@ export function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
         <Text style={[stRow.cName, stRow.th]}>JOGADOR</Text>
         <Text style={[stRow.cN,    stRow.th]}>V</Text>
         <Text style={[stRow.cN,    stRow.th]}>D</Text>
-        <Text style={[stRow.cN,    stRow.th]}>J</Text>
         <Text style={[stRow.cN,    stRow.th]}>GP</Text>
         <Text style={[stRow.cN,    stRow.th]}>GC</Text>
         <Text style={[stRow.cN,    stRow.th]}>SG</Text>
@@ -41,19 +49,24 @@ export function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
         const pl = resolveEntry(s.id);
         const classified = highlightTop > 0 && i < highlightTop;
         const winRate = s.played > 0 ? Math.round((s.wins / s.played) * 100) : 0;
+        const linkId = resolvePlayerLink(comp, s.id);
         return (
           <View key={s.id} style={[stRow.row, i < st.length - 1 && stRow.border, classified && stRow.classified]}>
             <Text style={[stRow.c0, stRow.pos]}>{i + 1}</Text>
-            <View style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+            <TouchableOpacity
+              style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}
+              onPress={() => linkId && router.push({ pathname: '/player/[id]', params: { id: linkId } })}
+              disabled={!linkId}
+              activeOpacity={0.7}
+            >
               <Avatar name={pl.name} color={pl.color} size={22} />
               <View style={{ flex: 1 }}>
                 <Text style={stRow.name} numberOfLines={1}>{pl.name}</Text>
                 <Text style={stRow.meta}>{s.played}J · {winRate}% aprov.</Text>
               </View>
-            </View>
+            </TouchableOpacity>
             <Text style={stRow.cN}>{s.wins}</Text>
             <Text style={stRow.cN}>{s.losses}</Text>
-            <Text style={stRow.cN}>{s.played}</Text>
             <Text style={stRow.cN}>{s.gf}</Text>
             <Text style={stRow.cN}>{Math.round(s.gf - s.gd)}</Text>
             <Text style={[stRow.cN, { color: s.gd >= 0 ? Colors.teal : Colors.coral }]}>
@@ -68,7 +81,7 @@ export function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
       })}
       {/* Legenda */}
       <View style={stRow.legend}>
-        <Text style={stRow.legendText}>V: Vitórias · D: Derrotas · J: Partidas · GP: Games Pró · GC: Games Contra · SG: Saldo · GA: Game Average · PTS: Pontuação</Text>
+        <Text style={stRow.legendText}>V: Vitórias · D: Derrotas · GP: Games Pró · GC: Games Contra · SG: Saldo · GA: Game Average · PTS: Pontuação</Text>
       </View>
     </Card>
   );

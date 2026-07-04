@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useRef, useMemo } from 'react';
 import ViewShot from 'react-native-view-shot';
@@ -57,6 +57,10 @@ export default function RankingScreen() {
   const { state } = useCompetitions();
   const { myPlayerId } = useAuth();
   const { groupPlayers, findPlayer } = useGroupPlayers();
+  // Tela estreita (celular): esconde V/D/J/GP/GC — o subtítulo do jogador já
+  // resume J e % de aproveitamento, então nada de essencial se perde.
+  const { width: screenWidth } = useWindowDimensions();
+  const compact = screenWidth < 480;
   const [showFormula, setShowFormula] = useState(false);
   const [compareA, setCompareA] = useState<string | null>(null);
   const [compareB, setCompareB] = useState<string | null>(null);
@@ -216,9 +220,11 @@ export default function RankingScreen() {
             <Text style={[styles.cName, styles.th]}>JOGADOR</Text>
             <Text style={[styles.cStat, styles.th]}>V</Text>
             <Text style={[styles.cStat, styles.th]}>D</Text>
-            <Text style={[styles.cStat, styles.th]}>J</Text>
-            <Text style={[styles.cStat, styles.th]}>GP</Text>
-            <Text style={[styles.cStat, styles.th]}>GC</Text>
+            {!compact && <>
+              <Text style={[styles.cStat, styles.th]}>J</Text>
+              <Text style={[styles.cStat, styles.th]}>GP</Text>
+              <Text style={[styles.cStat, styles.th]}>GC</Text>
+            </>}
             <Text style={[styles.cStatWide, styles.th]}>SG</Text>
             <Text style={[styles.cStat, styles.th]}>GA</Text>
             <Text style={[styles.cPts, styles.th]}>PTS</Text>
@@ -256,7 +262,7 @@ export default function RankingScreen() {
                 <Text style={[styles.c0, styles.posText, isMe && { color: Colors.gold }]}>{i + 1}</Text>
 
                 <View style={[styles.cName, styles.rowPlayer]}>
-                  <Avatar name={pl?.name ?? '?'} color={pl?.color ?? '#888'} size={28} />
+                  <Avatar name={pl?.name ?? '?'} color={pl?.color ?? '#888'} size={22} />
                   <View style={styles.nameBlock}>
                     <View style={styles.nameRow}>
                       <Text style={[styles.playerName, isMe && { color: Colors.gold }, { flexShrink: 1 }]} numberOfLines={1}>
@@ -283,9 +289,11 @@ export default function RankingScreen() {
 
                 <Text style={[styles.cStat, styles.statText]}>{s.wins}</Text>
                 <Text style={[styles.cStat, styles.statText]}>{s.losses}</Text>
-                <Text style={[styles.cStat, styles.statText]}>{s.played}</Text>
-                <Text style={[styles.cStat, styles.statText]}>{s.gamesPro}</Text>
-                <Text style={[styles.cStat, styles.statText]}>{s.gamesCon}</Text>
+                {!compact && <>
+                  <Text style={[styles.cStat, styles.statText]}>{s.played}</Text>
+                  <Text style={[styles.cStat, styles.statText]}>{s.gamesPro}</Text>
+                  <Text style={[styles.cStat, styles.statText]}>{s.gamesCon}</Text>
+                </>}
                 <Text style={[styles.cStatWide, styles.statText, { color: sgColor }]}>
                   {s.sg > 0 ? '+' : ''}{s.sg}
                 </Text>
@@ -632,8 +640,8 @@ const styles = StyleSheet.create({
   legendText: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint, textAlign: 'center', lineHeight: 16 },
 
   table: { marginTop: Spacing.md },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 11 },
-  rowHeader: { paddingVertical: 7 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 7 },
+  rowHeader: { paddingVertical: 5 },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.line },
   rowMe: { backgroundColor: Colors.gold + '14', borderLeftWidth: 3, borderLeftColor: Colors.gold },
   rowUp: { borderColor: 'rgba(84,185,129,0.20)' },
@@ -651,21 +659,21 @@ const styles = StyleSheet.create({
   // alignItems não funciona em Text, por isso o cabeçalho ficava desalinhado
   cPts: { width: 80, textAlign: 'right' },
 
-  th: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 0.5 },
-  posText: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted },
+  th: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 0.3 },
+  posText: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted },
   rowPlayer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   nameBlock: { flex: 1, overflow: 'hidden' },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 3, overflow: 'hidden' },
-  playerName: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, flexShrink: 1 },
-  playerMeta: { fontSize: 11, color: Colors.muted, fontFamily: FontFamily.body },
+  playerName: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.text, flexShrink: 1 },
+  playerMeta: { fontSize: 9, color: Colors.faint, fontFamily: FontFamily.body, marginTop: 1 },
   youBadge: {
     backgroundColor: Colors.gold + '33', borderRadius: Radius.full,
     paddingHorizontal: 5, paddingVertical: 1,
   },
   youText: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.gold },
   statText: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.text, textAlign: 'center' },
-  ptsText: { fontFamily: FontFamily.numberBold, fontSize: 15, color: Colors.gold, textAlign: 'right' },
-  trendSmall: { fontFamily: FontFamily.numberBold, fontSize: 10, fontWeight: '700', textAlign: 'right' },
+  ptsText: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.gold, textAlign: 'right' },
+  trendSmall: { fontFamily: FontFamily.numberBold, fontSize: 9, fontWeight: '700', textAlign: 'right' },
 });
 
 const cmp = StyleSheet.create({

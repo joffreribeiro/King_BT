@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 import { shareText, notifyCopied } from '@/services/share';
 import { useState } from 'react';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
@@ -141,7 +142,6 @@ export function ClassificacaoView({ comp }: { comp: Competition }) {
           <Text style={[stRow.cName, stRow.th]}>JOGADOR</Text>
           <Text style={[stRow.cN, stRow.th]}>V</Text>
           <Text style={[stRow.cN, stRow.th]}>D</Text>
-          <Text style={[stRow.cN, stRow.th]}>J</Text>
           <Text style={[stRow.cN, stRow.th]}>GP</Text>
           <Text style={[stRow.cN, stRow.th]}>GC</Text>
           <Text style={[stRow.cN, stRow.th]}>SG</Text>
@@ -156,16 +156,19 @@ export function ClassificacaoView({ comp }: { comp: Competition }) {
           return (
             <View key={r.pid} style={[stRow.row, i < rankingStats.length - 1 && stRow.border]}>
               <Text style={[stRow.c0, stRow.pos]}>{i + 1}</Text>
-              <View style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+              <TouchableOpacity
+                style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}
+                onPress={() => router.push({ pathname: '/player/[id]', params: { id: r.pid } })}
+                activeOpacity={0.7}
+              >
                 {pl && <Avatar name={pl.name} color={pl.color} size={22} />}
                 <View style={{ flex: 1 }}>
                   <Text style={stRow.name} numberOfLines={1}>{pl?.name ?? r.pid}</Text>
                   <Text style={stRow.meta}>{r.played}J · {winRate}% aprov.</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
               <Text style={stRow.cN}>{r.wins}</Text>
               <Text style={stRow.cN}>{r.losses}</Text>
-              <Text style={stRow.cN}>{r.played}</Text>
               <Text style={stRow.cN}>{r.gf}</Text>
               <Text style={stRow.cN}>{r.gc}</Text>
               <Text style={[stRow.cN, { color: sgColor }]}>{sg > 0 ? '+' : ''}{sg}</Text>
@@ -178,7 +181,7 @@ export function ClassificacaoView({ comp }: { comp: Competition }) {
         })}
         {/* Legenda */}
         <View style={stRow.legend}>
-          <Text style={stRow.legendText}>V: Vitórias · D: Derrotas · J: Partidas · GP: Games Pró · GC: Games Contra · SG: Saldo · GA: Game Average · PTS: Pontuação</Text>
+          <Text style={stRow.legendText}>V: Vitórias · D: Derrotas · GP: Games Pró · GC: Games Contra · SG: Saldo · GA: Game Average · PTS: Pontuação</Text>
         </View>
       </Card>
       <View style={{ height: Spacing.xl }} />
