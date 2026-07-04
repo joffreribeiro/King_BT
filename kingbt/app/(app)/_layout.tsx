@@ -194,7 +194,6 @@ function FABMenu({ insetBottom }: { insetBottom: number }) {
   const FAB_ITEMS = [
     { icon: '➕', label: 'Nova Competição', path: '/competitions/new/format' },
     { icon: '🏓', label: 'Quadra ao Vivo',  path: '/court' },
-    { icon: '🔗', label: 'Convidar Jogador', path: '/settings' },
   ];
 
   return (
@@ -292,6 +291,19 @@ function OfflineBanner() {
   );
 }
 
+// Banner de modo visitante — usuário está vendo um grupo público sem ser membro
+function VisitorBanner() {
+  return (
+    <View style={styles.visitorBanner}>
+      <Text style={{ fontSize: 12 }}>👁</Text>
+      <Text style={styles.visitorText}>Modo visitante — você está vendo este grupo como convidado</Text>
+      <TouchableOpacity onPress={() => router.replace('/(auth)/groups')} hitSlop={6}>
+        <Text style={styles.visitorExit}>Sair</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 // ── Header ─────────────────────────────────────────────────────────────────────
 function AppHeader({ onMenuPress }: { onMenuPress: () => void }) {
   const { group, user, myPlayerId } = useAuth();
@@ -344,10 +356,12 @@ function AppHeader({ onMenuPress }: { onMenuPress: () => void }) {
 export default function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const insets = useSafeAreaInsets();
+  const { isMember } = useAuth();
 
   return (
     <ErrorBoundary label="AppLayout">
       <OfflineBanner />
+      {!isMember && <VisitorBanner />}
       <AppHeader onMenuPress={() => setDrawerOpen(true)} />
 
       <Tabs
@@ -371,7 +385,7 @@ export default function AppLayout() {
         <Tabs.Screen name="notifications" options={{ href: null }} />
       </Tabs>
 
-      <FABMenu insetBottom={insets.bottom} />
+      {isMember && <FABMenu insetBottom={insets.bottom} />}
       <DrawerMenu visible={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </ErrorBoundary>
   );
@@ -460,4 +474,11 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   offlineText: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.coral },
+  visitorBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: Colors.gold + '22', borderBottomWidth: 1, borderBottomColor: Colors.gold + '44',
+    paddingVertical: 6, paddingHorizontal: Spacing.md,
+  },
+  visitorText: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.gold, textAlign: 'center' },
+  visitorExit: { fontFamily: FontFamily.title, fontSize: 12, color: Colors.gold, textDecorationLine: 'underline' },
 });

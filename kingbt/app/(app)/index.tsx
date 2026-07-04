@@ -250,7 +250,7 @@ function CompCard({ comp, onDelete, onClone }: {
         {/* Card body */}
         <View style={styles.cardBody}>
           <Text style={styles.cardName}>{comp.name}</Text>
-          <Text style={styles.cardMetaText}>{formatDate(comp.date)} · {comp.competitors.length} jogadores</Text>
+          <Text style={styles.cardMetaText}>{formatDate(comp.date)} · {allPlayerIds.length} jogadores</Text>
 
           {/* Player bubbles com fade-in */}
           {players.length > 0 && (

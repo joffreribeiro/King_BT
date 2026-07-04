@@ -94,7 +94,7 @@ function useLoginParticles(count: number) {
 }
 
 export default function LoginScreen() {
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, error, clearError, user, group, loading } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, error, clearError, user, groupIds, loading } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('options');
 
@@ -138,9 +138,10 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (loading) return;
-    if (user && group) router.replace('/(app)');
-    else if (user && !group) router.replace('/(auth)/join');
-  }, [loading, user, group]);
+    // Após o login: com grupos vai para a tela de escolha; sem grupos, entra/cria
+    if (user && groupIds.length > 0) router.replace('/(auth)/groups');
+    else if (user) router.replace('/(auth)/join');
+  }, [loading, user, groupIds]);
   const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');

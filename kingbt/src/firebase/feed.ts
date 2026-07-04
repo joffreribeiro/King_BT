@@ -14,6 +14,8 @@ export type FeedItem = {
   format?: string;
   sideA?: { ids: string[]; name: string; score: number };
   sideB?: { ids: string[]; name: string; score: number };
+  /** Games por set, gravados direto no post — sobrevive à exclusão da competição original */
+  sets?: { a: number; b: number }[] | null;
   timestamp: Timestamp;
   reactions: Record<string, string[]>;
   comments: { uid: string; name: string; text: string; ts: Timestamp }[];

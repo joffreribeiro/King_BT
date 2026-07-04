@@ -1,9 +1,9 @@
 import {
-  collection, doc, addDoc, updateDoc, onSnapshot,
+  collection, doc, addDoc, updateDoc, setDoc, onSnapshot,
   query, orderBy, arrayUnion, arrayRemove, type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './config';
-import type { Competition, Match } from '@/logic/types';
+import type { Competition, Match, JoinRequest } from '@/logic/types';
 
 const compsCol = (groupId: string) =>
   collection(db, 'groups', groupId, 'competitions');
@@ -96,5 +96,64 @@ export async function cancelParticipation(
 ): Promise<void> {
   await updateDoc(compDoc(groupId, compId), {
     confirmedIds: arrayRemove(playerId),
+  });
+}
+
+/** Visitante (não-membro) de grupo público solicita inscrição numa competição */
+export async function requestRegistration(
+  groupId: string,
+  compId: string,
+  request: JoinRequest
+): Promise<void> {
+  await updateDoc(compDoc(groupId, compId), {
+    joinRequests: arrayUnion(request),
+  });
+}
+
+/** Visitante cancela sua própria solicitação de inscrição */
+export async function cancelRegistrationRequest(
+  groupId: string,
+  compId: string,
+  request: JoinRequest
+): Promise<void> {
+  await updateDoc(compDoc(groupId, compId), {
+    joinRequests: arrayRemove(request),
+  });
+}
+
+/** Admin recusa uma solicitação — só remove o pedido, sem outro efeito */
+export async function rejectJoinRequest(
+  groupId: string,
+  compId: string,
+  request: JoinRequest
+): Promise<void> {
+  await updateDoc(compDoc(groupId, compId), {
+    joinRequests: arrayRemove(request),
+  });
+}
+
+/**
+ * Admin aprova uma solicitação: o visitante vira membro pleno do grupo —
+ * ganha um perfil de jogador vinculado, entra em `members` e é confirmado
+ * na competição. A solicitação é removida ao final.
+ */
+export async function approveJoinRequest(
+  groupId: string,
+  compId: string,
+  request: JoinRequest,
+  playerColor: string
+): Promise<void> {
+  await setDoc(doc(db, 'groups', groupId, 'players', request.uid), {
+    name: request.name,
+    uid: request.uid,
+    color: playerColor,
+    guest: false,
+  });
+  await updateDoc(doc(db, 'groups', groupId), {
+    members: arrayUnion(request.uid),
+  });
+  await updateDoc(compDoc(groupId, compId), {
+    confirmedIds: arrayUnion(request.uid),
+    joinRequests: arrayRemove(request),
   });
 }

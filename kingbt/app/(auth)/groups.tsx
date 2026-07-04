@@ -7,7 +7,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { useAuth } from '@/store/AuthContext';
-import type { Group } from '@/store/AuthContext';
+import type { Group, UnlinkedPlayer } from '@/store/AuthContext';
+import { LinkPlayerModal } from '@/components/LinkPlayerModal';
 
 type Mode = 'list' | 'join' | 'create';
 
@@ -21,8 +22,18 @@ export default function GroupsScreen() {
   const [name, setName]         = useState('');
   const [busy, setBusy]         = useState(false);
 
+  // Modal de vínculo de perfil — só aparece ao entrar num grupo novo por código
+  const [unlinked, setUnlinked] = useState<UnlinkedPlayer[]>([]);
+  const [showLink, setShowLink] = useState(false);
+
+  // Grupos públicos que o usuário pode visitar (somente leitura)
+  const [publicGroups, setPublicGroups] = useState<Group[]>([]);
+  const [loadingPublic, setLoadingPublic] = useState(true);
+  const [visitBusy, setVisitBusy] = useState(false);
+
   useEffect(() => {
     loadGroups();
+    loadPublicGroups();
   }, []);
 
   async function loadGroups() {
@@ -32,7 +43,36 @@ export default function GroupsScreen() {
     setLoadingGroups(false);
   }
 
+  async function loadPublicGroups() {
+    setLoadingPublic(true);
+    try {
+      const [{ collection, query, where, limit, getDocs }, myIds] = await Promise.all([
+        import('firebase/firestore'),
+        getMyGroups().then(gs => gs.map(g => g.id)),
+      ]);
+      const { db } = await import('@/firebase/config');
+      const snap = await getDocs(query(collection(db, 'groups'), where('visibility', '==', 'publico'), limit(20)));
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }) as Group);
+      setPublicGroups(all.filter(g => !myIds.includes(g.id)));
+    } catch {
+      setPublicGroups([]);
+    }
+    setLoadingPublic(false);
+  }
+
+  async function handleVisit(groupId: string) {
+    setVisitBusy(true);
+    await switchGroup(groupId);
+    setVisitBusy(false);
+    router.replace('/(app)');
+  }
+
   async function handleSwitch(groupId: string) {
+    // Grupo já ativo — entra direto, sem gravar nada
+    if (currentGroup?.id === groupId) {
+      router.replace('/(app)');
+      return;
+    }
     setBusy(true);
     await switchGroup(groupId);
     setBusy(false);
@@ -43,8 +83,13 @@ export default function GroupsScreen() {
     if (!code.trim()) return;
     setBusy(true);
     clearError();
-    await joinGroup(code.trim());
+    const result = await joinGroup(code.trim());
     setBusy(false);
+    if (result.needsLink) {
+      setUnlinked(result.unlinkedPlayers);
+      setShowLink(true);
+      return;
+    }
     router.replace('/(app)');
   }
 
@@ -68,12 +113,14 @@ export default function GroupsScreen() {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
 
-        {/* Header */}
+        {/* Header — botão voltar só quando veio de dentro do app */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Text style={styles.backIcon}>‹</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Meus grupos</Text>
+          {router.canGoBack() && (
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <Text style={styles.backIcon}>‹</Text>
+            </TouchableOpacity>
+          )}
+          <Text style={styles.headerTitle}>Escolha seu grupo</Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -100,17 +147,15 @@ export default function GroupsScreen() {
                           key={g.id}
                           style={[styles.groupCard, currentGroup?.id === g.id && styles.groupCardActive]}
                           onPress={() => handleSwitch(g.id)}
-                          disabled={busy || currentGroup?.id === g.id}
+                          disabled={busy}
                           activeOpacity={0.8}
                         >
                           <View style={styles.groupCardInfo}>
                             <Text style={styles.groupCardName}>{g.name}</Text>
                             <Text style={styles.groupCardCode}>{g.code}</Text>
                           </View>
-                          {currentGroup?.id === g.id
-                            ? <Text style={styles.activeBadge}>Ativo</Text>
-                            : <Text style={styles.groupCardArrow}>›</Text>
-                          }
+                          {currentGroup?.id === g.id && <Text style={styles.activeBadge}>Ativo</Text>}
+                          <Text style={styles.groupCardArrow}>›</Text>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -135,6 +180,28 @@ export default function GroupsScreen() {
                       <Text style={styles.groupCardArrow}>›</Text>
                     </TouchableOpacity>
                   </View>
+
+                  {/* Explorar grupos públicos */}
+                  {!loadingPublic && publicGroups.length > 0 && (
+                    <View style={styles.section}>
+                      <Text style={styles.sectionTitle}>Explorar grupos públicos</Text>
+                      {publicGroups.map(g => (
+                        <TouchableOpacity
+                          key={g.id}
+                          style={styles.groupCard}
+                          onPress={() => handleVisit(g.id)}
+                          disabled={visitBusy}
+                          activeOpacity={0.8}
+                        >
+                          <View style={styles.groupCardInfo}>
+                            <Text style={styles.groupCardName}>{g.name}</Text>
+                            <Text style={styles.groupCardCode}>🌍 Público</Text>
+                          </View>
+                          <Text style={styles.visitBadge}>👁 Visitar</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
                 </>
               )}
             </>
@@ -210,6 +277,12 @@ export default function GroupsScreen() {
 
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <LinkPlayerModal
+        visible={showLink}
+        unlinkedPlayers={unlinked}
+        onDone={() => { setShowLink(false); router.replace('/(app)'); }}
+      />
     </SafeAreaView>
   );
 }
@@ -228,13 +301,14 @@ const styles = StyleSheet.create({
   section: { gap: Spacing.sm },
   sectionTitle: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.muted, letterSpacing: 1, marginBottom: Spacing.xs },
 
-  groupCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, padding: Spacing.md },
+  groupCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, padding: Spacing.md },
   groupCardActive: { borderColor: Colors.gold, backgroundColor: Colors.surf2 },
   groupCardInfo: { flex: 1, gap: 2 },
   groupCardName: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
   groupCardCode: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted, letterSpacing: 1 },
   groupCardArrow: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.faint },
   activeBadge: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.gold, backgroundColor: Colors.gold + '22', paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.full },
+  visitBadge: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.teal, backgroundColor: Colors.teal + '22', paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.full },
 
   optionBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, padding: Spacing.md },
   optionIcon: { fontSize: 22 },

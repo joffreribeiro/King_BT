@@ -18,6 +18,15 @@ export function RulesView({ comp }: { comp: Competition }) {
   const superTb = wr.superTiebreak ?? false;
   const superTbPts = wr.superTiebreakPts ?? 10;
 
+  // Nº de participantes: soma competitors + jogadores só referenciados nos
+  // jogos (competições antigas/migradas podem ter competitors vazio).
+  const playerIds = new Set<string>();
+  comp.competitors.forEach(c => playerIds.add(c.id));
+  comp.matches.forEach(m => {
+    (m.teamA ?? (m.aId ? [m.aId] : [])).forEach(id => playerIds.add(id));
+    (m.teamB ?? (m.bId ? [m.bId] : [])).forEach(id => playerIds.add(id));
+  });
+
   function RuleRow({ icon, label, value, valueColor }: { icon: string; label: string; value: string; valueColor?: string }) {
     return (
       <View style={rls.row}>
@@ -56,7 +65,7 @@ export function RulesView({ comp }: { comp: Competition }) {
         <View style={rls.divider} />
         <RuleRow icon="📅" label="Data" value={new Date(comp.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} />
         <View style={rls.divider} />
-        <RuleRow icon="🎮" label="Participantes" value={`${comp.competitors.length} jogadores`} />
+        <RuleRow icon="🎮" label="Participantes" value={`${playerIds.size} jogadores`} />
       </Section>
 
       {/* Regras do jogo */}

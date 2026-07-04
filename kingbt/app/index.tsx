@@ -9,7 +9,7 @@ import SplashAnimation from '@/components/SplashAnimation';
 const ONBOARDING_KEY = '@kingbt:onboarding_done';
 
 export default function Root() {
-  const { user, group, loading } = useAuth();
+  const { user, groupIds, loading } = useAuth();
   const router = useRouter();
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [onboardingDone, setOnboardingDone] = useState(false);
@@ -32,9 +32,11 @@ export default function Root() {
     }
 
     if (!user) router.replace('/(auth)/login');
-    else if (!group) router.replace('/(auth)/join');
-    else router.replace('/(app)');
-  }, [splashDone, loading, checkingOnboarding, user, group, onboardingDone]);
+    // Sem nenhum grupo — fluxo de entrar com código / criar
+    else if (groupIds.length === 0) router.replace('/(auth)/join');
+    // Com 1+ grupos — sempre passa pela tela de escolha de grupo
+    else router.replace('/(auth)/groups');
+  }, [splashDone, loading, checkingOnboarding, user, groupIds, onboardingDone]);
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.bg }}>

@@ -130,7 +130,7 @@ export function ClassificacaoView({ comp }: { comp: Competition }) {
     const played = wins + losses;
     const ga = gc > 0 ? Math.min(9.99, gf / gc) : gf > 0 ? 9.99 : 0;
     const pts = wins * 3 + played * 0.5 + ga * 2;
-    return { pid, wins, losses, played, gf, gc, pts };
+    return { pid, wins, losses, played, gf, gc, ga, pts };
   }).sort((a, b) => b.pts - a.pts);
 
   return (
@@ -139,29 +139,47 @@ export function ClassificacaoView({ comp }: { comp: Competition }) {
         <View style={[stRow.row, stRow.header]}>
           <Text style={[stRow.c0, stRow.th]}>#</Text>
           <Text style={[stRow.cName, stRow.th]}>JOGADOR</Text>
-          <Text style={[stRow.cN, stRow.th]}>J</Text>
           <Text style={[stRow.cN, stRow.th]}>V</Text>
-          <Text style={[stRow.cNw, stRow.th]}>SG</Text>
+          <Text style={[stRow.cN, stRow.th]}>D</Text>
+          <Text style={[stRow.cN, stRow.th]}>J</Text>
+          <Text style={[stRow.cN, stRow.th]}>GP</Text>
+          <Text style={[stRow.cN, stRow.th]}>GC</Text>
+          <Text style={[stRow.cN, stRow.th]}>SG</Text>
+          <Text style={[stRow.cNw, stRow.th]}>GA</Text>
           <Text style={[stRow.cPts, stRow.th]}>PTS</Text>
         </View>
         {rankingStats.map((r, i) => {
           const pl = findPlayer(r.pid);
           const sg = r.gf - r.gc;
           const sgColor = sg > 0 ? Colors.teal : sg < 0 ? Colors.coral : Colors.muted;
+          const winRate = r.played > 0 ? Math.round((r.wins / r.played) * 100) : 0;
           return (
             <View key={r.pid} style={[stRow.row, i < rankingStats.length - 1 && stRow.border]}>
               <Text style={[stRow.c0, stRow.pos]}>{i + 1}</Text>
               <View style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
                 {pl && <Avatar name={pl.name} color={pl.color} size={22} />}
-                <Text style={stRow.name} numberOfLines={1}>{pl?.name ?? r.pid}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={stRow.name} numberOfLines={1}>{pl?.name ?? r.pid}</Text>
+                  <Text style={stRow.meta}>{r.played}J · {winRate}% aprov.</Text>
+                </View>
               </View>
-              <Text style={stRow.cN}>{r.played}</Text>
               <Text style={stRow.cN}>{r.wins}</Text>
-              <Text style={[stRow.cNw, { color: sgColor }]}>{sg > 0 ? '+' : ''}{sg}</Text>
+              <Text style={stRow.cN}>{r.losses}</Text>
+              <Text style={stRow.cN}>{r.played}</Text>
+              <Text style={stRow.cN}>{r.gf}</Text>
+              <Text style={stRow.cN}>{r.gc}</Text>
+              <Text style={[stRow.cN, { color: sgColor }]}>{sg > 0 ? '+' : ''}{sg}</Text>
+              <Text style={stRow.cNw} numberOfLines={1}>
+                {r.ga >= 10 ? r.ga.toFixed(1) : r.ga.toFixed(2)}
+              </Text>
               <Text style={[stRow.cPts, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>{r.pts.toFixed(2)}</Text>
             </View>
           );
         })}
+        {/* Legenda */}
+        <View style={stRow.legend}>
+          <Text style={stRow.legendText}>V: Vitórias · D: Derrotas · J: Partidas · GP: Games Pró · GC: Games Contra · SG: Saldo · GA: Game Average · PTS: Pontuação</Text>
+        </View>
       </Card>
       <View style={{ height: Spacing.xl }} />
     </ScrollView>

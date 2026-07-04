@@ -290,7 +290,7 @@ export default function RankingScreen() {
                   {s.sg > 0 ? '+' : ''}{s.sg}
                 </Text>
                 <Text style={[styles.cStat, styles.statText]}>{s.ga.toFixed(2)}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', width: 80, gap: 3 }}>
+                <View style={[styles.cPts, { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 3 }]}>
                   <AnimatedNumber
                     value={s.points}
                     decimals={2}
@@ -647,7 +647,9 @@ const styles = StyleSheet.create({
   cName: { flex: 1 },
   cStat: { width: 30, textAlign: 'center' },
   cStatWide: { width: 36, textAlign: 'center' },
-  cPts: { width: 44, alignItems: 'flex-end' },
+  // width igual ao View de PTS na linha de dados (número + selo de tendência);
+  // alignItems não funciona em Text, por isso o cabeçalho ficava desalinhado
+  cPts: { width: 80, textAlign: 'right' },
 
   th: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 0.5 },
   posText: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted },

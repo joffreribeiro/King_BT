@@ -292,6 +292,9 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
                 name: nameB,
                 score: action.scoreB,
               },
+              // Games por set gravados direto no post — assim o placar do feed
+              // continua correto mesmo que a competição seja apagada depois.
+              sets: action.sets ?? null,
               timestamp: Timestamp.now(),
               reactions: { '👑': [], '🔥': [], '💪': [] },
               comments: [],

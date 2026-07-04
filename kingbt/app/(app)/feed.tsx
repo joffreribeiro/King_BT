@@ -36,6 +36,10 @@ function timeAgo(ts: any): string {
 // original da competição — busca via compId/matchId (funciona para posts antigos).
 function useMatchGames(item: FeedItem): { a: number; b: number }[] | null {
   const { state } = useCompetitions();
+  // Prioridade 1: games gravados direto no post (sobrevive à exclusão da competição)
+  if (item.sets?.length) return item.sets;
+  // Prioridade 2: posts antigos, sem o campo — busca ao vivo na competição
+  // (só funciona se a competição/jogo original ainda existir)
   const comp = state.competitions.find(c => c.id === item.compId);
   const match = item.matchId ? comp?.matches.find(m => m.id === item.matchId) : undefined;
   return match?.sets?.length ? match.sets : null;

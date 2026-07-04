@@ -1,18 +1,18 @@
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Modal,
+  ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { useAuth, type UnlinkedPlayer } from '@/store/AuthContext';
+import { LinkPlayerModal } from '@/components/LinkPlayerModal';
 
 type Mode = 'join' | 'create';
-type LinkMode = 'ask' | 'search' | 'list' | 'create';
 
 export default function JoinGroupScreen() {
-  const { user, group, loading, myPlayerId, joinGroup, linkToPlayer, createGroup, logout, error, clearError } = useAuth();
+  const { user, group, loading, myPlayerId, joinGroup, createGroup, logout, error, clearError } = useAuth();
   const router = useRouter();
   const [mode, setMode]   = useState<Mode>('join');
   const [code, setCode]   = useState('');
@@ -20,14 +20,8 @@ export default function JoinGroupScreen() {
   const [busy, setBusy]   = useState(false);
 
   // Modal de vínculo de perfil
-  const [unlinked, setUnlinked]         = useState<UnlinkedPlayer[]>([]);
-  const [showLink, setShowLink]         = useState(false);
-  const [modalOpened, setModalOpened]   = useState(false);
-  const [linkBusy, setLinkBusy]     = useState(false);
-  const [linkMode, setLinkMode]     = useState<LinkMode>('ask');
-  const [searchName, setSearchName] = useState('');
-  const [searchError, setSearchError] = useState('');
-  const [newProfileName, setNewProfileName] = useState('');
+  const [unlinked, setUnlinked] = useState<UnlinkedPlayer[]>([]);
+  const [showLink, setShowLink] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -35,25 +29,6 @@ export default function JoinGroupScreen() {
       router.replace('/(app)');
     }
   }, [loading, user, group, myPlayerId, showLink]);
-
-  async function openLinkModal() {
-    if (!group) return;
-    try {
-      const [{ collection, getDocs }, { db }] = await Promise.all([
-        import('firebase/firestore'),
-        import('@/firebase/config'),
-      ]);
-      const playersSnap = await getDocs(collection(db, 'groups', group.id, 'players'));
-      const unlinkedList = playersSnap.docs
-        .filter(d => !d.data().uid)
-        .map(d => ({ id: d.id, name: d.data().name ?? '?', color: d.data().color ?? '#FFD166' }));
-      setUnlinked(unlinkedList);
-      setLinkMode('ask');
-      setSearchName('');
-      setSearchError('');
-      setShowLink(true);
-    } catch {}
-  }
 
   async function handleJoin() {
     if (!code.trim()) return;
@@ -63,10 +38,6 @@ export default function JoinGroupScreen() {
     setBusy(false);
     if (result.needsLink) {
       setUnlinked(result.unlinkedPlayers);
-      setLinkMode('ask');
-      setSearchName('');
-      setSearchError('');
-      setModalOpened(true);
       setShowLink(true);
     }
   }
@@ -77,46 +48,6 @@ export default function JoinGroupScreen() {
     clearError();
     await createGroup(name.trim());
     setBusy(false);
-  }
-
-  async function handleLinkTo(playerId: string) {
-    setLinkBusy(true);
-    await linkToPlayer(playerId);
-    setLinkBusy(false);
-    setShowLink(false);
-  }
-
-  async function handleLinkByName() {
-    const trimmed = searchName.trim().toLowerCase();
-    if (!trimmed) return;
-    const match = unlinked.find(p => p.name.trim().toLowerCase() === trimmed);
-    if (!match) {
-      setSearchError('Nenhum perfil encontrado com esse nome. Verifique a grafia ou crie um novo.');
-      return;
-    }
-    setSearchError('');
-    await handleLinkTo(match.id);
-  }
-
-  async function handleCreateNew() {
-    if (!user || !group) return;
-    const profileName = newProfileName.trim() || user.displayName || 'Jogador';
-    setLinkBusy(true);
-    try {
-      const [{ doc, setDoc }, { db }] = await Promise.all([
-        import('firebase/firestore'),
-        import('@/firebase/config'),
-      ]);
-      await setDoc(doc(db, 'groups', group.id, 'players', user.uid), {
-        name: profileName,
-        uid: user.uid,
-        color: '#FFD166',
-        guest: false,
-      });
-      await linkToPlayer(user.uid);
-    } catch {}
-    setLinkBusy(false);
-    setShowLink(false);
   }
 
   function switchMode(m: Mode) {
@@ -240,155 +171,11 @@ export default function JoinGroupScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* Modal: selecionar perfil existente */}
-      <Modal visible={showLink} transparent animationType="slide" onRequestClose={() => {}}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-
-            {/* ── Pergunta inicial ── */}
-            {linkMode === 'ask' && (
-              <>
-                <Text style={styles.modalTitle}>Você já jogou neste grupo?</Text>
-                <Text style={styles.modalSubtitle}>
-                  Se já jogou antes, vincule seu perfil existente. Caso contrário, crie um novo.
-                </Text>
-
-                <TouchableOpacity
-                  style={styles.btnPrimary}
-                  onPress={() => setLinkMode('search')}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.btnText}>✅  Sim, já tenho perfil</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.btnOutline}
-                  onPress={() => { setNewProfileName(''); setLinkMode('create'); }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.btnOutlineText}>+ Não, criar novo perfil</Text>
-                </TouchableOpacity>
-              </>
-            )}
-
-            {/* ── Criar novo perfil ── */}
-            {linkMode === 'create' && (
-              <>
-                <TouchableOpacity onPress={() => setLinkMode('ask')} style={styles.backBtn}>
-                  <Text style={styles.backText}>← Voltar</Text>
-                </TouchableOpacity>
-                <Text style={styles.modalTitle}>Como você quer ser chamado?</Text>
-                <Text style={styles.modalSubtitle}>
-                  Digite o nome que vai aparecer no ranking e nas competições.
-                </Text>
-
-                <TextInput
-                  style={styles.searchInput}
-                  value={newProfileName}
-                  onChangeText={setNewProfileName}
-                  placeholder="Seu nome no grupo"
-                  placeholderTextColor={Colors.faint}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  autoFocus
-                />
-
-                <TouchableOpacity
-                  style={[styles.btnPrimary, (!newProfileName.trim() || linkBusy) && styles.btnDisabled]}
-                  onPress={handleCreateNew}
-                  disabled={!newProfileName.trim() || linkBusy}
-                  activeOpacity={0.85}
-                >
-                  {linkBusy
-                    ? <ActivityIndicator color={Colors.bg} />
-                    : <Text style={styles.btnText}>Criar perfil</Text>
-                  }
-                </TouchableOpacity>
-              </>
-            )}
-
-            {/* ── Busca por nome ── */}
-            {linkMode === 'search' && (
-              <>
-                <TouchableOpacity onPress={() => { setLinkMode('ask'); setSearchName(''); setSearchError(''); }} style={styles.backBtn}>
-                  <Text style={styles.backText}>← Voltar</Text>
-                </TouchableOpacity>
-                <Text style={styles.modalTitle}>Qual é o seu nome no grupo?</Text>
-                <Text style={styles.modalSubtitle}>
-                  Digite seu nome exatamente como aparece no grupo.
-                </Text>
-
-                <TextInput
-                  style={styles.searchInput}
-                  value={searchName}
-                  onChangeText={t => { setSearchName(t); setSearchError(''); }}
-                  placeholder="Seu nome no grupo"
-                  placeholderTextColor={Colors.faint}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  autoFocus
-                />
-
-                {searchError !== '' && (
-                  <View style={styles.errorBox}>
-                    <Text style={styles.errorText}>{searchError}</Text>
-                  </View>
-                )}
-
-                <TouchableOpacity
-                  style={[styles.btnPrimary, (!searchName.trim() || linkBusy) && styles.btnDisabled]}
-                  onPress={handleLinkByName}
-                  disabled={!searchName.trim() || linkBusy}
-                  activeOpacity={0.85}
-                >
-                  {linkBusy
-                    ? <ActivityIndicator color={Colors.bg} />
-                    : <Text style={styles.btnText}>Vincular perfil</Text>
-                  }
-                </TouchableOpacity>
-
-                <View style={styles.modalDivider} />
-
-                <TouchableOpacity onPress={() => setLinkMode('list')} activeOpacity={0.7}>
-                  <Text style={styles.linkText}>Ver todos os perfis disponíveis</Text>
-                </TouchableOpacity>
-              </>
-            )}
-
-            {/* ── Lista completa ── */}
-            {linkMode === 'list' && (
-              <>
-                <TouchableOpacity onPress={() => setLinkMode('search')} style={styles.backBtn}>
-                  <Text style={styles.backText}>← Voltar</Text>
-                </TouchableOpacity>
-                <Text style={styles.modalTitle}>Selecione seu perfil</Text>
-
-                <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
-                  {unlinked.map(p => (
-                    <TouchableOpacity
-                      key={p.id}
-                      style={styles.playerRow}
-                      onPress={() => handleLinkTo(p.id)}
-                      disabled={linkBusy}
-                      activeOpacity={0.75}
-                    >
-                      <View style={[styles.playerDot, { backgroundColor: p.color }]} />
-                      <Text style={styles.playerName}>{p.name}</Text>
-                      <Text style={styles.playerArrow}>→</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </>
-            )}
-
-          </View>
-        </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      <LinkPlayerModal
+        visible={showLink}
+        unlinkedPlayers={unlinked}
+        onDone={() => setShowLink(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -423,23 +210,4 @@ const styles = StyleSheet.create({
   btnText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg },
   logoutBtn: { alignItems: 'center', paddingTop: Spacing.sm },
   logoutText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.faint },
-
-  backBtn: { paddingBottom: Spacing.xs },
-  backText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.teal },
-  linkText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.gold, textAlign: 'center' },
-
-  searchInput: { backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, fontFamily: FontFamily.body, fontSize: 16, color: Colors.text },
-
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  modalBox: { backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
-  modalTitle: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.text },
-  modalSubtitle: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, lineHeight: 20 },
-  playerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  playerDot: { width: 14, height: 14, borderRadius: 7 },
-  playerName: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 16, color: Colors.text },
-  playerArrow: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.gold },
-  modalDivider: { height: 1, backgroundColor: Colors.line },
-  btnOutline: { borderWidth: 1.5, borderColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' },
-  btnOutlineText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.gold },
 });

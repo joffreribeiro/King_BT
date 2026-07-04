@@ -40,12 +40,16 @@ export function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
       {st.map((s, i) => {
         const pl = resolveEntry(s.id);
         const classified = highlightTop > 0 && i < highlightTop;
+        const winRate = s.played > 0 ? Math.round((s.wins / s.played) * 100) : 0;
         return (
           <View key={s.id} style={[stRow.row, i < st.length - 1 && stRow.border, classified && stRow.classified]}>
             <Text style={[stRow.c0, stRow.pos]}>{i + 1}</Text>
             <View style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
               <Avatar name={pl.name} color={pl.color} size={22} />
-              <Text style={stRow.name} numberOfLines={1}>{pl.name}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={stRow.name} numberOfLines={1}>{pl.name}</Text>
+                <Text style={stRow.meta}>{s.played}J · {winRate}% aprov.</Text>
+              </View>
             </View>
             <Text style={stRow.cN}>{s.wins}</Text>
             <Text style={stRow.cN}>{s.losses}</Text>
@@ -85,5 +89,6 @@ export const stRow = StyleSheet.create({
   cPts: { width: 56, textAlign: 'right', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
   th: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 0.3 },
   pos: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted },
-  name: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.text, flex: 1 },
+  name: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.text },
+  meta: { fontFamily: FontFamily.body, fontSize: 9, color: Colors.faint, marginTop: 1 },
 });

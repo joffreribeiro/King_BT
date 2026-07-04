@@ -13,9 +13,10 @@ import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import type { Match, Competition } from '@/logic/types';
 import ConfettiCannon from 'react-native-confetti-cannon';
-import { captureRef } from 'react-native-view-shot';
-import * as Sharing from 'expo-sharing';
-import { confirmParticipation, cancelParticipation } from '@/firebase/competitions';
+import {
+  confirmParticipation, cancelParticipation,
+  requestRegistration, cancelRegistrationRequest, approveJoinRequest, rejectJoinRequest,
+} from '@/firebase/competitions';
 import { shareText, notifyCopied } from '@/services/share';
 import { buildShareText } from '@/components/competition/helpers';
 import { EditNameModal } from '@/components/competition/EditNameModal';
@@ -26,12 +27,16 @@ import {
   RotatingView, ClassificacaoView, LeagueView, GroupsPhaseView, KOView,
 } from '@/components/competition/FormatViews';
 
+// Cor aleatória para o perfil criado ao aprovar uma solicitação de inscrição
+const GUEST_COLORS = ['#FFD166', '#2DD4BF', '#A78BFA', '#34D399', '#F472B6', '#94A3B8', '#FB923C', '#60A5FA'];
+
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function CompetitionDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state, dispatch } = useCompetitions();
-  const { isAdmin, myPlayerId, group } = useAuth();
+  const { user, isAdmin, myPlayerId, group, isMember } = useAuth();
+  const [joinReqBusy, setJoinReqBusy] = useState(false);
   const { findPlayer, groupPlayers } = useGroupPlayers();
   const comp = state.competitions.find(c => c.id === id);
   const [scoring, setScoring]             = useState<Match | null>(null);
@@ -45,7 +50,6 @@ export default function CompetitionDetail() {
   const [avulsoTeamA, setAvulsoTeamA]     = useState<string[]>([]);
   const [avulsoTeamB, setAvulsoTeamB]     = useState<string[]>([]);
   const champAnim  = useRef(new Animated.Value(0)).current;
-  const viewShotRef = useRef<View>(null);
   const screenW = Dimensions.get('window').width;
   const confettiFired = useRef(false);
 
@@ -68,16 +72,6 @@ export default function CompetitionDetail() {
   useEffect(() => {
     if (comp?.status === 'done' && competitionChampion(comp, id => findPlayer(id)?.name ?? id)) triggerChampion();
   }, [!!comp]);
-
-  async function shareChampionImage() {
-    try {
-      if (!viewShotRef.current) return;
-      const uri = await captureRef(viewShotRef, { format: 'png', quality: 0.95 });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Compartilhar resultado' });
-      }
-    } catch { /* ignore */ }
-  }
 
   if (!comp) {
     return (
@@ -118,7 +112,14 @@ export default function CompetitionDetail() {
   }
 
   function handleClear(matchId: string) {
+    if (!isMember) return; // visitante: somente leitura
     dispatch({ type: 'CLEAR_SCORE', compId: id!, matchId });
+  }
+
+  // Visitante de grupo público não pode abrir o registro de placar
+  function handleScore(m: Match) {
+    if (!isMember) return;
+    setScoring(m);
   }
 
   function handleDelete() {
@@ -152,6 +153,38 @@ export default function CompetitionDetail() {
       await confirmParticipation(group.id, comp.id, myPlayerId);
     }
     setConfirmBusy(false);
+  }
+
+  // Visitante (não-membro de grupo público) solicita/cancela inscrição
+  const myJoinRequest = user ? comp?.joinRequests?.find(r => r.uid === user.uid) : undefined;
+
+  async function handleRequestJoin() {
+    if (!group || !user || !comp) return;
+    setJoinReqBusy(true);
+    await requestRegistration(group.id, comp.id, {
+      uid: user.uid,
+      name: user.displayName ?? 'Jogador',
+      requestedAt: new Date().toISOString(),
+    });
+    setJoinReqBusy(false);
+  }
+
+  async function handleCancelJoinRequest() {
+    if (!group || !comp || !myJoinRequest) return;
+    setJoinReqBusy(true);
+    await cancelRegistrationRequest(group.id, comp.id, myJoinRequest);
+    setJoinReqBusy(false);
+  }
+
+  // Admin aprova/recusa solicitações — aprovar vira membro pleno do grupo
+  async function handleApproveJoin(request: NonNullable<typeof myJoinRequest>) {
+    if (!group || !comp || !isAdmin) return;
+    await approveJoinRequest(group.id, comp.id, request, GUEST_COLORS[Math.floor(Math.random() * GUEST_COLORS.length)]);
+  }
+
+  async function handleRejectJoin(request: NonNullable<typeof myJoinRequest>) {
+    if (!group || !comp || !isAdmin) return;
+    await rejectJoinRequest(group.id, comp.id, request);
   }
 
   function handleConfirmAddAvulso() {
@@ -227,7 +260,7 @@ export default function CompetitionDetail() {
           opacity: champAnim,
           transform: [{ scale: champAnim.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }],
         }]}>
-          <View ref={viewShotRef} style={main.champCard}>
+          <View style={main.champCard}>
             <Text style={main.champCrown}>👑</Text>
             <Avatar name={champPlayer.name} color={champPlayer.color} size={60} />
             <Text style={main.champTitle}>CAMPEÃO</Text>
@@ -235,9 +268,6 @@ export default function CompetitionDetail() {
             <Text style={main.champComp}>{comp.name}</Text>
           </View>
           <View style={main.champActions}>
-            <TouchableOpacity style={main.champBtn} onPress={shareChampionImage}>
-              <Text style={main.champBtnText}>📤 Compartilhar</Text>
-            </TouchableOpacity>
             <TouchableOpacity style={main.champClose} onPress={() => setShowChampion(false)}>
               <Text style={main.champCloseText}>Fechar</Text>
             </TouchableOpacity>
@@ -309,7 +339,7 @@ export default function CompetitionDetail() {
             </View>
           </View>
 
-          {/* Botão confirmar / cancelar */}
+          {/* Botão confirmar / cancelar — membros do grupo */}
           {myPlayerId && (
             <TouchableOpacity
               style={[upcoming.confirmBtn,
@@ -324,6 +354,44 @@ export default function CompetitionDetail() {
                 {comp.confirmedIds?.includes(myPlayerId) ? '✓ Confirmado — cancelar' : '+ Confirmar participação'}
               </Text>
             </TouchableOpacity>
+          )}
+
+          {/* Botão solicitar / cancelar inscrição — visitante de grupo público */}
+          {!isMember && user && (
+            <TouchableOpacity
+              style={[upcoming.confirmBtn,
+                myJoinRequest ? upcoming.confirmBtnCancel : upcoming.confirmBtnJoin,
+                joinReqBusy && { opacity: 0.5 },
+              ]}
+              onPress={myJoinRequest ? handleCancelJoinRequest : handleRequestJoin}
+              disabled={joinReqBusy}
+              activeOpacity={0.8}
+            >
+              <Text style={[upcoming.confirmBtnText, myJoinRequest && { color: Colors.muted }]}>
+                {myJoinRequest ? '⏳ Aguardando aprovação — cancelar' : '✋ Solicitar inscrição'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Solicitações pendentes — visível só para admin */}
+          {isAdmin && (comp.joinRequests?.length ?? 0) > 0 && (
+            <View style={upcoming.section}>
+              <Text style={upcoming.sectionTitle}>
+                SOLICITAÇÕES ({comp.joinRequests!.length})
+              </Text>
+              {comp.joinRequests!.map(r => (
+                <View key={r.uid} style={upcoming.playerRow}>
+                  <Avatar name={r.name} color={Colors.gold} size={30} />
+                  <Text style={upcoming.playerName}>{r.name}</Text>
+                  <TouchableOpacity onPress={() => handleRejectJoin(r)} hitSlop={8} style={{ marginRight: Spacing.sm }}>
+                    <Text style={{ color: Colors.coral, fontSize: 18 }}>✕</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => handleApproveJoin(r)} hitSlop={8}>
+                    <Text style={{ color: Colors.teal, fontSize: 18 }}>✓</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
           )}
 
           {/* Lista de confirmados */}
@@ -390,7 +458,7 @@ export default function CompetitionDetail() {
 
           {activeTab === 'classificacao' && (
             comp.format === 'grupos'
-              ? <GroupsPhaseView comp={comp} onScore={setScoring} onClear={handleClear} />
+              ? <GroupsPhaseView comp={comp} onScore={handleScore} onClear={handleClear} />
               : comp.format === 'liga' || comp.format === 'avulso' || comp.format === 'super8'
                 ? <ClassificacaoView comp={comp} />
                 : <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
@@ -402,17 +470,17 @@ export default function CompetitionDetail() {
 
           {activeTab === 'partidas' && (
             comp.format === 'grupos'
-              ? <KOView comp={comp} onScore={setScoring} onClear={handleClear}
+              ? <KOView comp={comp} onScore={handleScore} onClear={handleClear}
                   preview={comp.status !== 'done' && !(comp.groupDefs?.every((_, gi) => groupComplete(comp.matches, gi)) ?? false)} />
               : comp.format === 'liga'
-                ? <LeagueView comp={comp} onScore={setScoring} onClear={handleClear}
+                ? <LeagueView comp={comp} onScore={handleScore} onClear={handleClear}
                     onSubstitute={isAdmin ? handleSubstitute : undefined} />
                 : comp.format === 'mata'
-                  ? <KOView comp={comp} onScore={setScoring} onClear={handleClear} />
+                  ? <KOView comp={comp} onScore={handleScore} onClear={handleClear} />
                   : comp.format === 'avulso'
-                    ? <AvulsoView comp={comp} onScore={setScoring} onClear={handleClear}
+                    ? <AvulsoView comp={comp} onScore={handleScore} onClear={handleClear}
                         onAddMatch={() => setShowAddAvulso(true)} />
-                    : <RotatingView comp={comp} onScore={setScoring} onClear={handleClear}
+                    : <RotatingView comp={comp} onScore={handleScore} onClear={handleClear}
                         onSubstitute={isAdmin ? handleSubstitute : undefined} />
           )}
         </View>

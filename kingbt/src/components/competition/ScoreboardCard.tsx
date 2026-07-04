@@ -10,7 +10,7 @@ export interface ScoreSide {
   bye?: boolean;
 }
 
-type Col = { v: string | number; win?: boolean; live?: boolean; draft?: boolean };
+type Col = { v: string | number; win?: boolean; live?: boolean; draft?: boolean; trophy?: boolean };
 
 /**
  * Card de jogo estilo placar de TV: cada lado numa linha,
@@ -32,9 +32,9 @@ export function ScoreboardCard({ sideA, sideB, match: m, isNext = false, pending
       const v = side === 'a' ? s.a : s.b;
       return { v, win: side === 'a' ? s.a > s.b : s.b > s.a };
     });
-    // Jogo antigo sem games gravados: não mostra placar em sets —
-    // o vencedor fica indicado pelo nome em dourado
-    if (has) return [];
+    // Jogo antigo/migrado sem games gravados: não mostra placar em sets —
+    // só um troféu no lado vencedor, para a zona de placar não ficar vazia
+    if (has) return (side === 'a' ? aWon : !aWon) ? [{ v: '🏆', trophy: true }] : [];
     if (live) return [{ v: side === 'a' ? live.gamesA : live.gamesB, live: true }];
     if (draft) return draft.map(s => ({ v: side === 'a' ? s.a : s.b, draft: true }));
     return [{ v: '–' }];

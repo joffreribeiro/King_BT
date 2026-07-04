@@ -25,6 +25,17 @@ service cloud.firestore {
       return signedIn() && request.auth.uid in groupData(gid).admins;
     }
 
+    // Grupo público: qualquer usuário logado pode visitar em modo leitura
+    function isPublic(gid) {
+      return groupData(gid).visibility == 'publico';
+    }
+
+    // Visitante de grupo público solicitando/cancelando inscrição numa
+    // competição: só pode mexer no campo joinRequests, nada mais.
+    function onlyChangesJoinRequests() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['joinRequests']);
+    }
+
     // ── Usuários ─────────────────────────────────────────────────────────
     match /users/{uid} {
       // Leitura por qualquer autenticado (necessário para telas de membros)
@@ -61,21 +72,29 @@ service cloud.firestore {
 
       allow delete: if isGroupAdmin(gid);
 
-      // ── Subcoleções: só membros do grupo ───────────────────────────────
+      // ── Subcoleções: membros leem/escrevem; grupo público permite leitura
+      // a qualquer usuário logado (modo visitante, somente leitura) ───────
       match /players/{playerId} {
-        allow read, write: if isMember(gid);
+        allow read: if isMember(gid) || (signedIn() && isPublic(gid));
+        allow write: if isMember(gid);
       }
 
       match /competitions/{compId} {
-        allow read, write: if isMember(gid);
+        allow read: if isMember(gid) || (signedIn() && isPublic(gid));
+        allow write: if isMember(gid);
+        // Visitante de grupo público pode solicitar/cancelar inscrição
+        // (Fase 3) sem virar membro — só o campo joinRequests é alterável.
+        allow update: if signedIn() && isPublic(gid) && onlyChangesJoinRequests();
       }
 
       match /feed/{feedId} {
-        allow read, write: if isMember(gid);
+        allow read: if isMember(gid) || (signedIn() && isPublic(gid));
+        allow write: if isMember(gid);
       }
 
       match /analises/{matchId} {
-        allow read, write: if isMember(gid);
+        allow read: if isMember(gid) || (signedIn() && isPublic(gid));
+        allow write: if isMember(gid);
       }
     }
 

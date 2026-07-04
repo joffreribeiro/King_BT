@@ -145,6 +145,14 @@ export interface Competition {
   confirmedIds?: string[];
   /** UID do criador da competição */
   createdBy?: string;
+  /** Solicitações de inscrição de visitantes (não-membros de grupo público) */
+  joinRequests?: JoinRequest[];
+}
+
+export interface JoinRequest {
+  uid: string;
+  name: string;
+  requestedAt: string;
 }
 
 export interface PlayerStat {

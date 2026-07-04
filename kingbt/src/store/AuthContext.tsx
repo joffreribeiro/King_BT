@@ -38,6 +38,9 @@ export type Group = {
   name: string;
   code: string;
   admins?: string[];
+  members?: string[];
+  /** Grupo público pode ser visitado (somente leitura) por qualquer usuário logado. Ausente = privado. */
+  visibility?: 'privado' | 'publico';
 };
 
 type AuthState = {
@@ -57,6 +60,10 @@ export interface UnlinkedPlayer {
 type AuthContextType = AuthState & {
   myPlayerId: string | null;
   playerLoading: boolean;
+  /** IDs de todos os grupos dos quais o usuário faz parte */
+  groupIds: string[];
+  /** True se o usuário é membro do grupo ativo (false = visitante de grupo público) */
+  isMember: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (name: string, email: string, password: string) => Promise<void>;
@@ -70,6 +77,7 @@ type AuthContextType = AuthState & {
   clearError: () => void;
   promoteToAdmin: (uid: string) => Promise<void>;
   removeFromGroup: (uid: string) => Promise<void>;
+  setGroupVisibility: (visibility: 'privado' | 'publico') => Promise<void>;
 };
 
 const Ctx = createContext<AuthContextType | null>(null);
@@ -82,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError]       = useState<string | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const [playerLoading, setPlayerLoading] = useState(false);
+  const [groupIds, setGroupIds] = useState<string[]>([]);
 
   // Captura resultado do redirect do Google (web only)
   useEffect(() => {
@@ -113,9 +122,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const userDoc = await getDoc(doc(db, 'users', u.uid));
           if (userDoc.exists()) {
-            const { groupId, groupIds } = userDoc.data();
+            const { groupId, groupIds: storedIds } = userDoc.data();
+            const allIds: string[] = storedIds ?? [];
+            if (groupId && !allIds.includes(groupId)) allIds.push(groupId);
+            setGroupIds(allIds);
             if (groupId) {
-              const prevIds: string[] = groupIds ?? [];
+              const prevIds: string[] = storedIds ?? [];
               if (!prevIds.includes(groupId)) {
                 await setDoc(doc(db, 'users', u.uid), { groupIds: [...prevIds, groupId] }, { merge: true });
               }
@@ -143,6 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setGroup(null);
         setMyPlayerId(null);
+        setGroupIds([]);
         setLoading(false);
       }
     });
@@ -232,12 +245,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Associa grupo ao usuário
       const userSnap = await getDoc(doc(db, 'users', user.uid));
       const prevGroupIds: string[] = userSnap.data()?.groupIds ?? [];
-      const groupIds = prevGroupIds.includes(groupId) ? prevGroupIds : [...prevGroupIds, groupId];
+      const newGroupIds = prevGroupIds.includes(groupId) ? prevGroupIds : [...prevGroupIds, groupId];
       await setDoc(doc(db, 'users', user.uid), {
-        groupId, groupIds,
+        groupId, groupIds: newGroupIds,
         lastJoinedGroupAt: new Date().toISOString(),
         ...collectDeviceInfo('invite'),
       }, { merge: true });
+      setGroupIds(newGroupIds);
 
       const g = { id: groupId, ...groupData } as Group;
       setGroup(g);
@@ -297,13 +311,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function removeFromGroup(uid: string) {
     if (!group || !isAdmin) return;
-    const members = (group as any).members?.filter((m: string) => m !== uid) ?? [];
+    const members = group.members?.filter(m => m !== uid) ?? [];
     await setDoc(doc(db, 'groups', group.id), { members }, { merge: true });
     // Desassocia o grupo do usuário removido — senão ele continua vendo o grupo
     const userSnap = await getDoc(doc(db, 'users', uid));
     if (userSnap.data()?.groupId === group.id) {
       await setDoc(doc(db, 'users', uid), { groupId: null }, { merge: true });
     }
+  }
+
+  async function setGroupVisibility(visibility: 'privado' | 'publico') {
+    if (!group || !isAdmin) return;
+    await setDoc(doc(db, 'groups', group.id), { visibility }, { merge: true });
+    setGroup(prev => prev ? { ...prev, visibility } : prev);
   }
 
   async function getMyGroups(): Promise<Group[]> {
@@ -385,6 +405,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const groupIds2 = prevGroupIds2.includes(groupRef.id) ? prevGroupIds2 : [...prevGroupIds2, groupRef.id];
       await setDoc(doc(db, 'users', user.uid), { groupId: groupRef.id, groupIds: groupIds2 }, { merge: true });
       setGroup({ id: groupRef.id, name, code, admins: [user.uid] });
+      setGroupIds(groupIds2);
       setIsAdmin(true);
     } catch (e: any) {
       setError('Erro ao criar grupo. Tente novamente.');
@@ -398,13 +419,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Memoiza o value para não re-renderizar toda a árvore a cada render do provider.
   // As funções fecham sobre user/group/isAdmin, todos presentes nas deps.
+  const isMember = !!user && (isAdmin || !!group?.members?.includes(user.uid));
+
   const value = useMemo<AuthContextType>(() => ({
-    user, group, isAdmin, loading, error, myPlayerId, playerLoading,
+    user, group, isAdmin, loading, error, myPlayerId, playerLoading, groupIds, isMember,
     signInWithGoogle, signInWithEmail, signUpWithEmail, joinGroup, linkToPlayer,
     createGroup, leaveGroup, switchGroup, getMyGroups, logout,
-    clearError: () => setError(null), promoteToAdmin, removeFromGroup,
+    clearError: () => setError(null), promoteToAdmin, removeFromGroup, setGroupVisibility,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [user, group, isAdmin, loading, error, myPlayerId, playerLoading]);
+  }), [user, group, isAdmin, loading, error, myPlayerId, playerLoading, groupIds, isMember]);
 
   return (
     <Ctx.Provider value={value}>
