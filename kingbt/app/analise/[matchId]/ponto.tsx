@@ -3,9 +3,10 @@ import {
   StatusBar, Modal, Alert, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import {
@@ -25,10 +26,10 @@ import { EditPontoModal } from '@/components/analise/EditPontoModal';
 import { PhaseDivider } from '@/components/analise/PhaseDivider';
 import {
   POSICOES_SIMPLES, DIRECOES_PADRAO, DIRECAO_LOB,
-  QUALIDADE_SAQUE, QUALIDADE_DEVOLUCAO, DIRECAO_DEVOLUCAO,
+  DIRECAO_DEVOLUCAO,
   TIPOS_FIN, TIPOS_FIN_FORCOU, LADOS, DURACOES, SITUACOES,
   TIPOS_PRIMEIRA_BOLA, DIRECOES_PRIMEIRA_BOLA, QUALIDADE_PRIMEIRA_BOLA,
-  FINALIZACAO_RALLY,
+  makeScoutOptions,
 } from '@/components/analise/scoutOptions';
 
 // ─── Tela principal ──────────────────────────────────────────────────────────
@@ -42,6 +43,11 @@ export default function PontoScreen() {
     superTiebreak?: string; superTiebreakPts?: string;
     scoutMode?: string;
   }>();
+
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeSStyles(Colors), [Colors]);
+  const m = useMemo(() => makeMStyles(Colors), [Colors]);
+  const { QUALIDADE_SAQUE, QUALIDADE_DEVOLUCAO, FINALIZACAO_RALLY } = useMemo(() => makeScoutOptions(Colors), [Colors]);
 
   const { findPlayer } = useGroupPlayers();
   const { dispatch, state } = useCompetitions();
@@ -497,38 +503,38 @@ export default function PontoScreen() {
         <ScrollView contentContainerStyle={{ padding: 24, gap: 20, alignItems: 'center' }}>
           <View style={{ alignItems: 'center', gap: 8, marginTop: 16 }}>
             <Text style={{ fontSize: 40 }}>✅</Text>
-            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 20, color: '#F6EFDD' }}>Partida Encerrada</Text>
-            <Text style={{ fontFamily: 'SpaceGrotesk-Regular', fontSize: 13, color: '#A99B7C', textAlign: 'center' }}>
+            <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text }}>Partida Encerrada</Text>
+            <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' }}>
               Esta partida já foi finalizada e o placar foi registrado.{'\n'}Você pode apenas editar os pontos existentes.
             </Text>
           </View>
           {/* Placar final */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 24, backgroundColor: '#121008', borderRadius: 16, padding: 20, width: '100%', justifyContent: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 24, backgroundColor: Colors.surf, borderRadius: 16, padding: 20, width: '100%', justifyContent: 'center' }}>
             <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontFamily: 'SpaceGrotesk-Regular', fontSize: 11, color: '#6E6452' }} numberOfLines={1}>{nomes.a1 ?? 'Dupla A'}</Text>
-              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 40, color: pf.setsA > pf.setsB ? '#54C98A' : '#A99B7C' }}>{pf.setsA}</Text>
+              <Text style={{ fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint }} numberOfLines={1}>{nomes.a1 ?? 'Dupla A'}</Text>
+              <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 40, color: pf.setsA > pf.setsB ? Colors.teal : Colors.muted }}>{pf.setsA}</Text>
             </View>
             <View style={{ alignItems: 'center', gap: 4 }}>
-              <Text style={{ fontFamily: 'SpaceGrotesk-Regular', fontSize: 14, color: '#6E6452' }}>sets</Text>
+              <Text style={{ fontFamily: FontFamily.body, fontSize: 14, color: Colors.faint }}>sets</Text>
               {pf.gamesA.map((gA, i) => (
-                <Text key={i} style={{ fontFamily: 'SpaceGrotesk-Regular', fontSize: 12, color: '#6E6452' }}>
+                <Text key={i} style={{ fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint }}>
                   Set {i + 1}: {gA}–{pf.gamesB[i] ?? 0}
                 </Text>
               ))}
             </View>
             <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontFamily: 'SpaceGrotesk-Regular', fontSize: 11, color: '#6E6452' }} numberOfLines={1}>{nomes.b1 ?? 'Dupla B'}</Text>
-              <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 40, color: pf.setsB > pf.setsA ? '#54C98A' : '#A99B7C' }}>{pf.setsB}</Text>
+              <Text style={{ fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint }} numberOfLines={1}>{nomes.b1 ?? 'Dupla B'}</Text>
+              <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 40, color: pf.setsB > pf.setsA ? Colors.teal : Colors.muted }}>{pf.setsB}</Text>
             </View>
           </View>
           {/* Botões */}
           <TouchableOpacity
-            style={{ backgroundColor: '#F3C544', borderRadius: 12, padding: 14, width: '100%', alignItems: 'center' }}
+            style={{ backgroundColor: Colors.gold, borderRadius: 12, padding: 14, width: '100%', alignItems: 'center' }}
             onPress={() => router.replace({ pathname: '/analise/[matchId]/relatorio', params: { matchId, compId } })}
           >
-            <Text style={{ fontFamily: 'SpaceGrotesk-Bold', fontSize: 15, color: '#000' }}>📊 Ver Relatório</Text>
+            <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 15, color: Colors.bg }}>📊 Ver Relatório</Text>
           </TouchableOpacity>
-          <Text style={{ fontFamily: 'SpaceGrotesk-Regular', fontSize: 12, color: '#6E6452', textAlign: 'center' }}>
+          <Text style={{ fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint, textAlign: 'center' }}>
             {pontos.length} pontos registrados · toque em qualquer ponto no relatório para editar
           </Text>
         </ScrollView>
@@ -1179,7 +1185,7 @@ export default function PontoScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line },
   back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
@@ -1230,7 +1236,7 @@ const s = StyleSheet.create({
   commentInput: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.text, paddingVertical: Spacing.sm, minHeight: 56, textAlignVertical: 'top' },
 });
 
-const m = StyleSheet.create({
+const makeMStyles = (Colors: ThemeColors) => StyleSheet.create({
   overlay:      { flex: 1, backgroundColor: '#000000BB', justifyContent: 'center', alignItems: 'center', padding: Spacing.lg },
   card:         { backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.lg, width: '100%', gap: Spacing.md, borderWidth: 1, borderColor: Colors.line },
   title:        { fontFamily: FontFamily.title, fontSize: 18, color: Colors.text, textAlign: 'center' },

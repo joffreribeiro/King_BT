@@ -1,4 +1,4 @@
-import { Colors } from '@/theme';
+import type { ThemeColors } from '@/theme';
 import type {
   BtFinalizacao, BtTipoFinalizacao, BtPosicaoSaque,
   BtDirecao, BtQualidadeSaque, BtQualidadeDevolucao, BtDirecaoDevolucao,
@@ -22,23 +22,6 @@ export const DIRECOES_PADRAO: { key: BtDirecao; label: string }[] = [
   { key: '4', label: '4' }, { key: '5', label: '5' },
 ];
 export const DIRECAO_LOB: BtDirecao = 'lob';
-
-// No BT há apenas 1 saque — falta = ponto do adversário imediatamente
-export const QUALIDADE_SAQUE: { key: BtQualidadeSaque; label: string; cor: string }[] = [
-  { key: 'ace',       label: 'Ace ⭐',         cor: Colors.gold },
-  { key: 'bom',       label: 'Bom ✓',           cor: Colors.teal },
-  { key: 'regular',   label: 'Regular',           cor: Colors.muted },
-  { key: 'ruim',      label: 'Ruim',              cor: Colors.coral },
-  { key: 'erroSaque', label: 'Erro Saque ✕',     cor: Colors.coral },
-];
-
-export const QUALIDADE_DEVOLUCAO: { key: BtQualidadeDevolucao; label: string; cor: string }[] = [
-  { key: 'winner',        label: 'Winner ⭐',       cor: Colors.gold },
-  { key: 'boa',           label: 'Boa ✓',            cor: Colors.teal },
-  { key: 'regular',       label: 'Regular',           cor: Colors.muted },
-  { key: 'ruim',          label: 'Ruim',              cor: Colors.coral },
-  { key: 'erroDevolucao', label: 'Erro Dev. ✕',      cor: Colors.coral },
-];
 
 export const DIRECAO_DEVOLUCAO: { key: BtDirecaoDevolucao; label: string }[] = [
   { key: 'noSacador',  label: 'No Sacador' },
@@ -93,11 +76,32 @@ export const QUALIDADE_PRIMEIRA_BOLA: { key: BtQualidadePrimeiraBola; label: str
   { key: 'Ruim',    label: 'Ruim',    hint: 'Alta' },
 ];
 
-export const FINALIZACAO_RALLY: { key: BtFinalizacao; label: string; cor: string }[] = [
-  { key: 'Ace',            label: 'Ace',              cor: Colors.gold  },
-  { key: 'Winner',         label: 'Winner',           cor: Colors.teal  },
-  { key: 'ForçouErro',     label: 'Forçou Erro',      cor: Colors.teal  },
-  { key: 'ErroNaoForcado', label: 'Erro não forçado', cor: Colors.coral },
-  { key: 'ErroSaque',      label: 'Erro de Saque',    cor: Colors.coral },
-  { key: 'ErroDevolucao',  label: 'Erro de devolução',cor: Colors.coral },
-];
+// Opções que dependem de cor do tema — montadas via factory reativa ao ThemeContext
+export function makeScoutOptions(Colors: ThemeColors) {
+  const QUALIDADE_SAQUE: { key: BtQualidadeSaque; label: string; cor: string }[] = [
+    { key: 'ace',       label: 'Ace ⭐',         cor: Colors.gold },
+    { key: 'bom',       label: 'Bom ✓',           cor: Colors.teal },
+    { key: 'regular',   label: 'Regular',           cor: Colors.muted },
+    { key: 'ruim',      label: 'Ruim',              cor: Colors.coral },
+    { key: 'erroSaque', label: 'Erro Saque ✕',     cor: Colors.coral },
+  ];
+
+  const QUALIDADE_DEVOLUCAO: { key: BtQualidadeDevolucao; label: string; cor: string }[] = [
+    { key: 'winner',        label: 'Winner ⭐',       cor: Colors.gold },
+    { key: 'boa',           label: 'Boa ✓',            cor: Colors.teal },
+    { key: 'regular',       label: 'Regular',           cor: Colors.muted },
+    { key: 'ruim',          label: 'Ruim',              cor: Colors.coral },
+    { key: 'erroDevolucao', label: 'Erro Dev. ✕',      cor: Colors.coral },
+  ];
+
+  const FINALIZACAO_RALLY: { key: BtFinalizacao; label: string; cor: string }[] = [
+    { key: 'Ace',            label: 'Ace',              cor: Colors.gold  },
+    { key: 'Winner',         label: 'Winner',           cor: Colors.teal  },
+    { key: 'ForçouErro',     label: 'Forçou Erro',      cor: Colors.teal  },
+    { key: 'ErroNaoForcado', label: 'Erro não forçado', cor: Colors.coral },
+    { key: 'ErroSaque',      label: 'Erro de Saque',    cor: Colors.coral },
+    { key: 'ErroDevolucao',  label: 'Erro de devolução',cor: Colors.coral },
+  ];
+
+  return { QUALIDADE_SAQUE, QUALIDADE_DEVOLUCAO, FINALIZACAO_RALLY };
+}

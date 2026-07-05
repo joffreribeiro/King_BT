@@ -141,6 +141,9 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
   // Verifica se o set atual (pelo índice) é o super tie-break decisivo
   function isDecidingSet(setIdx: number): boolean {
     if (!superTb) return false;
+    // "Melhor de 1 set" não tem set decisivo — é o único set, jogado normal até gamesWin.
+    // Super tie-break só existe para substituir o set final de partidas com 3+ sets.
+    if (maxSets <= 1) return false;
     if (setIdx !== maxSets - 1) return false; // só o último set pode ser STB
     // Conta sets vencidos nos sets anteriores (quem tiver mais pontos venceu o set)
     let sA = 0, sB = 0;

@@ -1,10 +1,11 @@
 import { View, Text, StyleSheet, TouchableOpacity, Animated, ScrollView } from 'react-native';
 import { shareText, notifyCopied } from '@/services/share';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FontFamily } from '@/theme';
+import { FontFamily, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 
 const CONFETTI_COLORS = ['#F3C544', '#54B981', '#C084FC', '#6B7FD7', '#E5483D', '#FFDD66', '#54B981'];
 
@@ -57,6 +58,9 @@ export default function VictoryScreen() {
     duration?: string;
   }>();
 
+  const { colors: Colors } = useTheme();
+  const v = useMemo(() => makeStyles(Colors), [Colors]);
+
   const scaleAnim = useRef(new Animated.Value(0.6)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -94,7 +98,7 @@ export default function VictoryScreen() {
               <Text style={v.playerName} numberOfLines={1}>
                 {params.winnerName ?? 'Vencedor'}
               </Text>
-              <Text style={[v.score, { color: '#F3C544' }]}>
+              <Text style={[v.score, { color: Colors.gold }]}>
                 {params.winnerScore ?? '—'}
               </Text>
             </View>
@@ -105,7 +109,7 @@ export default function VictoryScreen() {
               <Text style={v.playerName} numberOfLines={1}>
                 {params.loserName ?? 'Perdedor'}
               </Text>
-              <Text style={[v.score, { color: '#6E6452' }]}>
+              <Text style={[v.score, { color: Colors.faint }]}>
                 {params.loserScore ?? '—'}
               </Text>
             </View>
@@ -131,21 +135,21 @@ export default function VictoryScreen() {
   );
 }
 
-const v = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.bg },
   scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
   content: { alignItems: 'center', gap: 16 },
   resultLabel: {
     fontFamily: FontFamily.numberBold,
     fontSize: 10,
-    color: '#A99B7C',
+    color: Colors.muted,
     letterSpacing: 2,
   },
   crown: { fontSize: 48 },
   title: {
     fontFamily: FontFamily.titleBold,
     fontSize: 42,
-    color: '#F3C544',
+    color: Colors.gold,
     letterSpacing: -1,
     fontWeight: '800',
     textShadowColor: 'rgba(243,197,68,0.4)',
@@ -153,7 +157,7 @@ const v = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
   },
   scoreCard: {
-    backgroundColor: '#16140F',
+    backgroundColor: Colors.surf,
     borderWidth: 1,
     borderColor: 'rgba(243,197,68,0.18)',
     borderRadius: 14,
@@ -168,7 +172,7 @@ const v = StyleSheet.create({
   playerName: {
     fontFamily: FontFamily.bodyMed,
     fontSize: 13,
-    color: '#A99B7C',
+    color: Colors.muted,
     textAlign: 'center',
   },
   score: {
@@ -181,12 +185,12 @@ const v = StyleSheet.create({
   vs: {
     fontFamily: FontFamily.numberBold,
     fontSize: 22,
-    color: '#6E6452',
+    color: Colors.faint,
   },
   meta: {
     fontFamily: FontFamily.body,
     fontSize: 12,
-    color: '#A99B7C',
+    color: Colors.muted,
     textAlign: 'center',
   },
   shareBtn: {
@@ -206,7 +210,7 @@ const v = StyleSheet.create({
   },
   continueBtn: {
     width: '100%',
-    backgroundColor: '#16140F',
+    backgroundColor: Colors.surf,
     borderWidth: 1,
     borderColor: 'rgba(214,175,70,0.18)',
     borderRadius: 12,
@@ -216,6 +220,6 @@ const v = StyleSheet.create({
   continueBtnText: {
     fontFamily: FontFamily.title,
     fontSize: 15,
-    color: '#A99B7C',
+    color: Colors.muted,
   },
 });

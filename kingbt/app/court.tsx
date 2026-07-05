@@ -1,8 +1,9 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Modal, Animated, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Avatar } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -25,6 +26,8 @@ function btHint(a: number, b: number, G: number = 6): string | null {
 }
 
 function NextMatchPreview({ comp, match }: { comp: Competition; match: Match }) {
+  const { colors: Colors } = useTheme();
+  const nxt = useMemo(() => makeNxtStyles(Colors), [Colors]);
   const { findPlayer } = useGroupPlayers();
   const teamA = match.teamA ?? (match.aId ? [match.aId] : []);
   const teamB = match.teamB ?? (match.bId ? [match.bId] : []);
@@ -65,6 +68,8 @@ function NextMatchPreview({ comp, match }: { comp: Competition; match: Match }) 
 }
 
 function LiveBadge() {
+  const { colors: Colors } = useTheme();
+  const live = useMemo(() => makeLiveStyles(Colors), [Colors]);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   useEffect(() => {
     Animated.loop(
@@ -89,6 +94,8 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
   onBack: () => void;
   onLiveScore?: (gamesA: number, gamesB: number, setsA: number, setsB: number) => void;
 }) {
+  const { colors: Colors } = useTheme();
+  const live = useMemo(() => makeLiveStyles(Colors), [Colors]);
   const { findPlayer } = useGroupPlayers();
 
   // Usa o BtPlacardState para seguir as regras da competição
@@ -274,6 +281,8 @@ function MatchMiniCard({
   match: Match;
   findPlayer: (id: string) => { name: string; color: string } | undefined;
 }) {
+  const { colors: Colors } = useTheme();
+  const md = useMemo(() => makeMdStyles(Colors), [Colors]);
   const teamA = match.teamA ?? (match.aId ? [match.aId] : []);
   const teamB = match.teamB ?? (match.bId ? [match.bId] : []);
   const useComp = !!(match.aId && match.bId && !match.teamA);
@@ -297,6 +306,9 @@ function MatchMiniCard({
 const SCORER_LOCK_MS = 3 * 60 * 1000;
 
 export default function CourtScreen() {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeSStyles(Colors), [Colors]);
+  const md = useMemo(() => makeMdStyles(Colors), [Colors]);
   const { state, dispatch } = useCompetitions();
   const { findPlayer } = useGroupPlayers();
   const { group, user, isAdmin, isSuperAdmin, myPlayerId } = useAuth();
@@ -746,7 +758,7 @@ export default function CourtScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line },
   back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
@@ -772,7 +784,7 @@ const s = StyleSheet.create({
   arrow: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.gold },
 });
 
-const nxt = StyleSheet.create({
+const makeNxtStyles = (Colors: ThemeColors) => StyleSheet.create({
   card: {
     backgroundColor: Colors.surf,
     borderRadius: Radius.lg,
@@ -789,9 +801,9 @@ const nxt = StyleSheet.create({
   vs: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.faint, paddingHorizontal: 4 },
 });
 
-const live = StyleSheet.create({
+const makeLiveStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
-    flex: 1, backgroundColor: '#0a0a0c',
+    flex: 1, backgroundColor: Colors.bg,
     justifyContent: 'center', alignItems: 'stretch',
     paddingHorizontal: Spacing.md,
   },
@@ -807,7 +819,7 @@ const live = StyleSheet.create({
 
   // Board estilo TV
   board: {
-    backgroundColor: 'rgba(22,20,15,0.95)',
+    backgroundColor: Colors.surf,
     borderRadius: 12, borderWidth: 1,
     borderColor: 'rgba(214,175,70,0.18)',
     overflow: 'hidden', marginBottom: Spacing.lg,
@@ -855,7 +867,7 @@ const live = StyleSheet.create({
   saveBtnTxt: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg },
 });
 
-const md = StyleSheet.create({
+const makeMdStyles = (Colors: ThemeColors) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: '#000000BB', justifyContent: 'center', alignItems: 'center', padding: Spacing.lg },
   card: {
     backgroundColor: Colors.surf, borderRadius: Radius.lg,

@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useState } from 'react';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { useState, useMemo } from 'react';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import type { BtPonto, BtFinalizacao } from '@/logic/btTracker';
 import { Chip } from './Chip';
 
@@ -12,6 +13,9 @@ export function EditPontoModal({ ponto, nomes, jogadoresA, jogadoresB, onSave, o
   onSave: (p: BtPonto) => void;
   onClose: () => void;
 }) {
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeEpStyles(Colors), [Colors]);
+
   const todosJogadores = [...jogadoresA, ...jogadoresB];
   const nome = (id: string) => nomes[id]?.split(' ')[0] ?? id;
 
@@ -30,11 +34,11 @@ export function EditPontoModal({ ponto, nomes, jogadoresA, jogadoresB, onSave, o
 
   return (
     <View>
-      <Text style={ep.title}>Editar Ponto</Text>
-      <Text style={ep.sub}>{ponto.setScore} · {ponto.gameScore}</Text>
+      <Text style={styles.title}>Editar Ponto</Text>
+      <Text style={styles.sub}>{ponto.setScore} · {ponto.gameScore}</Text>
 
-      <Text style={ep.label}>Sacador</Text>
-      <View style={ep.row}>
+      <Text style={styles.label}>Sacador</Text>
+      <View style={styles.row}>
         {todosJogadores.map(id => (
           <Chip key={id} label={nome(id)} selected={sacador === id}
             onPress={() => setSacador(id)}
@@ -42,36 +46,36 @@ export function EditPontoModal({ ponto, nomes, jogadoresA, jogadoresB, onSave, o
         ))}
       </View>
 
-      <Text style={ep.label}>Vencedor do ponto</Text>
-      <View style={ep.row}>
+      <Text style={styles.label}>Vencedor do ponto</Text>
+      <View style={styles.row}>
         <Chip label={jogadoresA.map(nome).join(' / ')} selected={vencedor === 'A'}
           onPress={() => setVencedor('A')} color={Colors.gold} />
         <Chip label={jogadoresB.map(nome).join(' / ')} selected={vencedor === 'B'}
           onPress={() => setVencedor('B')} color={Colors.teal} />
       </View>
 
-      <Text style={ep.label}>Finalização</Text>
-      <View style={ep.row}>
+      <Text style={styles.label}>Finalização</Text>
+      <View style={styles.row}>
         {FINS.map(f => (
           <Chip key={f.key} label={f.label} selected={finalizacao === f.key}
             onPress={() => setFinalizacao(f.key)} small />
         ))}
       </View>
 
-      <View style={ep.btnRow}>
-        <TouchableOpacity style={ep.btnCancel} onPress={onClose}>
-          <Text style={ep.btnCancelTxt}>Cancelar</Text>
+      <View style={styles.btnRow}>
+        <TouchableOpacity style={styles.btnCancel} onPress={onClose}>
+          <Text style={styles.btnCancelTxt}>Cancelar</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={ep.btnSave}
+        <TouchableOpacity style={styles.btnSave}
           onPress={() => onSave({ ...ponto, sacador, vencedorDupla: vencedor, finalizacao })}>
-          <Text style={ep.btnSaveTxt}>Salvar</Text>
+          <Text style={styles.btnSaveTxt}>Salvar</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
 
-const ep = StyleSheet.create({
+const makeEpStyles = (Colors: ThemeColors) => StyleSheet.create({
   title:      { fontFamily: FontFamily.titleBold, fontSize: 16, color: Colors.text, marginBottom: 2 },
   sub:        { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted, marginBottom: Spacing.md },
   label:      { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted, marginTop: Spacing.sm, marginBottom: 4 },

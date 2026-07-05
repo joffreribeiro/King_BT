@@ -152,7 +152,7 @@ export default function RankingScreen() {
 
         {/* Header com gradiente */}
         <LinearGradient
-          colors={['#1A150A', Colors.bg]}
+          colors={[Colors.surf2, Colors.bg]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
@@ -160,7 +160,7 @@ export default function RankingScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>Ranking</Text>
-            <Text style={styles.subtitle}>Temporada 2026 · BT na Quadra</Text>
+            <Text style={styles.subtitle}>Temporada 2026</Text>
           </View>
           <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
             <TouchableOpacity style={styles.formulaBtn} onPress={() => setShowCompare(true)}>
