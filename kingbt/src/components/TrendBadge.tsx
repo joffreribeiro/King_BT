@@ -1,6 +1,7 @@
 import { Animated, Text, StyleSheet } from 'react-native';
-import { useEffect, useRef } from 'react';
-import { Colors, FontFamily, Radius } from '@/theme';
+import { useEffect, useRef, useMemo } from 'react';
+import { FontFamily, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 
 interface TrendBadgeProps {
   direction: 'up' | 'down';
@@ -8,6 +9,8 @@ interface TrendBadgeProps {
 }
 
 export function TrendBadge({ direction, diff }: TrendBadgeProps) {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStyles(Colors), [Colors]);
   const scale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -32,7 +35,7 @@ export function TrendBadge({ direction, diff }: TrendBadgeProps) {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   badge: { paddingHorizontal: 5, paddingVertical: 2, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   text:  { fontFamily: FontFamily.numberBold, fontSize: 9 },
 });

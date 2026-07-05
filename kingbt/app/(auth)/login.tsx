@@ -4,9 +4,10 @@ import {
   Platform, ScrollView, Animated, Easing, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'expo-router';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
 
 const { width: SW, height: SH } = Dimensions.get('window');
@@ -94,6 +95,8 @@ function useLoginParticles(count: number) {
 }
 
 export default function LoginScreen() {
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const { signInWithGoogle, signInWithEmail, signUpWithEmail, error, clearError, user, groupIds, loading } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('options');
@@ -336,7 +339,7 @@ const deco = StyleSheet.create({
   },
 });
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
   scroll: { flexGrow: 1, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
   logoWrap: { alignItems: 'center', paddingTop: Spacing.lg, paddingBottom: Spacing.sm },

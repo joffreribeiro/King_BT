@@ -2,9 +2,10 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Modal,
 } from 'react-native';
-import { useState, useEffect } from 'react';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { useState, useEffect, useMemo } from 'react';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useAuth, type UnlinkedPlayer } from '@/store/AuthContext';
+import { useTheme } from '@/store/ThemeContext';
 
 type LinkMode = 'ask' | 'search' | 'list' | 'create';
 
@@ -20,6 +21,8 @@ export function LinkPlayerModal({ visible, unlinkedPlayers, onDone }: {
   onDone: () => void;
 }) {
   const { user, group, linkToPlayer } = useAuth();
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const [linkBusy, setLinkBusy]     = useState(false);
   const [linkMode, setLinkMode]     = useState<LinkMode>('ask');
   const [searchName, setSearchName] = useState('');
@@ -228,7 +231,7 @@ export function LinkPlayerModal({ visible, unlinkedPlayers, onDone }: {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   errorBox: { backgroundColor: Colors.coral + '22', borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.coral + '44' },
   errorText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.coral },
 

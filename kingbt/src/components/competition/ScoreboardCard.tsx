@@ -1,5 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, type ViewStyle } from 'react-native';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { useMemo } from 'react';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card } from '@/components';
 import type { Match } from '@/logic/types';
 
@@ -21,6 +23,8 @@ export function ScoreboardCard({ sideA, sideB, match: m, isNext = false, pending
   isNext?: boolean; pending?: boolean; hint?: string | null;
   onPress: () => void; onLongPress?: () => void;
 }) {
+  const { colors: Colors } = useTheme();
+  const sb = useMemo(() => makeSb(Colors), [Colors]);
   const has = m.scoreA != null && m.scoreB != null;
   const aWon = has && m.scoreA! > m.scoreB!;
   const sets = has && m.sets?.length ? m.sets : null;
@@ -98,7 +102,7 @@ export function ScoreboardCard({ sideA, sideB, match: m, isNext = false, pending
   );
 }
 
-const sb = StyleSheet.create({
+const makeSb = (Colors: ThemeColors) => StyleSheet.create({
   nextCard: { borderColor: Colors.gold, borderWidth: 1.5 },
   badgeRow: { flexDirection: 'row', gap: 6, paddingHorizontal: Spacing.sm + 2, paddingTop: 8 },
   nextBadge: { backgroundColor: Colors.gold + '22', borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
@@ -109,7 +113,7 @@ const sb = StyleSheet.create({
   draftBadge: { backgroundColor: Colors.muted + '18', borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   draftBadgeTxt: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.muted, letterSpacing: 1 },
   teamRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: Spacing.sm + 2, height: 44 },
-  name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 14, color: '#FFFFFF' },
+  name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
   nameWin: { color: Colors.gold, fontFamily: FontFamily.title },
   placeholder: { fontStyle: 'italic' },
   bye: { fontFamily: FontFamily.numberBold, fontSize: 12, letterSpacing: 1 },

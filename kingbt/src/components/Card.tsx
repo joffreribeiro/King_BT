@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { View, StyleSheet, type ViewStyle } from 'react-native';
-import { Colors, Radius, Spacing } from '@/theme';
+import { Radius, Spacing, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 
 type Props = {
   children: React.ReactNode;
@@ -9,6 +11,8 @@ type Props = {
 };
 
 export default function Card({ children, style, elevated = false, padding = Spacing.md }: Props) {
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   return (
     <View style={[styles.card, elevated && styles.elevated, { padding }, style]}>
       {children}
@@ -16,7 +20,7 @@ export default function Card({ children, style, elevated = false, padding = Spac
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   card: {
     backgroundColor: Colors.surf,
     borderRadius: Radius.md,

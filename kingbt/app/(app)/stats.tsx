@@ -5,7 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMemo, useState } from 'react';
 import Svg, { Polyline, Circle, Line, Text as SvgText, Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 import { router } from 'expo-router';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { computeFormatStats, type FormatStat } from '@/logic/formatStats';
@@ -16,6 +17,8 @@ import { useGroupPlayers } from '@/store/GroupPlayersContext';
 const SW = Dimensions.get('window').width;
 
 function PointsTimeline({ data }: { data: { label: string; pts: number; pos: number }[] }) {
+  const { colors: Colors } = useTheme();
+  const tl = useMemo(() => makeTlStyles(Colors), [Colors]);
   const [selected, setSelected] = useState<number | null>(null);
 
   if (data.length < 2) {
@@ -157,7 +160,7 @@ function PointsTimeline({ data }: { data: { label: string; pts: number; pos: num
   );
 }
 
-const tl = StyleSheet.create({
+const makeTlStyles = (Colors: ThemeColors) => StyleSheet.create({
   wrap:        { backgroundColor: Colors.surf, borderRadius: Radius.md, padding: Spacing.md, gap: 8 },
   header:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title:       { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.faint, letterSpacing: 1.5 },
@@ -189,6 +192,8 @@ function generateInsight(stats: FormatStat[]): string {
 }
 
 export default function StatsScreen() {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { state } = useCompetitions();
   const { myPlayerId } = useAuth();
   const { groupPlayers } = useGroupPlayers();
@@ -390,7 +395,7 @@ export default function StatsScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
@@ -413,7 +418,7 @@ const s = StyleSheet.create({
   percentileFooterTxt: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
   ratingCard: {
     flexDirection: 'row',
-    backgroundColor: '#16140F',
+    backgroundColor: Colors.surf,
     borderWidth: 1, borderColor: 'rgba(243,197,68,0.2)',
     borderRadius: 14, padding: 16,
     marginBottom: 4,
@@ -427,14 +432,14 @@ const s = StyleSheet.create({
 
   // Summary
   summaryCard: {
-    backgroundColor: '#16140F', borderWidth: 1,
+    backgroundColor: Colors.surf, borderWidth: 1,
     borderColor: 'rgba(243,197,68,0.18)', borderRadius: 12, padding: 11,
   },
   summaryHeader:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   summaryLabel:      { fontFamily: FontFamily.numberBold, fontSize: 8, fontWeight: '700', letterSpacing: 1.5, color: Colors.faint },
   summaryMatchCount: { fontFamily: FontFamily.numberBold, fontSize: 9, fontWeight: '700', color: Colors.gold },
   summaryBody:       { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  progressTrack:     { height: 6, backgroundColor: '#221C12', borderRadius: 3, overflow: 'hidden', flex: 1, marginBottom: 4 },
+  progressTrack:     { height: 6, backgroundColor: Colors.surf2, borderRadius: 3, overflow: 'hidden', flex: 1, marginBottom: 4 },
   progressBar:       { height: 6, borderRadius: 3 },
   progressPercent:   { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.gold },
   summaryRecord:     { alignItems: 'flex-end' },
@@ -457,7 +462,7 @@ const s = StyleSheet.create({
   formatStats:        { alignItems: 'flex-end' },
   formatRate:         { fontFamily: FontFamily.numberBold, fontSize: 13, fontWeight: '700' },
   formatRecord:       { fontFamily: FontFamily.number, fontSize: 10, fontWeight: '600', marginTop: 1 },
-  formatProgressTrack:{ height: 4, backgroundColor: '#3a3228', borderRadius: 2, overflow: 'hidden' },
+  formatProgressTrack:{ height: 4, backgroundColor: Colors.surf2, borderRadius: 2, overflow: 'hidden' },
   formatProgressBar:  { height: 4, borderRadius: 2 },
 
   // Insight
@@ -477,7 +482,7 @@ const s = StyleSheet.create({
   },
   podiumMedal:  { fontSize: 18, width: 28 },
   podiumFormat: { fontFamily: FontFamily.bodyMed, fontSize: 12, width: 72 },
-  podiumBar:    { flex: 1, height: 4, backgroundColor: '#221C12', borderRadius: 2, overflow: 'hidden' },
+  podiumBar:    { flex: 1, height: 4, backgroundColor: Colors.surf2, borderRadius: 2, overflow: 'hidden' },
   podiumFill:   { height: 4, borderRadius: 2 },
   podiumPct:    { fontFamily: FontFamily.numberBold, fontSize: 12, width: 38, textAlign: 'right' },
 

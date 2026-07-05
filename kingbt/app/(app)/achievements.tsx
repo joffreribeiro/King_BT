@@ -4,7 +4,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useMemo } from 'react';
 import { router } from 'expo-router';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -19,6 +20,8 @@ import type { Achievement } from '@/constants/achievements';
 const CATEGORY_ORDER: AchievementCategory[] = ['wins', 'streak', 'rating', 'titles', 'formats', 'social'];
 
 export default function AchievementsScreen() {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { state } = useCompetitions();
   const { myPlayerId } = useAuth();
   const { groupPlayers } = useGroupPlayers();
@@ -113,7 +116,7 @@ export default function AchievementsScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
@@ -130,7 +133,7 @@ const s = StyleSheet.create({
   pctText: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.gold },
 
   overallBar: { paddingHorizontal: Spacing.md, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  overallTrack: { height: 4, backgroundColor: '#221C12', borderRadius: 2, overflow: 'hidden' },
+  overallTrack: { height: 4, backgroundColor: Colors.surf2, borderRadius: 2, overflow: 'hidden' },
   overallFill:  { height: 4, backgroundColor: Colors.gold, borderRadius: 2 },
 
   scroll: { padding: Spacing.md },

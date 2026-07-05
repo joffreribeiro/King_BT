@@ -3,9 +3,10 @@ import {
   Dimensions, StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import {
   carregarAnalise, calcularEstatisticas, salvarAnalise,
   placardInicial, avancaPonto,
@@ -26,6 +27,8 @@ type Aba = typeof ABAS[number];
 // ─── Componentes auxiliares ───────────────────────────────────────────────────
 
 function TabBar({ aba, onSelect }: { aba: Aba; onSelect: (a: Aba) => void }) {
+  const { colors: Colors } = useTheme();
+  const tb = useMemo(() => makeTbStyles(Colors), [Colors]);
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tb.scroll} contentContainerStyle={tb.content}>
       {ABAS.map(a => (
@@ -37,7 +40,7 @@ function TabBar({ aba, onSelect }: { aba: Aba; onSelect: (a: Aba) => void }) {
   );
 }
 
-const tb = StyleSheet.create({
+const makeTbStyles = (Colors: ThemeColors) => StyleSheet.create({
   scroll: { borderBottomWidth: 1, borderBottomColor: Colors.line },
   content: { flexDirection: 'row', paddingHorizontal: Spacing.md, gap: Spacing.xs },
   tab: { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm, borderBottomWidth: 2, borderBottomColor: 'transparent' },
@@ -47,6 +50,8 @@ const tb = StyleSheet.create({
 });
 
 function StatRow({ label, valA, valB, pctA, pctB }: { label: string; valA: number | string; valB: number | string; pctA?: number; pctB?: number }) {
+  const { colors: Colors } = useTheme();
+  const sr = useMemo(() => makeSrStyles(Colors), [Colors]);
   return (
     <View style={sr.row}>
       <Text style={[sr.val, { color: Colors.gold }]}>{valA}{pctA !== undefined ? ` (${pctA}%)` : ''}</Text>
@@ -56,13 +61,15 @@ function StatRow({ label, valA, valB, pctA, pctB }: { label: string; valA: numbe
   );
 }
 
-const sr = StyleSheet.create({
+const makeSrStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.line },
   val: { width: 80, fontFamily: FontFamily.number, fontSize: 14, textAlign: 'center' },
   label: { flex: 1, fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, textAlign: 'center' },
 });
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const { colors: Colors } = useTheme();
+  const sc = useMemo(() => makeScStyles(Colors), [Colors]);
   return (
     <View style={sc.wrap}>
       <Text style={sc.title}>{title}</Text>
@@ -71,7 +78,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-const sc = StyleSheet.create({
+const makeScStyles = (Colors: ThemeColors) => StyleSheet.create({
   wrap: { gap: Spacing.xs },
   title: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.gold, marginBottom: 4 },
 });
@@ -79,6 +86,9 @@ const sc = StyleSheet.create({
 // ─── Abas de conteúdo ─────────────────────────────────────────────────────────
 
 function AbaResumo({ analise, stats }: { analise: BtAnalise; stats: BtEstatisticas }) {
+  const { colors: Colors } = useTheme();
+  const p = useMemo(() => makePStyles(Colors), [Colors]);
+  const rs = useMemo(() => makeRsStyles(Colors), [Colors]);
   const { dupla } = stats;
   const totalPontos = dupla.A.pontosTotal;
   const pA = totalPontos > 0 ? Math.round((dupla.A.pontosGanhos / totalPontos) * 100) : 0;
@@ -148,7 +158,7 @@ function AbaResumo({ analise, stats }: { analise: BtAnalise; stats: BtEstatistic
   );
 }
 
-const rs = StyleSheet.create({
+const makeRsStyles = (Colors: ThemeColors) => StyleSheet.create({
   scoreCard: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.lg,
@@ -175,6 +185,9 @@ const rs = StyleSheet.create({
 });
 
 function AbaStats({ analise, stats }: { analise: BtAnalise; stats: BtEstatisticas }) {
+  const { colors: Colors } = useTheme();
+  const p = useMemo(() => makePStyles(Colors), [Colors]);
+  const sr = useMemo(() => makeSrStyles(Colors), [Colors]);
   const jogs = analise.jogadores;
   const ids = [jogs.a1, jogs.a2, jogs.b1, jogs.b2].filter(Boolean);
 
@@ -213,6 +226,9 @@ function AbaStats({ analise, stats }: { analise: BtAnalise; stats: BtEstatistica
 }
 
 function AbaSaques({ analise, stats }: { analise: BtAnalise; stats: BtEstatisticas }) {
+  const { colors: Colors } = useTheme();
+  const p = useMemo(() => makePStyles(Colors), [Colors]);
+  const saq = useMemo(() => makeSaqStyles(Colors), [Colors]);
   const jogs = analise.jogadores;
   const ids = [jogs.a1, jogs.a2, jogs.b1, jogs.b2].filter(Boolean);
 
@@ -268,7 +284,7 @@ function AbaSaques({ analise, stats }: { analise: BtAnalise; stats: BtEstatistic
   );
 }
 
-const saq = StyleSheet.create({
+const makeSaqStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: Colors.line },
   pos: { flex: 1, fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
   val: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.text, width: 70, textAlign: 'right' },
@@ -276,6 +292,9 @@ const saq = StyleSheet.create({
 });
 
 function AbaFinalizacoes({ analise, stats }: { analise: BtAnalise; stats: BtEstatisticas }) {
+  const { colors: Colors } = useTheme();
+  const p = useMemo(() => makePStyles(Colors), [Colors]);
+  const fin = useMemo(() => makeFinStyles(Colors), [Colors]);
   const jogs = analise.jogadores;
   const ids = [jogs.a1, jogs.a2, jogs.b1, jogs.b2].filter(Boolean);
 
@@ -323,7 +342,7 @@ function AbaFinalizacoes({ analise, stats }: { analise: BtAnalise; stats: BtEsta
   );
 }
 
-const fin = StyleSheet.create({
+const makeFinStyles = (Colors: ThemeColors) => StyleSheet.create({
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, marginTop: Spacing.xs },
   item: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   dot: { width: 8, height: 8, borderRadius: 4 },
@@ -331,6 +350,8 @@ const fin = StyleSheet.create({
 });
 
 function AbaDinamica({ stats }: { stats: BtEstatisticas }) {
+  const { colors: Colors } = useTheme();
+  const p = useMemo(() => makePStyles(Colors), [Colors]);
   const { dinamica } = stats;
   if (dinamica.length === 0) {
     return (
@@ -376,6 +397,9 @@ function AbaDinamica({ stats }: { stats: BtEstatisticas }) {
 }
 
 function AbaLog({ analise }: { analise: BtAnalise }) {
+  const { colors: Colors } = useTheme();
+  const p = useMemo(() => makePStyles(Colors), [Colors]);
+  const log = useMemo(() => makeLogStyles(Colors), [Colors]);
   return (
     <ScrollView contentContainerStyle={p.scroll}>
       {analise.pontos.length === 0 && (
@@ -405,7 +429,7 @@ function AbaLog({ analise }: { analise: BtAnalise }) {
   );
 }
 
-const log = StyleSheet.create({
+const makeLogStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', gap: Spacing.sm, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.line },
   dot: { width: 10, height: 10, borderRadius: 5, marginTop: 4 },
   placar: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.text },
@@ -416,6 +440,9 @@ const log = StyleSheet.create({
 // ─── Tela principal ──────────────────────────────────────────────────────────
 
 export default function RelatorioScreen() {
+  const { colors: Colors } = useTheme();
+  const r = useMemo(() => makeRStyles(Colors), [Colors]);
+  const p = useMemo(() => makePStyles(Colors), [Colors]);
   const { matchId, compId } = useLocalSearchParams<{ matchId: string; compId: string }>();
   const { group } = useAuth();
   const [analise, setAnalise] = useState<BtAnalise | null>(null);
@@ -499,7 +526,7 @@ export default function RelatorioScreen() {
 
 // ─── Estilos compartilhados ───────────────────────────────────────────────────
 
-const r = StyleSheet.create({
+const makeRStyles = (Colors: ThemeColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
@@ -509,7 +536,7 @@ const r = StyleSheet.create({
   title: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
 });
 
-const p = StyleSheet.create({
+const makePStyles = (Colors: ThemeColors) => StyleSheet.create({
   scroll: { padding: Spacing.md, gap: Spacing.lg },
   hint: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, marginTop: 4 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },

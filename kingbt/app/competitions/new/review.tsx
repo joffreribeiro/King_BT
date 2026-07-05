@@ -1,14 +1,15 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Avatar } from '@/components';
 import { buildCompetition } from '@/logic/formats';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import type { Format, Competitor, Gender } from '@/logic/types';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 const STEPS = ['Formato', 'Ajustes', 'Quem joga', 'Revisar'];
 
@@ -39,6 +40,9 @@ type Params = {
 };
 
 export default function ReviewStep() {
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
+  const sr = useMemo(() => makeSrStyles(Colors), [Colors]);
   const { addCompetition } = useCompetitions();
   const { myPlayerId } = useAuth();
   const { groupPlayers } = useGroupPlayers();
@@ -247,6 +251,8 @@ export default function ReviewStep() {
 }
 
 function SummaryRow({ label, value, last = false }: { label: string; value: string; last?: boolean }) {
+  const { colors: Colors } = useTheme();
+  const sr = useMemo(() => makeSrStyles(Colors), [Colors]);
   return (
     <View style={[sr.row, !last && sr.border]}>
       <Text style={sr.label}>{label}</Text>
@@ -254,14 +260,14 @@ function SummaryRow({ label, value, last = false }: { label: string; value: stri
     </View>
   );
 }
-const sr = StyleSheet.create({
+const makeSrStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing.sm },
   border: { borderBottomWidth: 1, borderBottomColor: Colors.line },
   label: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted },
   value: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
 });
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.line },
   backBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },

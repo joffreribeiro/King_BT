@@ -3,13 +3,14 @@ import { View } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/store/AuthContext';
-import { Colors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import SplashAnimation from '@/components/SplashAnimation';
 
 const ONBOARDING_KEY = '@kingbt:onboarding_done';
 
 export default function Root() {
   const { user, groupIds, loading } = useAuth();
+  const { colors: Colors } = useTheme();
   const router = useRouter();
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [onboardingDone, setOnboardingDone] = useState(false);

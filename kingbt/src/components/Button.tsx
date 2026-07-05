@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
-import { Colors, FontFamily, Radius, Spacing } from '@/theme';
+import { FontFamily, Radius, Spacing, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 
 type Variant = 'primary' | 'soft' | 'ghost' | 'danger';
 
@@ -13,12 +15,12 @@ type Props = {
   size?: 'sm' | 'md' | 'lg';
 };
 
-const CONFIG: Record<Variant, { bg: string; fg: string; border: string }> = {
+const makeConfig = (Colors: ThemeColors): Record<Variant, { bg: string; fg: string; border: string }> => ({
   primary: { bg: Colors.gold,   fg: Colors.bg,    border: Colors.gold },
   soft:    { bg: Colors.surf2,  fg: Colors.gold,  border: Colors.line },
   ghost:   { bg: 'transparent', fg: Colors.muted, border: 'transparent' },
   danger:  { bg: Colors.coral + '22', fg: Colors.coral, border: Colors.coral + '66' },
-};
+});
 
 const PAD: Record<'sm' | 'md' | 'lg', { v: number; h: number; fs: number }> = {
   sm: { v: Spacing.xs, h: Spacing.md, fs: 13 },
@@ -30,6 +32,9 @@ export default function Button({
   label, onPress, variant = 'primary', loading = false,
   disabled = false, fullWidth = false, size = 'md',
 }: Props) {
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
+  const CONFIG = useMemo(() => makeConfig(Colors), [Colors]);
   const { bg, fg, border } = CONFIG[variant];
   const { v, h, fs } = PAD[size];
   return (
@@ -52,7 +57,7 @@ export default function Button({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   btn: { borderRadius: Radius.md, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
   full: { width: '100%' },
   label: { fontFamily: FontFamily.title, letterSpacing: 0.3 },

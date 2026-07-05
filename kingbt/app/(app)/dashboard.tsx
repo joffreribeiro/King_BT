@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { goToPlayer } from '@/logic/nav';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -12,6 +14,8 @@ import { extractPlayerGames } from '@/logic/formats';
 import { computeGroupRivalries } from '@/logic/rivalries';
 
 export default function DashboardScreen() {
+  const { colors: Colors } = useTheme();
+  const ds = useMemo(() => makeDsStyles(Colors), [Colors]);
   const { state } = useCompetitions();
   const { groupPlayers, findPlayer } = useGroupPlayers();
   const { myPlayerId } = useAuth();
@@ -427,7 +431,7 @@ export default function DashboardScreen() {
   );
 }
 
-const ds = StyleSheet.create({
+const makeDsStyles = (Colors: ThemeColors) => StyleSheet.create({
   greetingLine: {
     fontFamily: FontFamily.body,
     fontSize: 11,
@@ -519,7 +523,7 @@ const ds = StyleSheet.create({
   },
   wlTrack: {
     height: 5,
-    backgroundColor: '#221C12',
+    backgroundColor: Colors.surf2,
     borderRadius: 3,
     overflow: 'hidden',
   },

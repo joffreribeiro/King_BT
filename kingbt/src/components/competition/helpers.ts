@@ -1,10 +1,10 @@
 import { PLAYERS } from '@/mocks/data';
 import { standings, koRoundName, competitionChampion } from '@/logic/formats';
 import type { Match, Competition, MatchSource } from '@/logic/types';
-import { Colors } from '@/theme';
+import type { ThemeColors } from '@/theme';
 
 // Cor do saldo de games (SG): verde se positivo, vermelho se negativo, neutro se zero
-export function sgColor(sg: number): string {
+export function sgColor(sg: number, Colors: ThemeColors): string {
   return sg > 0 ? Colors.teal : sg < 0 ? Colors.coral : Colors.muted;
 }
 

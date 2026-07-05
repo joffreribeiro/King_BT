@@ -2,9 +2,10 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card } from '@/components';
 import { useFeed } from '@/store/FeedContext';
 import { useAuth } from '@/store/AuthContext';
@@ -15,13 +16,13 @@ import { goToPlayer } from '@/logic/nav';
 
 const EMOJIS = ['👑', '🔥', '💪'] as const;
 
-const FORMAT_COLOR: Record<string, string> = {
+const makeFormatColor = (Colors: ThemeColors): Record<string, string> => ({
   liga:   Colors.teal,
   grupos: '#6B7FD7',
   mata:   Colors.coral,
   avulso: '#38BDF8',
   super8: '#F472B6',
-};
+});
 
 function timeAgo(ts: any): string {
   const ms = Date.now() - (ts?.toDate?.()?.getTime?.() ?? Date.now());
@@ -49,6 +50,8 @@ function useMatchGames(item: FeedItem): { a: number; b: number }[] | null {
 // Placar estilo painel de TV: cada lado numa linha, games por set em colunas
 // alinhadas da esquerda (mesmo visual do ScoreboardCard das competições)
 function FeedScoreboard({ item, sets }: { item: FeedItem; sets: { a: number; b: number }[] | null }) {
+  const { colors: Colors } = useTheme();
+  const fsb = useMemo(() => makeFsbStyles(Colors), [Colors]);
   const { findPlayer } = useGroupPlayers();
   const aWon = (item.sideA?.score ?? 0) > (item.sideB?.score ?? 0);
 
@@ -106,11 +109,11 @@ function FeedScoreboard({ item, sets }: { item: FeedItem; sets: { a: number; b: 
   );
 }
 
-const fsb = StyleSheet.create({
+const makeFsbStyles = (Colors: ThemeColors) => StyleSheet.create({
   box: { borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.sm, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: Spacing.sm, height: 42 },
   nameWrap: { flex: 1 },
-  name: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: '#FFFFFF' },
+  name: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
   nameWin: { color: Colors.gold, fontFamily: FontFamily.title },
   scoreZone: {
     width: 100, alignSelf: 'stretch',
@@ -127,6 +130,8 @@ const fsb = StyleSheet.create({
 // ─── Card de resultado de partida ────────────────────────────────────────────
 
 function CommentsModal({ item, visible, onClose }: { item: FeedItem; visible: boolean; onClose: () => void }) {
+  const { colors: Colors } = useTheme();
+  const cm = useMemo(() => makeCmStyles(Colors), [Colors]);
   const { user, group } = useAuth();
   const [comment, setComment] = useState('');
   const [sending, setSending] = useState(false);
@@ -191,7 +196,7 @@ function CommentsModal({ item, visible, onClose }: { item: FeedItem; visible: bo
   );
 }
 
-const cm = StyleSheet.create({
+const makeCmStyles = (Colors: ThemeColors) => StyleSheet.create({
   overlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
   sheet:       { backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.md, maxHeight: '70%' },
   handle:      { width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.line, alignSelf: 'center', marginBottom: Spacing.sm },
@@ -210,6 +215,9 @@ const cm = StyleSheet.create({
 });
 
 function MatchResultCard({ item }: { item: FeedItem }) {
+  const { colors: Colors } = useTheme();
+  const mc = useMemo(() => makeMcStyles(Colors), [Colors]);
+  const FORMAT_COLOR = useMemo(() => makeFormatColor(Colors), [Colors]);
   const { user, group } = useAuth();
   const { findPlayer } = useGroupPlayers();
   const [showComments, setShowComments] = useState(false);
@@ -313,7 +321,7 @@ function MatchResultCard({ item }: { item: FeedItem }) {
   );
 }
 
-const mc = StyleSheet.create({
+const makeMcStyles = (Colors: ThemeColors) => StyleSheet.create({
   card:            { padding: 0, overflow: 'hidden', backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line },
   accentBar:       { height: 3 },
   body:            { padding: Spacing.md, gap: Spacing.sm },
@@ -344,6 +352,8 @@ const mc = StyleSheet.create({
 // ─── Card de milestone de rivalidade ─────────────────────────────────────────
 
 function MilestoneCard({ item }: { item: FeedItem }) {
+  const { colors: Colors } = useTheme();
+  const mil = useMemo(() => makeMilStyles(Colors), [Colors]);
   const { findPlayer } = useGroupPlayers();
 
   const players = (item.involvedIds ?? [])
@@ -406,7 +416,7 @@ function FadeAvatar({ name, color, size, delay }: { name: string; color: string;
   );
 }
 
-const mil = StyleSheet.create({
+const makeMilStyles = (Colors: ThemeColors) => StyleSheet.create({
   card:    { borderWidth: 1, borderColor: Colors.gold + '33', borderRadius: Radius.md, backgroundColor: Colors.surf },
   inner:   { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, padding: Spacing.md },
   emoji:   { fontSize: 28, lineHeight: 34 },
@@ -420,6 +430,8 @@ const mil = StyleSheet.create({
 // ─── Card de mudança de ranking ───────────────────────────────────────────────
 
 function RankChangeCard({ item }: { item: FeedItem }) {
+  const { colors: Colors } = useTheme();
+  const rc = useMemo(() => makeRcStyles(Colors), [Colors]);
   const { findPlayer } = useGroupPlayers();
   const pl = item.playerId ? findPlayer(item.playerId) : null;
   const climbed = (item.oldPos ?? 0) - (item.newPos ?? 0);
@@ -477,7 +489,7 @@ function RankChangeCard({ item }: { item: FeedItem }) {
   );
 }
 
-const rc = StyleSheet.create({
+const makeRcStyles = (Colors: ThemeColors) => StyleSheet.create({
   card:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.md, borderRadius: Radius.md, backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line },
   left:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
   info:  { flex: 1 },
@@ -491,6 +503,7 @@ const rc = StyleSheet.create({
 // ─── Skeleton loader ──────────────────────────────────────────────────────────
 
 function FeedSkeleton() {
+  const { colors: Colors } = useTheme();
   return (
     <View style={{ gap: Spacing.sm }}>
       {[1, 2, 3].map(i => (
@@ -511,6 +524,9 @@ function FeedSkeleton() {
 // ─── Card agrupado por competição ────────────────────────────────────────────
 
 function CompGroupCard({ compName, matches }: { compName: string; matches: FeedItem[] }) {
+  const { colors: Colors } = useTheme();
+  const mc = useMemo(() => makeMcStyles(Colors), [Colors]);
+  const FORMAT_COLOR = useMemo(() => makeFormatColor(Colors), [Colors]);
   const accent = FORMAT_COLOR[matches[0]?.format ?? ''] ?? Colors.gold;
   const time = timeAgo(matches[0]?.timestamp);
 
@@ -526,12 +542,6 @@ function CompGroupCard({ compName, matches }: { compName: string; matches: FeedI
   return (
     <Animated.View style={{ opacity: cardOpacity, transform: [{ translateY: cardY }] }}>
     <View style={[mc.card, { overflow: 'hidden' }]}>
-      <LinearGradient
-        colors={[`#9C27B026`, `#E91E6312`]}
-        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
       <View style={[mc.accentBar, { backgroundColor: accent }]} />
       <View style={mc.body}>
         <View style={mc.header}>
@@ -548,6 +558,9 @@ function CompGroupCard({ compName, matches }: { compName: string; matches: FeedI
 }
 
 function MatchRow({ item, last }: { item: FeedItem; last: boolean }) {
+  const { colors: Colors } = useTheme();
+  const mr = useMemo(() => makeMrStyles(Colors), [Colors]);
+  const mc = useMemo(() => makeMcStyles(Colors), [Colors]);
   const { user, group } = useAuth();
   const { findPlayer } = useGroupPlayers();
   const [showComments, setShowComments] = useState(false);
@@ -593,7 +606,7 @@ function MatchRow({ item, last }: { item: FeedItem; last: boolean }) {
   );
 }
 
-const mr = StyleSheet.create({
+const makeMrStyles = (Colors: ThemeColors) => StyleSheet.create({
   wrap:     { gap: 6, paddingVertical: Spacing.sm },
   border:   { borderBottomWidth: 1, borderBottomColor: Colors.line },
   scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.surf2, borderRadius: Radius.md, paddingHorizontal: Spacing.sm, paddingVertical: 8 },
@@ -611,6 +624,8 @@ type FeedRow =
   | { kind: 'single'; item: FeedItem };
 
 export default function FeedScreen() {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { items, loaded, error } = useFeed();
   const { group } = useAuth();
 
@@ -684,7 +699,7 @@ export default function FeedScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container:  { flex: 1, backgroundColor: Colors.bg },
   list:       { padding: Spacing.md, paddingBottom: 140 },
   titleRow:   { marginBottom: Spacing.md },

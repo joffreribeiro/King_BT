@@ -1,11 +1,13 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Colors, FontFamily, Spacing } from '@/theme';
+import { useMemo } from 'react';
+import { FontFamily, Spacing, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Card } from '@/components';
 import { koRoundName } from '@/logic/formats';
 import type { Match, Competition } from '@/logic/types';
 import { getCompetitor, srcLabel, isByeSlot, firstUnscored } from './helpers';
 import { MatchRow } from './MatchRow';
-import { vw } from './viewStyles';
+import { makeVw } from './viewStyles';
 
 const BK_CARD_H  = 80;
 const BK_GAP     = 14;
@@ -15,6 +17,8 @@ const BK_CONN_W  = 36;
 function BracketMatchCard({ match: m, comp, onPress }: {
   match: Match; comp: Competition; onPress: () => void;
 }) {
+  const { colors: Colors } = useTheme();
+  const bkCard = useMemo(() => makeBkCardStyles(Colors), [Colors]);
   const cA = m.aId ? getCompetitor(comp, m.aId) : null;
   const cB = m.bId ? getCompetitor(comp, m.bId) : null;
   const has = m.scoreA != null && m.scoreB != null;
@@ -59,7 +63,7 @@ function BracketMatchCard({ match: m, comp, onPress }: {
     </TouchableOpacity>
   );
 }
-const bkCard = StyleSheet.create({
+const makeBkCardStyles = (Colors: ThemeColors) => StyleSheet.create({
   card: {
     width: BK_ROUND_W,
     borderRadius: 6,
@@ -71,11 +75,11 @@ const bkCard = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: (BK_CARD_H - 1) / 2 },
   winRow: { backgroundColor: Colors.gold + '22' },
   div: { height: 1, backgroundColor: Colors.line },
-  name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 14, color: '#FFFFFF' },
+  name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
   winName: { color: Colors.gold, fontFamily: FontFamily.bodyMed },
   byeRow: { backgroundColor: Colors.surf2 },
-  byeName: { color: '#FFFFFF', fontFamily: FontFamily.numberBold, fontSize: 12, letterSpacing: 1 },
-  placeholderName: { color: '#FFFFFF', fontStyle: 'italic', fontSize: 13 },
+  byeName: { color: Colors.text, fontFamily: FontFamily.numberBold, fontSize: 12, letterSpacing: 1 },
+  placeholderName: { color: Colors.text, fontStyle: 'italic', fontSize: 13 },
   score: { fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.muted, width: 22, textAlign: 'center' },
   winScore: { color: Colors.teal },
 });
@@ -83,6 +87,9 @@ const bkCard = StyleSheet.create({
 export function BracketView({ comp, onScore, onClear }: {
   comp: Competition; onScore: (m: Match) => void; onClear: (id: string) => void;
 }) {
+  const { colors: Colors } = useTheme();
+  const vw = useMemo(() => makeVw(Colors), [Colors]);
+  const bk = useMemo(() => makeBkStyles(Colors), [Colors]);
   const koMatches = comp.matches.filter(m => m.stage === 'ko' && !m.third);
   const thirdMatch = comp.matches.find(m => m.stage === 'ko' && m.third);
   const nextId = firstUnscored(comp.matches.filter(m => m.stage === 'ko'));
@@ -188,7 +195,7 @@ export function BracketView({ comp, onScore, onClear }: {
   );
 }
 
-const bk = StyleSheet.create({
+const makeBkStyles = (Colors: ThemeColors) => StyleSheet.create({
   roundLabel: {
     fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.muted,
     letterSpacing: 1.5, textAlign: 'center',

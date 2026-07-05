@@ -5,7 +5,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { router } from 'expo-router';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -64,6 +65,8 @@ function getInsight(isWin: boolean, playerScore: number, opponentScore: number):
 
 // ── Card animado ──────────────────────────────────────────────────────────────
 function MatchCard({ entry, index }: { entry: MatchEntry; index: number }) {
+  const { colors: Colors } = useTheme();
+  const mc = useMemo(() => makeMcStyles(Colors), [Colors]);
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -134,7 +137,7 @@ function MatchCard({ entry, index }: { entry: MatchEntry; index: number }) {
   );
 }
 
-const mc = StyleSheet.create({
+const makeMcStyles = (Colors: ThemeColors) => StyleSheet.create({
   card: {
     flexDirection: 'row',
     borderWidth: 1,
@@ -201,6 +204,8 @@ const mc = StyleSheet.create({
 
 // ── Tela principal ────────────────────────────────────────────────────────────
 export default function HistoryScreen() {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { state } = useCompetitions();
   const { myPlayerId } = useAuth();
   const { groupPlayers, findPlayer } = useGroupPlayers();
@@ -353,7 +358,7 @@ export default function HistoryScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
 
   header: {

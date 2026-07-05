@@ -1,5 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Colors, FontFamily, Spacing } from '@/theme';
+import { useMemo } from 'react';
+import { FontFamily, Spacing, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { goToPlayer } from '@/logic/nav';
 import { Avatar, Card } from '@/components';
 import { standings } from '@/logic/formats';
@@ -19,6 +21,8 @@ export function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
   comp: Competition; ids: string[]; matches: Match[]; highlightTop?: number;
 }) {
   const { findPlayer } = useGroupPlayers();
+  const { colors: Colors } = useTheme();
+  const stRow = useMemo(() => makeStRow(Colors), [Colors]);
 
   function resolveEntry(id: string): { name: string; color: string } {
     const competitor = getCompetitor(comp, id);
@@ -69,7 +73,7 @@ export function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
             <Text style={stRow.cN}>{s.losses}</Text>
             <Text style={stRow.cN}>{s.gf}</Text>
             <Text style={stRow.cN}>{Math.round(s.gf - s.gd)}</Text>
-            <Text style={[stRow.cN, { color: sgColor(s.gd) }]}>
+            <Text style={[stRow.cN, { color: sgColor(s.gd, Colors) }]}>
               {s.gd > 0 ? '+' : ''}{s.gd}
             </Text>
             <Text style={stRow.cNw} numberOfLines={1}>
@@ -88,7 +92,7 @@ export function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
 }
 
 // Exportado: outras views (Classificação/Rotating) reutilizam estes estilos
-export const stRow = StyleSheet.create({
+export const makeStRow = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.sm, paddingVertical: 7 },
   header: { backgroundColor: Colors.surf2, paddingVertical: 5 },
   border: { borderBottomWidth: 1, borderBottomColor: Colors.line },

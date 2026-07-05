@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Text, StyleSheet } from 'react-native';
 import { Animated } from 'react-native';
-import { FontFamily, Colors } from '@/theme';
+import { FontFamily, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 
 interface AnimatedNumberProps {
   value: number;
@@ -16,8 +17,11 @@ export function AnimatedNumber({
   decimals = 2,
   duration = 900,
   style,
-  color = Colors.gold,
+  color,
 }: AnimatedNumberProps) {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStyles(Colors), [Colors]);
+  const finalColor = color ?? Colors.gold;
   const anim = useRef(new Animated.Value(0)).current;
   const [display, setDisplay] = useState('0' + (decimals > 0 ? '.' + '0'.repeat(decimals) : ''));
 
@@ -33,9 +37,9 @@ export function AnimatedNumber({
     return () => anim.removeListener(id);
   }, [value]);
 
-  return <Text style={[s.num, { color }, style]}>{display}</Text>;
+  return <Text style={[s.num, { color: finalColor }, style]}>{display}</Text>;
 }
 
-const s = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   num: { fontFamily: FontFamily.numberBold, fontSize: 15 },
 });

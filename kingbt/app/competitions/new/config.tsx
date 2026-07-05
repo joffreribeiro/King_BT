@@ -1,8 +1,9 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { useState, useMemo } from 'react';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import type { Format, Gender } from '@/logic/types';
 
 const STEPS = ['Formato', 'Ajustes', 'Quem joga', 'Revisar'];
@@ -23,6 +24,8 @@ function SegmentControl<T extends string>({
   onChange: (v: T) => void;
   descriptions?: Partial<Record<T, string>>;
 }) {
+  const { colors: Colors } = useTheme();
+  const seg = useMemo(() => makeSegStyles(Colors), [Colors]);
   return (
     <View style={seg.wrap}>
       <View style={seg.bar}>
@@ -43,7 +46,7 @@ function SegmentControl<T extends string>({
     </View>
   );
 }
-const seg = StyleSheet.create({
+const makeSegStyles = (Colors: ThemeColors) => StyleSheet.create({
   wrap: { gap: 6 },
   bar: { flexDirection: 'row', backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: 3 },
   btn: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: Radius.sm - 2 },
@@ -56,6 +59,8 @@ const seg = StyleSheet.create({
 function Stepper({ label, value, min, max, onChange }: {
   label: string; value: number; min: number; max: number; onChange: (v: number) => void;
 }) {
+  const { colors: Colors } = useTheme();
+  const stp = useMemo(() => makeStpStyles(Colors), [Colors]);
   return (
     <View style={stp.row}>
       <Text style={stp.label}>{label}</Text>
@@ -71,7 +76,7 @@ function Stepper({ label, value, min, max, onChange }: {
     </View>
   );
 }
-const stp = StyleSheet.create({
+const makeStpStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   label: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.text },
   controls: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
@@ -81,6 +86,10 @@ const stp = StyleSheet.create({
 });
 
 export default function ConfigStep() {
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
+  const preset = useMemo(() => makePresetStyles(Colors), [Colors]);
+  const tog = useMemo(() => makeTogStyles(Colors), [Colors]);
   const { format } = useLocalSearchParams<{ format: Format }>();
   const [name, setName]       = useState(FORMAT_DEFAULT_NAME[format] ?? 'Competição');
   const [unit, setUnit]       = useState<Unit>('individual');
@@ -364,7 +373,7 @@ export default function ConfigStep() {
   );
 }
 
-const preset = StyleSheet.create({
+const makePresetStyles = (Colors: ThemeColors) => StyleSheet.create({
   grid:        { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   card:        { width: '47%', backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, padding: Spacing.sm, gap: 2 },
   cardActive:  { borderColor: Colors.gold, backgroundColor: Colors.gold + '15' },
@@ -374,7 +383,7 @@ const preset = StyleSheet.create({
   descActive:  { color: Colors.gold + 'BB' },
 });
 
-const tog = StyleSheet.create({
+const makeTogStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xs },
   label: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
   desc: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
@@ -384,7 +393,7 @@ const tog = StyleSheet.create({
   thumbOn: { backgroundColor: Colors.teal, alignSelf: 'flex-end' },
 });
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.line },
   backBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },

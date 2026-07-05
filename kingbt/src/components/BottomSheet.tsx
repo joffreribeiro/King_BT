@@ -1,6 +1,7 @@
 import { Animated, View, PanResponder, Dimensions, StyleSheet, Pressable, Platform } from 'react-native';
-import { useEffect, useRef } from 'react';
-import { Colors, Spacing, Radius } from '@/theme';
+import { useEffect, useRef, useMemo } from 'react';
+import { Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
@@ -12,6 +13,8 @@ interface BottomSheetProps {
 }
 
 export function BottomSheet({ visible, onClose, height = 400, children }: BottomSheetProps) {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStyles(Colors), [Colors]);
   const translateY = useRef(new Animated.Value(SCREEN_H)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
 
@@ -72,7 +75,7 @@ export function BottomSheet({ visible, onClose, height = 400, children }: Bottom
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.6)',

@@ -1,12 +1,18 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useMemo } from 'react';
 import { router } from 'expo-router';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Card, RatingChart } from '@/components';
 import { PointsTimeline } from './PointsTimeline';
-import { tab } from './profileStyles';
+import { makeTab } from './profileStyles';
 
 // ─── Aba Resumo ───────────────────────────────────────────────────────────────
 export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activityData, ratingHistory, nextAchievement, unlockedAchievements }: any) {
+  const { colors: Colors } = useTheme();
+  const tab = useMemo(() => makeTab(Colors), [Colors]);
+  const statRow = useMemo(() => makeStatRowStyles(Colors), [Colors]);
+  const l20 = useMemo(() => makeL20Styles(Colors), [Colors]);
   const recent7 = [...matchHistory.slice(0, 7)].reverse();
   const last20   = matchHistory.slice(0, 20);
   const last20Wins   = last20.filter((g: any) => g.won).length;
@@ -199,7 +205,7 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
   );
 }
 
-const statRow = StyleSheet.create({
+const makeStatRowStyles = (Colors: ThemeColors) => StyleSheet.create({
   row:     { flexDirection: 'row', alignItems: 'center' },
   cell:    { flex: 1, alignItems: 'center', gap: 3, paddingVertical: Spacing.sm },
   divider: { borderRightWidth: 1, borderRightColor: Colors.line },
@@ -207,7 +213,7 @@ const statRow = StyleSheet.create({
   lbl:     { fontFamily: FontFamily.number, fontSize: 9, color: Colors.faint, letterSpacing: 0.5 },
 });
 
-const l20 = StyleSheet.create({
+const makeL20Styles = (Colors: ThemeColors) => StyleSheet.create({
   resultBox: { flex: 1, alignItems: 'center', backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.sm, gap: 2 },
   resultIcon: { fontSize: 18 },
   resultNum:  { fontFamily: FontFamily.titleBold, fontSize: 22 },

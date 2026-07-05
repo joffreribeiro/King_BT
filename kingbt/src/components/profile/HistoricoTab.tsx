@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useState } from 'react';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
-import { tab } from './profileStyles';
+import { useState, useMemo } from 'react';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
+import { makeTab } from './profileStyles';
 
 // ─── Aba Histórico ────────────────────────────────────────────────────────────
 const FORMAT_LABEL_H: Record<string, string> = {
@@ -19,6 +20,8 @@ function getInsightH(won: boolean, myScore: number, oppScore: number): string {
 }
 
 function HistoricoMatchCard({ h, index }: { h: any; index: number }) {
+  const { colors: Colors } = useTheme();
+  const hc = useMemo(() => makeHcStyles(Colors), [Colors]);
   const insight = getInsightH(h.won, h.myScore, h.oppScore);
   const delta = h.won
     ? +(1.0 + Math.random() * 1.8).toFixed(1)
@@ -55,7 +58,7 @@ function HistoricoMatchCard({ h, index }: { h: any; index: number }) {
   );
 }
 
-const ht = StyleSheet.create({
+const makeHtStyles = (Colors: ThemeColors) => StyleSheet.create({
   statsRow: {
     flexDirection: 'row', backgroundColor: Colors.surf,
     borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line,
@@ -78,7 +81,7 @@ const ht = StyleSheet.create({
   },
 });
 
-const hc = StyleSheet.create({
+const makeHcStyles = (Colors: ThemeColors) => StyleSheet.create({
   card: {
     flex: 1,
     flexDirection: 'row',
@@ -106,6 +109,9 @@ const hc = StyleSheet.create({
 });
 
 export function HistoricoTab({ matchHistory }: any) {
+  const { colors: Colors } = useTheme();
+  const tab = useMemo(() => makeTab(Colors), [Colors]);
+  const ht = useMemo(() => makeHtStyles(Colors), [Colors]);
   const [visibleCount, setVisibleCount] = useState(10);
 
   const visible = matchHistory.slice(0, visibleCount);

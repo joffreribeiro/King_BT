@@ -1,10 +1,13 @@
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput } from 'react-native';
-import { useState } from 'react';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { useMemo, useState } from 'react';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 
 export function EditNameModal({ current, onClose, onSave }: {
   current: string; onClose: () => void; onSave: (name: string) => void;
 }) {
+  const { colors: Colors } = useTheme();
+  const en = useMemo(() => makeEnStyles(Colors), [Colors]);
   const [name, setName] = useState(current);
   const valid = name.trim().length > 0 && name.trim() !== current;
   return (
@@ -38,7 +41,7 @@ export function EditNameModal({ current, onClose, onSave }: {
   );
 }
 
-const en = StyleSheet.create({
+const makeEnStyles = (Colors: ThemeColors) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: '#000000aa', justifyContent: 'center', alignItems: 'center', padding: Spacing.xl },
   box: { backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.lg, width: '100%', gap: Spacing.md },
   title: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },

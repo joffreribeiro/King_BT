@@ -18,13 +18,13 @@ import {
   SpaceGrotesk_600SemiBold,
   SpaceGrotesk_700Bold,
 } from '@expo-google-fonts/space-grotesk';
-import { Colors } from '@/theme';
 import { AuthProvider } from '@/store/AuthContext';
 import { CompetitionsProvider } from '@/store/CompetitionsContext';
 import { GroupPlayersProvider } from '@/store/GroupPlayersContext';
 import { SettingsProvider } from '@/store/SettingsContext';
 import { FeedProvider } from '@/store/FeedContext';
 import { SyncQueueProvider } from '@/store/SyncQueueContext';
+import { ThemeProvider, useTheme } from '@/store/ThemeContext';
 
 SplashScreen.preventAutoHideAsync();
 // Timeout de segurança: esconde a splash em no máximo 5s independente das fontes
@@ -62,17 +62,33 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
+    <ThemeProvider>
     <AuthProvider>
     <SettingsProvider>
     <GroupPlayersProvider>
     <CompetitionsProvider>
     <FeedProvider>
     <SyncQueueProvider>
-      <StatusBar style="light" />
+      <RootStack splashDone={splashDone} onSplashFinish={() => setSplashDone(true)} />
+    </SyncQueueProvider>
+    </FeedProvider>
+    </CompetitionsProvider>
+    </GroupPlayersProvider>
+    </SettingsProvider>
+    </AuthProvider>
+    </ThemeProvider>
+  );
+}
+
+function RootStack({ splashDone, onSplashFinish }: { splashDone: boolean; onSplashFinish: () => void }) {
+  const { mode, colors } = useTheme();
+  return (
+    <>
+      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: Colors.bg },
+          contentStyle: { backgroundColor: colors.bg },
           animation: 'slide_from_right',
         }}
       >
@@ -80,13 +96,8 @@ export default function RootLayout() {
         <Stack.Screen name="bracket" options={{ headerShown: false }} />
       </Stack>
       {!splashDone && (
-        <SplashAnimation onFinish={() => setSplashDone(true)} />
+        <SplashAnimation onFinish={onSplashFinish} />
       )}
-    </SyncQueueProvider>
-    </FeedProvider>
-    </CompetitionsProvider>
-    </GroupPlayersProvider>
-    </SettingsProvider>
-    </AuthProvider>
+    </>
   );
 }

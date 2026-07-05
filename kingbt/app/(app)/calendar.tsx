@@ -3,7 +3,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useMemo } from 'react';
 import { Calendar } from 'react-native-calendars';
 import { router } from 'expo-router';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Card } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import type { Competition } from '@/logic/types';
@@ -18,6 +19,8 @@ const FORMAT_COLOR: Record<string, string> = {
 };
 
 export default function CalendarScreen() {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { state } = useCompetitions();
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -238,7 +241,7 @@ export default function CalendarScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container:   { flex: 1, backgroundColor: Colors.bg },
   header:      { padding: Spacing.md, paddingBottom: Spacing.sm },
   weekStrip: {

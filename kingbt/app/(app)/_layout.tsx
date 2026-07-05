@@ -4,8 +4,9 @@ import {
   Modal, ScrollView, Pressable, Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRef, useEffect, useState } from 'react';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { useMemo, useRef, useEffect, useState } from 'react';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { useSyncQueue } from '@/store/SyncQueueContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -58,6 +59,8 @@ const TAB_CONFIG: Record<string, { icon: (p: { color: string; size: number }) =>
 // ── Drawer ────────────────────────────────────────────────────────────────────
 function DrawerMenu({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { logout, group, user } = useAuth();
+  const { colors: Colors } = useTheme();
+  const dr = useMemo(() => makeDrStyles(Colors), [Colors]);
   const slideAnim = useRef(new Animated.Value(300)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
@@ -161,6 +164,8 @@ function DrawerMenu({ visible, onClose }: { visible: boolean; onClose: () => voi
 
 // ── FAB ───────────────────────────────────────────────────────────────────────
 function FABMenu({ insetBottom }: { insetBottom: number }) {
+  const { colors: Colors } = useTheme();
+  const fab = useMemo(() => makeFabStyles(Colors), [Colors]);
   const [open, setOpen] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const item1Anim = useRef(new Animated.Value(0)).current;
@@ -235,14 +240,15 @@ function TabItem({ route, isFocused, onPress }: {
   onPress: () => void;
 }) {
   const config = TAB_CONFIG[route.name];
-  if (!config) return null;
-
+  const { colors: Colors } = useTheme();
+  const tb = useMemo(() => makeTbStyles(Colors), [Colors]);
   const anim = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
   useEffect(() => {
     Animated.timing(anim, { toValue: isFocused ? 1 : 0, duration: 180, useNativeDriver: false }).start();
   }, [isFocused]);
 
-  const color = isFocused ? Colors.gold : '#666';
+  if (!config) return null;
+  const color = isFocused ? Colors.gold : Colors.muted;
 
   return (
     <TouchableOpacity onPress={onPress} style={tb.tabItem} activeOpacity={0.75}
@@ -258,6 +264,8 @@ function TabItem({ route, isFocused, onPress }: {
 // ── Custom Tab Bar ─────────────────────────────────────────────────────────────
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const { colors: Colors } = useTheme();
+  const tb = useMemo(() => makeTbStyles(Colors), [Colors]);
   const visibleRoutes = state.routes.filter(r => {
     const opts = descriptors[r.key].options as any;
     return opts.href !== null && opts.href !== false;
@@ -280,6 +288,8 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 // ── Offline Banner ─────────────────────────────────────────────────────────────
 function OfflineBanner() {
   const { isOnline, pendingCount } = useSyncQueue();
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   if (isOnline) return null;
   return (
     <View style={styles.offlineBanner}>
@@ -293,6 +303,8 @@ function OfflineBanner() {
 
 // Banner de modo visitante — usuário está vendo um grupo público sem ser membro
 function VisitorBanner() {
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   return (
     <View style={styles.visitorBanner}>
       <Text style={{ fontSize: 12 }}>👁</Text>
@@ -307,6 +319,8 @@ function VisitorBanner() {
 // ── Header ─────────────────────────────────────────────────────────────────────
 function AppHeader({ onMenuPress }: { onMenuPress: () => void }) {
   const { group, user, myPlayerId } = useAuth();
+  const { colors: Colors } = useTheme();
+  const hd = useMemo(() => makeHdStyles(Colors), [Colors]);
   const { groupPlayers } = useGroupPlayers();
   const insets = useSafeAreaInsets();
   const myPlayer = groupPlayers.find(p => p.id === myPlayerId);
@@ -393,58 +407,58 @@ export default function AppLayout() {
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
-const hd = StyleSheet.create({
-  bar: { backgroundColor: '#1a1a1a', borderBottomWidth: 1, borderBottomColor: '#2a2a2a' },
+const makeHdStyles = (Colors: ThemeColors) => StyleSheet.create({
+  bar: { backgroundColor: Colors.surf, borderBottomWidth: 1, borderBottomColor: Colors.line },
   inner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, height: 80 },
   logoGroup: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logoImg: { width: 64, height: 64, borderRadius: 14 },
-  groupLabel: { fontFamily: FontFamily.numberBold, fontSize: 11, color: '#888', letterSpacing: 1 },
+  groupLabel: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted, letterSpacing: 1 },
   groupName: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text },
-  bellBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center' },
+  bellBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
   bellIcon: { fontSize: 16 },
-  menuBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center' },
-  menuIcon: { fontSize: 20, color: '#888' },
+  menuBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
+  menuIcon: { fontSize: 20, color: Colors.muted },
 });
 
-const tb = StyleSheet.create({
+const makeTbStyles = (Colors: ThemeColors) => StyleSheet.create({
   bar: {
-    flexDirection: 'row', backgroundColor: '#1a1a1a',
-    borderTopWidth: 1, borderTopColor: '#2a2a2a',
+    flexDirection: 'row', backgroundColor: Colors.surf,
+    borderTopWidth: 1, borderTopColor: Colors.line,
   },
   tabItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 8, gap: 3 },
   indicator: { position: 'absolute', top: 0, left: '20%', right: '20%', height: 2, borderRadius: 1 },
   label: { fontFamily: FontFamily.bodyMed, fontSize: 11, fontWeight: '600' },
 });
 
-const dr = StyleSheet.create({
+const makeDrStyles = (Colors: ThemeColors) => StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 40 },
   panel: {
     position: 'absolute', right: 0, top: 0, bottom: 0, width: 280,
-    backgroundColor: '#1a1a1a', borderLeftWidth: 1, borderLeftColor: '#2a2a2a',
+    backgroundColor: Colors.surf, borderLeftWidth: 1, borderLeftColor: Colors.line,
     zIndex: 50, flexDirection: 'column',
   },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: '#2a2a2a', paddingTop: 56 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: Colors.line, paddingTop: 56 },
   headerTitle: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
-  headerSub: { fontFamily: FontFamily.body, fontSize: 12, color: '#888', marginTop: 2 },
-  closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center' },
-  closeBtnTxt: { fontSize: 14, color: '#888' },
+  headerSub: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: 2 },
+  closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
+  closeBtnTxt: { fontSize: 14, color: Colors.muted },
   content: { flex: 1, padding: 16 },
   sectionLabel: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.gold, letterSpacing: 1, marginBottom: 10, marginTop: 4 },
   groupBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1 },
-  groupBtnActive: { backgroundColor: '#2a2a2a', borderColor: Colors.gold },
+  groupBtnActive: { backgroundColor: Colors.surf2, borderColor: Colors.gold },
   groupBtnTxtActive: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.gold, flex: 1 },
-  groupBtnNew: { padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: '#2a2a2a' },
-  groupBtnNewTxt: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: '#888' },
-  divider: { height: 1, backgroundColor: '#2a2a2a', marginVertical: 16 },
+  groupBtnNew: { padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: Colors.line },
+  groupBtnNewTxt: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
+  divider: { height: 1, backgroundColor: Colors.line, marginVertical: 16 },
   menuBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 10, marginBottom: 8 },
   menuBtnIcon: { fontSize: 18, width: 28 },
   menuBtnTxt: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
-  footer: { padding: 16, borderTopWidth: 1, borderTopColor: '#2a2a2a' },
+  footer: { padding: 16, borderTopWidth: 1, borderTopColor: Colors.line },
   logoutBtn: { padding: 12, borderRadius: 10, backgroundColor: 'rgba(229,72,61,0.12)', borderWidth: 1, borderColor: 'rgba(229,72,61,0.3)', alignItems: 'center' },
   logoutTxt: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.coral },
 });
 
-const fab = StyleSheet.create({
+const makeFabStyles = (Colors: ThemeColors) => StyleSheet.create({
   itemAbsolute: { position: 'absolute', alignItems: 'flex-end', zIndex: 30 },
   btn: {
     width: 56, height: 56, borderRadius: 28,
@@ -457,9 +471,9 @@ const fab = StyleSheet.create({
   item: { marginBottom: 10, alignItems: 'flex-end' },
   itemBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#2a2a2a', borderRadius: 12,
+    backgroundColor: Colors.surf2, borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 11,
-    borderWidth: 1, borderColor: '#3a3a3a',
+    borderWidth: 1, borderColor: Colors.line,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
   },
@@ -467,7 +481,7 @@ const fab = StyleSheet.create({
   itemLabel: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
 });
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   offlineBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     backgroundColor: '#E5483D22', borderBottomWidth: 1, borderBottomColor: '#E5483D44',

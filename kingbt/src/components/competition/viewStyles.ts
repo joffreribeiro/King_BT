@@ -1,8 +1,9 @@
 import { StyleSheet } from 'react-native';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 
 // Estilos compartilhados pelas views por formato (Rotating/League/Groups/KO/Bracket)
-export const vw = StyleSheet.create({
+// Parametrizados pela paleta ativa — chamar com useMemo(() => makeVw(Colors), [Colors]) no componente.
+export const makeVw = (Colors: ThemeColors) => StyleSheet.create({
   scroll: { padding: Spacing.md, gap: Spacing.sm },
   prog: { gap: Spacing.sm, marginBottom: Spacing.sm },
   progRow: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -20,7 +21,7 @@ export const vw = StyleSheet.create({
   groupsDoneBtnText: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.bg },
 });
 
-export const tabs = StyleSheet.create({
+export const makeTabs = (Colors: ThemeColors) => StyleSheet.create({
   bar: { flexDirection: 'row', backgroundColor: Colors.surf2, borderBottomWidth: 1, borderBottomColor: Colors.line },
   tab: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center' },
   active: { borderBottomWidth: 2, borderBottomColor: Colors.gold },

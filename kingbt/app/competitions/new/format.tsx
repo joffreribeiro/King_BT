@@ -1,8 +1,9 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { useState, useMemo } from 'react';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import type { Format } from '@/logic/types';
 
 const STEPS = ['Formato', 'Ajustes', 'Quem joga', 'Revisar'];
@@ -58,6 +59,8 @@ const FORMATS: {
 ];
 
 export default function FormatStep() {
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const [selected, setSelected] = useState<Format | null>(null);
 
   function next() {
@@ -139,7 +142,7 @@ export default function FormatStep() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
 
   // Header

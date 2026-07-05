@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Avatar } from '@/components';
 import type { RankedPlayer } from '@/logic/scoring';
 import type { MockPlayer } from '@/mocks/data';
@@ -22,6 +23,8 @@ const MEDAL_COLOR: Record<number, string> = {
 };
 
 export default function RankingCard({ ranking, players, groupName, season, roundsDone, location, date }: Props) {
+  const { colors: Colors } = useTheme();
+  const card = useMemo(() => makeCardStyles(Colors), [Colors]);
   const getPlayer = (id: string) => players.find(p => p.id === id);
 
   const top3 = ranking.slice(0, 3);
@@ -166,7 +169,7 @@ export default function RankingCard({ ranking, players, groupName, season, round
   );
 }
 
-const card = StyleSheet.create({
+const makeCardStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     backgroundColor: '#0B0B0D',
     borderRadius: Radius.lg,

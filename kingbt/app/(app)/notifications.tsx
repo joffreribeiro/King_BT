@@ -5,7 +5,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { router } from 'expo-router';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Avatar } from '@/components';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -40,34 +41,37 @@ function timeAgo(date: Date): string {
   return `${Math.floor(diff / 86400)}d atrás`;
 }
 
-const NOTIF_META: Record<NotifType, { icon: string; color: string }> = {
+const makeNotifMeta = (Colors: ThemeColors): Record<NotifType, { icon: string; color: string }> => ({
   result_new:        { icon: '🎾', color: Colors.gold },
   comp_started:      { icon: '🏆', color: Colors.teal },
   achievement_unlock:{ icon: '🏅', color: Colors.teal },
   player_ranked_up:  { icon: '📈', color: Colors.gold },
   invite:            { icon: '📬', color: '#6B91F0' },
-};
+});
 
 // ── Item de Notificação ────────────────────────────────────────────────────────
 
 function NotifItem({ notif, onPress }: { notif: AppNotif; onPress: () => void }) {
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeNsStyles(Colors), [Colors]);
+  const NOTIF_META = useMemo(() => makeNotifMeta(Colors), [Colors]);
   const meta = NOTIF_META[notif.type];
   return (
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={0.75}
-      style={[ns.item, !notif.read && ns.itemUnread]}
+      style={[styles.item, !notif.read && styles.itemUnread]}
     >
-      {!notif.read && <View style={ns.unreadDot} />}
-      <View style={[ns.iconWrap, { backgroundColor: meta.color + '18' }]}>
-        <Text style={ns.icon}>{meta.icon}</Text>
+      {!notif.read && <View style={styles.unreadDot} />}
+      <View style={[styles.iconWrap, { backgroundColor: meta.color + '18' }]}>
+        <Text style={styles.icon}>{meta.icon}</Text>
       </View>
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={[ns.title, !notif.read && { color: Colors.text }]} numberOfLines={1}>
+        <Text style={[styles.title, !notif.read && { color: Colors.text }]} numberOfLines={1}>
           {notif.title}
         </Text>
-        <Text style={ns.desc} numberOfLines={2}>{notif.description}</Text>
-        <Text style={ns.time}>{timeAgo(notif.createdAt)}</Text>
+        <Text style={styles.desc} numberOfLines={2}>{notif.description}</Text>
+        <Text style={styles.time}>{timeAgo(notif.createdAt)}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -78,6 +82,8 @@ function NotifItem({ notif, onPress }: { notif: AppNotif; onPress: () => void })
 type Tab = 'notif' | 'invites';
 
 export default function NotificationsScreen() {
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeNsStyles(Colors), [Colors]);
   const { myPlayerId } = useAuth();
   const { findPlayer } = useGroupPlayers();
   const { state } = useCompetitions();
@@ -145,56 +151,56 @@ export default function NotificationsScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={ns.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Header */}
-      <View style={ns.header}>
+      <View style={styles.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={ns.headerTitle}>Notificações</Text>
+          <Text style={styles.headerTitle}>Notificações</Text>
           {unread > 0 && (
-            <View style={ns.badge}>
-              <Text style={ns.badgeTxt}>{unread}</Text>
+            <View style={styles.badge}>
+              <Text style={styles.badgeTxt}>{unread}</Text>
             </View>
           )}
         </View>
         {unread > 0 && (
           <TouchableOpacity onPress={markAllRead} activeOpacity={0.7}>
-            <Text style={ns.markAll}>Marcar todas lidas</Text>
+            <Text style={styles.markAll}>Marcar todas lidas</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {/* Tabs */}
-      <View style={ns.tabs}>
+      <View style={styles.tabs}>
         <TouchableOpacity
-          style={[ns.tab, tab === 'notif' && ns.tabActive]}
+          style={[styles.tab, tab === 'notif' && styles.tabActive]}
           onPress={() => setTab('notif')}
           activeOpacity={0.7}
         >
-          <Text style={[ns.tabLabel, tab === 'notif' && ns.tabLabelActive]}>
+          <Text style={[styles.tabLabel, tab === 'notif' && styles.tabLabelActive]}>
             Notificações{unread > 0 ? ` (${unread})` : ''}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[ns.tab, tab === 'invites' && ns.tabActive]}
+          style={[styles.tab, tab === 'invites' && styles.tabActive]}
           onPress={() => setTab('invites')}
           activeOpacity={0.7}
         >
-          <Text style={[ns.tabLabel, tab === 'invites' && ns.tabLabelActive]}>Convites</Text>
+          <Text style={[styles.tabLabel, tab === 'invites' && styles.tabLabelActive]}>Convites</Text>
         </TouchableOpacity>
       </View>
 
       {/* Conteúdo */}
       {tab === 'notif' && (
         <ScrollView
-          contentContainerStyle={ns.scroll}
+          contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />}
         >
           {notifs.length === 0 ? (
-            <View style={ns.empty}>
-              <Text style={ns.emptyIcon}>🔔</Text>
-              <Text style={ns.emptyText}>Nenhuma notificação</Text>
-              <Text style={ns.emptySub}>As atualizações do grupo aparecerão aqui</Text>
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>🔔</Text>
+              <Text style={styles.emptyText}>Nenhuma notificação</Text>
+              <Text style={styles.emptySub}>As atualizações do grupo aparecerão aqui</Text>
             </View>
           ) : (
             notifs.map(n => (
@@ -216,14 +222,14 @@ export default function NotificationsScreen() {
 
       {tab === 'invites' && (
         <ScrollView
-          contentContainerStyle={ns.scroll}
+          contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />}
         >
-          <View style={ns.empty}>
-            <Text style={ns.emptyIcon}>📬</Text>
-            <Text style={ns.emptyText}>Nenhum convite pendente</Text>
-            <Text style={ns.emptySub}>Convites para competições aparecerão aqui</Text>
+          <View style={styles.empty}>
+            <Text style={styles.emptyIcon}>📬</Text>
+            <Text style={styles.emptyText}>Nenhum convite pendente</Text>
+            <Text style={styles.emptySub}>Convites para competições aparecerão aqui</Text>
           </View>
           <View style={{ height: Spacing.xl }} />
         </ScrollView>
@@ -232,7 +238,7 @@ export default function NotificationsScreen() {
   );
 }
 
-const ns = StyleSheet.create({
+const makeNsStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
 
   header: {

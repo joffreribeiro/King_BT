@@ -1,4 +1,4 @@
-export const Colors = {
+export const darkColors = {
   bg:         '#0B0B0D',
   bg2:        '#000000',
   surf:       '#16140F',
@@ -13,6 +13,31 @@ export const Colors = {
   muted:      '#A99B7C',
   faint:      '#6E6452',
 } as const;
+
+export type ThemeColors = { [K in keyof typeof darkColors]: string };
+
+// Paleta clara — tokens estruturais (bg/surf/text/muted/faint/line) adaptados para
+// contraste em fundo claro; gold/teal/coral escurecidos um pouco (mesma família de cor)
+// porque na paleta escura eles servem de texto/destaque direto sobre fundo quase preto.
+export const lightColors: ThemeColors = {
+  bg:         '#FAF7F0',
+  bg2:        '#FFFFFF',
+  surf:       '#FFFFFF',
+  surf2:      '#F2E9D8',
+  line:       'rgba(194,137,26,0.28)',
+  gold:       '#B8790E',
+  goldDeep:   '#8A5A0A',
+  goldBright: '#F3C544',
+  teal:       '#2E8F5C',
+  coral:      '#C23328',
+  text:       '#241F16',
+  muted:      '#6B5D45',
+  faint:      '#8D816A',
+} as const;
+
+// Alias de compatibilidade: cor estática (não reativa) para os poucos usos fora de
+// StyleSheet/useTheme(). Componentes de tela devem usar useTheme().colors.
+export const Colors = darkColors;
 
 export const Radius = {
   sm: 8,

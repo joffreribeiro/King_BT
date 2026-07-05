@@ -1,9 +1,12 @@
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import React from 'react';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import React, { useMemo } from 'react';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import type { Competition } from '@/logic/types';
 
 export function RulesView({ comp }: { comp: Competition }) {
+  const { colors: Colors } = useTheme();
+  const rls = useMemo(() => makeRls(Colors), [Colors]);
   const wr = comp.config.winRule;
 
   const formatName: Record<string, string> = {
@@ -126,7 +129,7 @@ export function RulesView({ comp }: { comp: Competition }) {
   );
 }
 
-const rls = StyleSheet.create({
+const makeRls = (Colors: ThemeColors) => StyleSheet.create({
   scroll: { padding: Spacing.md, gap: Spacing.md },
   section: { gap: Spacing.xs },
   sectionTitle: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted, letterSpacing: 1.5, paddingLeft: 2 },

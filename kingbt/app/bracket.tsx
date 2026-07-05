@@ -3,7 +3,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { useMemo } from 'react';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
@@ -21,6 +23,8 @@ function getCompetitor(comp: Competition, id: string) {
 
 // ── Match card (read-only) ────────────────────────────────────────────────────
 function MatchCard({ match: m, comp }: { match: Match; comp: Competition }) {
+  const { colors: Colors } = useTheme();
+  const bk = useMemo(() => makeBkStyles(Colors), [Colors]);
   const cA = m.aId ? getCompetitor(comp, m.aId) : null;
   const cB = m.bId ? getCompetitor(comp, m.bId) : null;
   const has    = m.scoreA != null && m.scoreB != null;
@@ -67,6 +71,9 @@ function MatchCard({ match: m, comp }: { match: Match; comp: Competition }) {
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function BracketScreen() {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStyles(Colors), [Colors]);
+  const bk = useMemo(() => makeBkStyles(Colors), [Colors]);
   const { competitionId } = useLocalSearchParams<{ competitionId: string }>();
   const { state } = useCompetitions();
   const { findPlayer } = useGroupPlayers();
@@ -303,7 +310,7 @@ export default function BracketScreen() {
   );
 }
 
-const bk = StyleSheet.create({
+const makeBkStyles = (Colors: ThemeColors) => StyleSheet.create({
   roundLabel: {
     fontFamily: FontFamily.numberBold, fontSize: 9,
     color: Colors.faint, letterSpacing: 1.5, textAlign: 'center', marginBottom: 8,
@@ -313,7 +320,7 @@ const bk = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(214,175,70,0.16)',
-    backgroundColor: '#16140F',
+    backgroundColor: Colors.surf,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -347,7 +354,7 @@ const bk = StyleSheet.create({
   },
 });
 
-const s = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
@@ -364,7 +371,7 @@ const s = StyleSheet.create({
     paddingHorizontal: Spacing.md, paddingVertical: 8,
     borderBottomWidth: 1, borderBottomColor: Colors.line,
   },
-  progressTrack: { flex: 1, height: 4, backgroundColor: '#221C12', borderRadius: 2, overflow: 'hidden' },
+  progressTrack: { flex: 1, height: 4, backgroundColor: Colors.surf2, borderRadius: 2, overflow: 'hidden' },
   progressFill:  { height: 4, backgroundColor: Colors.gold, borderRadius: 2 },
   progressText:  { fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted, width: 64, textAlign: 'right' },
   thirdSection: { paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },

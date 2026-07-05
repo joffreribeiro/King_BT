@@ -2,13 +2,14 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, Alert, Platform, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { Avatar, Card } from '@/components';
 import { useAuth } from '@/store/AuthContext';
 import { useSettings } from '@/store/SettingsContext';
+import { useTheme } from '@/store/ThemeContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { addGuestPlayer, removeGuestPlayer, updatePlayerHandicap, deleteGroup } from '@/firebase/groupPlayers';
 import type { Format } from '@/logic/types';
@@ -30,6 +31,8 @@ const version = Constants.expoConfig?.version ?? '1.0.0';
 
 export default function SettingsScreen() {
   const { group, isAdmin, leaveGroup, user, removeFromGroup, promoteToAdmin, setGroupVisibility } = useAuth();
+  const { mode, colors: Colors, setMode } = useTheme();
+  const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { groupPlayers } = useGroupPlayers();
   const [activeTab, setActiveTab] = useState<'geral' | 'admin'>('geral');
   const [showAddGuest, setShowAddGuest] = useState(false);
@@ -217,14 +220,22 @@ export default function SettingsScreen() {
         <View>
           <Text style={s.sectionTitle}>Tema</Text>
           <Card style={s.themeCard}>
-            <View style={[s.themeRow, s.themeRowActive]}>
+            <TouchableOpacity
+              style={[s.themeRow, mode === 'dark' && s.themeRowActive]}
+              onPress={() => setMode('dark')}
+              activeOpacity={0.8}
+            >
               <Text style={s.themeLabel}>🌙 Escuro</Text>
-              <View style={s.themeCheck}><Text style={s.themeCheckMark}>✓</Text></View>
-            </View>
-            <View style={[s.themeRow, { opacity: 0.45 }]}>
+              {mode === 'dark' && <View style={s.themeCheck}><Text style={s.themeCheckMark}>✓</Text></View>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.themeRow, mode === 'light' && s.themeRowActive]}
+              onPress={() => setMode('light')}
+              activeOpacity={0.8}
+            >
               <Text style={s.themeLabel}>☀️ Claro</Text>
-              <View style={s.themeSoon}><Text style={s.themeSoonText}>em breve</Text></View>
-            </View>
+              {mode === 'light' && <View style={s.themeCheck}><Text style={s.themeCheckMark}>✓</Text></View>}
+            </TouchableOpacity>
           </Card>
         </View>
 
@@ -405,7 +416,7 @@ export default function SettingsScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   visRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   visLabel: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
@@ -450,8 +461,6 @@ const s = StyleSheet.create({
   themeLabel: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
   themeCheck: { width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.gold + '22', borderWidth: 1.5, borderColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
   themeCheckMark: { fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.gold },
-  themeSoon: { backgroundColor: Colors.surf2, borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 2 },
-  themeSoonText: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
 
   groupCard: { gap: Spacing.sm },
   groupName: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },

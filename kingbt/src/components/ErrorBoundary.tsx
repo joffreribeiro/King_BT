@@ -1,5 +1,8 @@
 import React, { Component, type ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+// ErrorBoundary é um class component — hooks como useTheme() não podem ser usados
+// aqui. Mantemos o import estático de `Colors` (paleta dark fixa) propositalmente:
+// esta tela de fallback é um caso especial que não precisa reagir a troca de tema.
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Logger } from '@/services/Logger';
 

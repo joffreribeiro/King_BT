@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { goToPlayer } from '@/logic/nav';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Badge, Card } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -16,6 +17,15 @@ import Svg, { Polyline, Line, Circle, Text as SvgText } from 'react-native-svg';
 
 
 export default function PlayerDetailScreen() {
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
+  const monthly = useMemo(() => makeMonthlyStyles(Colors), [Colors]);
+  const l20 = useMemo(() => makeL20Styles(Colors), [Colors]);
+  const statRow = useMemo(() => makeStatRowStyles(Colors), [Colors]);
+  const bdg = useMemo(() => makeBdgStyles(Colors), [Colors]);
+  const pship = useMemo(() => makePshipStyles(Colors), [Colors]);
+  const ident = useMemo(() => makeIdentStyles(Colors), [Colors]);
+  const hist = useMemo(() => makeHistStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state } = useCompetitions();
   const { groupPlayers, findPlayer } = useGroupPlayers();
@@ -448,7 +458,7 @@ export default function PlayerDetailScreen() {
   );
 }
 
-const monthly = StyleSheet.create({
+const makeMonthlyStyles = (Colors: ThemeColors) => StyleSheet.create({
   chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 2, paddingTop: Spacing.sm },
   col: { flex: 1, alignItems: 'center', gap: 2 },
   barWrap: { height: 80, justifyContent: 'flex-end', width: '100%', alignItems: 'center' },
@@ -458,7 +468,7 @@ const monthly = StyleSheet.create({
   year: { fontFamily: FontFamily.body, fontSize: 8, color: Colors.faint, marginTop: -2 },
 });
 
-const l20 = StyleSheet.create({
+const makeL20Styles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: 6 },
   label: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, width: 60 },
   bar: { flex: 1, flexDirection: 'row', height: 18, borderRadius: 4, overflow: 'hidden' },
@@ -472,7 +482,7 @@ const l20 = StyleSheet.create({
   resultLbl: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
 });
 
-const statRow = StyleSheet.create({
+const makeStatRowStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
   cell: { flex: 1, alignItems: 'center', paddingVertical: Spacing.xs },
   divider: { borderRightWidth: 1, borderRightColor: Colors.line },
@@ -480,7 +490,7 @@ const statRow = StyleSheet.create({
   lbl: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.muted, marginTop: 2 },
 });
 
-const bdg = StyleSheet.create({
+const makeBdgStyles = (Colors: ThemeColors) => StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   item: { width: 72, alignItems: 'center', gap: 4, padding: Spacing.sm, backgroundColor: Colors.surf2, borderRadius: Radius.md },
   locked: { opacity: 0.35 },
@@ -490,7 +500,7 @@ const bdg = StyleSheet.create({
   empty: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center', paddingVertical: Spacing.sm },
 });
 
-const pship = StyleSheet.create({
+const makePshipStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
   border: { borderBottomWidth: 1, borderBottomColor: Colors.line },
   name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
@@ -498,7 +508,7 @@ const pship = StyleSheet.create({
   wr: { fontFamily: FontFamily.numberBold, fontSize: 13, width: 36, textAlign: 'right' },
 });
 
-const ident = StyleSheet.create({
+const makeIdentStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.xs },
   emoji: { fontSize: 22, width: 30, textAlign: 'center' },
   mid: { flex: 1, gap: 2 },
@@ -509,7 +519,7 @@ const ident = StyleSheet.create({
   detail: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, textAlign: 'right' },
 });
 
-const hist = StyleSheet.create({
+const makeHistStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
   border: { borderBottomWidth: 1, borderBottomColor: Colors.line },
   badge: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
@@ -520,7 +530,7 @@ const hist = StyleSheet.create({
   score: { fontFamily: FontFamily.numberBold, fontSize: 15 },
 });
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   scroll: { padding: Spacing.md, gap: Spacing.md },
   backRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs },

@@ -2,20 +2,23 @@ import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { shareText, notifyCopied } from '@/services/share';
 import { goToPlayer } from '@/logic/nav';
 import { gameAverage } from '@/logic/scoring';
-import { useState } from 'react';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { useMemo, useState } from 'react';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card, OptionModal } from '@/components';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import type { Match, Competition } from '@/logic/types';
 import { firstUnscored, buildBracketShareText, sgColor } from './helpers';
 import { GameRow } from './GameRow';
 import { MatchRow } from './MatchRow';
-import { StandingsTable, stRow } from './StandingsTable';
+import { StandingsTable, makeStRow } from './StandingsTable';
 import { BracketView } from './BracketView';
-import { vw, tabs } from './viewStyles';
+import { makeVw, makeTabs } from './viewStyles';
 
 export function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void; onSubstitute?: (match: Match, originalId: string, substituteId: string) => void }) {
   const { findPlayer, groupPlayers } = useGroupPlayers();
+  const { colors: Colors } = useTheme();
+  const vw = useMemo(() => makeVw(Colors), [Colors]);
   const done  = comp.matches.filter(m => m.scoreA != null).length;
   const total = comp.matches.length;
   const nextId = firstUnscored(comp.matches);
@@ -90,6 +93,9 @@ export function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: C
 // ─── Classificação unificada ──────────────────────────────────────────────────
 export function ClassificacaoView({ comp }: { comp: Competition }) {
   const { findPlayer } = useGroupPlayers();
+  const { colors: Colors } = useTheme();
+  const vw = useMemo(() => makeVw(Colors), [Colors]);
+  const stRow = useMemo(() => makeStRow(Colors), [Colors]);
 
   // Liga
   if (comp.format === 'liga') {
@@ -172,7 +178,7 @@ export function ClassificacaoView({ comp }: { comp: Competition }) {
               <Text style={stRow.cN}>{r.losses}</Text>
               <Text style={stRow.cN}>{r.gf}</Text>
               <Text style={stRow.cN}>{r.gc}</Text>
-              <Text style={[stRow.cN, { color: sgColor(sg) }]}>{sg > 0 ? '+' : ''}{sg}</Text>
+              <Text style={[stRow.cN, { color: sgColor(sg, Colors) }]}>{sg > 0 ? '+' : ''}{sg}</Text>
               <Text style={stRow.cNw} numberOfLines={1}>
                 {r.ga >= 10 ? r.ga.toFixed(1) : r.ga.toFixed(2)}
               </Text>
@@ -191,6 +197,8 @@ export function ClassificacaoView({ comp }: { comp: Competition }) {
 }
 
 export function LeagueView({ comp, onScore, onClear, onSubstitute }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void; onSubstitute?: (match: Match, originalId: string, substituteId: string) => void }) {
+  const { colors: Colors } = useTheme();
+  const vw = useMemo(() => makeVw(Colors), [Colors]);
   const rounds = [...new Set(comp.matches.map(m => m.round))].sort((a, b) => (a ?? 0) - (b ?? 0));
   const nextId = firstUnscored(comp.matches);
   return (
@@ -211,6 +219,8 @@ export function LeagueView({ comp, onScore, onClear, onSubstitute }: { comp: Com
 
 // Fase de Grupos: classificação + jogos de cada grupo numa única aba
 export function GroupsPhaseView({ comp, onScore, onClear }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void }) {
+  const { colors: Colors } = useTheme();
+  const vw = useMemo(() => makeVw(Colors), [Colors]);
   const groupMatches = (gi: number) => comp.matches.filter(m => m.stage === 'group' && m.groupIdx === gi);
   const nextId = firstUnscored(comp.matches.filter(m => m.stage === 'group'));
 
@@ -232,6 +242,8 @@ export function GroupsPhaseView({ comp, onScore, onClear }: { comp: Competition;
 }
 
 export function KOView({ comp, onScore, onClear, preview = false }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void; preview?: boolean }) {
+  const { colors: Colors } = useTheme();
+  const tabs = useMemo(() => makeTabs(Colors), [Colors]);
   return (
     <View style={{ flex: 1 }}>
       {/* Barra fina: título + compartilhar chaveamento */}

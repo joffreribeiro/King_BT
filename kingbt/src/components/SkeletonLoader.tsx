@@ -1,8 +1,10 @@
 import { View, StyleSheet, Animated, Easing } from 'react-native';
-import { Colors, Spacing, Radius } from '@/theme';
-import { useEffect, useRef } from 'react';
+import { Spacing, Radius, type ThemeColors } from '@/theme';
+import { useEffect, useRef, useMemo } from 'react';
+import { useTheme } from '@/store/ThemeContext';
 
 function SkeletonPulse({ style }: { style?: any }) {
+  const { colors: Colors } = useTheme();
   const opacity = useRef(new Animated.Value(0.4)).current;
   useEffect(() => {
     Animated.loop(
@@ -16,6 +18,8 @@ function SkeletonPulse({ style }: { style?: any }) {
 }
 
 export function SkeletonRow() {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStyles(Colors), [Colors]);
   return (
     <View style={s.row}>
       <SkeletonPulse style={s.circle} />
@@ -31,6 +35,8 @@ export function SkeletonRow() {
 }
 
 export function SkeletonRanking() {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStyles(Colors), [Colors]);
   return (
     <View style={s.container}>
       {Array.from({ length: 8 }).map((_, i) => (
@@ -44,7 +50,7 @@ export function SkeletonCard({ height = 80 }: { height?: number }) {
   return <SkeletonPulse style={{ height, borderRadius: Radius.md, marginBottom: Spacing.sm }} />;
 }
 
-const s = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { marginTop: Spacing.sm },
   row: {
     flexDirection: 'row',

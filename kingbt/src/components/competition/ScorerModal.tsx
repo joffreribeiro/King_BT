@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform } from 'react-native';
 import { router } from 'expo-router';
-import { useState, useEffect } from 'react';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { useState, useEffect, useMemo } from 'react';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
 import type { Match, Competition } from '@/logic/types';
@@ -18,6 +19,8 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
 }) {
   const { findPlayer } = useGroupPlayers();
   const { isSuperAdmin } = useAuth();
+  const { colors: Colors } = useTheme();
+  const sc = useMemo(() => makeSc(Colors), [Colors]);
   const [analise, setAnalise] = useState<BtAnalise | null>(null);
 
   const maxSets      = comp.config.winRule?.sets ?? 3;
@@ -399,7 +402,7 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
   );
 }
 
-const sc = StyleSheet.create({
+const makeSc = (Colors: ThemeColors) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.xl, gap: Spacing.md },
   title: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text, textAlign: 'center' },

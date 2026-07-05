@@ -1,9 +1,10 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Platform, TextInput, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Badge, Card, EmptyState, SkeletonRanking } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
@@ -51,6 +52,7 @@ const FORMAT_FILTERS: { key: Format | 'all'; label: string }[] = [
 function Skeleton({ width = '100%' as number | string, height = 16, radius = 8 }: {
   width?: number | string; height?: number; radius?: number;
 }) {
+  const { colors: Colors } = useTheme();
   const opacity = useRef(new Animated.Value(0.3)).current;
   useEffect(() => {
     Animated.loop(
@@ -64,6 +66,7 @@ function Skeleton({ width = '100%' as number | string, height = 16, radius = 8 }
 }
 
 function SkeletonCard() {
+  const { colors: Colors } = useTheme();
   return (
     <View style={{ backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm, marginHorizontal: Spacing.md }}>
       <View style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }}>
@@ -105,6 +108,7 @@ function SectionHeader({ label, color }: { label: string; color: string }) {
 
 // Avatar com fade-in animado
 function AvatarBubble({ color, short, delay }: { color: string; short: string; delay: number }) {
+  const { colors: Colors } = useTheme();
   const opacity = useRef(new Animated.Value(0)).current;
   const scale   = useRef(new Animated.Value(0.6)).current;
   useEffect(() => {
@@ -122,6 +126,7 @@ function AvatarBubble({ color, short, delay }: { color: string; short: string; d
 
 // Skeleton para competições
 function CompSkeleton() {
+  const { colors: Colors } = useTheme();
   const opacity = useRef(new Animated.Value(0.4)).current;
   useEffect(() => {
     Animated.loop(
@@ -139,6 +144,8 @@ function CompSkeleton() {
 function CompCard({ comp, onDelete, onClone }: {
   comp: Competition; onDelete: (id: string) => void; onClone: (id: string) => void;
 }) {
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const { findPlayer } = useGroupPlayers();
   const done  = comp.matches.filter(m => m.scoreA != null).length;
   const total = comp.matches.length;
@@ -301,6 +308,8 @@ function CompCard({ comp, onDelete, onClone }: {
 }
 
 export default function HubScreen() {
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const { state, dispatch } = useCompetitions();
   const { group, isAdmin, myPlayerId } = useAuth();
   const { groupPlayers } = useGroupPlayers();
@@ -465,7 +474,7 @@ export default function HubScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   list: { padding: Spacing.md, paddingTop: Spacing.sm },
 
@@ -572,7 +581,7 @@ const styles = StyleSheet.create({
   },
 
   compCard: {
-    backgroundColor: '#16140F',
+    backgroundColor: Colors.surf,
     borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1,
@@ -603,7 +612,7 @@ const styles = StyleSheet.create({
   cardName: { fontFamily: FontFamily.titleBold, fontSize: 17, color: Colors.text },
   cardMetaText: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, marginTop: 4 },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: 8 },
-  progressTrack: { flex: 1, height: 6, borderRadius: 4, backgroundColor: '#221C12', overflow: 'hidden' },
+  progressTrack: { flex: 1, height: 6, borderRadius: 4, backgroundColor: Colors.surf2, overflow: 'hidden' },
   progressFill: { height: 6, borderRadius: 4 },
   progressLabel: { fontSize: 11, fontWeight: '700', fontFamily: FontFamily.numberBold },
   dateText: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.faint },

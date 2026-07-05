@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
-import { Colors, FontFamily } from '@/theme';
+import { FontFamily, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 
 export interface ShareStatsData {
   name: string;
@@ -17,6 +18,8 @@ export interface ShareStatsData {
 }
 
 export function ShareStatsCard({ data }: { data: ShareStatsData }) {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeSStyles(Colors), [Colors]);
   const medal = data.position === 1 ? '🥇' : data.position === 2 ? '🥈' : data.position === 3 ? '🥉' : `${data.position}°`;
 
   return (
@@ -69,7 +72,7 @@ export function ShareStatsCard({ data }: { data: ShareStatsData }) {
   );
 }
 
-const s = StyleSheet.create({
+const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   card: {
     width: 320,
     backgroundColor: '#0B0B0D',

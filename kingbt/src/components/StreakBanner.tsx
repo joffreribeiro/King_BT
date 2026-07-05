@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
-import { useRef, useEffect } from 'react';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { useRef, useEffect, useMemo } from 'react';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import type { StreakInfo } from '@/logic/streak';
 
 interface StreakBannerProps {
@@ -9,6 +10,8 @@ interface StreakBannerProps {
 }
 
 export function StreakBanner({ streak, onPress }: StreakBannerProps) {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeSStyles(Colors), [Colors]);
   const slideAnim = useRef(new Animated.Value(-60)).current;
 
   useEffect(() => {
@@ -46,7 +49,7 @@ export function StreakBanner({ streak, onPress }: StreakBannerProps) {
   );
 }
 
-const s = StyleSheet.create({
+const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   banner: {
     flexDirection: 'row',
     alignItems: 'center',

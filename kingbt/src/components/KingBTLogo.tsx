@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
-import { Colors, FontFamily } from '@/theme';
+import { FontFamily, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 
 type Props = {
   size?: 'sm' | 'md' | 'lg';
@@ -10,6 +12,8 @@ type Props = {
 const FS = { sm: 18, md: 30, lg: 48 } as const;
 
 export default function KingBTLogo({ size = 'md', showTagline = false, useImage = false }: Props) {
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const fs = FS[size];
 
   if (useImage) {
@@ -37,7 +41,7 @@ export default function KingBTLogo({ size = 'md', showTagline = false, useImage 
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { alignItems: 'center' },
   logo: { fontFamily: FontFamily.titleBold, color: Colors.text, letterSpacing: 2 },
   accent: { color: Colors.gold },

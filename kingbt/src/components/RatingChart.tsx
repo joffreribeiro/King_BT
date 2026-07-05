@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { Colors, FontFamily, Radius, Spacing } from '@/theme';
+import { FontFamily, Radius, Spacing, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 
 const BAR_H    = 80;  // altura máxima da barra
 const BAR_W    = 44;  // largura fixa de cada barra
@@ -25,6 +27,8 @@ function normalize(ratings: Entry[] | number[]): Entry[] {
 }
 
 export function RatingChart({ ratings }: Props) {
+  const { colors: Colors } = useTheme();
+  const rc = useMemo(() => makeRcStyles(Colors), [Colors]);
   const data = normalize(ratings);
   if (data.length < 2) return null;
 
@@ -84,7 +88,7 @@ export function RatingChart({ ratings }: Props) {
   );
 }
 
-const rc = StyleSheet.create({
+const makeRcStyles = (Colors: ThemeColors) => StyleSheet.create({
   scroll: {
     flexDirection: 'row',
     alignItems: 'flex-end',

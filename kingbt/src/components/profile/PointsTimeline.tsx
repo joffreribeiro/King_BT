@@ -1,6 +1,7 @@
 import { View, Text, Dimensions } from 'react-native';
 import { useState } from 'react';
-import { Colors, FontFamily, Spacing } from '@/theme';
+import { FontFamily, Spacing } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Card } from '@/components';
 import Svg, { Polyline, Line, Circle, Text as SvgText, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 
@@ -8,6 +9,7 @@ const chartFullW = Dimensions.get('window').width - Spacing.md * 2;
 
 // ─── Gráfico de Evolução de Pontos ────────────────────────────────────────────
 export function PointsTimeline({ data }: { data: { label: string; pts: number; pos: number }[] }) {
+  const { colors: Colors } = useTheme();
   const [selected, setSelected] = useState<number | null>(null);
 
   if (data.length < 2) return null;

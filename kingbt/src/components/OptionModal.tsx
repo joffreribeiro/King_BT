@@ -1,5 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { useMemo } from 'react';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import Avatar from './Avatar';
 
 export interface OptionItem {
@@ -20,6 +22,8 @@ export function OptionModal({ title, message, options, onSelect, onClose }: {
   onSelect: (key: string) => void;
   onClose: () => void;
 }) {
+  const { colors: Colors } = useTheme();
+  const om = useMemo(() => makeOmStyles(Colors), [Colors]);
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <TouchableOpacity style={om.overlay} activeOpacity={1} onPress={onClose}>
@@ -50,14 +54,14 @@ export function OptionModal({ title, message, options, onSelect, onClose }: {
   );
 }
 
-const om = StyleSheet.create({
+const makeOmStyles = (Colors: ThemeColors) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: '#000000aa', justifyContent: 'center', alignItems: 'center', padding: Spacing.xl },
   box: { backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.lg, width: '100%', maxWidth: 420, gap: Spacing.sm },
   title: { fontFamily: FontFamily.titleBold, fontSize: 17, color: Colors.text },
   message: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   option: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm + 2, paddingHorizontal: Spacing.xs },
   optionBorder: { borderBottomWidth: 1, borderBottomColor: Colors.line },
-  optionText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: '#FFFFFF', flex: 1 },
+  optionText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text, flex: 1 },
   cancel: { borderWidth: 1.5, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center', marginTop: Spacing.xs },
   cancelText: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.muted },
 });

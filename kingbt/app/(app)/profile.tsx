@@ -3,11 +3,12 @@ import {
   Alert, Platform, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { router } from 'expo-router';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Badge, Card, ShareStatsCard } from '@/components';
 import type { ShareStatsData } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -31,6 +32,8 @@ type Tab = 'resumo' | 'historico' | 'rivalidades';
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ProfileScreen() {
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const { state } = useCompetitions();
   const { logout, leaveGroup, group, user, isAdmin, myPlayerId } = useAuth();
   const { groupPlayers, findPlayer } = useGroupPlayers();
@@ -373,7 +376,7 @@ export default function ProfileScreen() {
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   scroll: { padding: Spacing.md, gap: Spacing.md },
 

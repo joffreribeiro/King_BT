@@ -1,8 +1,9 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { router } from 'expo-router';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { listarAnalises, type BtAnalise } from '@/logic/btTracker';
 import { useAuth } from '@/store/AuthContext';
 import { listAnalisesFs } from '@/firebase/analises';
@@ -14,6 +15,8 @@ function formatDate(ts: number): string {
 }
 
 function AnaliseCard({ analise }: { analise: BtAnalise }) {
+  const { colors: Colors } = useTheme();
+  const card = useMemo(() => makeCardStyles(Colors), [Colors]);
   const { jogadores, nomes, placarFinal, criadaEm, matchId, competitionId } = analise;
   const nA = `${nomes[jogadores.a1]?.split(' ')[0] ?? jogadores.a1} / ${nomes[jogadores.a2]?.split(' ')[0] ?? jogadores.a2}`.replace('/ ', '').trimEnd();
   const nB = `${nomes[jogadores.b1]?.split(' ')[0] ?? jogadores.b1} / ${nomes[jogadores.b2]?.split(' ')[0] ?? jogadores.b2}`.replace('/ ', '').trimEnd();
@@ -45,7 +48,7 @@ function AnaliseCard({ analise }: { analise: BtAnalise }) {
   );
 }
 
-const card = StyleSheet.create({
+const makeCardStyles = (Colors: ThemeColors) => StyleSheet.create({
   wrap: {
     backgroundColor: Colors.surf, borderRadius: Radius.md,
     borderWidth: 1, borderColor: Colors.line,
@@ -61,6 +64,8 @@ const card = StyleSheet.create({
 });
 
 export default function AnaliseListScreen() {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { group } = useAuth();
   const [analises, setAnalises] = useState<BtAnalise[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,7 +127,7 @@ export default function AnaliseListScreen() {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,

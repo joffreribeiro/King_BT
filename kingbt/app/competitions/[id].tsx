@@ -4,8 +4,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useState, useRef, useEffect } from 'react';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Badge, Card } from '@/components';
 import { competitionChampion, groupComplete } from '@/logic/formats';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -33,6 +34,9 @@ const GUEST_COLORS = ['#FFD166', '#2DD4BF', '#A78BFA', '#34D399', '#F472B6', '#9
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function CompetitionDetail() {
+  const { colors: Colors } = useTheme();
+  const main = useMemo(() => makeMainStyles(Colors), [Colors]);
+  const upcoming = useMemo(() => makeUpcomingStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state, dispatch } = useCompetitions();
   const { user, isAdmin, myPlayerId, group, isMember } = useAuth();
@@ -574,7 +578,7 @@ export default function CompetitionDetail() {
   );
 }
 
-const main = StyleSheet.create({
+const makeMainStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line },
   back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
@@ -615,7 +619,7 @@ const main = StyleSheet.create({
   champCloseText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted },
 });
 
-const upcoming = StyleSheet.create({
+const makeUpcomingStyles = (Colors: ThemeColors) => StyleSheet.create({
   infoBanner: { flexDirection: 'row', gap: Spacing.md, backgroundColor: 'rgba(243,197,68,0.08)', borderRadius: Radius.md, borderWidth: 1, borderColor: 'rgba(243,197,68,0.25)', padding: Spacing.md, alignItems: 'flex-start' },
   infoIcon:   { fontSize: 24 },
   infoTitle:  { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },

@@ -1,11 +1,17 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useMemo } from 'react';
 import { goToPlayer } from '@/logic/nav';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Avatar } from '@/components';
-import { tab } from './profileStyles';
+import { makeTab } from './profileStyles';
 
 // ─── Aba Rivalidades ──────────────────────────────────────────────────────────
 export function RivalidadesTab({ rivalries, partnerships, findPlayer }: any) {
+  const { colors: Colors } = useTheme();
+  const tab = useMemo(() => makeTab(Colors), [Colors]);
+  const rv = useMemo(() => makeRvStyles(Colors), [Colors]);
+
   const rivalItems = [
     rivalries.biggestRival  && { ...rivalries.biggestRival,  icon: '⚔️', label: 'Maior Rival',   sub: 'Quem você mais enfrentou' },
     rivalries.carrasco      && { ...rivalries.carrasco,      icon: '👹', label: 'Carrasco',        sub: 'Quem mais te venceu' },
@@ -95,7 +101,7 @@ export function RivalidadesTab({ rivalries, partnerships, findPlayer }: any) {
   );
 }
 
-const rv = StyleSheet.create({
+const makeRvStyles = (Colors: ThemeColors) => StyleSheet.create({
   card:      { backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, overflow: 'hidden', marginBottom: 4 },
   cardTop:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.sm },
   icon:      { fontSize: 20, width: 26 },

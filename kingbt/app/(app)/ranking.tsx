@@ -4,7 +4,8 @@ import { useState, useRef, useMemo } from 'react';
 import ViewShot from 'react-native-view-shot';
 import { router } from 'expo-router';
 import { goToPlayer } from '@/logic/nav';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Shadows } from '@/theme/shadows';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, Card } from '@/components';
@@ -56,6 +57,10 @@ function h2hBetween(
 }
 
 export default function RankingScreen() {
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
+  const cmp = useMemo(() => makeCmpStyles(Colors), [Colors]);
+  const modal = useMemo(() => makeModalStyles(Colors), [Colors]);
   const { state } = useCompetitions();
   const { myPlayerId } = useAuth();
   const { groupPlayers, findPlayer } = useGroupPlayers();
@@ -296,7 +301,7 @@ export default function RankingScreen() {
                   <Text style={[styles.cStat, styles.statText]}>{s.gamesPro}</Text>
                   <Text style={[styles.cStat, styles.statText]}>{s.gamesCon}</Text>
                 </>}
-                <Text style={[styles.cStatWide, styles.statText, { color: sgColor(s.sg) }]}>
+                <Text style={[styles.cStatWide, styles.statText, { color: sgColor(s.sg, Colors) }]}>
                   {s.sg > 0 ? '+' : ''}{s.sg}
                 </Text>
                 <Text style={[styles.cStat, styles.statText]}>{s.ga >= 10 ? s.ga.toFixed(1) : s.ga.toFixed(2)}</Text>
@@ -498,6 +503,8 @@ function PodiumSlot({ player, pos, isMe, findPlayer }: {
   pos: number; isMe: boolean; center?: boolean;
   findPlayer: (id: string) => PlayerInfo | undefined;
 }) {
+  const { colors: Colors } = useTheme();
+  const pod = useMemo(() => makePodStyles(Colors), [Colors]);
   const pl = findPlayer(player.id);
   const firstName = (pl?.name ?? '?').split(' ')[0].toUpperCase();
   const crown = CROWN[pos];
@@ -560,7 +567,7 @@ function PodiumSlot({ player, pos, isMe, findPlayer }: {
   );
 }
 
-const pod = StyleSheet.create({
+const makePodStyles = (Colors: ThemeColors) => StyleSheet.create({
   col: { alignItems: 'center', justifyContent: 'flex-end', flex: 1 },
   crown: { marginBottom: -4 },
   pillar: {
@@ -598,7 +605,7 @@ const pod = StyleSheet.create({
   youDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: Colors.gold, marginTop: 2 },
 });
 
-const styles = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
 
   headerGradient: { borderRadius: 0 },
@@ -681,7 +688,7 @@ const styles = StyleSheet.create({
   trendSmall: { fontFamily: FontFamily.numberBold, fontSize: 9, fontWeight: '700', textAlign: 'right' },
 });
 
-const cmp = StyleSheet.create({
+const makeCmpStyles = (Colors: ThemeColors) => StyleSheet.create({
   playerOpt: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 5, paddingHorizontal: Spacing.xs, borderRadius: Radius.sm },
   playerOptActive: { backgroundColor: Colors.gold + '22' },
   playerOptText: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, flex: 1 },
@@ -694,7 +701,7 @@ const cmp = StyleSheet.create({
   statLabel: { width: 64, textAlign: 'center', fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
 });
 
-const modal = StyleSheet.create({
+const makeModalStyles = (Colors: ThemeColors) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg,

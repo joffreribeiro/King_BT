@@ -1,5 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { Colors, FontFamily, Spacing, Radius } from '@/theme';
+import { useMemo } from 'react';
+import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card } from '@/components';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import type { Match, Competition } from '@/logic/types';
@@ -11,6 +13,8 @@ export function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
   onClear: (matchId: string) => void;
   onAddMatch: () => void;
 }) {
+  const { colors: Colors } = useTheme();
+  const avulsoS = useMemo(() => makeAvulsoStyles(Colors), [Colors]);
   const { findPlayer } = useGroupPlayers();
   const scored = comp.matches.filter(m => m.scoreA != null);
   const pending = comp.matches.filter(m => m.scoreA == null);
@@ -104,7 +108,7 @@ export function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
   );
 }
 
-const avulsoS = StyleSheet.create({
+const makeAvulsoStyles = (Colors: ThemeColors) => StyleSheet.create({
   addBtn:      { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
   addBtnIcon:  { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.bg },
   addBtnText:  { fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg },
