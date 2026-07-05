@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
+import { goToPlayer } from '@/logic/nav';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar } from '@/components';
 import { tab } from './profileStyles';
@@ -32,7 +32,7 @@ export function RivalidadesTab({ rivalries, partnerships, findPlayer }: any) {
     return (
       <TouchableOpacity
         style={rv.card}
-        onPress={() => router.push({ pathname: '/player/[id]', params: { id: item.id } })}
+        onPress={() => goToPlayer(item.id)}
         activeOpacity={0.8}
       >
         <View style={rv.cardTop}>

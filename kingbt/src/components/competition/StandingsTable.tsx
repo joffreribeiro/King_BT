@@ -1,11 +1,11 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
 import { Colors, FontFamily, Spacing } from '@/theme';
+import { goToPlayer } from '@/logic/nav';
 import { Avatar, Card } from '@/components';
 import { standings } from '@/logic/formats';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import type { Match, Competition } from '@/logic/types';
-import { getPlayer, getCompetitor } from './helpers';
+import { getPlayer, getCompetitor, sgColor } from './helpers';
 
 // Em duplas fixas, o id da linha é o time (sem perfil próprio) — só navega
 // quando dá pra resolver um único jogador real por trás do id.
@@ -55,7 +55,7 @@ export function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
             <Text style={[stRow.c0, stRow.pos]}>{i + 1}</Text>
             <TouchableOpacity
               style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}
-              onPress={() => linkId && router.push({ pathname: '/player/[id]', params: { id: linkId } })}
+              onPress={() => linkId && goToPlayer(linkId)}
               disabled={!linkId}
               activeOpacity={0.7}
             >
@@ -69,8 +69,8 @@ export function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
             <Text style={stRow.cN}>{s.losses}</Text>
             <Text style={stRow.cN}>{s.gf}</Text>
             <Text style={stRow.cN}>{Math.round(s.gf - s.gd)}</Text>
-            <Text style={[stRow.cN, { color: s.gd >= 0 ? Colors.teal : Colors.coral }]}>
-              {s.gd >= 0 ? '+' : ''}{s.gd}
+            <Text style={[stRow.cN, { color: sgColor(s.gd) }]}>
+              {s.gd > 0 ? '+' : ''}{s.gd}
             </Text>
             <Text style={stRow.cNw} numberOfLines={1}>
               {Number(s.ga) >= 10 ? Number(s.ga).toFixed(1) : Number(s.ga).toFixed(2)}

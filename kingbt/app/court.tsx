@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Modal, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Modal, Animated, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useRef } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -293,13 +293,17 @@ function MatchMiniCard({
   );
 }
 
+// Trava do marcador: considera abandonada após 3 min sem atualização
+const SCORER_LOCK_MS = 3 * 60 * 1000;
+
 export default function CourtScreen() {
   const { state, dispatch } = useCompetitions();
   const { findPlayer } = useGroupPlayers();
-  const { group } = useAuth();
+  const { group, user, isAdmin, isSuperAdmin, myPlayerId } = useAuth();
   const params = useLocalSearchParams<{ compId?: string }>();
   const [selectedCompId, setSelectedCompId] = useState<string | null>(params.compId ?? null);
   const [liveMatch, setLiveMatch] = useState<Match | null>(null);
+  const [spectMatchId, setSpectMatchId] = useState<string | null>(null);
   const [modoModal, setModoModal] = useState(false);
   const [pendingMatch, setPendingMatch] = useState<Match | null>(null);
   const [analisePendente, setAnalisePendente] = useState<BtAnalise | null>(null);
@@ -309,9 +313,29 @@ export default function CourtScreen() {
   const activeComps = state.competitions.filter(c => c.status === 'active');
   const selectedComp = state.competitions.find(c => c.id === selectedCompId);
 
+  const myName = (myPlayerId ? findPlayer(myPlayerId)?.name : null) ?? user?.displayName ?? 'Alguém';
+
+  // Retorna o liveScore se OUTRA pessoa está marcando este jogo agora (trava ativa)
+  function lockedByOther(match: Match) {
+    const ls = match.liveScore;
+    if (!ls?.scorerUid || ls.scorerUid === user?.uid) return null;
+    const age = Date.now() - new Date(ls.updatedAt).getTime();
+    return age < SCORER_LOCK_MS ? ls : null;
+  }
+
+  // Assume a marcação: grava a trava com meu uid no Firestore
+  function claimMatch(match: Match, gamesA = 0, gamesB = 0, setsA = 0, setsB = 0) {
+    if (!selectedCompId && !params.compId) return;
+    dispatch({
+      type: 'UPDATE_LIVE_SCORE', compId: (selectedCompId ?? params.compId)!, matchId: match.id,
+      gamesA, gamesB, setsA, setsB,
+      scorerUid: user?.uid, scorerName: myName,
+    });
+  }
+
   // Auto-abrir próximo jogo quando compId é passado por param
   useEffect(() => {
-    if (params.compId && !liveMatch) {
+    if (params.compId && !liveMatch && !spectMatchId) {
       const comp = state.competitions.find(c => c.id === params.compId);
       if (comp) {
         const next = firstUnscored(comp.matches);
@@ -337,10 +361,16 @@ export default function CourtScreen() {
   }, [selectedComp?.id]);
 
   async function abrirMatch(match: Match) {
+    // Outra pessoa já está marcando este jogo → entra como espectador
+    if (lockedByOther(match)) {
+      setSpectMatchId(match.id);
+      return;
+    }
     setPendingMatch(match);
     const analise = selectedCompId ? await carregarAnalise(match.id, selectedCompId) : null;
     setAnalisePendente(analise);
-    // Vai direto para o placar simples sem mostrar modal de escolha
+    // Assume a trava de marcador e vai direto para o placar
+    claimMatch(match);
     setLiveMatch(match);
   }
 
@@ -430,7 +460,8 @@ export default function CourtScreen() {
           <Text style={md.title}>Como registrar esta partida?</Text>
           <MatchMiniCard comp={selectedComp} match={pendingMatch} findPlayer={findPlayer} />
 
-          {analisePendente && !analisePendente.placarFinal ? (
+          {/* King Scout — exclusivo do Super Admin */}
+          {!isSuperAdmin ? null : analisePendente && !analisePendente.placarFinal ? (
             // Análise em andamento: botão principal é Continuar
             <>
               <TouchableOpacity style={[md.btnBt, md.btnBtContinuar]} onPress={escolherBtTracker}>
@@ -471,6 +502,106 @@ export default function CourtScreen() {
     </Modal>
   ) : null;
 
+  // ── Modo espectador: outra pessoa está marcando este jogo ──
+  const spectMatch = spectMatchId && selectedComp ? selectedComp.matches.find(m => m.id === spectMatchId) : null;
+  if (spectMatch && selectedComp) {
+    const ls = spectMatch.liveScore;
+    const finished = spectMatch.scoreA != null;
+    const stillLocked = !!lockedByOther(spectMatch);
+    const teamA = spectMatch.teamA ?? (spectMatch.aId ? [spectMatch.aId] : []);
+    const teamB = spectMatch.teamB ?? (spectMatch.bId ? [spectMatch.bId] : []);
+    const nome = (ids: string[], compId?: string | null) => ids.map(id => {
+      if (compId && !spectMatch.teamA) {
+        const c = selectedComp.competitors.find(x => x.id === id);
+        if (c) return c.name;
+      }
+      return findPlayer(id)?.name.split(' ')[0] ?? id;
+    }).join(' / ');
+    const nameA = nome(teamA, spectMatch.aId);
+    const nameB = nome(teamB, spectMatch.bId);
+
+    function assumirMarcacao() {
+      const msg = `Assumir a marcação deste jogo? O placar ao vivo recomeça do 0-0 nesta tela (o placar atual de ${ls?.scorerName ?? 'quem marca'} será substituído).`;
+      const doIt = () => {
+        setSpectMatchId(null);
+        setPendingMatch(spectMatch!);
+        claimMatch(spectMatch!);
+        setLiveMatch(spectMatch!);
+      };
+      if (Platform.OS === 'web') { if (window.confirm(msg)) doIt(); }
+      else Alert.alert('Assumir marcação', msg, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Assumir', style: 'destructive', onPress: doIt },
+      ]);
+    }
+
+    return (
+      <SafeAreaView style={s.container} edges={['top']}>
+        <View style={s.header}>
+          <TouchableOpacity onPress={() => { setSpectMatchId(null); if (params.compId) router.replace('/(app)'); }}>
+            <Text style={s.back}>←</Text>
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={s.title} numberOfLines={1}>{selectedComp.name}</Text>
+            <Text style={s.meta}>Modo espectador</Text>
+          </View>
+        </View>
+
+        <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
+          {/* Aviso de trava */}
+          <View style={{ backgroundColor: Colors.gold + '15', borderWidth: 1, borderColor: Colors.gold + '44', borderRadius: Radius.md, padding: Spacing.md, gap: 4 }}>
+            <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: Colors.gold }}>
+              ⚠️ {ls?.scorerName ?? 'Outra pessoa'} está marcando este jogo
+            </Text>
+            <Text style={{ fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted }}>
+              Você está acompanhando ao vivo. O placar atualiza automaticamente.
+            </Text>
+          </View>
+
+          {/* Placar ao vivo */}
+          <View style={{ backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md, marginTop: Spacing.md }}>
+            {finished ? (
+              <Text style={{ fontFamily: FontFamily.title, fontSize: 13, color: Colors.teal, textAlign: 'center' }}>✅ Jogo encerrado</Text>
+            ) : (
+              <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.coral, textAlign: 'center', letterSpacing: 1 }}>● AO VIVO</Text>
+            )}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm }}>
+              <Text style={{ flex: 1, fontFamily: FontFamily.title, fontSize: 16, color: Colors.text }} numberOfLines={2}>{nameA}</Text>
+              <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 34, color: Colors.gold }}>
+                {finished ? spectMatch.scoreA : ls?.gamesA ?? 0}
+              </Text>
+              <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 20, color: Colors.faint }}>×</Text>
+              <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 34, color: Colors.gold }}>
+                {finished ? spectMatch.scoreB : ls?.gamesB ?? 0}
+              </Text>
+              <Text style={{ flex: 1, fontFamily: FontFamily.title, fontSize: 16, color: Colors.text, textAlign: 'right' }} numberOfLines={2}>{nameB}</Text>
+            </View>
+            {!finished && (ls?.setsA ?? 0) + (ls?.setsB ?? 0) > 0 && (
+              <Text style={{ fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, textAlign: 'center' }}>
+                Sets: {ls?.setsA ?? 0} × {ls?.setsB ?? 0}
+              </Text>
+            )}
+          </View>
+
+          {/* Trava expirou ou jogo terminou → pode marcar; admin pode assumir a qualquer momento */}
+          {!finished && (!stillLocked || isAdmin) && (
+            <TouchableOpacity
+              style={{ marginTop: Spacing.md, borderWidth: 1.5, borderColor: Colors.coral + '66', borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center' }}
+              onPress={assumirMarcacao}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: Colors.coral }}>
+                🔓 Assumir marcação{!stillLocked ? ' (marcador inativo)' : ''}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <View style={{ height: Spacing.xl }} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   if (liveMatch && selectedComp) {
     return (
       <>
@@ -487,7 +618,7 @@ export default function CourtScreen() {
             }
           }}
           onLiveScore={(gA, gB, sA, sB) => {
-            dispatch({ type: 'UPDATE_LIVE_SCORE', compId: selectedCompId!, matchId: liveMatch.id, gamesA: gA, gamesB: gB, setsA: sA, setsB: sB });
+            dispatch({ type: 'UPDATE_LIVE_SCORE', compId: selectedCompId!, matchId: liveMatch.id, gamesA: gA, gamesB: gB, setsA: sA, setsB: sB, scorerUid: user?.uid, scorerName: myName });
           }}
         />
         {modoModalEl}
@@ -527,8 +658,8 @@ export default function CourtScreen() {
               </View>
             )}
 
-            {/* Partidas com análise BT salva */}
-            {analiseIds.size > 0 && (
+            {/* Partidas com análise BT salva — exclusivo do Super Admin */}
+            {isSuperAdmin && analiseIds.size > 0 && (
               <View style={{ gap: Spacing.xs }}>
                 <Text style={s.sectionLabel}>Análises BT salvas</Text>
                 {selectedComp.matches
@@ -601,9 +732,11 @@ export default function CourtScreen() {
             );
           })}
 
-          <TouchableOpacity style={s.historico} onPress={() => router.push('/analise')} activeOpacity={0.8}>
-            <Text style={s.historicoTxt}>📊 Histórico de análises BT</Text>
-          </TouchableOpacity>
+          {isSuperAdmin && (
+            <TouchableOpacity style={s.historico} onPress={() => router.push('/analise')} activeOpacity={0.8}>
+              <Text style={s.historicoTxt}>📊 Histórico de análises BT</Text>
+            </TouchableOpacity>
+          )}
 
           <View style={{ height: Spacing.xl }} />
         </ScrollView>

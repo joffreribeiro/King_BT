@@ -1,6 +1,7 @@
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { goToPlayer } from '@/logic/nav';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Card } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -210,7 +211,7 @@ export default function DashboardScreen() {
               marginBottom: Spacing.sm, letterSpacing: 1.5 }}>MAIS ATIVO DO GRUPO</Text>
             <TouchableOpacity
               style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}
-              onPress={() => router.push({ pathname: '/player/[id]', params: { id: mostActive.id } })}
+              onPress={() => goToPlayer(mostActive.id)}
               activeOpacity={0.75}
             >
               <Avatar name={mostActivePlayer.name} color={mostActivePlayer.color} size={48} />
@@ -234,7 +235,7 @@ export default function DashboardScreen() {
               marginBottom: Spacing.sm, letterSpacing: 1.5 }}>SEQUÊNCIA ATIVA 🔥</Text>
             <TouchableOpacity
               style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}
-              onPress={() => router.push({ pathname: '/player/[id]', params: { id: longestStreak.id } })}
+              onPress={() => goToPlayer(longestStreak.id)}
               activeOpacity={0.75}
             >
               <Avatar name={streakPlayer.name} color={streakPlayer.color} size={48} />
@@ -321,7 +322,7 @@ export default function DashboardScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
                     <TouchableOpacity
                       style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}
-                      onPress={() => router.push({ pathname: '/player/[id]', params: { id: rv.idA } })}
+                      onPress={() => goToPlayer(rv.idA)}
                       activeOpacity={0.75}
                     >
                       <Avatar name={pA.name} color={pA.color} size={28} />
@@ -343,7 +344,7 @@ export default function DashboardScreen() {
 
                     <TouchableOpacity
                       style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-end' }}
-                      onPress={() => router.push({ pathname: '/player/[id]', params: { id: rv.idB } })}
+                      onPress={() => goToPlayer(rv.idB)}
                       activeOpacity={0.75}
                     >
                       <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text }} numberOfLines={1}>
@@ -381,7 +382,7 @@ export default function DashboardScreen() {
                   key={r.id}
                   style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
                     paddingVertical: 6, borderBottomWidth: i < 2 ? 1 : 0, borderBottomColor: Colors.line }}
-                  onPress={() => router.push({ pathname: '/player/[id]', params: { id: r.id } })}
+                  onPress={() => goToPlayer(r.id)}
                   activeOpacity={0.75}
                 >
                   <Text style={{ fontSize: 20, width: 28 }}>{medals[i]}</Text>

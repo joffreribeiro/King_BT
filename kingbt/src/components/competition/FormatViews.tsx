@@ -1,12 +1,13 @@
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
 import { shareText, notifyCopied } from '@/services/share';
+import { goToPlayer } from '@/logic/nav';
+import { gameAverage } from '@/logic/scoring';
 import { useState } from 'react';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Card, OptionModal } from '@/components';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import type { Match, Competition } from '@/logic/types';
-import { firstUnscored, buildBracketShareText } from './helpers';
+import { firstUnscored, buildBracketShareText, sgColor } from './helpers';
 import { GameRow } from './GameRow';
 import { MatchRow } from './MatchRow';
 import { StandingsTable, stRow } from './StandingsTable';
@@ -129,7 +130,7 @@ export function ClassificacaoView({ comp }: { comp: Competition }) {
       if (inB) { gf += gB; gc += gA; if (m.scoreB! > m.scoreA!) wins++; else losses++; }
     });
     const played = wins + losses;
-    const ga = gc > 0 ? Math.min(9.99, gf / gc) : gf > 0 ? 9.99 : 0;
+    const ga = gameAverage({ gamesPro: gf, gamesCon: gc });
     const pts = wins * 3 + played * 0.5 + ga * 2;
     return { pid, wins, losses, played, gf, gc, ga, pts };
   }).sort((a, b) => b.pts - a.pts);
@@ -151,14 +152,14 @@ export function ClassificacaoView({ comp }: { comp: Competition }) {
         {rankingStats.map((r, i) => {
           const pl = findPlayer(r.pid);
           const sg = r.gf - r.gc;
-          const sgColor = sg > 0 ? Colors.teal : sg < 0 ? Colors.coral : Colors.muted;
           const winRate = r.played > 0 ? Math.round((r.wins / r.played) * 100) : 0;
           return (
             <View key={r.pid} style={[stRow.row, i < rankingStats.length - 1 && stRow.border]}>
               <Text style={[stRow.c0, stRow.pos]}>{i + 1}</Text>
               <TouchableOpacity
                 style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}
-                onPress={() => router.push({ pathname: '/player/[id]', params: { id: r.pid } })}
+                onPress={() => pl && goToPlayer(r.pid)}
+                disabled={!pl}
                 activeOpacity={0.7}
               >
                 {pl && <Avatar name={pl.name} color={pl.color} size={22} />}
@@ -171,7 +172,7 @@ export function ClassificacaoView({ comp }: { comp: Competition }) {
               <Text style={stRow.cN}>{r.losses}</Text>
               <Text style={stRow.cN}>{r.gf}</Text>
               <Text style={stRow.cN}>{r.gc}</Text>
-              <Text style={[stRow.cN, { color: sgColor }]}>{sg > 0 ? '+' : ''}{sg}</Text>
+              <Text style={[stRow.cN, { color: sgColor(sg) }]}>{sg > 0 ? '+' : ''}{sg}</Text>
               <Text style={stRow.cNw} numberOfLines={1}>
                 {r.ga >= 10 ? r.ga.toFixed(1) : r.ga.toFixed(2)}
               </Text>

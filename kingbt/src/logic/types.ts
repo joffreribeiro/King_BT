@@ -39,6 +39,9 @@ export interface LiveScore {
   setsA: number;
   setsB: number;
   updatedAt: string;
+  /** Quem está marcando este jogo (trava contra dois marcadores simultâneos). */
+  scorerUid?: string | null;
+  scorerName?: string | null;
 }
 
 export interface Match {

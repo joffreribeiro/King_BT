@@ -24,7 +24,7 @@ type Action =
   | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; sets?: { a: number; b: number }[] }
   | { type: 'CORRECT_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; sets?: { a: number; b: number }[] }
   | { type: 'CLEAR_SCORE'; compId: string; matchId: string }
-  | { type: 'UPDATE_LIVE_SCORE'; compId: string; matchId: string; gamesA: number; gamesB: number; setsA: number; setsB: number }
+  | { type: 'UPDATE_LIVE_SCORE'; compId: string; matchId: string; gamesA: number; gamesB: number; setsA: number; setsB: number; scorerUid?: string; scorerName?: string }
   | { type: 'CLEAR_LIVE_SCORE'; compId: string; matchId: string }
   | { type: 'SAVE_DRAFT'; compId: string; matchId: string; draftSets: { a: number; b: number }[] }
   | { type: 'CLEAR_DRAFT'; compId: string; matchId: string }
@@ -119,7 +119,7 @@ function reducer(state: State, action: Action): State {
             matches: c.matches.map(m =>
               m.id !== action.matchId ? m : {
                 ...m,
-                liveScore: { gamesA: action.gamesA, gamesB: action.gamesB, setsA: action.setsA, setsB: action.setsB, updatedAt: new Date().toISOString() },
+                liveScore: { gamesA: action.gamesA, gamesB: action.gamesB, setsA: action.setsA, setsB: action.setsB, updatedAt: new Date().toISOString(), scorerUid: action.scorerUid ?? null, scorerName: action.scorerName ?? null },
               }
             ),
           }
@@ -241,7 +241,7 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
           if (action.type === 'CLEAR_LIVE_SCORE') return { ...m, liveScore: null };
           return {
             ...m,
-            liveScore: { gamesA: action.gamesA, gamesB: action.gamesB, setsA: action.setsA, setsB: action.setsB, updatedAt: new Date().toISOString() },
+            liveScore: { gamesA: action.gamesA, gamesB: action.gamesB, setsA: action.setsA, setsB: action.setsB, updatedAt: new Date().toISOString(), scorerUid: action.scorerUid ?? null, scorerName: action.scorerName ?? null },
           };
         });
         try { await updateLiveScore(group.id, comp.id, updatedMatches); } catch { /* silent */ }

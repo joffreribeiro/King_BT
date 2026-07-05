@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import { goToPlayer } from '@/logic/nav';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Avatar, Badge, Card } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -392,7 +393,7 @@ export default function PlayerDetailScreen() {
                   <TouchableOpacity
                     key={label}
                     style={ident.row}
-                    onPress={() => router.push({ pathname: '/player/[id]', params: { id: stat.id } })}
+                    onPress={() => goToPlayer(stat.id)}
                     activeOpacity={0.75}
                   >
                     <Text style={ident.emoji}>{emoji}</Text>

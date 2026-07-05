@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { useAuth } from '@/store/AuthContext';
 import type { Match, Competition } from '@/logic/types';
 import { carregarAnalise, placardInicial, avancaPonto, winRuleFromComp, type BtAnalise } from '@/logic/btTracker';
 import { getCompetitor } from './helpers';
@@ -16,6 +17,7 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
   isAdmin?: boolean;
 }) {
   const { findPlayer } = useGroupPlayers();
+  const { isSuperAdmin } = useAuth();
   const [analise, setAnalise] = useState<BtAnalise | null>(null);
 
   const maxSets      = comp.config.winRule?.sets ?? 3;
@@ -326,8 +328,8 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
             <Text style={sc.adminNote}>⚙️ Admin — você pode corrigir ou apagar este placar.</Text>
           )}
 
-          {/* King Scout */}
-          {analise && !analiseEncerrada ? (
+          {/* King Scout — exclusivo do Super Admin */}
+          {!isSuperAdmin ? null : analise && !analiseEncerrada ? (
             // Análise em andamento — permite continuar ou ver parcial
             <View style={{ gap: 6 }}>
               <TouchableOpacity style={[sc.btBtn, sc.btBtnContinuar]} onPress={abrirBtTracker}>

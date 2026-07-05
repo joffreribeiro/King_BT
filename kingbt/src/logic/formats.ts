@@ -1,5 +1,6 @@
 import type { Match, MatchSource, GroupDef, Competition, Standing, Competitor } from './types';
 import { generateSchedule, generateScheduleIndividual, generateScheduleDuplas } from './roundRobin';
+import { gameAverage } from './scoring';
 
 // ─── Liga (round-robin Circle method) ────────────────────────────────────────
 
@@ -160,7 +161,7 @@ export function standings(ids: string[], matches: Match[], nameOf?: (id: string)
 
   const rows: Standing[] = ids.map(id => {
     const s = acc[id];
-    const ga = s.gf / Math.max(1, s.gc); // Game Average = GP÷GC (nunca divide por 0)
+    const ga = gameAverage({ gamesPro: s.gf, gamesCon: s.gc });
     const pts = s.wins * 3 + s.played * 0.5 + ga * 2;
     return { id, played: s.played, wins: s.wins, losses: s.losses, gf: s.gf, ga, gd: s.gf - s.gc, pts };
   });

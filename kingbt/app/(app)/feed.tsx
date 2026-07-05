@@ -2,7 +2,6 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 import { useState, useRef, useEffect } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
@@ -12,6 +11,7 @@ import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { toggleReaction, addComment, type FeedItem } from '@/firebase/feed';
+import { goToPlayer } from '@/logic/nav';
 
 const EMOJIS = ['👑', '🔥', '💪'] as const;
 
@@ -31,10 +31,6 @@ function timeAgo(ts: any): string {
   const h = Math.floor(min / 60);
   if (h < 24) return `${h}h`;
   return `${Math.floor(h / 24)}d`;
-}
-
-function goToPlayer(id: string) {
-  router.push({ pathname: '/player/[id]', params: { id } });
 }
 
 // O feed guarda só o placar em sets (ex.: 1–0); os games por set vivem no jogo
@@ -71,19 +67,16 @@ function FeedScoreboard({ item, sets }: { item: FeedItem; sets: { a: number; b: 
             : null;
         })}
         {ids.length > 0 ? (
-          <View style={fsb.nameWrap}>
+          <Text style={[fsb.name, won && fsb.nameWin, fsb.nameWrap]} numberOfLines={1}>
             {ids.map((id, i) => {
               const pl = findPlayer(id);
               return (
-                <View key={id} style={{ flexDirection: 'row' }}>
-                  <TouchableOpacity onPress={() => goToPlayer(id)}>
-                    <Text style={[fsb.name, won && fsb.nameWin]} numberOfLines={1}>{pl?.name ?? id}</Text>
-                  </TouchableOpacity>
-                  {i < ids.length - 1 && <Text style={[fsb.name, won && fsb.nameWin]}> / </Text>}
-                </View>
+                <Text key={id} onPress={pl ? () => goToPlayer(id) : undefined}>
+                  {i > 0 ? ' / ' : ''}{pl?.name ?? id}
+                </Text>
               );
             })}
-          </View>
+          </Text>
         ) : (
           <Text style={[fsb.name, won && fsb.nameWin]} numberOfLines={1}>{info?.name}</Text>
         )}
@@ -116,7 +109,7 @@ function FeedScoreboard({ item, sets }: { item: FeedItem; sets: { a: number; b: 
 const fsb = StyleSheet.create({
   box: { borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.sm, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: Spacing.sm, height: 42 },
-  nameWrap: { flex: 1, flexDirection: 'row', flexWrap: 'nowrap' },
+  nameWrap: { flex: 1 },
   name: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: '#FFFFFF' },
   nameWin: { color: Colors.gold, fontFamily: FontFamily.title },
   scoreZone: {

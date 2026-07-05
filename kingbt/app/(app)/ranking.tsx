@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useRef, useMemo } from 'react';
 import ViewShot from 'react-native-view-shot';
 import { router } from 'expo-router';
+import { goToPlayer } from '@/logic/nav';
 import { Colors, FontFamily, Spacing, Radius } from '@/theme';
 import { Shadows } from '@/theme/shadows';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,6 +18,7 @@ import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
+import { sgColor } from '@/components/competition/helpers';
 import { computeRankingDeltas } from '@/logic/rankingDelta';
 import { FadeScreen } from '@/components/FadeScreen';
 import * as Sharing from 'expo-sharing';
@@ -233,7 +235,6 @@ export default function RankingScreen() {
           {ranking.map((s, i) => {
             const pl = findPlayer(s.id);
             const isMe = s.id === MY_ID;
-            const sgColor = s.sg > 0 ? Colors.teal : s.sg < 0 ? Colors.coral : Colors.muted;
             const d = deltas[s.id];
             const trendDir = d?.dir ?? 'same';
             const trendDiff = d?.diff ?? 0;
@@ -251,7 +252,8 @@ export default function RankingScreen() {
                   isUp && styles.rowUp,
                   isDown && styles.rowDown,
                 ]}
-                onPress={() => router.push({ pathname: '/player/[id]', params: { id: s.id } })}
+                onPress={() => pl && goToPlayer(s.id)}
+                disabled={!pl}
                 activeOpacity={0.7}
               >
                 {/* Trend border strip */}
@@ -294,10 +296,10 @@ export default function RankingScreen() {
                   <Text style={[styles.cStat, styles.statText]}>{s.gamesPro}</Text>
                   <Text style={[styles.cStat, styles.statText]}>{s.gamesCon}</Text>
                 </>}
-                <Text style={[styles.cStatWide, styles.statText, { color: sgColor }]}>
+                <Text style={[styles.cStatWide, styles.statText, { color: sgColor(s.sg) }]}>
                   {s.sg > 0 ? '+' : ''}{s.sg}
                 </Text>
-                <Text style={[styles.cStat, styles.statText]}>{s.ga.toFixed(2)}</Text>
+                <Text style={[styles.cStat, styles.statText]}>{s.ga >= 10 ? s.ga.toFixed(1) : s.ga.toFixed(2)}</Text>
                 <View style={[styles.cPts, { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 3 }]}>
                   <AnimatedNumber
                     value={s.points}
@@ -318,7 +320,9 @@ export default function RankingScreen() {
 
         {/* Legenda */}
         {state.synced && <View style={styles.legend}>
-          <Text style={styles.legendText}>V: Vitórias · D: Derrotas · J: Partidas · GP: Games Pró · GC: Games Contra · SG: Saldo de Games · GA: Game Average (GP ÷ GC)</Text>
+          <Text style={styles.legendText}>
+            V: Vitórias · D: Derrotas{!compact ? ' · J: Partidas · GP: Games Pró · GC: Games Contra' : ''} · SG: Saldo de Games · GA: Game Average (GP ÷ GC) · PTS: Pontuação
+          </Text>
         </View>}
 
         <View style={{ height: 140 }} />
@@ -503,7 +507,8 @@ function PodiumSlot({ player, pos, isMe, findPlayer }: {
   return (
     <TouchableOpacity
       style={[pod.col, isFirst && { zIndex: 2 }]}
-      onPress={() => router.push({ pathname: '/player/[id]', params: { id: player.id } })}
+      onPress={() => pl && goToPlayer(player.id)}
+      disabled={!pl}
       activeOpacity={0.8}
     >
       {/* Coroa */}

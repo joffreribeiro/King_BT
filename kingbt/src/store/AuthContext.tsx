@@ -16,6 +16,10 @@ import { Logger } from '@/services/Logger';
 import * as Device from 'expo-device';
 import * as Localization from 'expo-localization';
 
+// Super Admins: acesso total em qualquer grupo + recursos exclusivos (King Scout).
+// Identificados pelo e-mail da conta logada.
+const SUPER_ADMIN_EMAILS = ['joffre.ribeiro@gmail.com'];
+
 function collectDeviceInfo(via: 'email' | 'google' | 'invite') {
   return {
     registeredAt: new Date().toISOString(),
@@ -64,6 +68,8 @@ type AuthContextType = AuthState & {
   groupIds: string[];
   /** True se o usuário é membro do grupo ativo (false = visitante de grupo público) */
   isMember: boolean;
+  /** Super Admin: acesso total em qualquer grupo + recursos exclusivos */
+  isSuperAdmin: boolean;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (name: string, email: string, password: string) => Promise<void>;
@@ -300,7 +306,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function promoteToAdmin(uid: string) {
-    if (!group || !isAdmin) return;
+    if (!group || !(isAdmin || isSuperAdmin)) return;
     const admins = [...(group.admins ?? [])];
     if (!admins.includes(uid)) {
       admins.push(uid);
@@ -310,7 +316,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function removeFromGroup(uid: string) {
-    if (!group || !isAdmin) return;
+    if (!group || !(isAdmin || isSuperAdmin)) return;
     const members = group.members?.filter(m => m !== uid) ?? [];
     await setDoc(doc(db, 'groups', group.id), { members }, { merge: true });
     // Desassocia o grupo do usuário removido — senão ele continua vendo o grupo
@@ -321,7 +327,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function setGroupVisibility(visibility: 'privado' | 'publico') {
-    if (!group || !isAdmin) return;
+    if (!group || !(isAdmin || isSuperAdmin)) return;
     await setDoc(doc(db, 'groups', group.id), { visibility }, { merge: true });
     setGroup(prev => prev ? { ...prev, visibility } : prev);
   }
@@ -419,15 +425,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Memoiza o value para não re-renderizar toda a árvore a cada render do provider.
   // As funções fecham sobre user/group/isAdmin, todos presentes nas deps.
-  const isMember = !!user && (isAdmin || !!group?.members?.includes(user.uid));
+  const isSuperAdmin = !!user?.email && SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase());
+  const effectiveAdmin = isAdmin || isSuperAdmin;
+  const isMember = !!user && (effectiveAdmin || !!group?.members?.includes(user.uid));
 
   const value = useMemo<AuthContextType>(() => ({
-    user, group, isAdmin, loading, error, myPlayerId, playerLoading, groupIds, isMember,
+    user, group, isAdmin: effectiveAdmin, loading, error, myPlayerId, playerLoading, groupIds, isMember, isSuperAdmin,
     signInWithGoogle, signInWithEmail, signUpWithEmail, joinGroup, linkToPlayer,
     createGroup, leaveGroup, switchGroup, getMyGroups, logout,
     clearError: () => setError(null), promoteToAdmin, removeFromGroup, setGroupVisibility,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [user, group, isAdmin, loading, error, myPlayerId, playerLoading, groupIds, isMember]);
+  }), [user, group, effectiveAdmin, loading, error, myPlayerId, playerLoading, groupIds, isMember, isSuperAdmin]);
 
   return (
     <Ctx.Provider value={value}>
