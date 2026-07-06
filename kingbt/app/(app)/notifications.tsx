@@ -101,11 +101,13 @@ export default function NotificationsScreen() {
         .sort((a, b) => (b.playedAt ?? '').localeCompare(a.playedAt ?? ''))
         .slice(0, 3)
         .forEach(m => {
+          const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA;
+          const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB;
           list.push({
             id: `result_${m.id}`,
             type: 'result_new',
             title: `Novo resultado: ${comp.name}`,
-            description: `Placar registrado: ${m.scoreA}–${m.scoreB}`,
+            description: `Placar registrado: ${gA}–${gB}`,
             read: false,
             createdAt: m.playedAt ? new Date(m.playedAt) : new Date(Date.now() - Math.random() * 86400000),
             actionCompId: comp.id,

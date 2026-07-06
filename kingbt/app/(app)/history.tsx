@@ -232,8 +232,10 @@ export default function HistoryScreen() {
         if (!inA && !inB) return;
 
         const isWin    = inA ? m.scoreA > m.scoreB : m.scoreB > m.scoreA;
-        const myScore  = inA ? m.scoreA : m.scoreB;
-        const oppScore = inA ? m.scoreB : m.scoreA;
+        const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA;
+        const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB;
+        const myScore  = inA ? gA : gB;
+        const oppScore = inA ? gB : gA;
 
         let opponentName = '?';
         if (m.teamA && m.teamB) {

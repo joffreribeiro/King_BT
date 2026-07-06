@@ -138,9 +138,11 @@ export default function ProfileScreen() {
       const inA = m.teamA ? m.teamA.includes(MY_ID) : m.aId === MY_ID;
       const inB = m.teamB ? m.teamB.includes(MY_ID) : m.bId === MY_ID;
       if (!inA && !inB) return;
-      const myScore = inA ? m.scoreA : m.scoreB;
-      const oppScore = inA ? m.scoreB : m.scoreA;
-      const won = myScore > oppScore;
+      const won = (inA ? m.scoreA : m.scoreB) > (inA ? m.scoreB : m.scoreA);
+      const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA;
+      const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB;
+      const myScore = inA ? gA : gB;
+      const oppScore = inA ? gB : gA;
       const isTeam = !!(m.teamA && m.teamB);
       let opponents = '?', partner: string | null = null;
       if (m.teamA && m.teamB) {

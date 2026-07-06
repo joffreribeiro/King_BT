@@ -12,6 +12,7 @@ import { useAuth } from '@/store/AuthContext';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 import { computeGroupRivalries } from '@/logic/rivalries';
+import type { Match } from '@/logic/types';
 
 export default function DashboardScreen() {
   const { colors: Colors } = useTheme();
@@ -70,10 +71,18 @@ export default function DashboardScreen() {
   const rival0 = rivalIds[0] ? findPlayer(rivalIds[0]) : null;
   const rival1 = rivalIds[1] ? findPlayer(rivalIds[1]) : null;
 
-  // Jogo mais disputado (menor diferença de placar)
+  // Jogo mais disputado (menor diferença de games)
+  const gamesOf = (m: Match) => ({
+    a: m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA!,
+    b: m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB!,
+  });
   const closest = [...playedMatches]
     .filter(m => m.scoreA != null && m.scoreB != null)
-    .sort((a, b) => Math.abs(a.scoreA! - a.scoreB!) - Math.abs(b.scoreA! - b.scoreB!))[0];
+    .sort((a, b) => {
+      const ga = gamesOf(a), gb = gamesOf(b);
+      return Math.abs(ga.a - ga.b) - Math.abs(gb.a - gb.b);
+    })[0];
+  const closestGames = closest ? gamesOf(closest) : null;
   const closestComp = closest
     ? state.competitions.find(c => c.matches.some(m => m.id === closest.id))
     : null;
@@ -287,15 +296,15 @@ export default function DashboardScreen() {
         )}
 
         {/* Jogo mais disputado */}
-        {closest && closestComp && (
+        {closest && closestComp && closestGames && (
           <Card>
             <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted,
               marginBottom: Spacing.sm, letterSpacing: 1.5 }}>JOGO MAIS DISPUTADO 🎯</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
               <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 28, color: Colors.text }}>
-                <Text style={{ color: Colors.teal }}>{closest.scoreA}</Text>
+                <Text style={{ color: Colors.teal }}>{closestGames.a}</Text>
                 <Text style={{ color: Colors.faint }}> – </Text>
-                <Text style={{ color: Colors.coral }}>{closest.scoreB}</Text>
+                <Text style={{ color: Colors.coral }}>{closestGames.b}</Text>
               </Text>
               <Text style={{ fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, flex: 1 }}>
                 em {closestComp.name}
@@ -435,7 +444,7 @@ const makeDsStyles = (Colors: ThemeColors) => StyleSheet.create({
   greetingLine: {
     fontFamily: FontFamily.body,
     fontSize: 11,
-    color: '#6E6452',
+    color: Colors.faint,
     marginBottom: 2,
   },
   statsRow: {
@@ -444,9 +453,9 @@ const makeDsStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#16140F',
+    backgroundColor: Colors.surf,
     borderWidth: 1,
-    borderColor: 'rgba(243,197,68,0.15)',
+    borderColor: Colors.line,
     borderRadius: 10,
     padding: 8,
     alignItems: 'center',
@@ -454,13 +463,13 @@ const makeDsStyles = (Colors: ThemeColors) => StyleSheet.create({
   statValue: {
     fontFamily: FontFamily.titleBold,
     fontSize: 16,
-    color: '#F3C544',
+    color: Colors.gold,
     fontWeight: '700',
   },
   statLabel: {
     fontFamily: FontFamily.numberBold,
     fontSize: 8,
-    color: '#6E6452',
+    color: Colors.faint,
     marginTop: 2,
     letterSpacing: 0.5,
   },
@@ -495,7 +504,7 @@ const makeDsStyles = (Colors: ThemeColors) => StyleSheet.create({
   nextMeta: {
     fontFamily: FontFamily.body,
     fontSize: 11,
-    color: '#A99B7C',
+    color: Colors.muted,
     marginTop: 2,
   },
   nextBadge: {

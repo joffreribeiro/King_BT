@@ -43,7 +43,7 @@ export default function H2HScreen() {
   const stats = useMemo(() => {
     let wins1 = 0, wins2 = 0;
     let gp1 = 0, gc1 = 0; // games pro/contra player1
-    const matches: { compName: string; scoreA: number; scoreB: number; p1Side: 'A' | 'B'; date?: string | null; id: string }[] = [];
+    const matches: { compName: string; scoreA: number; scoreB: number; gamesA: number; gamesB: number; p1Side: 'A' | 'B'; date?: string | null; id: string }[] = [];
 
     state.competitions.forEach(comp => {
       comp.matches.forEach(m => {
@@ -81,6 +81,8 @@ export default function H2HScreen() {
           compName: comp.name,
           scoreA: p1Score,
           scoreB: p2Score,
+          gamesA: p1Games,
+          gamesB: p2Games,
           p1Side,
           date: m.playedAt,
         });
@@ -195,7 +197,7 @@ export default function H2HScreen() {
                         {m.date && <Text style={s.matchDate}>{timeAgo(m.date)}</Text>}
                       </View>
                       <Text style={[s.matchScore, { color: won ? Colors.teal : Colors.coral }]}>
-                        {m.scoreA}–{m.scoreB}
+                        {m.gamesA}–{m.gamesB}
                       </Text>
                     </View>
                   );
@@ -228,7 +230,7 @@ export default function H2HScreen() {
                       {m.date && <Text style={s.histDate}>{timeAgo(m.date)}</Text>}
                     </View>
                     <Text style={[s.histScore, { color: won ? Colors.teal : Colors.coral }]}>
-                      {m.scoreA}–{m.scoreB}
+                      {m.gamesA}–{m.gamesB}
                     </Text>
                   </View>
                 );
