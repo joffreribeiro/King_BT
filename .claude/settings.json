@@ -6,7 +6,11 @@
       "Skill(claude-api)",
       "Skill(claude-api:*)",
       "Skill(update-config)",
-      "Skill(update-config:*)"
+      "Skill(update-config:*)",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Skill(run-skill-generator)",
+      "Skill(run-skill-generator:*)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Joffre\\.claude"

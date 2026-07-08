@@ -5,6 +5,8 @@ import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card } from '@/components';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import type { Match, Competition } from '@/logic/types';
+import { buildRanking } from '@/logic/scoring';
+import { extractPlayerGames } from '@/logic/formats';
 import { GameRow } from './GameRow';
 
 export function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
@@ -19,24 +21,15 @@ export function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
   const scored = comp.matches.filter(m => m.scoreA != null);
   const pending = comp.matches.filter(m => m.scoreA == null);
 
-  // Ranking igual ao RotatingView
+  // Ranking por jogador (fonte única: buildRanking)
   const playerIds = [...new Set(comp.matches.flatMap(m => [...(m.teamA ?? []), ...(m.teamB ?? [])]))];
-  const rankingStats = playerIds.map(pid => {
-    let wins = 0, losses = 0, gf = 0, gc = 0;
-    comp.matches.forEach(m => {
-      if (m.scoreA == null || m.scoreA === m.scoreB) return;
-      const inA = m.teamA?.includes(pid);
-      const inB = m.teamB?.includes(pid);
-      const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA!;
-      const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB!;
-      if (inA) { gf += gA; gc += gB; if (m.scoreA! > m.scoreB!) wins++; else losses++; }
-      if (inB) { gf += gB; gc += gA; if (m.scoreB! > m.scoreA!) wins++; else losses++; }
-    });
-    const played = wins + losses;
-    const ga = gc > 0 ? Math.min(9.99, gf / gc) : gf > 0 ? 9.99 : 0;
-    const pts = wins * 3 + played * 0.5 + ga * 2;
-    return { pid, wins, losses, played, gf, gc, pts };
-  }).sort((a, b) => b.pts - a.pts);
+  const players = playerIds.map(pid => {
+    const pl = findPlayer(pid);
+    return pl
+      ? { id: pl.id, name: pl.name, short: pl.name.slice(0, 3), color: pl.color }
+      : { id: pid, name: pid, short: pid, color: Colors.gold };
+  });
+  const rankingStats = buildRanking(players, extractPlayerGames(comp));
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: Spacing.md, gap: Spacing.md }}
@@ -78,16 +71,16 @@ export function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
           <Text style={avulsoS.sectionTitle}>RANKING</Text>
           <Card padding={0} style={{ overflow: 'hidden' }}>
             {rankingStats.map((r, i) => {
-              const pl = findPlayer(r.pid);
+              const pl = findPlayer(r.id);
               return (
-                <View key={r.pid} style={[avulsoS.rankRow, i < rankingStats.length - 1 && { borderBottomWidth: 1, borderBottomColor: Colors.line }]}>
+                <View key={r.id} style={[avulsoS.rankRow, i < rankingStats.length - 1 && { borderBottomWidth: 1, borderBottomColor: Colors.line }]}>
                   <Text style={avulsoS.rankPos}>{i + 1}</Text>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
                     {pl && <Avatar name={pl.name} color={pl.color} size={22} />}
-                    <Text style={avulsoS.rankName} numberOfLines={1}>{pl?.name ?? r.pid}</Text>
+                    <Text style={avulsoS.rankName} numberOfLines={1}>{pl?.name ?? r.id}</Text>
                   </View>
                   <Text style={avulsoS.rankStat}>{r.wins}V {r.losses}D</Text>
-                  <Text style={avulsoS.rankPts}>{r.pts.toFixed(2)}</Text>
+                  <Text style={avulsoS.rankPts}>{r.points.toFixed(2)}</Text>
                 </View>
               );
             })}

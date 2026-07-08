@@ -2,19 +2,24 @@ import type { Player, PlayerStat, RankedPlayer } from './types';
 
 export type { PlayerStat, RankedPlayer };
 
-const HANDICAP_FACTOR: Record<number, number> = {
-  [-3]: 1.5,
-  [-2]: 1.3,
-  [-1]: 1.1,
-  [0]:  1.0,
-  [1]:  0.9,
-  [2]:  0.7,
-  [3]:  0.5,
-};
+/** Épsilon para comparar pontos/GA em ponto flutuante. */
+const EPS = 1e-9;
 
-function handicapFactor(player: Player): number {
-  const h = player.handicap ?? 0;
-  return HANDICAP_FACTOR[h] ?? 1.0;
+/** Forma canônica de estatísticas agregadas de um competidor. */
+export interface ScoreStats {
+  played: number;
+  wins: number;
+  gamesPro: number;
+  gamesCon: number;
+}
+
+/** Linha mínima para ordenação de ranking/classificação. */
+export interface RankRow {
+  id: string;
+  points: number;
+  sg: number;
+  ga: number;
+  wins: number;
 }
 
 export function blankStat(): PlayerStat {
@@ -22,14 +27,34 @@ export function blankStat(): PlayerStat {
 }
 
 /** GA = GamesPró ÷ GamesContra (nunca divide por 0, máximo 9.99) */
-export function gameAverage(s: Pick<PlayerStat, 'gamesPro' | 'gamesCon'>): number {
+export function gameAverage(s: Pick<ScoreStats, 'gamesPro' | 'gamesCon'>): number {
   if (s.gamesCon === 0) return s.gamesPro > 0 ? 9.99 : 0;
   return Math.min(9.99, s.gamesPro / s.gamesCon);
 }
 
 /** Pts = (V×3) + (J×0,5) + (GA×2) */
-export function statPoints(s: PlayerStat): number {
+export function statPoints(s: ScoreStats): number {
   return s.wins * 3 + s.played * 0.5 + gameAverage(s) * 2;
+}
+
+/**
+ * Comparador único de ranking/classificação. Ordem de desempate:
+ * pontos → confronto direto → saldo de games → GA → vitórias → alfabético.
+ * @param h2h  -1 se A vem antes, 1 se B vem antes, 0 empate.
+ * @param nameOf nome usado no desempate alfabético final.
+ */
+export function compareRank(
+  a: RankRow,
+  b: RankRow,
+  h2h: (idA: string, idB: string) => number,
+  nameOf: (id: string) => string,
+): number {
+  const byPts = b.points - a.points;  if (Math.abs(byPts) > EPS) return byPts;
+  const byH2H = h2h(a.id, b.id);       if (byH2H !== 0) return byH2H;   // 1° confronto direto
+  const bySg  = b.sg   - a.sg;         if (bySg  !== 0) return bySg;     // 2° saldo de games
+  const byGa  = b.ga   - a.ga;         if (Math.abs(byGa) > EPS) return byGa; // 3° GA
+  const byW   = b.wins - a.wins;       if (byW   !== 0) return byW;      // 4° vitórias
+  return nameOf(a.id).localeCompare(nameOf(b.id), 'pt-BR', { sensitivity: 'base' });
 }
 
 export function applyGame(
@@ -79,21 +104,13 @@ export function buildRanking(
     const s = map[p.id];
     const sg = s.gamesPro - s.gamesCon;
     const ga = gameAverage(s);
-    const factor = handicapFactor(p);
     return {
       ...p, ...s, sg, ga,
       winRate: s.played ? Math.round((s.wins / s.played) * 100) : 0,
-      points: Math.round(statPoints(s) * factor * 100) / 100,
+      points: Math.round(statPoints(s) * 100) / 100,
     } as RankedPlayer;
   });
 
-  const EPS = 1e-9;
-  return ranked.sort((a, b) => {
-    const byPts = b.points - a.points;   if (Math.abs(byPts) > EPS) return byPts;
-    const byH2H = h2h(a.id, b.id);       if (byH2H !== 0) return byH2H;   // 1° desempate: confronto direto
-    const bySg  = b.sg    - a.sg;        if (bySg  !== 0) return bySg;     // 2° desempate: saldo de games
-    const byGa  = b.ga    - a.ga;        if (Math.abs(byGa) > EPS) return byGa; // 3° desempate: GA
-    const byW   = b.wins  - a.wins;      if (byW   !== 0) return byW;      // 4° desempate: vitórias
-    return a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' });
-  });
+  const nameOf = (id: string) => ranked.find(r => r.id === id)?.name ?? id;
+  return ranked.sort((a, b) => compareRank(a, b, h2h, nameOf));
 }

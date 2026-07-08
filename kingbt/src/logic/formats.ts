@@ -1,6 +1,6 @@
 import type { Match, MatchSource, GroupDef, Competition, Standing, Competitor } from './types';
 import { generateSchedule, generateScheduleIndividual, generateScheduleDuplas } from './roundRobin';
-import { gameAverage } from './scoring';
+import { gameAverage, statPoints, compareRank } from './scoring';
 
 // ─── Liga (round-robin Circle method) ────────────────────────────────────────
 
@@ -162,7 +162,7 @@ export function standings(ids: string[], matches: Match[], nameOf?: (id: string)
   const rows: Standing[] = ids.map(id => {
     const s = acc[id];
     const ga = gameAverage({ gamesPro: s.gf, gamesCon: s.gc });
-    const pts = s.wins * 3 + s.played * 0.5 + ga * 2;
+    const pts = statPoints({ played: s.played, wins: s.wins, gamesPro: s.gf, gamesCon: s.gc });
     return { id, played: s.played, wins: s.wins, losses: s.losses, gf: s.gf, ga, gd: s.gf - s.gc, pts };
   });
 
@@ -182,17 +182,15 @@ export function standings(ids: string[], matches: Match[], nameOf?: (id: string)
     return 0;
   }
 
-  const EPS = 1e-9;
-  return rows.sort((a, b) => {
-    const byPts = b.pts - a.pts;    if (Math.abs(byPts) > EPS) return byPts;
-    const byH2H = h2h(a.id, b.id); if (byH2H !== 0) return byH2H;  // 1° confronto direto
-    const byGd  = b.gd  - a.gd;    if (byGd  !== 0) return byGd;   // 2° saldo de games
-    const byGa  = b.ga  - a.ga;    if (Math.abs(byGa) > EPS) return byGa; // 3° GA
-    const byW   = b.wins - a.wins;  if (byW   !== 0) return byW;    // 4° vitórias
-    const nA = nameOf ? nameOf(a.id) : a.id;
-    const nB = nameOf ? nameOf(b.id) : b.id;
-    return nA.localeCompare(nB, 'pt-BR', { sensitivity: 'base' });
-  });
+  const resolveName = (id: string) => (nameOf ? nameOf(id) : id);
+  return rows.sort((a, b) =>
+    compareRank(
+      { id: a.id, points: a.pts, sg: a.gd, ga: a.ga, wins: a.wins },
+      { id: b.id, points: b.pts, sg: b.gd, ga: b.ga, wins: b.wins },
+      h2h,
+      resolveName,
+    )
+  );
 }
 
 export function groupComplete(matches: Match[], gi: number): boolean {
@@ -324,19 +322,17 @@ export function competitionChampion(comp: Competition, nameOf?: (id: string) => 
       if (wA !== wB) return wA > wB ? -1 : 1;
       return 0;
     }
-    const EPS = 1e-9;
     const resolveNameOf = (id: string) => nameOf ? nameOf(id) : (comp.competitors.find(c => c.id === id)?.name ?? id);
-    const sorted = Object.entries(stats).sort(([idA, a], [idB, b]) => {
-      const gaA = a.pro / Math.max(1, a.con), gaB = b.pro / Math.max(1, b.con);
-      const ptA = a.wins * 3 + a.played * 0.5 + gaA * 2;
-      const ptB = b.wins * 3 + b.played * 0.5 + gaB * 2;
-      const byPts = ptB - ptA;                               if (Math.abs(byPts) > EPS) return byPts;
-      const byH2H = h2hAvulso(idA, idB);                     if (byH2H !== 0) return byH2H;  // 1° confronto direto
-      const bySg  = (b.pro - b.con) - (a.pro - a.con);      if (bySg !== 0) return bySg;     // 2° saldo de games
-      const byGa  = gaB - gaA;                               if (Math.abs(byGa)  > EPS) return byGa; // 3° GA
-      const byW   = b.wins - a.wins;                         if (byW  !== 0) return byW;      // 4° vitórias
-      return resolveNameOf(idA).localeCompare(resolveNameOf(idB), 'pt-BR', { sensitivity: 'base' });
+    const rankRow = (id: string, s: { wins: number; played: number; pro: number; con: number }) => ({
+      id,
+      points: statPoints({ played: s.played, wins: s.wins, gamesPro: s.pro, gamesCon: s.con }),
+      sg: s.pro - s.con,
+      ga: gameAverage({ gamesPro: s.pro, gamesCon: s.con }),
+      wins: s.wins,
     });
+    const sorted = Object.entries(stats).sort(([idA, a], [idB, b]) =>
+      compareRank(rankRow(idA, a), rankRow(idB, b), h2hAvulso, resolveNameOf)
+    );
     if (!sorted.length) return null;
     const [champId] = sorted[0];
     return { id: champId, members: [champId] };
