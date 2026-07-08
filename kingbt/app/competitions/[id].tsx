@@ -1,6 +1,6 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform,
-  Animated, Dimensions,
+  Animated, Dimensions, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -18,11 +18,13 @@ import {
   confirmParticipation, cancelParticipation,
   requestRegistration, cancelRegistrationRequest, approveJoinRequest, rejectJoinRequest,
 } from '@/firebase/competitions';
+import { addGuestPlayer } from '@/firebase/groupPlayers';
 import { shareText, notifyCopied } from '@/services/share';
 import { buildShareText } from '@/components/competition/helpers';
 import { EditNameModal } from '@/components/competition/EditNameModal';
 import { RulesView } from '@/components/competition/RulesView';
 import { ScorerModal } from '@/components/competition/ScorerModal';
+import { FreeScoreModal } from '@/components/competition/FreeScoreModal';
 import { AvulsoView } from '@/components/competition/AvulsoView';
 import {
   RotatingView, ClassificacaoView, LeagueView, GroupsPhaseView, KOView,
@@ -53,6 +55,9 @@ export default function CompetitionDetail() {
   const [activeTab, setActiveTab] = useState<'regras' | 'classificacao' | 'partidas'>('partidas');
   const [avulsoTeamA, setAvulsoTeamA]     = useState<string[]>([]);
   const [avulsoTeamB, setAvulsoTeamB]     = useState<string[]>([]);
+  const [showAddGuest, setShowAddGuest]   = useState(false);
+  const [guestName, setGuestName]         = useState('');
+  const [guestBusy, setGuestBusy]         = useState(false);
   const champAnim  = useRef(new Animated.Value(0)).current;
   const screenW = Dimensions.get('window').width;
   const confettiFired = useRef(false);
@@ -126,6 +131,24 @@ export default function CompetitionDetail() {
     setScoring(m);
   }
 
+  function handleReopenAvulso() {
+    dispatch({ type: 'UPDATE', comp: { ...comp!, status: 'active' } });
+  }
+
+  function handleEndAvulso() {
+    const doEnd = () => {
+      dispatch({ type: 'UPDATE', comp: { ...comp!, status: 'done' } });
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm('Encerrar sessão? Não será mais possível registrar novos jogos.')) doEnd();
+    } else {
+      Alert.alert('Encerrar sessão', 'Não será mais possível registrar novos jogos.', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Encerrar', style: 'destructive', onPress: doEnd },
+      ]);
+    }
+  }
+
   function handleDelete() {
     const doDelete = () => {
       dispatch({ type: 'DELETE', compId: id! });
@@ -189,6 +212,17 @@ export default function CompetitionDetail() {
   async function handleRejectJoin(request: NonNullable<typeof myJoinRequest>) {
     if (!group || !comp || !isAdmin) return;
     await rejectJoinRequest(group.id, comp.id, request);
+  }
+
+  async function handleAddGuest() {
+    const name = guestName.trim();
+    if (!name || !group) return;
+    setGuestBusy(true);
+    const color = GUEST_COLORS[Math.floor(Math.random() * GUEST_COLORS.length)];
+    await addGuestPlayer(group.id, name, color);
+    setGuestName('');
+    setGuestBusy(false);
+    setShowAddGuest(false);
   }
 
   function handleConfirmAddAvulso() {
@@ -322,6 +356,16 @@ export default function CompetitionDetail() {
           <TouchableOpacity style={main.adminMenuAction} onPress={() => { setShowAdminMenu(false); setShowEditName(true); }}>
             <Text style={main.adminMenuText}>✏️ Renomear competição</Text>
           </TouchableOpacity>
+          {comp.format === 'avulso' && comp.status !== 'done' && (
+            <TouchableOpacity style={main.adminMenuAction} onPress={() => { setShowAdminMenu(false); handleEndAvulso(); }}>
+              <Text style={main.adminMenuText}>🏁 Encerrar sessão</Text>
+            </TouchableOpacity>
+          )}
+          {comp.format === 'avulso' && comp.status === 'done' && (
+            <TouchableOpacity style={main.adminMenuAction} onPress={() => { setShowAdminMenu(false); handleReopenAvulso(); }}>
+              <Text style={main.adminMenuText}>▶️ Reabrir sessão</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={main.adminMenuAction} onPress={() => { setShowAdminMenu(false); handleDelete(); }}>
             <Text style={main.adminMenuDanger}>🗑️ Excluir competição</Text>
           </TouchableOpacity>
@@ -496,6 +540,15 @@ export default function CompetitionDetail() {
           <View style={{ backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md, maxHeight: '85%' }}>
             <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text }}>Registrar jogo</Text>
 
+            {isAdmin && (
+              <TouchableOpacity
+                onPress={() => setShowAddGuest(true)}
+                style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4 }}
+              >
+                <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal }}>+ Novo jogador / convidado</Text>
+              </TouchableOpacity>
+            )}
+
             {(['A', 'B'] as const).map(side => {
               const team = side === 'A' ? avulsoTeamA : avulsoTeamB;
               const setTeam = side === 'A' ? setAvulsoTeamA : setAvulsoTeamB;
@@ -556,15 +609,63 @@ export default function CompetitionDetail() {
         </View>
       </Modal>
 
-      <ScorerModal
-        match={scoring}
-        comp={comp}
-        onClose={() => setScoring(null)}
-        onSave={isAdmin && scoring?.scoreA != null ? handleCorrect : handleSave}
-        onSaveDraft={handleSaveDraft}
-        onClear={handleClear}
-        isAdmin={isAdmin}
-      />
+      {/* Modal: novo convidado (jogador sem cadastro) */}
+      <Modal visible={showAddGuest} transparent animationType="slide" onRequestClose={() => setShowAddGuest(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md }}>
+            <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text }}>Novo jogador / convidado</Text>
+            <TextInput
+              value={guestName}
+              onChangeText={setGuestName}
+              placeholder="Nome do jogador"
+              placeholderTextColor={Colors.faint}
+              autoFocus
+              onSubmitEditing={handleAddGuest}
+              style={{
+                backgroundColor: Colors.surf2, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line,
+                paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, fontFamily: FontFamily.body, fontSize: 15, color: Colors.text,
+              }}
+            />
+            <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+              <TouchableOpacity
+                style={{ flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' }}
+                onPress={() => { setShowAddGuest(false); setGuestName(''); }}
+              >
+                <Text style={{ fontFamily: FontFamily.body, fontSize: 15, color: Colors.muted }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[{ flex: 2, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' },
+                  (!guestName.trim() || guestBusy) && { opacity: 0.4 }]}
+                onPress={handleAddGuest}
+                disabled={!guestName.trim() || guestBusy}
+              >
+                <Text style={{ fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg }}>Adicionar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {comp.format === 'avulso' ? (
+        <FreeScoreModal
+          match={scoring}
+          comp={comp}
+          onClose={() => setScoring(null)}
+          onSave={isAdmin && scoring?.scoreA != null ? handleCorrect : handleSave}
+          onClear={handleClear}
+          isAdmin={isAdmin}
+        />
+      ) : (
+        <ScorerModal
+          match={scoring}
+          comp={comp}
+          onClose={() => setScoring(null)}
+          onSave={isAdmin && scoring?.scoreA != null ? handleCorrect : handleSave}
+          onSaveDraft={handleSaveDraft}
+          onClear={handleClear}
+          isAdmin={isAdmin}
+        />
+      )}
 
       {showEditName && (
         <EditNameModal

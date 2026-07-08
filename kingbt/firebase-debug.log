@@ -1,0 +1,101 @@
+[debug] [2026-07-08T11:52:37.449Z] ----------------------------------------------------------------------
+[debug] [2026-07-08T11:52:37.452Z] Command:       E:\Program Files\nodejs\node.exe C:\Users\Joffre\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting --debug
+[debug] [2026-07-08T11:52:37.452Z] CLI Version:   15.17.0
+[debug] [2026-07-08T11:52:37.453Z] Platform:      win32
+[debug] [2026-07-08T11:52:37.453Z] Node Version:  v24.11.1
+[debug] [2026-07-08T11:52:37.453Z] Time:          Wed Jul 08 2026 08:52:37 GMT-0300 (Horário Padrão de Brasília)
+[debug] [2026-07-08T11:52:37.453Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-07-08T11:52:39.701Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-07-08T11:52:39.702Z] > authorizing via signed-in user (joffre.ribeiro@gmail.com)
+[debug] [2026-07-08T11:52:39.702Z] [iam] checking project king-bt-7f559 for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-07-08T11:52:39.703Z] Checked if tokens are valid: true, expires at: 1783514176919
+[debug] [2026-07-08T11:52:39.704Z] Checked if tokens are valid: true, expires at: 1783514176919
+[debug] [2026-07-08T11:52:39.705Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/king-bt-7f559:testIamPermissions [none]
+[debug] [2026-07-08T11:52:39.705Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/king-bt-7f559:testIamPermissions  x-goog-user-project=king-bt-7f559
+[debug] [2026-07-08T11:52:39.705Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/king-bt-7f559:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-07-08T11:52:40.947Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/king-bt-7f559:testIamPermissions 200
+[debug] [2026-07-08T11:52:40.947Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/king-bt-7f559:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-07-08T11:52:40.948Z] Checked if tokens are valid: true, expires at: 1783514176919
+[debug] [2026-07-08T11:52:40.948Z] Checked if tokens are valid: true, expires at: 1783514176919
+[debug] [2026-07-08T11:52:40.948Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/king-bt-7f559 [none]
+[debug] [2026-07-08T11:52:41.623Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/king-bt-7f559 200
+[debug] [2026-07-08T11:52:41.623Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/king-bt-7f559 {"projectId":"king-bt-7f559","projectNumber":"859106891704","displayName":"KING-BT","name":"projects/king-bt-7f559","resources":{"hostingSite":"king-bt-7f559"},"state":"ACTIVE","labels":{"firebase":"enabled"},"etag":"1_8fc40e06-7584-4b0a-9089-74b3c3c156e8"}
+[info] 
+[info] === Deploying to 'king-bt-7f559'...
+[info] 
+[info] i  deploying hosting 
+[debug] [2026-07-08T11:52:41.625Z] Checked if tokens are valid: true, expires at: 1783514176919
+[debug] [2026-07-08T11:52:41.625Z] Checked if tokens are valid: true, expires at: 1783514176919
+[debug] [2026-07-08T11:52:41.626Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/king-bt-7f559/sites/king-bt-7f559 [none]
+[debug] [2026-07-08T11:52:43.027Z] <<< [apiv2][status] GET https://firebasehosting.googleapis.com/v1beta1/projects/king-bt-7f559/sites/king-bt-7f559 200
+[debug] [2026-07-08T11:52:43.027Z] <<< [apiv2][body] GET https://firebasehosting.googleapis.com/v1beta1/projects/king-bt-7f559/sites/king-bt-7f559 {"name":"projects/king-bt-7f559/sites/king-bt-7f559","defaultUrl":"https://king-bt-7f559.web.app","type":"DEFAULT_SITE"}
+[debug] [2026-07-08T11:52:43.029Z] Checked if tokens are valid: true, expires at: 1783514176919
+[debug] [2026-07-08T11:52:43.029Z] Checked if tokens are valid: true, expires at: 1783514176919
+[debug] [2026-07-08T11:52:43.029Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/king-bt-7f559/versions [none]
+[debug] [2026-07-08T11:52:43.029Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/king-bt-7f559/versions {"status":"CREATED","labels":{"deployment-tool":"cli-firebase"}}
+[debug] [2026-07-08T11:52:44.169Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/king-bt-7f559/versions 200
+[debug] [2026-07-08T11:52:44.169Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/king-bt-7f559/versions {"name":"projects/859106891704/sites/king-bt-7f559/versions/76e9edbc870d28f5","status":"CREATED","config":{},"labels":{"deployment-tool":"cli-firebase"}}
+[info] i  hosting[king-bt-7f559]: beginning deploy... 
+[info] i  hosting[king-bt-7f559]: found 52 files in dist 
+[debug] [2026-07-08T11:52:44.187Z] [hosting] uploading with 200 concurrency
+[debug] [2026-07-08T11:52:44.191Z] Checked if tokens are valid: true, expires at: 1783514176919
+[debug] [2026-07-08T11:52:44.191Z] Checked if tokens are valid: true, expires at: 1783514176919
+[debug] [2026-07-08T11:52:44.192Z] [hosting] hash cache [ZGlzdA] stored for 52 files
+[debug] [2026-07-08T11:52:44.192Z] [hosting][hash queue][FINAL] {"max":2,"min":0,"avg":0,"active":0,"complete":52,"success":52,"errored":0,"retried":0,"total":52,"elapsed":4}
+[debug] [2026-07-08T11:52:44.192Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/859106891704/sites/king-bt-7f559/versions/76e9edbc870d28f5:populateFiles [none]
+[debug] [2026-07-08T11:52:44.193Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/859106891704/sites/king-bt-7f559/versions/76e9edbc870d28f5:populateFiles {"files":{"/_sitemap.html":"4fb5a8db3e4df782be1080dfc2a7f7a9d6b10d4d3cf36c9a2d8140849e0abe79","/victory.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/stats.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/settings.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/ranking.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/profile.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/onboarding.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/notifications.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/login.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/join.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/index.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/history.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/hall.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/h2h.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/groups.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/feed.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/favicon.ico":"6ddab5ba4d0e73bc47d12e5e99db8fc49bd24eee5d9af12047f09a782236cb37","/fab.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/dashboard.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/court.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/calendar.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/bracket.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/achievements.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/+not-found.html":"4fb5a8db3e4df782be1080dfc2a7f7a9d6b10d4d3cf36c9a2d8140849e0abe79","/_expo/static/js/web/entry-146b14384fed9448422972eabada7adf.js":"cde8c8ebbfead9253853eaafe0cff617004ce1e243d01b3fac841605e76c71ed","/player/[id].html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/competitions/[id].html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/competitions/new/review.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/competitions/new/participants.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/competitions/new/format.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/competitions/new/config.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/assets/assets/kingbt-logo.95ca645d92b67bfc362490092ac43b69.png":"8226304b8af2090e235253c08f43b182ef9a36f1edffd76ee9c002893851ca2a","/assets/assets/kingbt-icon.4f514773e513a679eff91e776164b2fc.png":"9dd5d7108145ddd0734c172ae2c0e2e4ddaa39028d6d5582d2903af9773822df","/analise/index.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/analise/[matchId]/relatorio.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/analise/[matchId]/ponto.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/(auth)/login.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/(auth)/join.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/(auth)/groups.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/(app)/stats.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/(app)/settings.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/(app)/ranking.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/(app)/profile.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/(app)/notifications.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/(app)/index.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/(app)/history.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/(app)/h2h.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/(app)/feed.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/(app)/fab.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/(app)/dashboard.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/(app)/calendar.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38","/(app)/achievements.html":"0189aa499126147970f6a5ffd8b1b0221ef943360297fc24470e1bc4ac602d38"}}
+[debug] [2026-07-08T11:52:44.967Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/859106891704/sites/king-bt-7f559/versions/76e9edbc870d28f5:populateFiles 200
+[debug] [2026-07-08T11:52:44.968Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/859106891704/sites/king-bt-7f559/versions/76e9edbc870d28f5:populateFiles {"uploadUrl":"https://upload-firebasehosting.googleapis.com/upload/sites/king-bt-7f559/versions/76e9edbc870d28f5/files"}
+[debug] [2026-07-08T11:52:44.968Z] [hosting][populate queue][FINAL] {"max":777,"min":777,"avg":777,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":777}
+[debug] [2026-07-08T11:52:44.968Z] [hosting] uploads queued: 0
+[debug] [2026-07-08T11:52:44.968Z] [hosting][upload queue][FINAL] {"max":0,"min":9999999999,"avg":0,"active":0,"complete":0,"success":0,"errored":0,"retried":0,"total":0,"elapsed":1783511564968}
+[info] i  hosting: upload complete 
+[info] +  hosting[king-bt-7f559]: file upload complete 
+[debug] [2026-07-08T11:52:44.968Z] [hosting] deploy completed after 797ms
+[debug] [2026-07-08T11:52:44.969Z] [
+  {
+    "config": {
+      "public": "dist",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "headers": [
+        {
+          "source": "/index.html",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache, max-age=0"
+            }
+          ]
+        }
+      ],
+      "site": "king-bt-7f559"
+    },
+    "version": "projects/859106891704/sites/king-bt-7f559/versions/76e9edbc870d28f5"
+  }
+]
+[info] i  hosting[king-bt-7f559]: finalizing version... 
+[debug] [2026-07-08T11:52:44.970Z] Checked if tokens are valid: true, expires at: 1783514176919
+[debug] [2026-07-08T11:52:44.970Z] Checked if tokens are valid: true, expires at: 1783514176919
+[debug] [2026-07-08T11:52:44.971Z] >>> [apiv2][query] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/king-bt-7f559/versions/76e9edbc870d28f5 updateMask=status%2Cconfig
+[debug] [2026-07-08T11:52:44.971Z] >>> [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/king-bt-7f559/versions/76e9edbc870d28f5 {"status":"FINALIZED","config":{"rewrites":[{"glob":"**","path":"/index.html"}],"headers":[{"glob":"/index.html","headers":{"Cache-Control":"no-cache, max-age=0"}}]}}
+[debug] [2026-07-08T11:52:45.649Z] <<< [apiv2][status] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/king-bt-7f559/versions/76e9edbc870d28f5 200
+[debug] [2026-07-08T11:52:45.649Z] <<< [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/king-bt-7f559/versions/76e9edbc870d28f5 {"name":"projects/859106891704/sites/king-bt-7f559/versions/76e9edbc870d28f5","status":"FINALIZED","config":{"headers":[{"headers":{"Cache-Control":"no-cache, max-age=0"},"glob":"/index.html"}],"rewrites":[{"glob":"**","path":"/index.html"}]},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2026-07-08T11:52:43.263815Z","createUser":{"email":"joffre.ribeiro@gmail.com"},"finalizeTime":"2026-07-08T11:52:45.366273Z","finalizeUser":{"email":"joffre.ribeiro@gmail.com"}}
+[debug] [2026-07-08T11:52:45.649Z] [hosting] finalized version for king-bt-7f559:[object Object]
+[info] +  hosting[king-bt-7f559]: version finalized 
+[info] i  hosting[king-bt-7f559]: releasing new version... 
+[debug] [2026-07-08T11:52:45.649Z] Checked if tokens are valid: true, expires at: 1783514176919
+[debug] [2026-07-08T11:52:45.649Z] Checked if tokens are valid: true, expires at: 1783514176919
+[debug] [2026-07-08T11:52:45.649Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/king-bt-7f559/channels/live/releases versionName=projects%2F859106891704%2Fsites%2Fking-bt-7f559%2Fversions%2F76e9edbc870d28f5
+[debug] [2026-07-08T11:52:45.649Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/king-bt-7f559/channels/live/releases {}
+[debug] [2026-07-08T11:52:46.350Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/king-bt-7f559/channels/live/releases 200

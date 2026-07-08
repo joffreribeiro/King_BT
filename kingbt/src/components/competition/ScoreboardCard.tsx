@@ -36,9 +36,9 @@ export function ScoreboardCard({ sideA, sideB, match: m, isNext = false, pending
       const v = side === 'a' ? s.a : s.b;
       return { v, win: side === 'a' ? s.a > s.b : s.b > s.a };
     });
-    // Jogo antigo/migrado sem games gravados: não mostra placar em sets —
-    // só um troféu no lado vencedor, para a zona de placar não ficar vazia
-    if (has) return (side === 'a' ? aWon : !aWon) ? [{ v: '🏆', trophy: true }] : [];
+    // Placar livre (ex: Avulso) ou jogo antigo/migrado sem sets gravados:
+    // mostra o placar final direto (scoreA/scoreB) em vez de sets.
+    if (has) return [{ v: side === 'a' ? m.scoreA! : m.scoreB!, win: side === 'a' ? aWon : !aWon }];
     if (live) return [{ v: side === 'a' ? live.gamesA : live.gamesB, live: true }];
     if (draft) return draft.map(s => ({ v: side === 'a' ? s.a : s.b, draft: true }));
     return [{ v: '–' }];

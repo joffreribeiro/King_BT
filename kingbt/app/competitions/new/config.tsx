@@ -229,7 +229,19 @@ export default function ConfigStep() {
           </>
         )}
 
+        {/* Avulso: placar livre por jogo, sem preset fixo de games para a competição */}
+        {format === 'avulso' && (
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Formato de disputa</Text>
+            <Text style={[styles.fieldLabel, { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: -4 }]}>
+              No Avulso o placar é livre: você digita o resultado de cada jogo na hora de registrar, sem regra fixa de games.
+            </Text>
+          </View>
+        )}
+
         {/* Presets de formato de disputa */}
+        {format !== 'avulso' && (
+        <>
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>Formato de disputa</Text>
           <Text style={[styles.fieldLabel, { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: -4 }]}>
@@ -336,6 +348,8 @@ export default function ConfigStep() {
             </View>
           </TouchableOpacity>
         </View>
+        </>
+        )}
 
         {/* Informações (opcional) */}
         <View style={styles.field}>

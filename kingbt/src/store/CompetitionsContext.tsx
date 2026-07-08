@@ -41,6 +41,9 @@ function applyScore(comp: Competition, matchId: string, scoreA: number, scoreB: 
     ),
   };
   resolveCompetition(updated);
+  // Avulso é uma sessão livre: não fecha sozinha ao "esgotar" os jogos registrados
+  // até agora — só o usuário encerra manualmente.
+  if (comp.format === 'avulso') return updated;
   const scoreable = updated.matches.filter(
     m => (m.aId != null && m.bId != null) || (m.teamA && m.teamB)
   );
@@ -104,6 +107,7 @@ function reducer(state: State, action: Action): State {
             m.id === action.matchId ? { ...m, scoreA: null, scoreB: null } : m
           )};
           resolveCompetition(updated);
+          if (c.format === 'avulso') return updated;
           const scoreable = updated.matches.filter(m => (m.aId != null && m.bId != null) || (m.teamA && m.teamB));
           updated.status = scoreable.length > 0 && scoreable.every(m => m.scoreA != null) ? 'done' : 'active';
           return updated;
