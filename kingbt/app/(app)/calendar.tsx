@@ -27,7 +27,7 @@ export default function CalendarScreen() {
   const compsByDate = useMemo(() => {
     const map: Record<string, Competition[]> = {};
     state.competitions.forEach(comp => {
-      if (!comp.date) return;
+      if (!comp.date || comp.isFriendly) return;
       const d = comp.date.split('T')[0];
       if (!map[d]) map[d] = [];
       map[d].push(comp);
@@ -224,7 +224,7 @@ export default function CalendarScreen() {
             <View style={s.summaryRow}>
               {[
                 { label: 'Sessões',     value: Object.keys(compsByDate).length },
-                { label: 'Competições', value: state.competitions.length },
+                { label: 'Competições', value: state.competitions.filter(c => !c.isFriendly).length },
                 { label: 'Partidas',    value: totalMatches },
               ].map(stat => (
                 <View key={stat.label} style={s.summaryItem}>

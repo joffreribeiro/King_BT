@@ -323,6 +323,7 @@ export default function HubScreen() {
   const [showSearch, setShowSearch]   = useState(false);
 
   const filtered = state.competitions.filter(c => {
+    if (c.isFriendly) return false;
     if (statusFilter !== 'all' && c.status !== statusFilter) return false;
     if (formatFilter !== 'all' && c.format !== formatFilter) return false;
     if (search.trim() && !c.name.toLowerCase().includes(search.trim().toLowerCase())) return false;
@@ -416,13 +417,22 @@ export default function HubScreen() {
             </View>
 
             {/* Botão criar */}
-            <TouchableOpacity
-              style={styles.createBtn}
-              onPress={() => router.push('/competitions/new/format')}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.createBtnText}>+ Criar competição</Text>
-            </TouchableOpacity>
+            <View style={styles.createRow}>
+              <TouchableOpacity
+                style={[styles.createBtn, { flex: 1 }]}
+                onPress={() => router.push('/competitions/new/format')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.createBtnText}>+ Criar competição</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.createBtnSecondary}
+                onPress={() => router.push('/amistoso')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.createBtnSecondaryText}>Amistoso</Text>
+              </TouchableOpacity>
+            </View>
 
             {active.length > 0 && <SectionHeader label="Em andamento" color={Colors.gold} />}
           </View>
@@ -557,17 +567,35 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   chipText: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted },
   chipTextActive: { color: Colors.gold },
 
+  createRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
   createBtn: {
     backgroundColor: Colors.gold,
     borderRadius: Radius.md,
     paddingVertical: Spacing.md,
     alignItems: 'center',
-    marginBottom: Spacing.lg,
   },
   createBtnText: {
     fontFamily: FontFamily.title,
     fontSize: 16,
     color: Colors.bg,
+  },
+  createBtnSecondary: {
+    borderWidth: 1,
+    borderColor: Colors.gold,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createBtnSecondaryText: {
+    fontFamily: FontFamily.title,
+    fontSize: 16,
+    color: Colors.gold,
   },
 
   filterLabel: {

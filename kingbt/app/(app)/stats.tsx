@@ -10,8 +10,10 @@ import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { computeFormatStats, type FormatStat } from '@/logic/formatStats';
+import { computeSituationStats, type SituationStat } from '@/logic/situationStats';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
+import { computeStreakHistory, type StreakHistory } from '@/logic/streak';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 
 const SW = Dimensions.get('window').width;
@@ -175,6 +177,89 @@ const makeTlStyles = (Colors: ThemeColors) => StyleSheet.create({
   emptyTxt:    { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, textAlign: 'center' },
 });
 
+function StreakSection({ history }: { history: StreakHistory }) {
+  const { colors: Colors } = useTheme();
+  const st = useMemo(() => makeStreakStyles(Colors), [Colors]);
+  const recent = history.results.slice(-18);
+  if (recent.length === 0) return null;
+
+  const currentColor = history.current > 0 ? Colors.teal : history.current < 0 ? Colors.coral : Colors.muted;
+  const currentLabel = history.current > 0
+    ? `${history.current} vitória${history.current > 1 ? 's' : ''} seguida${history.current > 1 ? 's' : ''}`
+    : history.current < 0
+      ? `${Math.abs(history.current)} derrota${Math.abs(history.current) > 1 ? 's' : ''} seguida${Math.abs(history.current) > 1 ? 's' : ''}`
+      : 'sem jogos recentes';
+
+  return (
+    <View style={st.card}>
+      <View style={st.header}>
+        <Text style={st.label}>SEQUÊNCIA DE RESULTADOS</Text>
+        <Text style={[st.current, { color: currentColor }]}>{currentLabel}</Text>
+      </View>
+      <View style={st.strip}>
+        {recent.map((g, i) => (
+          <View key={i} style={[st.chip, { backgroundColor: g.won ? Colors.teal : Colors.coral }]} />
+        ))}
+      </View>
+      <Text style={st.max}>
+        Melhor sequência: <Text style={{ color: Colors.gold, fontFamily: FontFamily.bodyMed }}>{history.max} vitória{history.max !== 1 ? 's' : ''} seguidas</Text>
+      </Text>
+    </View>
+  );
+}
+
+const makeStreakStyles = (Colors: ThemeColors) => StyleSheet.create({
+  card: {
+    backgroundColor: Colors.surf, borderWidth: 1,
+    borderColor: Colors.line, borderRadius: 12, padding: 11, gap: 8,
+  },
+  header:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  label:   { fontFamily: FontFamily.numberBold, fontSize: 8, fontWeight: '700', letterSpacing: 1.5, color: Colors.faint },
+  current: { fontFamily: FontFamily.numberBold, fontSize: 11, fontWeight: '700' },
+  strip:   { flexDirection: 'row', gap: 3 },
+  chip:    { flex: 1, height: 22, borderRadius: 4 },
+  max:     { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+});
+
+function SituationSection({ stats }: { stats: SituationStat[] }) {
+  const { colors: Colors } = useTheme();
+  const su = useMemo(() => makeSituationStyles(Colors), [Colors]);
+  const withData = stats.filter(s => s.played > 0);
+  if (withData.length === 0) return null;
+
+  return (
+    <>
+      <Text style={su.sectionLabel}>APROVEITAMENTO POR SITUAÇÃO</Text>
+      {withData.map(s => (
+        <View key={s.key} style={su.row}>
+          <View style={su.rowHeader}>
+            <Text style={su.rowLabel}>{s.label}</Text>
+            <Text style={su.rowCount}>{s.played} · {s.wins}V {s.played - s.wins}D</Text>
+            <Text style={[su.rowPct, { color: Colors.gold }]}>{s.pct}%</Text>
+          </View>
+          <View style={su.track}>
+            <View style={[su.bar, { width: `${s.pct}%` as any, backgroundColor: Colors.gold }]} />
+          </View>
+        </View>
+      ))}
+    </>
+  );
+}
+
+const makeSituationStyles = (Colors: ThemeColors) => StyleSheet.create({
+  sectionLabel: {
+    fontFamily: FontFamily.numberBold, fontSize: 9,
+    color: Colors.faint, letterSpacing: 1.5, marginBottom: 4, marginTop: 4,
+  },
+  row:       { backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line, borderRadius: 11, padding: 10, gap: 6, marginBottom: 6 },
+  rowHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  rowLabel:  { flex: 1, fontFamily: FontFamily.title, fontSize: 13, color: Colors.text, fontWeight: '700' },
+  rowCount:  { fontFamily: FontFamily.body, fontSize: 10, color: Colors.muted },
+  rowPct:    { fontFamily: FontFamily.numberBold, fontSize: 13, fontWeight: '700', width: 40, textAlign: 'right' },
+  track:     { height: 4, backgroundColor: Colors.surf2, borderRadius: 2, overflow: 'hidden' },
+  bar:       { height: 4, borderRadius: 2 },
+});
+
 function generateInsight(stats: FormatStat[]): string {
   if (stats.length === 0) return 'Dispute partidas para gerar insights.';
   if (stats.length === 1) return `Você disputou apenas ${stats[0].label} até agora. Explore outros formatos!`;
@@ -201,6 +286,16 @@ export default function StatsScreen() {
 
   const formatStats = useMemo(
     () => computeFormatStats(state.competitions, MY_ID),
+    [state.competitions, MY_ID]
+  );
+
+  const streakHistory = useMemo(
+    () => computeStreakHistory(state.competitions, MY_ID),
+    [state.competitions, MY_ID]
+  );
+
+  const situationStats = useMemo(
+    () => computeSituationStats(state.competitions, MY_ID),
     [state.competitions, MY_ID]
   );
 
@@ -279,6 +374,9 @@ export default function StatsScreen() {
 
         {/* Timeline de pontos */}
         <PointsTimeline data={pointsHistory} />
+
+        {/* Sequência de resultados */}
+        <StreakSection history={streakHistory} />
 
         {/* Percentil no grupo */}
         {total > 1 && myPos > 0 && (
@@ -364,6 +462,9 @@ export default function StatsScreen() {
                 </View>
               </View>
             ))}
+
+            {/* Aproveitamento por situação */}
+            <SituationSection stats={situationStats} />
 
             {/* Insight */}
             <View style={s.insightCard}>

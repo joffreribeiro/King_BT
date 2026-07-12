@@ -1,5 +1,6 @@
 import type { Competition } from './types';
 import { competitionChampion } from './formats';
+import { computeStreakHistory } from './streak';
 import type { UserAchievementStats } from '@/constants/achievements';
 
 export function computeAchievementStats(
@@ -16,31 +17,13 @@ export function computeAchievementStats(
     };
   }
 
-  const allMatches = competitions.flatMap(c =>
-    c.matches
-      .filter(m => m.scoreA != null && m.scoreB != null)
-      .map(m => ({ m, comp: c }))
-      .filter(({ m }) =>
-        m.teamA?.includes(playerId) || m.teamB?.includes(playerId) ||
-        m.aId === playerId || m.bId === playerId
-      )
-  );
-
-  // Wins / total
-  const results = allMatches.map(({ m }) => {
-    const inA = m.teamA ? m.teamA.includes(playerId) : m.aId === playerId;
-    return inA ? m.scoreA! > m.scoreB! : m.scoreB! > m.scoreA!;
-  });
-  const totalWins    = results.filter(Boolean).length;
-  const totalMatches = results.length;
-
-  // Current + max streak
-  let currentStreak = 0;
-  for (let i = results.length - 1; i >= 0; i--) {
-    if (results[i]) currentStreak++; else break;
-  }
-  let maxStreak = 0, streak = 0;
-  for (const w of results) { if (w) { streak++; maxStreak = Math.max(maxStreak, streak); } else streak = 0; }
+  // Wins / total / sequência — fonte única compartilhada com o banner do
+  // dashboard e a seção de streak das estatísticas (src/logic/streak.ts).
+  const history = computeStreakHistory(competitions, playerId);
+  const totalWins    = history.results.filter(g => g.won).length;
+  const totalMatches = history.results.length;
+  const currentStreak = Math.max(0, history.current);
+  const maxStreak      = history.max;
 
   // Champ count
   const champCount = competitions.filter(c => {

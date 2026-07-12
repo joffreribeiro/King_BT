@@ -139,6 +139,10 @@ function DrawerMenu({ visible, onClose }: { visible: boolean; onClose: () => voi
             <Text style={dr.menuBtnIcon}>👑</Text>
             <Text style={dr.menuBtnTxt}>Hall dos Campeões</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={dr.menuBtn} onPress={() => { onClose(); router.push('/treino'); }}>
+            <Text style={dr.menuBtnIcon}>📈</Text>
+            <Text style={dr.menuBtnTxt}>Análise Individual</Text>
+          </TouchableOpacity>
 
           <View style={dr.divider} />
 
@@ -198,6 +202,7 @@ function FABMenu({ insetBottom }: { insetBottom: number }) {
 
   const FAB_ITEMS = [
     { icon: '➕', label: 'Nova Competição', path: '/competitions/new/format' },
+    { icon: '🤝', label: 'Jogo Amistoso',   path: '/amistoso' },
     { icon: '🏓', label: 'Quadra ao Vivo',  path: '/court' },
   ];
 

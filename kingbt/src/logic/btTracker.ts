@@ -6,7 +6,10 @@ export type BtFinalizacao =
   | 'ForçouErro'
   | 'ErroDevolucao'
   | 'ErroSaque'
-  | 'ErroNaoForcado';
+  | 'ErroNaoForcado'
+  // Ponto rápido: placar atualizado sem detalhar a jogada (equivalente ao
+  // "Sem informações detalhadas" do BT Tracker)
+  | 'SemDetalhe';
 
 export type BtTipoFinalizacao =
   | 'Smash'
@@ -302,6 +305,12 @@ export interface BtEstatJogador {
   saquesTotal: number;
   // saques por posição: { posicao → { acertos, erros } }
   saquesPorPosicao: Record<string, { acertos: number; erros: number; pontosV: number; pontosP: number }>;
+  // Qualidade agregada — campos existiam em BtPonto mas não eram somados antes
+  qualidadeSaque: Record<BtQualidadeSaque, number>;
+  qualidadeDevolucao: Record<BtQualidadeDevolucao, number>;
+  qualidadePrimeiraBola: Record<BtQualidadePrimeiraBola, number>;
+  // Nota de performance (0-10, v1 heurística — ver calcularEstatisticas)
+  nota: number;
 }
 
 export interface BtEstatDupla {
@@ -315,6 +324,18 @@ export interface BtEstatDupla {
   errosDevolucao: number;
   quarentaQuarenta: number;
   quarentaQuarentaVitorias: number;
+  // Confirmação de saque (hold): games em que a dupla sacou / games sacados e vencidos
+  gamesSacando: number;
+  gamesSacandoVencidos: number;
+  // Break points: chances de quebrar o saque adversário (como recebedora) e conversões
+  breakPointsChances: number;
+  breakPointsConvertidos: number;
+  // Pontos ganhos com bola na fita ou na linha (não há atribuição de jogador em
+  // BtPonto.situacoes hoje, então o detalhamento fica só no nível da dupla)
+  pontosComBolaFitaLinha: number;
+  // Foot fault / avanço de linha cometidos — atribuído à dupla que estava sacando
+  // no ponto (aproximação: situacoes não indica o autor exato)
+  footFaultAvancoLinha: number;
 }
 
 export interface BtEstatisticas {
@@ -332,6 +353,10 @@ function jogadorVazio(id: string): BtEstatJogador {
     errosNaoForcados: 0, forcouErro: 0,
     errosSaque: 0, pontosGanhos: 0, saquesTotal: 0,
     saquesPorPosicao: {},
+    qualidadeSaque: { ace: 0, bom: 0, regular: 0, ruim: 0, erroSaque: 0 },
+    qualidadeDevolucao: { winner: 0, boa: 0, regular: 0, ruim: 0, erroDevolucao: 0 },
+    qualidadePrimeiraBola: { Boa: 0, Regular: 0, Ruim: 0 },
+    nota: 0,
   };
 }
 
@@ -341,7 +366,24 @@ function duplaVazia(): BtEstatDupla {
     winners: 0, aces: 0, errosNaoForcados: 0,
     forcouErro: 0, errosSaque: 0, errosDevolucao: 0,
     quarentaQuarenta: 0, quarentaQuarentaVitorias: 0,
+    gamesSacando: 0, gamesSacandoVencidos: 0,
+    breakPointsChances: 0, breakPointsConvertidos: 0,
+    pontosComBolaFitaLinha: 0, footFaultAvancoLinha: 0,
   };
+}
+
+/**
+ * Nota de performance por jogador (0-10, uma casa decimal) — v1 heurística.
+ * Pondera pontos de ataque ganhos (winners/aces/forçou erro) contra erros
+ * cometidos (não forçado, saque, devolução). Não é uma métrica oficial de
+ * beach tennis — serve como resumo rápido do jogo, sujeita a recalibração.
+ */
+function calcularNota(j: BtEstatJogador): number {
+  const nota = 5
+    + (j.winners + j.aces) * 0.4
+    + j.forcouErro * 0.2
+    - (j.errosNaoForcados + j.errosSaque + j.errosDevolucao) * 0.3;
+  return Math.round(Math.max(0, Math.min(10, nota)) * 10) / 10;
 }
 
 export function calcularEstatisticas(analise: BtAnalise): BtEstatisticas {
@@ -364,9 +406,17 @@ export function calcularEstatisticas(analise: BtAnalise): BtEstatisticas {
   const dinamica: BtEstatisticas['dinamica'] = [];
   let diffAcum = 0;
 
+  // Replay do placar em paralelo ao loop de pontos — usado só para detectar
+  // "chance de quebra" (break point) e fechamento de game (hold), reaproveitando
+  // as mesmas funções de placar usadas ao vivo em ponto.tsx.
+  let placardReplay = placardInicial(analise.rule);
+  let sacadorDuplaGameAtual: 'A' | 'B' | null = null;
+
   for (const ponto of pontos) {
     const sacadorEhDuplaA = duplaA.includes(ponto.sacador);
     const venceuA = ponto.vencedorDupla === 'A';
+    const sacadorDupla: 'A' | 'B' = sacadorEhDuplaA ? 'A' : 'B';
+    const receptorDupla: 'A' | 'B' = sacadorEhDuplaA ? 'B' : 'A';
 
     // Dupla
     const dV = venceuA ? dupla.A : dupla.B;
@@ -380,6 +430,43 @@ export function calcularEstatisticas(analise: BtAnalise): BtEstatisticas {
       dV.quarentaQuarenta += 1;
       dP.quarentaQuarenta += 1;
       dV.quarentaQuarentaVitorias += 1;
+    }
+
+    // Break point: placar ANTES deste ponto (ponto.gameScore é capturado nesse
+    // momento em ponto.tsx) mostra a dupla recebedora com 40 e à frente do sacador.
+    const antes = placardReplay;
+    if (!antes.tiebreak) {
+      const ptsSacador = sacadorDupla === 'A' ? antes.pontosA : antes.pontosB;
+      const ptsReceptor = receptorDupla === 'A' ? antes.pontosA : antes.pontosB;
+      if (ptsReceptor >= 3 && ptsReceptor > ptsSacador) {
+        const estatReceptor = receptorDupla === 'A' ? dupla.A : dupla.B;
+        estatReceptor.breakPointsChances += 1;
+        if (ponto.vencedorDupla === receptorDupla) estatReceptor.breakPointsConvertidos += 1;
+      }
+    }
+
+    // Hold: identifica a dupla sacadora do game atual pelo primeiro ponto dele;
+    // ao fechar o game (avancaGame reseta pontosA/pontosB para 0x0 — tanto para
+    // fechar um game normal quanto um tiebreak), credita gamesSacando/Vencidos.
+    // Obs.: não usar historicGamesA/B para detectar isso — esses arrays só
+    // crescem quando um SET fecha, não um game.
+    if (sacadorDuplaGameAtual === null) sacadorDuplaGameAtual = sacadorDupla;
+    placardReplay = avancaPonto(placardReplay, ponto.vencedorDupla, ponto.sacador);
+    const fechouGame = placardReplay.pontosA === 0 && placardReplay.pontosB === 0;
+    if (fechouGame) {
+      const estatSacadora = sacadorDuplaGameAtual === 'A' ? dupla.A : dupla.B;
+      estatSacadora.gamesSacando += 1;
+      if (ponto.vencedorDupla === sacadorDuplaGameAtual) estatSacadora.gamesSacandoVencidos += 1;
+      sacadorDuplaGameAtual = null;
+    }
+
+    // Bola na fita/linha (crédito para a dupla vencedora do ponto) e foot
+    // fault/avanço de linha (aproximação: atribuído à dupla que estava sacando)
+    if (ponto.situacoes?.some(s => s === 'bolaNaFita' || s === 'bolaNaLinha')) {
+      dV.pontosComBolaFitaLinha += 1;
+    }
+    if (ponto.situacoes?.some(s => s === 'footFault' || s === 'avancoLinha')) {
+      (sacadorEhDuplaA ? dupla.A : dupla.B).footFaultAvancoLinha += 1;
     }
 
     // Sacador
@@ -398,6 +485,15 @@ export function calcularEstatisticas(analise: BtAnalise): BtEstatisticas {
       const sacVenceu = (sacadorEhDuplaA && venceuA) || (!sacadorEhDuplaA && !venceuA);
       if (sacVenceu) sp.pontosV += 1;
       else sp.pontosP += 1;
+      if (ponto.qualidadeSaque) sacEstat.qualidadeSaque[ponto.qualidadeSaque] += 1;
+    }
+    if (ponto.devolvedor && ponto.qualidadeDevolucao) {
+      const devEstat = jogadoresEstat[ponto.devolvedor];
+      if (devEstat) devEstat.qualidadeDevolucao[ponto.qualidadeDevolucao] += 1;
+    }
+    if (ponto.primeiraBola && ponto.qualidadePrimeiraBola) {
+      const pbEstat = jogadoresEstat[ponto.primeiraBola];
+      if (pbEstat) pbEstat.qualidadePrimeiraBola[ponto.qualidadePrimeiraBola] += 1;
     }
 
     // Finalização
@@ -466,6 +562,8 @@ export function calcularEstatisticas(analise: BtAnalise): BtEstatisticas {
     else diffAcum -= 1;
     dinamica.push({ placar: ponto.setScore, diff: diffAcum });
   }
+
+  todosIds.forEach(id => { jogadoresEstat[id].nota = calcularNota(jogadoresEstat[id]); });
 
   return { dupla, jogadores: jogadoresEstat, finalizacoesPorJogador, tiposFinalizacaoPorJogador, dinamica };
 }

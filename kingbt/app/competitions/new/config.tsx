@@ -5,6 +5,7 @@ import { useState, useMemo } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import type { Format, Gender } from '@/logic/types';
+import { WIN_RULE_PRESETS } from '@/constants/winRulePresets';
 
 const STEPS = ['Formato', 'Ajustes', 'Quem joga', 'Revisar'];
 
@@ -248,20 +249,7 @@ export default function ConfigStep() {
             Escolha um preset ou configure manualmente abaixo
           </Text>
           <View style={preset.grid}>
-            {([
-              // MD1 ordenado por games
-              { label: 'MD1 · 4 games', desc: 'Com tie 7 em 3-3',            sets: 1, games: 4, tb: 7, tbAt: 'deuce', stb: false, stbPts: 10 },
-              { label: 'MD1 · 4 games', desc: 'Com tie 7 em 4-4',            sets: 1, games: 4, tb: 7, tbAt: 'full',  stb: false, stbPts: 10 },
-              { label: 'MD1 · 6 games', desc: 'Com tie 7 em 5-5',            sets: 1, games: 6, tb: 7, tbAt: 'deuce', stb: false, stbPts: 10 },
-              { label: 'MD1 · 7 games', desc: 'Com tie 7 em 6-6',            sets: 1, games: 7, tb: 7, tbAt: 'deuce', stb: false, stbPts: 10 },
-              { label: 'MD1 · 8 games', desc: 'Com tie 7 em 8-8',            sets: 1, games: 8, tb: 7, tbAt: 'full',  stb: false, stbPts: 10 },
-              { label: 'Super TB · 10', desc: 'Apenas super tie-break',       sets: 1, games: 1, tb: 7, tbAt: 'deuce', stb: true,  stbPts: 10 },
-              // MD3 ordenado por games
-              { label: 'MD3 · 4 games', desc: 'Com tie 7 em 3-3 e super 10', sets: 3, games: 4, tb: 7, tbAt: 'deuce', stb: true,  stbPts: 10 },
-              { label: 'MD3 · 4 games', desc: 'Com tie 7 em 4-4',            sets: 3, games: 4, tb: 7, tbAt: 'full',  stb: false, stbPts: 10 },
-              { label: 'MD3 · 6 games', desc: 'Com tie 7 em 5-5 e super 10', sets: 3, games: 6, tb: 7, tbAt: 'deuce', stb: true,  stbPts: 10 },
-              { label: 'MD3 · 6 games', desc: 'Com tie 7 em 5-5, sem super', sets: 3, games: 6, tb: 7, tbAt: 'deuce', stb: false, stbPts: 10 },
-            ] as { label: string; desc: string; sets: number; games: number; tb: number; tbAt: 'deuce'|'full'; stb: boolean; stbPts: number }[]).map((p, i) => {
+            {WIN_RULE_PRESETS.map((p, i) => {
               const isActive = selectedPreset === i;
               return (
                 <TouchableOpacity

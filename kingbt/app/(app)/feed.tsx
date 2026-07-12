@@ -53,6 +53,7 @@ function FeedScoreboard({ item, sets }: { item: FeedItem; sets: { a: number; b: 
   const { colors: Colors } = useTheme();
   const fsb = useMemo(() => makeFsbStyles(Colors), [Colors]);
   const { findPlayer } = useGroupPlayers();
+  const hasScore = item.sideA?.score != null && item.sideB?.score != null;
   const aWon = (item.sideA?.score ?? 0) > (item.sideB?.score ?? 0);
 
   function Row({ side }: { side: 'a' | 'b' }) {
@@ -93,8 +94,14 @@ function FeedScoreboard({ item, sets }: { item: FeedItem; sets: { a: number; b: 
                   </Text>
                 );
               })
-            // Jogo antigo sem games gravados: troféu no vencedor, sem placar em sets
-            : won ? <Text style={fsb.trophy}>🏆</Text> : null}
+            // Sem games por set (placar livre/Avulso, ou jogo antigo/corrigido sem
+            // sets gravados no post): cai pro placar final sideA/sideB.score, igual
+            // ao fallback do ScoreboardCard usado na tela de competição.
+            : hasScore
+              ? <Text style={[fsb.col, won && fsb.colWin]}>
+                  {side === 'a' ? item.sideA!.score : item.sideB!.score}
+                </Text>
+              : won ? <Text style={fsb.trophy}>🏆</Text> : null}
         </View>
       </View>
     );

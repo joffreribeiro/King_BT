@@ -7,6 +7,7 @@ import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
 import type { Match, Competition } from '@/logic/types';
 import { carregarAnalise, placardInicial, avancaPonto, winRuleFromComp, type BtAnalise } from '@/logic/btTracker';
+import { deriveWinRule, isDecidingSet as isDecidingSetShared } from '@/logic/setOutcome';
 import { getCompetitor } from './helpers';
 
 export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear, isAdmin = false }: {
@@ -23,15 +24,10 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
   const sc = useMemo(() => makeSc(Colors), [Colors]);
   const [analise, setAnalise] = useState<BtAnalise | null>(null);
 
-  const maxSets      = comp.config.winRule?.sets ?? 3;
-  const setsToWin    = Math.ceil(maxSets / 2);
-  const gamesWin     = comp.config.winRule?.games ?? 6;
-  const superTb      = comp.config.winRule?.superTiebreak ?? true;
-  const superTbPts   = comp.config.winRule?.superTiebreakPts ?? 10;
-  // 'deuce': tie em gamesWin-1 x gamesWin-1 (ex: 3-3 num set de 4 games)
-  // 'full':  tie em gamesWin x gamesWin     (ex: 4-4 num set de 4 games)
-  const tbAt         = comp.config.winRule?.tiebreakAt ?? 'deuce';
-  const tieAt        = tbAt === 'full' ? gamesWin : gamesWin - 1;
+  const { maxSets, setsToWin, gamesWin, superTb, superTbPts, tieAt } = useMemo(
+    () => deriveWinRule(comp.config.winRule),
+    [comp.config.winRule]
+  );
 
   // Estado: games por set. Começa com 1 set vazio.
   const initSets = (): { a: string; b: string }[] => {
@@ -138,22 +134,14 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
 
   const tbPoints = comp.config.winRule?.tiebreak ?? 7;
 
-  // Verifica se o set atual (pelo índice) é o super tie-break decisivo
+  // Verifica se o set atual (pelo índice) é o super tie-break decisivo.
+  // Lógica compartilhada com a classificação retroativa de sets nas estatísticas
+  // (src/logic/setOutcome.ts), pra ScorerModal e stats.tsx nunca divergirem.
   function isDecidingSet(setIdx: number): boolean {
-    if (!superTb) return false;
-    // "Melhor de 1 set" não tem set decisivo — é o único set, jogado normal até gamesWin.
-    // Super tie-break só existe para substituir o set final de partidas com 3+ sets.
-    if (maxSets <= 1) return false;
-    if (setIdx !== maxSets - 1) return false; // só o último set pode ser STB
-    // Conta sets vencidos nos sets anteriores (quem tiver mais pontos venceu o set)
-    let sA = 0, sB = 0;
-    for (let i = 0; i < setIdx; i++) {
-      const gA = parseInt(setScores[i]?.a) || 0;
-      const gB = parseInt(setScores[i]?.b) || 0;
-      if (gA > gB) sA++;
-      else if (gB > gA) sB++;
-    }
-    return sA === setsToWin - 1 && sB === setsToWin - 1;
+    const priorSets = setScores.slice(0, setIdx).map(s => ({
+      a: parseInt(s.a) || 0, b: parseInt(s.b) || 0,
+    }));
+    return isDecidingSetShared(setIdx, priorSets, { maxSets, setsToWin, gamesWin, superTb, superTbPts, tieAt });
   }
 
   // Limite máximo de pontos/games que um lado pode ter num set

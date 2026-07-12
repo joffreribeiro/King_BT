@@ -45,7 +45,10 @@ export default function SettingsScreen() {
     await addGuestPlayer(group.id, guestName.trim(), guestColor);
     setGuestName(''); setGuestColor(GUEST_COLORS[0]); setShowAddGuest(false);
   }
-  const { defaultMaxScore, setDefaultMaxScore, defaultFormat, setDefaultFormat } = useSettings();
+  const {
+    defaultMaxScore, setDefaultMaxScore, defaultFormat, setDefaultFormat,
+    keepSacadorAfterSave, setKeepSacadorAfterSave,
+  } = useSettings();
 
   // Na web o Share.share abre o painel de compartilhamento do sistema, que
   // falha no desktop ("Não foi possível mostrar todas as maneiras de
@@ -235,6 +238,27 @@ export default function SettingsScreen() {
             >
               <Text style={s.themeLabel}>☀️ Claro</Text>
               {mode === 'light' && <View style={s.themeCheck}><Text style={s.themeCheckMark}>✓</Text></View>}
+            </TouchableOpacity>
+          </Card>
+        </View>
+
+        {/* King Scout */}
+        <View>
+          <Text style={s.sectionTitle}>King Scout</Text>
+          <Card style={s.themeCard}>
+            <TouchableOpacity
+              style={[s.themeRow, keepSacadorAfterSave && s.themeRowActive]}
+              onPress={() => setKeepSacadorAfterSave(!keepSacadorAfterSave)}
+              activeOpacity={0.8}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={s.themeLabel}>Manter sacador após salvar ponto</Text>
+                <Text style={s.sectionHint}>
+                  Ao registrar um ponto, mantém o sacador e a posição de saque
+                  selecionados para o próximo ponto, em vez de limpar o formulário.
+                </Text>
+              </View>
+              {keepSacadorAfterSave && <View style={s.themeCheck}><Text style={s.themeCheckMark}>✓</Text></View>}
             </TouchableOpacity>
           </Card>
         </View>

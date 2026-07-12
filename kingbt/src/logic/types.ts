@@ -150,6 +150,8 @@ export interface Competition {
   createdBy?: string;
   /** Solicitações de inscrição de visitantes (não-membros de grupo público) */
   joinRequests?: JoinRequest[];
+  /** Sessão avulsa criada pelo atalho "Jogo Amistoso" — some das listas de competições/hall/calendário, mas conta normalmente em stats/feed/histórico. */
+  isFriendly?: boolean;
 }
 
 export interface JoinRequest {

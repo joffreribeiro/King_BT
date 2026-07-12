@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { goToPlayer } from '@/logic/nav';
+import { goToPlayer, goToTrilha } from '@/logic/nav';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Badge, Card } from '@/components';
@@ -52,7 +52,7 @@ export default function PlayerDetailScreen() {
   const winRate = me.played > 0 ? Math.round((me.wins / me.played) * 100) : 0;
 
   // Match history
-  const matchHistory: Array<{ compName: string; opponents: string; myScore: number; oppScore: number; won: boolean; date: string; isTeam: boolean }> = [];
+  const matchHistory: Array<{ compId: string; compName: string; format: string; opponents: string; myScore: number; oppScore: number; won: boolean; date: string; isTeam: boolean }> = [];
   state.competitions.forEach(comp => {
     comp.matches.forEach(m => {
       if (m.scoreA == null || m.scoreB == null) return;
@@ -75,7 +75,7 @@ export default function PlayerDetailScreen() {
           opponents = oppComp?.name ?? findPlayer(oppId)?.name ?? oppId;
         }
       }
-      matchHistory.push({ compName: comp.name, opponents, myScore, oppScore, won, date: m.playedAt ?? comp.date ?? '', isTeam: !!(m.teamA && m.teamB) });
+      matchHistory.push({ compId: comp.id, compName: comp.name, format: comp.format, opponents, myScore, oppScore, won, date: m.playedAt ?? comp.date ?? '', isTeam: !!(m.teamA && m.teamB) });
     });
   });
   matchHistory.sort((a, b) => b.date.localeCompare(a.date));
@@ -441,6 +441,11 @@ export default function PlayerDetailScreen() {
                   <Text style={hist.compName} numberOfLines={1}>{h.compName}</Text>
                 </View>
                 <Text style={[hist.score, { color: h.won ? Colors.teal : Colors.coral }]}>{h.myScore}–{h.oppScore}</Text>
+                {(h.format === 'mata' || h.format === 'grupos') && (
+                  <TouchableOpacity onPress={() => goToTrilha(h.compId, id!)} hitSlop={8} style={hist.trailBtn}>
+                    <Text style={hist.trailBtnTxt}>Trilha</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ))}
           </Card>
@@ -530,6 +535,8 @@ const makeHistStyles = (Colors: ThemeColors) => StyleSheet.create({
   opp: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
   compName: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
   score: { fontFamily: FontFamily.numberBold, fontSize: 15 },
+  trailBtn: { marginLeft: Spacing.xs, paddingHorizontal: 8, paddingVertical: 4, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.teal },
+  trailBtnTxt: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.teal },
 });
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({

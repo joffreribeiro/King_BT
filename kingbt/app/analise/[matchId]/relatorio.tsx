@@ -1,7 +1,10 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Dimensions, StatusBar,
+  Dimensions, StatusBar, Alert,
 } from 'react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { gerarRelatorioPartidaHtml } from '@/logic/exportRelatorio';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -14,6 +17,7 @@ import {
 } from '@/logic/btTracker';
 import { loadAnaliseFs } from '@/firebase/analises';
 import { useAuth } from '@/store/AuthContext';
+import { makeScoutOptions } from '@/components/analise/scoutOptions';
 import { BarChart, PieChart, LineChart } from 'react-native-gifted-charts';
 
 const { width: SW } = Dimensions.get('window');
@@ -21,7 +25,7 @@ const CHART_W = SW - Spacing.md * 2 - 2;
 
 // ─── Abas ────────────────────────────────────────────────────────────────────
 
-const ABAS = ['Resumo', 'Stats', 'Saques', 'Finalizações', 'Dinâmica', 'Log'] as const;
+const ABAS = ['Resumo', 'Stats', 'Qualidade', 'Saques', 'Finalizações', 'Dinâmica', 'Log'] as const;
 type Aba = typeof ABAS[number];
 
 // ─── Componentes auxiliares ───────────────────────────────────────────────────
@@ -97,6 +101,9 @@ function AbaResumo({ analise, stats }: { analise: BtAnalise; stats: BtEstatistic
   const nA = `${analise.nomes[analise.jogadores.a1] ?? 'A1'} / ${analise.nomes[analise.jogadores.a2] ?? 'A2'}`;
   const nB = `${analise.nomes[analise.jogadores.b1] ?? 'B1'} / ${analise.nomes[analise.jogadores.b2] ?? 'B2'}`;
 
+  const holdA = dupla.A.gamesSacando > 0 ? Math.round((dupla.A.gamesSacandoVencidos / dupla.A.gamesSacando) * 100) : 0;
+  const holdB = dupla.B.gamesSacando > 0 ? Math.round((dupla.B.gamesSacandoVencidos / dupla.B.gamesSacando) * 100) : 0;
+
   return (
     <ScrollView contentContainerStyle={p.scroll}>
       {/* Placar final */}
@@ -141,6 +148,25 @@ function AbaResumo({ analise, stats }: { analise: BtAnalise; stats: BtEstatistic
         <StatRow label="Erros N. Forçados" valA={dupla.A.errosNaoForcados} valB={dupla.B.errosNaoForcados} />
         <StatRow label="Erros de Saque" valA={dupla.A.errosSaque} valB={dupla.B.errosSaque} />
         <StatRow label="Erros de Dev." valA={dupla.A.errosDevolucao} valB={dupla.B.errosDevolucao} />
+      </Section>
+
+      <Section title="Saque e quebra">
+        <StatRow
+          label="Confirmação de saque"
+          valA={`${dupla.A.gamesSacandoVencidos}/${dupla.A.gamesSacando}`}
+          valB={`${dupla.B.gamesSacandoVencidos}/${dupla.B.gamesSacando}`}
+          pctA={holdA} pctB={holdB}
+        />
+        <StatRow
+          label="Break Points"
+          valA={`${dupla.A.breakPointsConvertidos}/${dupla.A.breakPointsChances}`}
+          valB={`${dupla.B.breakPointsConvertidos}/${dupla.B.breakPointsChances}`}
+        />
+      </Section>
+
+      <Section title="Detalhes de jogo">
+        <StatRow label="Pontos c/ bola na fita ou linha" valA={dupla.A.pontosComBolaFitaLinha} valB={dupla.B.pontosComBolaFitaLinha} />
+        <StatRow label="Foot fault / avanço de linha" valA={dupla.A.footFaultAvancoLinha} valB={dupla.B.footFaultAvancoLinha} />
       </Section>
 
       {/* Legenda duplas */}
@@ -201,12 +227,14 @@ function AbaStats({ analise, stats }: { analise: BtAnalise; stats: BtEstatistica
           <Text style={[sr.val, { color: Colors.muted, fontSize: 10 }]}>W</Text>
           <Text style={[sr.val, { color: Colors.muted, fontSize: 10 }]}>Ace</Text>
           <Text style={[sr.val, { color: Colors.muted, fontSize: 10 }]}>ENF</Text>
+          <Text style={[sr.val, { color: Colors.muted, fontSize: 10 }]}>Nota</Text>
         </View>
         {ids.map(id => {
           const e = stats.jogadores[id];
           if (!e) return null;
           const dupla = [jogs.a1, jogs.a2].includes(id) ? 'A' : 'B';
           const cor = dupla === 'A' ? Colors.gold : Colors.teal;
+          const notaCor = e.nota >= 7 ? Colors.teal : e.nota >= 4 ? Colors.gold : Colors.coral;
           return (
             <View key={id} style={sr.row}>
               <Text style={[sr.val, { color: cor }]}>{e.pontosGanhos}</Text>
@@ -216,11 +244,79 @@ function AbaStats({ analise, stats }: { analise: BtAnalise; stats: BtEstatistica
               <Text style={[sr.val, { color: Colors.text, fontSize: 12 }]}>{e.winners}</Text>
               <Text style={[sr.val, { color: Colors.text, fontSize: 12 }]}>{e.aces}</Text>
               <Text style={[sr.val, { color: Colors.coral, fontSize: 12 }]}>{e.errosNaoForcados}</Text>
+              <Text style={[sr.val, { color: notaCor, fontSize: 13, fontFamily: FontFamily.numberBold }]}>{e.nota.toFixed(1)}</Text>
             </View>
           );
         })}
         <Text style={p.hint}>W = Winners · Ace = Aces · ENF = Erros Não Forçados</Text>
+        <Text style={p.hint}>Nota: resumo heurístico de desempenho (0-10), não é uma métrica oficial.</Text>
       </Section>
+    </ScrollView>
+  );
+}
+
+function AbaQualidade({ analise, stats }: { analise: BtAnalise; stats: BtEstatisticas }) {
+  const { colors: Colors } = useTheme();
+  const p = useMemo(() => makePStyles(Colors), [Colors]);
+  const { QUALIDADE_SAQUE, QUALIDADE_DEVOLUCAO } = useMemo(() => makeScoutOptions(Colors), [Colors]);
+  const jogs = analise.jogadores;
+  const ids = [jogs.a1, jogs.a2, jogs.b1, jogs.b2].filter(Boolean);
+  const QUALIDADE_PB = [
+    { key: 'Boa' as const, label: 'Boa', cor: Colors.teal },
+    { key: 'Regular' as const, label: 'Regular', cor: Colors.gold },
+    { key: 'Ruim' as const, label: 'Ruim', cor: Colors.coral },
+  ];
+
+  return (
+    <ScrollView contentContainerStyle={p.scroll}>
+      {ids.map(id => {
+        const e = stats.jogadores[id];
+        if (!e) return null;
+        const nome = analise.nomes[id]?.split(' ')[0] ?? id;
+
+        const totalSaque = Object.values(e.qualidadeSaque).reduce((s, v) => s + v, 0);
+        const totalDev = Object.values(e.qualidadeDevolucao).reduce((s, v) => s + v, 0);
+        const totalPb = Object.values(e.qualidadePrimeiraBola).reduce((s, v) => s + v, 0);
+        if (totalSaque === 0 && totalDev === 0 && totalPb === 0) return null;
+
+        return (
+          <View key={id} style={{ gap: Spacing.md }}>
+            {totalSaque > 0 && (
+              <Section title={`${nome} — Qualidade do saque`}>
+                <BarChart
+                  data={QUALIDADE_SAQUE.map(q => ({ value: e.qualidadeSaque[q.key], label: q.label.replace(/\s.*/, ''), frontColor: q.cor }))}
+                  width={CHART_W - 40} barWidth={24} spacing={12} hideRules
+                  xAxisLabelTextStyle={{ color: Colors.muted, fontSize: 9, fontFamily: FontFamily.body }}
+                  yAxisTextStyle={{ color: Colors.muted, fontSize: 9 }}
+                  noOfSections={4} barBorderRadius={4}
+                />
+              </Section>
+            )}
+            {totalDev > 0 && (
+              <Section title={`${nome} — Qualidade da devolução`}>
+                <BarChart
+                  data={QUALIDADE_DEVOLUCAO.map(q => ({ value: e.qualidadeDevolucao[q.key], label: q.label.replace(/\s.*/, ''), frontColor: q.cor }))}
+                  width={CHART_W - 40} barWidth={24} spacing={12} hideRules
+                  xAxisLabelTextStyle={{ color: Colors.muted, fontSize: 9, fontFamily: FontFamily.body }}
+                  yAxisTextStyle={{ color: Colors.muted, fontSize: 9 }}
+                  noOfSections={4} barBorderRadius={4}
+                />
+              </Section>
+            )}
+            {totalPb > 0 && (
+              <Section title={`${nome} — Qualidade da primeira bola`}>
+                <BarChart
+                  data={QUALIDADE_PB.map(q => ({ value: e.qualidadePrimeiraBola[q.key], label: q.label, frontColor: q.cor }))}
+                  width={CHART_W - 40} barWidth={24} spacing={12} hideRules
+                  xAxisLabelTextStyle={{ color: Colors.muted, fontSize: 9, fontFamily: FontFamily.body }}
+                  yAxisTextStyle={{ color: Colors.muted, fontSize: 9 }}
+                  noOfSections={4} barBorderRadius={4}
+                />
+              </Section>
+            )}
+          </View>
+        );
+      })}
     </ScrollView>
   );
 }
@@ -449,6 +545,23 @@ export default function RelatorioScreen() {
   const [stats, setStats] = useState<BtEstatisticas | null>(null);
   const [aba, setAba] = useState<Aba>('Resumo');
   const [loading, setLoading] = useState(true);
+  const [exportando, setExportando] = useState(false);
+
+  async function exportarPdf() {
+    if (!analise || !stats) return;
+    try {
+      setExportando(true);
+      const htmlStr = gerarRelatorioPartidaHtml(analise, stats);
+      const { uri } = await Print.printToFileAsync({ html: htmlStr, base64: false });
+      setExportando(false);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Relatório de Partida King BT' });
+      }
+    } catch {
+      setExportando(false);
+      Alert.alert('Erro', 'Não foi possível gerar o PDF.');
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -492,6 +605,11 @@ export default function RelatorioScreen() {
           <Text style={r.back}>←</Text>
         </TouchableOpacity>
         <Text style={r.title}>Análise BT</Text>
+        {analise && stats && (
+          <TouchableOpacity style={r.exportBtn} onPress={exportarPdf} disabled={exportando}>
+            <Text style={r.exportTxt}>{exportando ? '...' : '⬇ PDF'}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {loading && (
@@ -514,6 +632,7 @@ export default function RelatorioScreen() {
           <TabBar aba={aba} onSelect={setAba} />
           {aba === 'Resumo' && <AbaResumo analise={analise} stats={stats} />}
           {aba === 'Stats' && <AbaStats analise={analise} stats={stats} />}
+          {aba === 'Qualidade' && <AbaQualidade analise={analise} stats={stats} />}
           {aba === 'Saques' && <AbaSaques analise={analise} stats={stats} />}
           {aba === 'Finalizações' && <AbaFinalizacoes analise={analise} stats={stats} />}
           {aba === 'Dinâmica' && <AbaDinamica stats={stats} />}
@@ -533,7 +652,9 @@ const makeRStyles = (Colors: ThemeColors) => StyleSheet.create({
     padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line,
   },
   back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
-  title: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
+  title: { flex: 1, fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
+  exportBtn: { backgroundColor: Colors.surf2, borderRadius: Radius.full, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: Colors.line },
+  exportTxt: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.teal },
 });
 
 const makePStyles = (Colors: ThemeColors) => StyleSheet.create({

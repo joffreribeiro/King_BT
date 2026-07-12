@@ -46,7 +46,7 @@ export async function removeGuestPlayer(groupId: string, playerId: string): Prom
 
 export async function deleteGroup(groupId: string): Promise<void> {
   const batch = writeBatch(db);
-  const subCollections = ['players', 'competitions', 'feed'];
+  const subCollections = ['players', 'competitions', 'feed', 'treinos'];
   for (const sub of subCollections) {
     const snap = await getDocs(collection(db, 'groups', groupId, sub));
     snap.docs.forEach(d => batch.delete(d.ref));

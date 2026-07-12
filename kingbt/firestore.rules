@@ -96,6 +96,11 @@ service cloud.firestore {
         allow read: if isMember(gid) || (signedIn() && isPublic(gid));
         allow write: if isMember(gid);
       }
+
+      match /treinos/{treinoId} {
+        allow read: if isMember(gid) || (signedIn() && isPublic(gid));
+        allow write: if isMember(gid);
+      }
     }
 
     // Bloqueia qualquer outro caminho

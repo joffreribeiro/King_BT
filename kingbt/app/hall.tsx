@@ -16,7 +16,7 @@ export default function HallScreen() {
   const { findPlayer } = useGroupPlayers();
 
   const champions = state.competitions
-    .filter(c => c.status === 'done')
+    .filter(c => c.status === 'done' && !c.isFriendly)
     .map(c => {
       const champ = competitionChampion(c, id => findPlayer(id)?.name ?? id);
       if (!champ) return null;

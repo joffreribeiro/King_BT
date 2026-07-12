@@ -9,6 +9,7 @@ import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
+import { useSettings } from '@/store/SettingsContext';
 import {
   placardInicial, avancaPonto, formatGameScore, formatSetScore,
   salvarAnalise, carregarAnalise, winRuleFromComp,
@@ -52,6 +53,7 @@ export default function PontoScreen() {
   const { findPlayer } = useGroupPlayers();
   const { dispatch, state } = useCompetitions();
   const { group } = useAuth();
+  const { keepSacadorAfterSave } = useSettings();
 
   const matchId = params.matchId;
   const compId  = params.compId;
@@ -335,8 +337,36 @@ export default function PontoScreen() {
       ...(comentario.trim()     ? { comentario: comentario.trim() }          : {}),
     };
 
+    await commitPonto(novoPonto);
+  };
+
+  // ── Ponto rápido: registra o placar sem detalhar a jogada, equivalente ao
+  // "Sem informações detalhadas" do BT Tracker. Usa o sacador do formulário
+  // atual (já sugerido pela rotação de saque) como aproximação.
+  async function pontoRapido(vencedor: 'A' | 'B') {
+    const placardAtual = placardRef.current;
+    const sacadorPonto = sacador || jogadoresA[0];
+    const novoPonto: BtPonto = {
+      id: Date.now().toString(),
+      timestamp: Date.now(),
+      gameScore: formatGameScore(placardAtual),
+      setScore: formatSetScore(placardAtual),
+      sacador: sacadorPonto,
+      posicaoSaque: posicaoSaque ?? 'Direita-3',
+      vencedorDupla: vencedor,
+      finalizacao: 'SemDetalhe',
+    };
+    await commitPonto(novoPonto);
+  }
+
+  // ── Lógica comum de gravação de ponto (usada por registrarPonto e pontoRapido) ──
+  async function commitPonto(novoPonto: BtPonto) {
+    const placardAtual = placardRef.current;
+    const pontosAtuais = pontosRef.current;
+    const analiseAtual = analiseRef.current;
+
     const novosPontos  = [...pontosAtuais, novoPonto];
-    const novoPlaycard = avancaPonto(placardAtual, vencedorDuplaDerived, sacador);
+    const novoPlaycard = avancaPonto(placardAtual, novoPonto.vencedorDupla, novoPonto.sacador);
 
     const baseAnalise: BtAnalise = analiseAtual ?? {
       id: matchId, competitionId: compId, matchId,
@@ -357,11 +387,11 @@ export default function PontoScreen() {
 
     // Rastreia sacador do 1º ponto do game atual
     if (sacadorPrimeiroRef.current === null) {
-      sacadorPrimeiroRef.current = sacador;
+      sacadorPrimeiroRef.current = novoPonto.sacador;
     }
 
     if (novoGame) {
-      const sacadorDoGame = sacadorPrimeiroRef.current ?? sacador;
+      const sacadorDoGame = sacadorPrimeiroRef.current ?? novoPonto.sacador;
       const novaSeq = novoSet ? [sacadorDoGame] : [...seqSacadores, sacadorDoGame];
       sacadorPrimeiroRef.current = null;
       const sugerido = proximoSacadorAutomatico(novaSeq);
@@ -372,21 +402,12 @@ export default function PontoScreen() {
       setSeqSacadores(novaSeq);
 
       // Reseta formulário e define próximo sacador explicitamente
-      const proximoId = sugerido ?? '';
-      setSacador(proximoId);
-      setPosicaoSaque(null); setDirecaoSaque(null); setQualidadeSaque(null);
-      setDevolvedor(null); setQualidadeDevolucao(null); setDirecaoDevolucao(null);
-      setVencedorJogador(null); setTipoFin(null); setLadoFinalizacao(null);
-      setDirecaoFinalizacao(null); setFinalizacaoRally(null);
-      setPrimeiraBola(null); setTipoPrimeiraBola(null);
-      setDirecaoPrimeiraBola(null); setQualidadePrimeiraBola(null);
-      setDuracaoPonto(null); setSituacoes([]); setComentario('');
-      setShowExtras(false);
+      resetFormulario(sugerido ?? '');
     } else {
       atualizarPlacard(novoPlaycard);
       atualizarPontos(novosPontos);
       atualizarAnalise(analiseAtualizada);
-      resetFormulario(sacador);
+      resetFormulario(novoPonto.sacador);
     }
 
     commit();
@@ -400,14 +421,19 @@ export default function PontoScreen() {
       dispatch({ type: 'CLEAR_LIVE_SCORE', compId, matchId });
       await encerrarPartida(analiseAtualizada, novoPlaycard);
     }
-  };
+  }
 
   function resetFormulario(proximoSacador?: string | null) {
     // Se sugerido = string → seta automaticamente
     // Se sugerido = null → desmarca (escolha manual)
     // Se sugerido = undefined → mantém sacador atual
     if (proximoSacador !== undefined) setSacador(proximoSacador ?? '');
-    setPosicaoSaque(null); setDirecaoSaque(null); setQualidadeSaque(null);
+    // "Manter sacador após salvar": preserva posição/direção de saque para
+    // agilizar o próximo ponto (preferência em Configurações)
+    if (!keepSacadorAfterSave) {
+      setPosicaoSaque(null); setDirecaoSaque(null);
+    }
+    setQualidadeSaque(null);
     setDevolvedor(null); setQualidadeDevolucao(null); setDirecaoDevolucao(null);
     setVencedorJogador(null); setTipoFin(null); setLadoFinalizacao(null);
     setDirecaoFinalizacao(null); setFinalizacaoRally(null);
@@ -596,6 +622,16 @@ export default function PontoScreen() {
             </Text>
             <Text style={s.setsLabel}>Sets: {placard.setsB}</Text>
           </View>
+        </View>
+
+        {/* Ponto rápido: credita o placar sem abrir o formulário completo */}
+        <View style={s.quickRow}>
+          <TouchableOpacity style={[s.quickBtn, { borderColor: Colors.gold + '66' }]} onPress={() => pontoRapido('A')} activeOpacity={0.75}>
+            <Text style={[s.quickTxt, { color: Colors.gold }]}>⚡ Ponto rápido</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.quickBtn, { borderColor: Colors.teal + '66' }]} onPress={() => pontoRapido('B')} activeOpacity={0.75}>
+            <Text style={[s.quickTxt, { color: Colors.teal }]}>⚡ Ponto rápido</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Sets encerrados + set atual sempre visível */}
@@ -1199,6 +1235,9 @@ const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   scoreTeamName: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, textAlign: 'center' },
   scoreNum:      { fontFamily: FontFamily.numberBold, fontSize: 42, lineHeight: 48 },
   setsLabel:     { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
+  quickRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
+  quickBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: Radius.md, borderWidth: 1, backgroundColor: Colors.surf2 },
+  quickTxt: { fontFamily: FontFamily.bodyMed, fontSize: 12 },
   setsHistoryRow: { flexDirection: 'row', gap: 6, justifyContent: 'center', paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm, flexWrap: 'wrap' },
   setHistChip:   { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.surf2, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: Colors.line },
   setHistLabel:  { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, marginRight: 3 },

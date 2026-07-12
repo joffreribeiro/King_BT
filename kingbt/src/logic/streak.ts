@@ -6,11 +6,20 @@ export interface StreakInfo {
   daysSince?: number;
 }
 
-export function computeStreak(
+export interface StreakHistory {
+  /** Jogos do jogador, do mais antigo para o mais recente. */
+  results: { won: boolean; date: string }[];
+  /** Sequência atual: positiva = vitórias seguidas, negativa = derrotas seguidas, 0 = sem jogos. */
+  current: number;
+  /** Maior sequência de vitórias seguidas do histórico. */
+  max: number;
+}
+
+export function computeStreakHistory(
   competitions: Competition[],
   playerId: string
-): StreakInfo {
-  if (!playerId) return { type: 'none' };
+): StreakHistory {
+  if (!playerId) return { results: [], current: 0, max: 0 };
 
   const played: { won: boolean; date: string }[] = [];
 
@@ -27,17 +36,31 @@ export function computeStreak(
     });
   });
 
-  if (played.length === 0) return { type: 'none' };
-
   played.sort((a, b) => a.date.localeCompare(b.date));
 
-  let streak = 0;
+  let current = 0;
   for (let i = played.length - 1; i >= 0; i--) {
-    if (played[i].won) streak++;
-    else break;
+    if (played[i].won === played[played.length - 1]?.won) {
+      if (played[i].won) current++; else current--;
+    } else break;
   }
 
-  if (streak >= 2) return { type: 'winning', count: streak };
+  let max = 0, streak = 0;
+  for (const g of played) { if (g.won) { streak++; max = Math.max(max, streak); } else streak = 0; }
+
+  return { results: played, current, max };
+}
+
+export function computeStreak(
+  competitions: Competition[],
+  playerId: string
+): StreakInfo {
+  if (!playerId) return { type: 'none' };
+
+  const { results: played, current } = computeStreakHistory(competitions, playerId);
+  if (played.length === 0) return { type: 'none' };
+
+  if (current >= 2) return { type: 'winning', count: current };
 
   const lastWin = [...played].reverse().find(g => g.won);
   if (!lastWin) return { type: 'none' };
