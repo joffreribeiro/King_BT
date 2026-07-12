@@ -83,6 +83,7 @@ type AuthContextType = AuthState & {
   clearError: () => void;
   promoteToAdmin: (uid: string) => Promise<void>;
   removeFromGroup: (uid: string) => Promise<void>;
+  addExistingUserToGroup: (targetUser: { uid: string; name: string }, color: string) => Promise<void>;
   setGroupVisibility: (visibility: 'privado' | 'publico') => Promise<void>;
 };
 
@@ -129,14 +130,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const userDoc = await getDoc(doc(db, 'users', u.uid));
           if (userDoc.exists()) {
             const { groupId, groupIds: storedIds } = userDoc.data();
-            const allIds: string[] = storedIds ?? [];
+            let allIds: string[] = storedIds ?? [];
             if (groupId && !allIds.includes(groupId)) allIds.push(groupId);
-            setGroupIds(allIds);
-            if (groupId) {
-              const prevIds: string[] = storedIds ?? [];
-              if (!prevIds.includes(groupId)) {
-                await setDoc(doc(db, 'users', u.uid), { groupIds: [...prevIds, groupId] }, { merge: true });
+
+            // Reconcilia grupos em que o usuário foi adicionado diretamente
+            // (ex.: admin vinculou o perfil dele sem precisar entrar por código).
+            try {
+              const memberOfSnap = await getDocs(query(
+                collection(db, 'groups'),
+                where('members', 'array-contains', u.uid),
+              ));
+              const memberOfIds = memberOfSnap.docs.map(d => d.id);
+              const missing = memberOfIds.filter(id => !allIds.includes(id));
+              if (missing.length > 0) {
+                allIds = [...allIds, ...missing];
+                await setDoc(doc(db, 'users', u.uid), { groupIds: allIds }, { merge: true });
               }
+            } catch (e) {
+              Logger.warn('Falha ao reconciliar grupos do usuário', { error: (e as Error)?.message });
+            }
+
+            setGroupIds(allIds);
+            if (groupId && !(storedIds ?? []).includes(groupId)) {
+              await setDoc(doc(db, 'users', u.uid), { groupIds: allIds }, { merge: true });
+            }
+            if (groupId) {
               const groupDoc = await getDoc(doc(db, 'groups', groupId));
               if (groupDoc.exists()) {
                 const gData = groupDoc.data();
@@ -305,6 +323,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function addExistingUserToGroup(targetUser: { uid: string; name: string }, color: string) {
+    if (!group || !(isAdmin || isSuperAdmin)) return;
+    const members = group.members ?? [];
+    if (!members.includes(targetUser.uid)) {
+      await setDoc(doc(db, 'groups', group.id), { members: [...members, targetUser.uid] }, { merge: true });
+      setGroup(prev => prev ? { ...prev, members: [...members, targetUser.uid] } : prev);
+    }
+    await setDoc(doc(db, 'groups', group.id, 'players', targetUser.uid), {
+      name: targetUser.name,
+      uid: targetUser.uid,
+      color,
+      guest: false,
+    });
+  }
+
   async function promoteToAdmin(uid: string) {
     if (!group || !(isAdmin || isSuperAdmin)) return;
     const admins = [...(group.admins ?? [])];
@@ -433,7 +466,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user, group, isAdmin: effectiveAdmin, loading, error, myPlayerId, playerLoading, groupIds, isMember, isSuperAdmin,
     signInWithGoogle, signInWithEmail, signUpWithEmail, joinGroup, linkToPlayer,
     createGroup, leaveGroup, switchGroup, getMyGroups, logout,
-    clearError: () => setError(null), promoteToAdmin, removeFromGroup, setGroupVisibility,
+    clearError: () => setError(null), promoteToAdmin, removeFromGroup, addExistingUserToGroup, setGroupVisibility,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [user, group, effectiveAdmin, loading, error, myPlayerId, playerLoading, groupIds, isMember, isSuperAdmin]);
 

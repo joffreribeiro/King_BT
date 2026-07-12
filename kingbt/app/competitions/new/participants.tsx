@@ -8,6 +8,8 @@ import { Avatar } from '@/components';
 import type { Format } from '@/logic/types';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { useAuth } from '@/store/AuthContext';
+import { addGuestPlayer, removeGuestPlayer } from '@/firebase/groupPlayers';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 import { balancedPairs } from '@/logic/roundRobin';
@@ -32,6 +34,7 @@ export default function ParticipantsStep() {
   const isDuplas = params.unit === 'duplas' && !isSuper8;
   const { state } = useCompetitions();
   const { groupPlayers, findPlayer } = useGroupPlayers();
+  const { group } = useAuth();
 
   const [selected, setSelected] = useState<string[]>([]);
   const [pairs, setPairs] = useState<[string, string][]>([]);
@@ -73,9 +76,12 @@ export default function ParticipantsStep() {
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [guestName, setGuestName] = useState('');
 
+  // Convidados já persistidos no grupo (via addGuestPlayer) somem daqui assim
+  // que a assinatura em tempo real do Firestore os traz por groupPlayers —
+  // evita duplicar a mesma pessoa na grade.
   const allPlayers = [
     ...groupPlayers.map(p => ({ id: p.id, name: p.name, color: p.color, guest: false as const })),
-    ...guests,
+    ...guests.filter(g => !groupPlayers.some(p => p.id === g.id)),
   ];
 
   // Sugestão de duplas equilibradas pelo ranking histórico
@@ -89,20 +95,25 @@ export default function ParticipantsStep() {
     return balancedPairs(selected.map(id => ({ id })), ranking);
   }, [balanced, selected, isDuplas, state.competitions, groupPlayers]);
 
-  function addGuest() {
+  // Persiste o convidado direto no grupo (groups/{id}/players) em vez de
+  // guardar só no estado local da tela — antes disso, o convidado "sumia" ao
+  // criar as partidas de fato, porque aquela tela só lê da lista real do
+  // grupo (groupPlayers), nunca do rascunho local do assistente.
+  async function addGuest() {
     const name = guestName.trim();
-    if (!name) return;
-    const id = `guest_${Date.now()}`;
+    if (!name || !group) return;
     const color = GUEST_COLORS[guests.length % GUEST_COLORS.length];
-    setGuests(prev => [...prev, { id, name, color, guest: true }]);
     setGuestName('');
     setShowGuestModal(false);
+    const id = await addGuestPlayer(group.id, name, color);
+    setGuests(prev => [...prev, { id, name, color, guest: true }]);
   }
 
-  function removeGuest(id: string) {
+  async function removeGuest(id: string) {
     setGuests(prev => prev.filter(g => g.id !== id));
     setSelected(prev => prev.filter(x => x !== id));
     setPairs(prev => prev.filter(([a, b]) => a !== id && b !== id));
+    if (group) await removeGuestPlayer(group.id, id);
   }
 
   function togglePlayer(id: string) {

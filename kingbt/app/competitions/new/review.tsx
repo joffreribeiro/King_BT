@@ -65,7 +65,7 @@ export default function ReviewStep() {
   const guests: { id: string; name: string; color: string }[] = p.guestData ? JSON.parse(p.guestData) : [];
   const allPlayers = [
     ...groupPlayers.map(pl => ({ id: pl.id, name: pl.name, color: pl.color })),
-    ...guests,
+    ...guests.filter(g => !groupPlayers.some(pl => pl.id === g.id)),
   ];
 
   // Montar competitors a partir dos playerIds

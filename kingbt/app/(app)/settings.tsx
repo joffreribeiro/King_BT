@@ -12,6 +12,7 @@ import { useSettings } from '@/store/SettingsContext';
 import { useTheme } from '@/store/ThemeContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { addGuestPlayer, removeGuestPlayer, updatePlayerHandicap, deleteGroup } from '@/firebase/groupPlayers';
+import { searchUsers, type AppUser } from '@/firebase/users';
 import type { Format } from '@/logic/types';
 
 const GUEST_COLORS = ['#FFD166', '#2DD4BF', '#A78BFA', '#34D399', '#F472B6', '#94A3B8', '#FB923C', '#60A5FA'];
@@ -30,7 +31,7 @@ const FORMAT_OPTIONS: { key: Format | ''; label: string }[] = [
 const version = Constants.expoConfig?.version ?? '1.0.0';
 
 export default function SettingsScreen() {
-  const { group, isAdmin, leaveGroup, user, removeFromGroup, promoteToAdmin, setGroupVisibility } = useAuth();
+  const { group, isAdmin, leaveGroup, user, removeFromGroup, promoteToAdmin, addExistingUserToGroup, setGroupVisibility } = useAuth();
   const { mode, colors: Colors, setMode } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { groupPlayers } = useGroupPlayers();
@@ -39,11 +40,37 @@ export default function SettingsScreen() {
   const [guestName, setGuestName]       = useState('');
   const [guestColor, setGuestColor]     = useState(GUEST_COLORS[0]);
   const [copied, setCopied]             = useState<'code' | 'invite' | null>(null);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [memberSearch, setMemberSearch]   = useState('');
+  const [memberResults, setMemberResults] = useState<AppUser[]>([]);
+  const [memberSearching, setMemberSearching] = useState(false);
+  const [addingMemberUid, setAddingMemberUid] = useState<string | null>(null);
 
   async function handleAddGuest() {
     if (!guestName.trim() || !group) return;
     await addGuestPlayer(group.id, guestName.trim(), guestColor);
     setGuestName(''); setGuestColor(GUEST_COLORS[0]); setShowAddGuest(false);
+  }
+
+  const groupPlayerUids = useMemo(
+    () => new Set(groupPlayers.map(p => p.uid).filter(Boolean) as string[]),
+    [groupPlayers]
+  );
+
+  async function handleSearchMembers(term: string) {
+    setMemberSearch(term);
+    if (!term.trim()) { setMemberResults([]); return; }
+    setMemberSearching(true);
+    const results = await searchUsers(term);
+    setMemberResults(results.filter(u => !groupPlayerUids.has(u.uid)));
+    setMemberSearching(false);
+  }
+
+  async function handleAddExistingMember(u: AppUser) {
+    setAddingMemberUid(u.uid);
+    await addExistingUserToGroup({ uid: u.uid, name: u.name }, GUEST_COLORS[groupPlayers.length % GUEST_COLORS.length]);
+    setAddingMemberUid(null);
+    setMemberSearch(''); setMemberResults([]); setShowAddMember(false);
   }
   const {
     defaultMaxScore, setDefaultMaxScore, defaultFormat, setDefaultFormat,
@@ -327,12 +354,20 @@ export default function SettingsScreen() {
           <View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
               <Text style={s.sectionTitle}>Jogadores do grupo</Text>
-              <TouchableOpacity onPress={() => setShowAddGuest(v => !v)}
-                style={{ paddingHorizontal: Spacing.sm, paddingVertical: 3, backgroundColor: Colors.surf2, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.line }}>
-                <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.teal }}>
-                  {showAddGuest ? '− Cancelar' : '+ Convidado'}
-                </Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+                <TouchableOpacity onPress={() => { setShowAddMember(false); setShowAddGuest(v => !v); }}
+                  style={{ paddingHorizontal: Spacing.sm, paddingVertical: 3, backgroundColor: Colors.surf2, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.line }}>
+                  <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.teal }}>
+                    {showAddGuest ? '− Cancelar' : '+ Convidado'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { setShowAddGuest(false); setShowAddMember(v => !v); }}
+                  style={{ paddingHorizontal: Spacing.sm, paddingVertical: 3, backgroundColor: Colors.surf2, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.line }}>
+                  <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.gold }}>
+                    {showAddMember ? '− Cancelar' : '+ Membro existente'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
             <Card padding={0} style={{ overflow: 'hidden' }}>
               {groupPlayers.length === 0 && (
@@ -400,6 +435,36 @@ export default function SettingsScreen() {
                   onPress={handleAddGuest} disabled={!guestName.trim()}>
                   <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: Colors.bg }}>Adicionar convidado</Text>
                 </TouchableOpacity>
+              </Card>
+            )}
+            {/* Formulário adicionar membro existente */}
+            {showAddMember && (
+              <Card style={{ gap: Spacing.sm, marginTop: Spacing.sm }}>
+                <TextInput
+                  style={{ backgroundColor: Colors.bg, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: 10, fontFamily: FontFamily.body, fontSize: 15, color: Colors.text }}
+                  value={memberSearch} onChangeText={handleSearchMembers}
+                  placeholder="Buscar por nome ou e-mail" placeholderTextColor={Colors.faint} autoFocus
+                  autoCapitalize="none" autoCorrect={false}
+                />
+                {memberSearching && <Text style={s.sectionHint}>Buscando…</Text>}
+                {!memberSearching && memberSearch.trim() !== '' && memberResults.length === 0 && (
+                  <Text style={s.sectionHint}>Nenhum usuário encontrado.</Text>
+                )}
+                {memberResults.map(u => (
+                  <TouchableOpacity
+                    key={u.uid}
+                    onPress={() => handleAddExistingMember(u)}
+                    disabled={addingMemberUid === u.uid}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 8, opacity: addingMemberUid === u.uid ? 0.5 : 1 }}
+                  >
+                    <Avatar name={u.name} color={GUEST_COLORS[0]} size={28} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.playerName} numberOfLines={1}>{u.name}</Text>
+                      {u.email && <Text style={s.sectionHint} numberOfLines={1}>{u.email}</Text>}
+                    </View>
+                    <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.gold }}>+</Text>
+                  </TouchableOpacity>
+                ))}
               </Card>
             )}
           </View>
