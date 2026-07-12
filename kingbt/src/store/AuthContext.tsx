@@ -10,7 +10,7 @@ import {
   type User,
 } from 'firebase/auth';
 import { Platform } from 'react-native';
-import { doc, getDoc, setDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs, limit, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { auth, db } from '@/firebase/config';
 import { Logger } from '@/services/Logger';
 import * as Device from 'expo-device';
@@ -325,11 +325,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function addExistingUserToGroup(targetUser: { uid: string; name: string }, color: string) {
     if (!group || !(isAdmin || isSuperAdmin)) return;
-    const members = group.members ?? [];
-    if (!members.includes(targetUser.uid)) {
-      await setDoc(doc(db, 'groups', group.id), { members: [...members, targetUser.uid] }, { merge: true });
-      setGroup(prev => prev ? { ...prev, members: [...members, targetUser.uid] } : prev);
-    }
+    // arrayUnion opera sobre o documento real no servidor, não sobre o
+    // estado local — evita sobrescrever a lista de membros se o `group` em
+    // memória estiver desatualizado (ex.: logo após criar o grupo).
+    await setDoc(doc(db, 'groups', group.id), { members: arrayUnion(targetUser.uid) }, { merge: true });
+    setGroup(prev => prev ? { ...prev, members: [...(prev.members ?? []), targetUser.uid] } : prev);
     await setDoc(doc(db, 'groups', group.id, 'players', targetUser.uid), {
       name: targetUser.name,
       uid: targetUser.uid,
@@ -340,18 +340,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function promoteToAdmin(uid: string) {
     if (!group || !(isAdmin || isSuperAdmin)) return;
-    const admins = [...(group.admins ?? [])];
-    if (!admins.includes(uid)) {
-      admins.push(uid);
-      await setDoc(doc(db, 'groups', group.id), { admins }, { merge: true });
-      setGroup(prev => prev ? { ...prev, admins } : prev);
-    }
+    await setDoc(doc(db, 'groups', group.id), { admins: arrayUnion(uid) }, { merge: true });
+    setGroup(prev => prev ? { ...prev, admins: [...(prev.admins ?? []), uid] } : prev);
   }
 
   async function removeFromGroup(uid: string) {
     if (!group || !(isAdmin || isSuperAdmin)) return;
-    const members = group.members?.filter(m => m !== uid) ?? [];
-    await setDoc(doc(db, 'groups', group.id), { members }, { merge: true });
+    await setDoc(doc(db, 'groups', group.id), { members: arrayRemove(uid) }, { merge: true });
+    setGroup(prev => prev ? { ...prev, members: prev.members?.filter(m => m !== uid) } : prev);
     // Desassocia o grupo do usuário removido — senão ele continua vendo o grupo
     const userSnap = await getDoc(doc(db, 'users', uid));
     if (userSnap.data()?.groupId === group.id) {
@@ -443,7 +439,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const prevGroupIds2: string[] = userSnap2.data()?.groupIds ?? [];
       const groupIds2 = prevGroupIds2.includes(groupRef.id) ? prevGroupIds2 : [...prevGroupIds2, groupRef.id];
       await setDoc(doc(db, 'users', user.uid), { groupId: groupRef.id, groupIds: groupIds2 }, { merge: true });
-      setGroup({ id: groupRef.id, name, code, admins: [user.uid] });
+      setGroup({ id: groupRef.id, name, code, admins: [user.uid], members: [user.uid] });
       setGroupIds(groupIds2);
       setIsAdmin(true);
     } catch (e: any) {
