@@ -10,7 +10,7 @@ import {
   type User,
 } from 'firebase/auth';
 import { Platform } from 'react-native';
-import { doc, getDoc, setDoc, collection, query, where, getDocs, limit, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { auth, db } from '@/firebase/config';
 import { Logger } from '@/services/Logger';
 import * as Device from 'expo-device';
@@ -79,12 +79,16 @@ type AuthContextType = AuthState & {
   leaveGroup: () => Promise<void>;
   switchGroup: (groupId: string) => Promise<void>;
   getMyGroups: () => Promise<Group[]>;
+  /** Atualiza o nome de perfil globalmente — mesmo nome em todos os grupos do usuário. */
+  updateProfileName: (name: string) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
   promoteToAdmin: (uid: string) => Promise<void>;
   removeFromGroup: (uid: string) => Promise<void>;
   addExistingUserToGroup: (targetUser: { uid: string; name: string }, color: string) => Promise<void>;
   setGroupVisibility: (visibility: 'privado' | 'publico') => Promise<void>;
+  /** Admin: renomeia o grupo ativo. */
+  updateGroupName: (name: string) => Promise<void>;
 };
 
 const Ctx = createContext<AuthContextType | null>(null);
@@ -361,6 +365,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setGroup(prev => prev ? { ...prev, visibility } : prev);
   }
 
+  async function updateGroupName(name: string) {
+    if (!group || !(isAdmin || isSuperAdmin)) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    await setDoc(doc(db, 'groups', group.id), { name: trimmed }, { merge: true });
+    setGroup(prev => prev ? { ...prev, name: trimmed } : prev);
+  }
+
   async function getMyGroups(): Promise<Group[]> {
     if (!user) return [];
     try {
@@ -376,6 +388,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return groups.filter(Boolean) as Group[];
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * Atualiza o nome de perfil globalmente — mesmo nome em todos os grupos do usuário.
+   * Propaga grupo a grupo (não em lote atômico): `groupIds` pode conter grupos dos
+   * quais o usuário foi removido por um admin (a limpeza de `groupIds` nesse fluxo
+   * só zera o campo `groupId`, não o array — ver regra de `users/{uid}` no
+   * firestore.rules), e um grupo assim derruba a permissão de escrita. Cada grupo é
+   * tratado isoladamente pra um "member ausente" não travar os demais, e o id é
+   * removido de `groupIds` quando detectado.
+   */
+  async function updateProfileName(name: string) {
+    if (!user) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    await updateProfile(user, { displayName: trimmed });
+    await setDoc(doc(db, 'users', user.uid), { name: trimmed }, { merge: true });
+
+    const staleIds: string[] = [];
+    await Promise.all(groupIds.map(async (gid) => {
+      try {
+        const snap = await getDocs(query(
+          collection(db, 'groups', gid, 'players'),
+          where('uid', '==', user.uid),
+          limit(1),
+        ));
+        const playerDoc = snap.docs[0];
+        if (playerDoc) await updateDoc(playerDoc.ref, { name: trimmed });
+      } catch {
+        staleIds.push(gid);
+      }
+    }));
+
+    if (staleIds.length > 0) {
+      const cleaned = groupIds.filter(id => !staleIds.includes(id));
+      await setDoc(doc(db, 'users', user.uid), { groupIds: cleaned }, { merge: true });
+      setGroupIds(cleaned);
     }
   }
 
@@ -461,8 +511,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextType>(() => ({
     user, group, isAdmin: effectiveAdmin, loading, error, myPlayerId, playerLoading, groupIds, isMember, isSuperAdmin,
     signInWithGoogle, signInWithEmail, signUpWithEmail, joinGroup, linkToPlayer,
-    createGroup, leaveGroup, switchGroup, getMyGroups, logout,
-    clearError: () => setError(null), promoteToAdmin, removeFromGroup, addExistingUserToGroup, setGroupVisibility,
+    createGroup, leaveGroup, switchGroup, getMyGroups, updateProfileName, logout,
+    clearError: () => setError(null), promoteToAdmin, removeFromGroup, addExistingUserToGroup, setGroupVisibility, updateGroupName,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [user, group, effectiveAdmin, loading, error, myPlayerId, playerLoading, groupIds, isMember, isSuperAdmin]);
 

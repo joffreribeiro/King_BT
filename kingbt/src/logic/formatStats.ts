@@ -60,3 +60,32 @@ export function computeFormatStats(
     }))
     .sort((a, b) => b.pct - a.pct);
 }
+
+/** Soma vários FormatStat[] (ex.: de grupos diferentes) num único breakdown por formato. */
+export function mergeFormatStats(all: FormatStat[][]): FormatStat[] {
+  const map: Record<string, FormatStat> = {};
+  all.flat().forEach(f => {
+    if (!map[f.format]) map[f.format] = { ...f, played: 0, wins: 0 };
+    map[f.format].played += f.played;
+    map[f.format].wins += f.wins;
+  });
+  return Object.values(map)
+    .map(f => ({ ...f, pct: f.played > 0 ? Math.round((f.wins / f.played) * 100) : 0 }))
+    .sort((a, b) => b.pct - a.pct);
+}
+
+export function generateFormatInsight(stats: FormatStat[]): string {
+  if (stats.length === 0) return 'Dispute partidas para gerar insights.';
+  if (stats.length === 1) return `Você disputou apenas ${stats[0].label} até agora. Explore outros formatos!`;
+
+  const [best, second] = stats;
+  const diff = best.pct - second.pct;
+
+  if (diff > 15) {
+    return `Você é muito mais forte no ${best.label} (${best.pct}%) do que em ${second.label} (${second.pct}%). Foco no formato principal!`;
+  }
+  if (best.pct >= 70) {
+    return `Performance excelente! Aproveitamento de ${best.pct}% no ${best.label}. Continue assim!`;
+  }
+  return `Performance consistente em todos os formatos. Aproveitamento geral equilibrado.`;
+}

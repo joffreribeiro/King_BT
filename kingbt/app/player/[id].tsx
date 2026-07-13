@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -6,6 +6,7 @@ import { goToPlayer, goToTrilha } from '@/logic/nav';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Badge, Card } from '@/components';
+import { MatchDetailModal, type MatchDetail } from '@/components/MatchDetailModal';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { buildRanking } from '@/logic/scoring';
@@ -29,6 +30,7 @@ export default function PlayerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state } = useCompetitions();
   const { groupPlayers, findPlayer } = useGroupPlayers();
+  const [selectedMatch, setSelectedMatch] = useState<MatchDetail | null>(null);
 
   const player = groupPlayers.find(p => p.id === id);
   if (!player) {
@@ -52,7 +54,7 @@ export default function PlayerDetailScreen() {
   const winRate = me.played > 0 ? Math.round((me.wins / me.played) * 100) : 0;
 
   // Match history
-  const matchHistory: Array<{ compId: string; compName: string; format: string; opponents: string; myScore: number; oppScore: number; won: boolean; date: string; isTeam: boolean }> = [];
+  const matchHistory: Array<{ compId: string; compName: string; format: string; opponents: string; partner: string | null; myScore: number; oppScore: number; won: boolean; date: string; isTeam: boolean }> = [];
   state.competitions.forEach(comp => {
     comp.matches.forEach(m => {
       if (m.scoreA == null || m.scoreB == null) return;
@@ -64,10 +66,13 @@ export default function PlayerDetailScreen() {
       const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB;
       const myScore = inA ? gA : gB;
       const oppScore = inA ? gB : gA;
-      let opponents = '?';
+      let opponents = '?', partner: string | null = null;
       if (m.teamA && m.teamB) {
+        const myTeam  = inA ? m.teamA : m.teamB;
         const oppTeam = inA ? m.teamB : m.teamA;
         opponents = oppTeam.map(pid => findPlayer(pid)?.name.split(' ')[0] ?? pid).join(' / ');
+        const pid = myTeam.find(pid => pid !== id);
+        if (pid) partner = findPlayer(pid)?.name.split(' ')[0] ?? pid;
       } else {
         const oppId = inA ? m.bId : m.aId;
         if (oppId) {
@@ -75,7 +80,7 @@ export default function PlayerDetailScreen() {
           opponents = oppComp?.name ?? findPlayer(oppId)?.name ?? oppId;
         }
       }
-      matchHistory.push({ compId: comp.id, compName: comp.name, format: comp.format, opponents, myScore, oppScore, won, date: m.playedAt ?? comp.date ?? '', isTeam: !!(m.teamA && m.teamB) });
+      matchHistory.push({ compId: comp.id, compName: comp.name, format: comp.format, opponents, partner, myScore, oppScore, won, date: m.playedAt ?? comp.date ?? '', isTeam: !!(m.teamA && m.teamB) });
     });
   });
   matchHistory.sort((a, b) => b.date.localeCompare(a.date));
@@ -207,30 +212,40 @@ export default function PlayerDetailScreen() {
           </View>
         </Card>
 
-        {/* Forma recente — mais recente à direita */}
+        {/* Sequência de Resultados — mais recente à esquerda (matchHistory já vem ordenado do mais novo pro mais antigo) */}
         {(() => {
-          const recentGames = [...matchHistory.slice(0, 7)].reverse();
+          const recentGames = matchHistory.slice(0, 7);
           if (recentGames.length === 0) return null;
           return (
             <Card>
-              <Text style={styles.sectionTitle}>Forma recente</Text>
+              <Text style={styles.sectionTitle}>Sequência de Resultados</Text>
               <View style={{ flexDirection: 'row', gap: 6 }}>
                 {recentGames.map((g, i) => (
-                  <View key={i} style={{
-                    width: 32, height: 32, borderRadius: 8,
-                    backgroundColor: g.won ? Colors.teal + '33' : Colors.coral + '33',
-                    borderWidth: 1, borderColor: g.won ? Colors.teal + '66' : Colors.coral + '66',
-                    alignItems: 'center', justifyContent: 'center',
-                  }}>
+                  <TouchableOpacity
+                    key={i}
+                    activeOpacity={0.7}
+                    onPress={() => setSelectedMatch({
+                      won: g.won, myScore: g.myScore, oppScore: g.oppScore,
+                      opponent: g.opponents, partner: g.partner, compName: g.compName, date: g.date,
+                    })}
+                    style={{
+                      width: 32, height: 32, borderRadius: 8,
+                      backgroundColor: g.won ? Colors.teal + '33' : Colors.coral + '33',
+                      borderWidth: 1, borderColor: g.won ? Colors.teal + '66' : Colors.coral + '66',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
                     <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 12, color: g.won ? Colors.teal : Colors.coral }}>
                       {g.won ? 'V' : 'D'}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </View>
             </Card>
           );
         })()}
+
+        <MatchDetailModal match={selectedMatch} onClose={() => setSelectedMatch(null)} />
 
         {/* Últimos 20 jogos por formato */}
         {last20.length > 0 && (

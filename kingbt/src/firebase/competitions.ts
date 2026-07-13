@@ -1,5 +1,5 @@
 import {
-  collection, doc, addDoc, updateDoc, setDoc, onSnapshot,
+  collection, doc, addDoc, updateDoc, setDoc, onSnapshot, getDocs,
   query, orderBy, arrayUnion, arrayRemove, type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './config';
@@ -21,6 +21,12 @@ export function subscribeCompetitions(
     const comps = snap.docs.map(d => ({ id: d.id, ...d.data() } as Competition));
     onData(comps);
   });
+}
+
+/** Busca competições do grupo uma única vez (sem listener) — usado por telas de resumo/agregação que não precisam de tempo real. */
+export async function fetchCompetitionsOnce(groupId: string): Promise<Competition[]> {
+  const snap = await getDocs(query(compsCol(groupId), orderBy('date', 'desc')));
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Competition));
 }
 
 /** Cria nova competição */

@@ -7,12 +7,13 @@ import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useAuth, type UnlinkedPlayer } from '@/store/AuthContext';
 import { useTheme } from '@/store/ThemeContext';
 
-type LinkMode = 'ask' | 'search' | 'list' | 'create';
+type LinkMode = 'ask' | 'search' | 'list';
 
 /**
  * Modal de vínculo de perfil ao entrar num grupo novo:
  * pergunta se já jogou no grupo, permite buscar/escolher um perfil
- * existente sem dono ou criar um perfil novo vinculado ao uid.
+ * existente sem dono ou criar um perfil novo vinculado ao uid (usando
+ * direto o nome de perfil global — mesmo nome em todos os grupos).
  * Usado no fluxo de join (join.tsx) e na tela de escolha de grupos.
  */
 export function LinkPlayerModal({ visible, unlinkedPlayers, onDone }: {
@@ -27,7 +28,6 @@ export function LinkPlayerModal({ visible, unlinkedPlayers, onDone }: {
   const [linkMode, setLinkMode]     = useState<LinkMode>('ask');
   const [searchName, setSearchName] = useState('');
   const [searchError, setSearchError] = useState('');
-  const [newProfileName, setNewProfileName] = useState('');
 
   // Reinicia o fluxo sempre que o modal abre
   useEffect(() => {
@@ -35,7 +35,6 @@ export function LinkPlayerModal({ visible, unlinkedPlayers, onDone }: {
       setLinkMode('ask');
       setSearchName('');
       setSearchError('');
-      setNewProfileName('');
     }
   }, [visible]);
 
@@ -60,7 +59,7 @@ export function LinkPlayerModal({ visible, unlinkedPlayers, onDone }: {
 
   async function handleCreateNew() {
     if (!user || !group) return;
-    const profileName = newProfileName.trim() || user.displayName || 'Jogador';
+    const profileName = user.displayName?.trim() || 'Jogador';
     setLinkBusy(true);
     try {
       const [{ doc, setDoc }, { db }] = await Promise.all([
@@ -105,46 +104,14 @@ export function LinkPlayerModal({ visible, unlinkedPlayers, onDone }: {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.btnOutline}
-                onPress={() => { setNewProfileName(''); setLinkMode('create'); }}
+                style={[styles.btnOutline, linkBusy && styles.btnDisabled]}
+                onPress={handleCreateNew}
+                disabled={linkBusy}
                 activeOpacity={0.8}
               >
-                <Text style={styles.btnOutlineText}>+ Não, criar novo perfil</Text>
-              </TouchableOpacity>
-            </>
-          )}
-
-          {/* ── Criar novo perfil ── */}
-          {linkMode === 'create' && (
-            <>
-              <TouchableOpacity onPress={() => setLinkMode('ask')} style={styles.backBtn}>
-                <Text style={styles.backText}>← Voltar</Text>
-              </TouchableOpacity>
-              <Text style={styles.modalTitle}>Como você quer ser chamado?</Text>
-              <Text style={styles.modalSubtitle}>
-                Digite o nome que vai aparecer no ranking e nas competições.
-              </Text>
-
-              <TextInput
-                style={styles.searchInput}
-                value={newProfileName}
-                onChangeText={setNewProfileName}
-                placeholder="Seu nome no grupo"
-                placeholderTextColor={Colors.faint}
-                autoCapitalize="words"
-                autoCorrect={false}
-                autoFocus
-              />
-
-              <TouchableOpacity
-                style={[styles.btnPrimary, (!newProfileName.trim() || linkBusy) && styles.btnDisabled]}
-                onPress={handleCreateNew}
-                disabled={!newProfileName.trim() || linkBusy}
-                activeOpacity={0.85}
-              >
                 {linkBusy
-                  ? <ActivityIndicator color={Colors.bg} />
-                  : <Text style={styles.btnText}>Criar perfil</Text>
+                  ? <ActivityIndicator color={Colors.gold} />
+                  : <Text style={styles.btnOutlineText}>+ Não, criar novo perfil ({user?.displayName ?? 'Jogador'})</Text>
                 }
               </TouchableOpacity>
             </>

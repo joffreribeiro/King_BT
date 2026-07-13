@@ -194,12 +194,12 @@ function CompCard({ comp, onDelete, onClone }: {
     (m.teamA ?? (m.aId ? [m.aId] : [])).forEach(id => ids.add(id));
     (m.teamB ?? (m.bId ? [m.bId] : [])).forEach(id => ids.add(id));
   });
-  if (comp.competitors.length > 0) comp.competitors.forEach(c => ids.add(c.id));
+  if (comp.competitors.length > 0) comp.competitors.forEach(c => c.members.forEach(mid => ids.add(mid)));
   const allPlayerIds = [...ids];
   const players = allPlayerIds.slice(0, 8).map(id => {
-    const c = comp.competitors.find(x => x.id === id);
+    const c = comp.competitors.find(x => x.members.includes(id));
     const p = findPlayer(id);
-    return { id, color: c?.color ?? p?.color ?? Colors.gold, short: c?.short ?? p?.name?.slice(0, 2).toUpperCase() ?? '?' };
+    return { id, color: p?.color ?? c?.color ?? Colors.gold, short: p?.name?.slice(0, 2).toUpperCase() ?? c?.short ?? '?' };
   });
   const extraPlayers = allPlayerIds.length > 8 ? allPlayerIds.length - 8 : 0;
 

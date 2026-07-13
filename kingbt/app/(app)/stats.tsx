@@ -9,12 +9,13 @@ import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
-import { computeFormatStats, type FormatStat } from '@/logic/formatStats';
+import { computeFormatStats, generateFormatInsight, type FormatStat } from '@/logic/formatStats';
 import { computeSituationStats, type SituationStat } from '@/logic/situationStats';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 import { computeStreakHistory, type StreakHistory } from '@/logic/streak';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { MatchDetailModal, type MatchDetail } from '@/components/MatchDetailModal';
 
 const SW = Dimensions.get('window').width;
 
@@ -177,10 +178,12 @@ const makeTlStyles = (Colors: ThemeColors) => StyleSheet.create({
   emptyTxt:    { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, textAlign: 'center' },
 });
 
-function StreakSection({ history }: { history: StreakHistory }) {
+function StreakSection({ history, recentMatches }: { history: StreakHistory; recentMatches: MatchDetail[] }) {
   const { colors: Colors } = useTheme();
   const st = useMemo(() => makeStreakStyles(Colors), [Colors]);
-  const recent = history.results.slice(-18);
+  const [selectedMatch, setSelectedMatch] = useState<MatchDetail | null>(null);
+  // Mais recente primeiro (esquerda).
+  const recent = [...recentMatches.slice(-18)].reverse();
   if (recent.length === 0) return null;
 
   const currentColor = history.current > 0 ? Colors.teal : history.current < 0 ? Colors.coral : Colors.muted;
@@ -198,9 +201,20 @@ function StreakSection({ history }: { history: StreakHistory }) {
       </View>
       <View style={st.strip}>
         {recent.map((g, i) => (
-          <View key={i} style={[st.chip, { backgroundColor: g.won ? Colors.teal : Colors.coral }]} />
+          <TouchableOpacity
+            key={i}
+            activeOpacity={0.7}
+            onPress={() => setSelectedMatch(g)}
+            style={[st.chip, {
+              backgroundColor: g.won ? `${Colors.teal}33` : `${Colors.coral}33`,
+              borderColor: g.won ? `${Colors.teal}66` : `${Colors.coral}66`,
+            }]}
+          >
+            <Text style={[st.chipTxt, { color: g.won ? Colors.teal : Colors.coral }]}>{g.won ? 'V' : 'D'}</Text>
+          </TouchableOpacity>
         ))}
       </View>
+      <MatchDetailModal match={selectedMatch} onClose={() => setSelectedMatch(null)} />
       <Text style={st.max}>
         Melhor sequência: <Text style={{ color: Colors.gold, fontFamily: FontFamily.bodyMed }}>{history.max} vitória{history.max !== 1 ? 's' : ''} seguidas</Text>
       </Text>
@@ -217,7 +231,8 @@ const makeStreakStyles = (Colors: ThemeColors) => StyleSheet.create({
   label:   { fontFamily: FontFamily.numberBold, fontSize: 8, fontWeight: '700', letterSpacing: 1.5, color: Colors.faint },
   current: { fontFamily: FontFamily.numberBold, fontSize: 11, fontWeight: '700' },
   strip:   { flexDirection: 'row', gap: 3 },
-  chip:    { flex: 1, height: 22, borderRadius: 4 },
+  chip:    { flex: 1, height: 32, borderRadius: Radius.sm, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  chipTxt: { fontFamily: FontFamily.numberBold, fontSize: 12, fontWeight: '700' },
   max:     { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
 });
 
@@ -260,28 +275,12 @@ const makeSituationStyles = (Colors: ThemeColors) => StyleSheet.create({
   bar:       { height: 4, borderRadius: 2 },
 });
 
-function generateInsight(stats: FormatStat[]): string {
-  if (stats.length === 0) return 'Dispute partidas para gerar insights.';
-  if (stats.length === 1) return `Você disputou apenas ${stats[0].label} até agora. Explore outros formatos!`;
-
-  const [best, second] = stats;
-  const diff = best.pct - second.pct;
-
-  if (diff > 15) {
-    return `Você é muito mais forte no ${best.label} (${best.pct}%) do que em ${second.label} (${second.pct}%). Foco no formato principal!`;
-  }
-  if (best.pct >= 70) {
-    return `Performance excelente! Aproveitamento de ${best.pct}% no ${best.label}. Continue assim!`;
-  }
-  return `Performance consistente em todos os formatos. Aproveitamento geral equilibrado.`;
-}
-
 export default function StatsScreen() {
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { state } = useCompetitions();
   const { myPlayerId } = useAuth();
-  const { groupPlayers } = useGroupPlayers();
+  const { groupPlayers, findPlayer } = useGroupPlayers();
   const MY_ID = myPlayerId ?? '';
 
   const formatStats = useMemo(
@@ -293,6 +292,43 @@ export default function StatsScreen() {
     () => computeStreakHistory(state.competitions, MY_ID),
     [state.competitions, MY_ID]
   );
+
+  const recentMatchesDetailed = useMemo(() => {
+    const list: MatchDetail[] = [];
+    state.competitions.forEach(comp => {
+      comp.matches.forEach(m => {
+        if (m.scoreA == null || m.scoreB == null) return;
+        const inA = m.aId === MY_ID || m.teamA?.includes(MY_ID);
+        const inB = m.bId === MY_ID || m.teamB?.includes(MY_ID);
+        if (!inA && !inB) return;
+
+        const won = inA ? m.scoreA > m.scoreB : m.scoreB > m.scoreA;
+        const gA = m.sets?.length ? m.sets.reduce((sum, x) => sum + x.a, 0) : m.scoreA;
+        const gB = m.sets?.length ? m.sets.reduce((sum, x) => sum + x.b, 0) : m.scoreB;
+        const myScore = inA ? gA : gB;
+        const oppScore = inA ? gB : gA;
+
+        let opponent = '?', partner: string | null = null;
+        if (m.teamA && m.teamB) {
+          const myTeam  = inA ? m.teamA : m.teamB;
+          const oppTeam = inA ? m.teamB : m.teamA;
+          opponent = oppTeam.map(pid => findPlayer(pid)?.name.split(' ')[0] ?? pid).join(' / ');
+          const pid = myTeam.find(id => id !== MY_ID);
+          if (pid) partner = findPlayer(pid)?.name.split(' ')[0] ?? pid;
+        } else {
+          const oppId = inA ? m.bId : m.aId;
+          if (oppId) {
+            const oppComp = comp.competitors.find(c => c.id === oppId);
+            opponent = oppComp?.name ?? findPlayer(oppId)?.name ?? oppId;
+          }
+        }
+
+        list.push({ won, myScore, oppScore, opponent, partner, compName: comp.name, date: m.playedAt ?? comp.date ?? '' });
+      });
+    });
+    // Do mais antigo pro mais recente — StreakSection pega os últimos N (mais recentes) via slice(-N).
+    return list.sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
+  }, [state.competitions, MY_ID, findPlayer]);
 
   const situationStats = useMemo(
     () => computeSituationStats(state.competitions, MY_ID),
@@ -318,7 +354,7 @@ export default function StatsScreen() {
     ? Math.round(((total - myPos) / (total - 1)) * 100)
     : 0;
 
-  const insight = generateInsight(formatStats);
+  const insight = generateFormatInsight(formatStats);
 
   // Histórico de pontos — uma entrada por competição em que participei
   const pointsHistory = useMemo(() => {
@@ -376,7 +412,7 @@ export default function StatsScreen() {
         <PointsTimeline data={pointsHistory} />
 
         {/* Sequência de resultados */}
-        <StreakSection history={streakHistory} />
+        <StreakSection history={streakHistory} recentMatches={recentMatchesDetailed} />
 
         {/* Percentil no grupo */}
         {total > 1 && myPos > 0 && (

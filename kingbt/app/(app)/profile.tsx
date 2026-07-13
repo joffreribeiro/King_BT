@@ -15,6 +15,7 @@ import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { addGuestPlayer, removeGuestPlayer } from '@/firebase/groupPlayers';
+import { EditNameModal } from '@/components/competition/EditNameModal';
 import QRCode from 'react-native-qrcode-svg';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
@@ -35,13 +36,14 @@ export default function ProfileScreen() {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const { state } = useCompetitions();
-  const { logout, leaveGroup, group, user, isAdmin, myPlayerId } = useAuth();
+  const { logout, leaveGroup, group, user, isAdmin, myPlayerId, updateProfileName } = useAuth();
   const { groupPlayers, findPlayer } = useGroupPlayers();
   const MY_ID = myPlayerId ?? '';
   const player = groupPlayers.find(p => p.id === MY_ID) ?? null;
 
   const [activeTab, setActiveTab] = useState<Tab>('resumo');
   const [showAddGuest, setShowAddGuest] = useState(false);
+  const [showEditName, setShowEditName] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [sharingInProgress, setSharingInProgress] = useState(false);
   const [guestName, setGuestName] = useState('');
@@ -131,7 +133,7 @@ export default function ProfileScreen() {
   const winRate = me.played > 0 ? Math.round((me.wins / me.played) * 100) : 0;
 
   // Match history
-  const matchHistory: Array<{ compName: string; format: string; opponents: string; partner: string | null; myScore: number; oppScore: number; won: boolean; isTeam: boolean }> = [];
+  const matchHistory: Array<{ id: string; compName: string; format: string; opponents: string; partner: string | null; myScore: number; oppScore: number; won: boolean; isTeam: boolean; date: string }> = [];
   state.competitions.forEach(comp => {
     comp.matches.forEach(m => {
       if (m.scoreA == null || m.scoreB == null) return;
@@ -158,10 +160,14 @@ export default function ProfileScreen() {
           opponents = oppComp?.name ?? findPlayer(oppId)?.name ?? oppId;
         }
       }
-      matchHistory.push({ compName: comp.name, format: comp.format, opponents, partner, myScore, oppScore, won, isTeam });
+      matchHistory.push({
+        id: `${comp.id}_${m.id}`, compName: comp.name, format: comp.format, opponents, partner,
+        myScore, oppScore, won, isTeam, date: m.playedAt ?? comp.date ?? '',
+      });
     });
   });
-  matchHistory.reverse();
+  // state.competitions já vem ordenado por data desc (mais recente primeiro) —
+  // matchHistory[0] é o jogo mais recente.
 
   // Evo points
   const evoPoints: { label: string; pts: number; pos: number }[] = (() => {
@@ -278,7 +284,12 @@ export default function ProfileScreen() {
         <View style={styles.heroInner}>
           <Avatar name={player?.name ?? '?'} color={player?.color ?? '#FFD166'} size={64} showCrown={myPos === 1} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.name} numberOfLines={1}>{player?.name ?? user?.displayName ?? 'Jogador'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.name} numberOfLines={1}>{player?.name ?? user?.displayName ?? 'Jogador'}</Text>
+              <TouchableOpacity onPress={() => setShowEditName(true)} hitSlop={8}>
+                <Text style={{ fontSize: 14 }}>✏️</Text>
+              </TouchableOpacity>
+            </View>
             <Text style={styles.titleText} numberOfLines={1}>{user?.email ?? ''}</Text>
             <View style={styles.badges}>
               <Badge label={`${myPos}° lugar`} variant="gold" />
@@ -333,6 +344,9 @@ export default function ProfileScreen() {
           <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/(app)/settings')} activeOpacity={0.8}>
             <Text style={styles.settingsBtnText}>⚙️  Configurações</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/desempenho-geral')} activeOpacity={0.8}>
+            <Text style={styles.settingsBtnText}>📊  Desempenho em todos os grupos</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.leaveGroupBtn} onPress={() => router.push('/(auth)/groups')} activeOpacity={0.8}>
             <Text style={styles.leaveGroupText}>Trocar de grupo</Text>
           </TouchableOpacity>
@@ -373,6 +387,17 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Modal editar nome (só nesse grupo) */}
+      {showEditName && (
+        <EditNameModal
+          current={player?.name ?? user?.displayName ?? ''}
+          title="Editar meu nome"
+          subtitle="Atualiza em todos os seus grupos."
+          onClose={() => setShowEditName(false)}
+          onSave={(name) => { updateProfileName(name); }}
+        />
+      )}
     </SafeAreaView>
   );
 }

@@ -3,8 +3,8 @@ import { useMemo, useState } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 
-export function EditNameModal({ current, onClose, onSave }: {
-  current: string; onClose: () => void; onSave: (name: string) => void;
+export function EditNameModal({ current, title = 'Renomear competição', subtitle, onClose, onSave }: {
+  current: string; title?: string; subtitle?: string; onClose: () => void; onSave: (name: string) => void;
 }) {
   const { colors: Colors } = useTheme();
   const en = useMemo(() => makeEnStyles(Colors), [Colors]);
@@ -14,7 +14,8 @@ export function EditNameModal({ current, onClose, onSave }: {
     <Modal visible transparent animationType="fade">
       <TouchableOpacity style={en.overlay} activeOpacity={1} onPress={onClose}>
         <TouchableOpacity style={en.box} activeOpacity={1}>
-          <Text style={en.title}>Renomear competição</Text>
+          <Text style={en.title}>{title}</Text>
+          {subtitle && <Text style={en.subtitle}>{subtitle}</Text>}
           <TextInput
             style={en.input}
             value={name}
@@ -45,6 +46,7 @@ const makeEnStyles = (Colors: ThemeColors) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: '#000000aa', justifyContent: 'center', alignItems: 'center', padding: Spacing.xl },
   box: { backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.lg, width: '100%', gap: Spacing.md },
   title: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
+  subtitle: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: -8 },
   input: {
     backgroundColor: Colors.bg, borderRadius: Radius.md, borderWidth: 1.5,
     borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md,

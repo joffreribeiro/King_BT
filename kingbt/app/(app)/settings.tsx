@@ -13,6 +13,7 @@ import { useTheme } from '@/store/ThemeContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { addGuestPlayer, removeGuestPlayer, updatePlayerHandicap, deleteGroup } from '@/firebase/groupPlayers';
 import { searchUsers, type AppUser } from '@/firebase/users';
+import { EditNameModal } from '@/components/competition/EditNameModal';
 import type { Format } from '@/logic/types';
 
 const GUEST_COLORS = ['#FFD166', '#2DD4BF', '#A78BFA', '#34D399', '#F472B6', '#94A3B8', '#FB923C', '#60A5FA'];
@@ -31,11 +32,12 @@ const FORMAT_OPTIONS: { key: Format | ''; label: string }[] = [
 const version = Constants.expoConfig?.version ?? '1.0.0';
 
 export default function SettingsScreen() {
-  const { group, isAdmin, leaveGroup, user, removeFromGroup, promoteToAdmin, addExistingUserToGroup, setGroupVisibility } = useAuth();
+  const { group, isAdmin, leaveGroup, user, removeFromGroup, promoteToAdmin, addExistingUserToGroup, setGroupVisibility, updateGroupName } = useAuth();
   const { mode, colors: Colors, setMode } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { groupPlayers } = useGroupPlayers();
   const [activeTab, setActiveTab] = useState<'geral' | 'admin'>('geral');
+  const [showEditGroupName, setShowEditGroupName] = useState(false);
   const [showAddGuest, setShowAddGuest] = useState(false);
   const [guestName, setGuestName]       = useState('');
   const [guestColor, setGuestColor]     = useState(GUEST_COLORS[0]);
@@ -295,7 +297,14 @@ export default function SettingsScreen() {
           <View>
             <Text style={s.sectionTitle}>Grupo</Text>
             <Card style={s.groupCard}>
-              <Text style={s.groupName}>{group.name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={s.groupName}>{group.name}</Text>
+                {isAdmin && (
+                  <TouchableOpacity onPress={() => setShowEditGroupName(true)} hitSlop={8}>
+                    <Text style={{ fontSize: 14 }}>✏️</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
               <View style={s.codeRow}>
                 <Text style={s.codeLabel}>Código</Text>
                 <Text style={s.code}>{group.code}</Text>
@@ -501,6 +510,16 @@ export default function SettingsScreen() {
 
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
+
+      {/* Modal editar nome do grupo (admin) */}
+      {showEditGroupName && group && (
+        <EditNameModal
+          current={group.name}
+          title="Renomear grupo"
+          onClose={() => setShowEditGroupName(false)}
+          onSave={(name) => { updateGroupName(name); }}
+        />
+      )}
     </SafeAreaView>
   );
 }

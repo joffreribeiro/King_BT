@@ -59,3 +59,17 @@ export function computeSituationStats(competitions: Competition[], playerId: str
     mk('decidingSet', 'Set decisivo', dsPlayed, dsWins),
   ];
 }
+
+/** Soma vários SituationStat[] (ex.: de grupos diferentes) num único aproveitamento por situação. */
+export function mergeSituationStats(all: SituationStat[][]): SituationStat[] {
+  const map: Record<string, SituationStat> = {};
+  all.flat().forEach(s => {
+    if (!map[s.key]) map[s.key] = { ...s, played: 0, wins: 0 };
+    map[s.key].played += s.played;
+    map[s.key].wins += s.wins;
+  });
+  return (['tiebreak', 'superTiebreak', 'decidingSet'] as SituationStat['key'][])
+    .map(k => map[k])
+    .filter(Boolean)
+    .map(s => ({ ...s, pct: s.played > 0 ? Math.round((s.wins / s.played) * 100) : 0 }));
+}

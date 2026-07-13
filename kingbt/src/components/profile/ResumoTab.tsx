@@ -1,9 +1,10 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Card, RatingChart } from '@/components';
+import { MatchDetailModal, type MatchDetail } from '@/components/MatchDetailModal';
 import { PointsTimeline } from './PointsTimeline';
 import { makeTab } from './profileStyles';
 
@@ -13,8 +14,10 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
   const tab = useMemo(() => makeTab(Colors), [Colors]);
   const statRow = useMemo(() => makeStatRowStyles(Colors), [Colors]);
   const l20 = useMemo(() => makeL20Styles(Colors), [Colors]);
-  const recent7 = [...matchHistory.slice(0, 7)].reverse();
-  const last20   = matchHistory.slice(0, 20);
+  const [selectedMatch, setSelectedMatch] = useState<MatchDetail | null>(null);
+  // matchHistory já vem do mais recente pro mais antigo.
+  const recent7 = matchHistory.slice(0, 7);
+  const last20  = matchHistory.slice(0, 20);
   const last20Wins   = last20.filter((g: any) => g.won).length;
   const last20Losses = last20.filter((g: any) => !g.won).length;
 
@@ -167,26 +170,36 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
         <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 18, color: '#6B7FD7' }}>›</Text>
       </TouchableOpacity>
 
-      {/* Forma recente */}
+      {/* Sequência de Resultados */}
       {recent7.length > 0 && (
         <Card>
-          <Text style={tab.sectionTitle}>Forma recente</Text>
+          <Text style={tab.sectionTitle}>Sequência de Resultados</Text>
           <View style={{ flexDirection: 'row', gap: 6 }}>
             {recent7.map((g: any, i: number) => (
-              <View key={i} style={{
-                flex: 1, height: 32, borderRadius: 8,
-                backgroundColor: g.won ? Colors.teal + '33' : Colors.coral + '33',
-                borderWidth: 1, borderColor: g.won ? Colors.teal + '66' : Colors.coral + '66',
-                alignItems: 'center', justifyContent: 'center',
-              }}>
+              <TouchableOpacity
+                key={i}
+                activeOpacity={0.7}
+                onPress={() => setSelectedMatch({
+                  won: g.won, myScore: g.myScore, oppScore: g.oppScore,
+                  opponent: g.opponents, partner: g.partner, compName: g.compName, date: g.date,
+                })}
+                style={{
+                  flex: 1, height: 32, borderRadius: 8,
+                  backgroundColor: g.won ? Colors.teal + '33' : Colors.coral + '33',
+                  borderWidth: 1, borderColor: g.won ? Colors.teal + '66' : Colors.coral + '66',
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+              >
                 <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 12, color: g.won ? Colors.teal : Colors.coral }}>
                   {g.won ? 'V' : 'D'}
                 </Text>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         </Card>
       )}
+
+      <MatchDetailModal match={selectedMatch} onClose={() => setSelectedMatch(null)} />
 
       {/* Evolução de pontos */}
       <PointsTimeline data={evoPoints.map((p: any, i: number) => ({ ...p, pos: i + 1 }))} />
