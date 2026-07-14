@@ -1,9 +1,8 @@
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Dimensions,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useMemo, useState } from 'react';
-import Svg, { Polyline, Circle, Line, Text as SvgText, Defs, LinearGradient, Stop, Path } from 'react-native-svg';
+import { useMemo } from 'react';
 import { router } from 'expo-router';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
@@ -13,228 +12,7 @@ import { computeFormatStats, generateFormatInsight, type FormatStat } from '@/lo
 import { computeSituationStats, type SituationStat } from '@/logic/situationStats';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
-import { computeStreakHistory, type StreakHistory } from '@/logic/streak';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
-import { MatchDetailModal, type MatchDetail } from '@/components/MatchDetailModal';
-
-const SW = Dimensions.get('window').width;
-
-function PointsTimeline({ data }: { data: { label: string; pts: number; pos: number }[] }) {
-  const { colors: Colors } = useTheme();
-  const tl = useMemo(() => makeTlStyles(Colors), [Colors]);
-  const [selected, setSelected] = useState<number | null>(null);
-
-  if (data.length < 2) {
-    return (
-      <View style={tl.empty}>
-        <Text style={tl.emptyIcon}>📈</Text>
-        <Text style={tl.emptyTxt}>Participe de mais competições{'\n'}para ver sua evolução</Text>
-      </View>
-    );
-  }
-
-  const W = SW - 48;
-  const H = 140;
-  const PAD = { top: 16, bottom: 32, left: 28, right: 12 };
-  const chartW = W - PAD.left - PAD.right;
-  const chartH = H - PAD.top - PAD.bottom;
-
-  const maxPts = Math.max(...data.map(d => d.pts), 1);
-  const minPts = Math.min(...data.map(d => d.pts), 0);
-  const range  = maxPts - minPts || 1;
-
-  const pts = data.map((d, i) => ({
-    x: PAD.left + (i / (data.length - 1)) * chartW,
-    y: PAD.top + chartH - ((d.pts - minPts) / range) * chartH,
-    ...d,
-  }));
-
-  // Linha SVG
-  const linePoints = pts.map(p => `${p.x},${p.y}`).join(' ');
-
-  // Área preenchida (path fechado)
-  const areaPath = `M${pts[0].x},${PAD.top + chartH} ` +
-    pts.map(p => `L${p.x},${p.y}`).join(' ') +
-    ` L${pts[pts.length-1].x},${PAD.top + chartH} Z`;
-
-  const trend = data.length > 1 ? data[data.length-1].pts - data[0].pts : 0;
-  const trendColor = trend > 0 ? Colors.teal : trend < 0 ? Colors.coral : Colors.muted;
-  const trendLabel = trend > 0 ? `+${trend.toFixed(2)}` : trend.toFixed(2);
-
-  return (
-    <View style={tl.wrap}>
-      {/* Cabeçalho */}
-      <View style={tl.header}>
-        <Text style={tl.title}>EVOLUÇÃO DE PONTOS</Text>
-        <View style={[tl.trendBadge, { backgroundColor: trendColor + '22' }]}>
-          <Text style={[tl.trendTxt, { color: trendColor }]}>
-            {trend > 0 ? '↑' : trend < 0 ? '↓' : '—'} {trendLabel}
-          </Text>
-        </View>
-      </View>
-
-      {/* Gráfico SVG */}
-      <Svg width={W} height={H}>
-        <Defs>
-          <LinearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor={Colors.gold} stopOpacity="0.25" />
-            <Stop offset="100%" stopColor={Colors.gold} stopOpacity="0" />
-          </LinearGradient>
-        </Defs>
-
-        {/* Grid lines horizontais */}
-        {[0, 0.5, 1].map((t, i) => {
-          const y = PAD.top + chartH * (1 - t);
-          const val = (minPts + range * t).toFixed(1);
-          return (
-            <Line key={i} x1={PAD.left} y1={y} x2={PAD.left + chartW} y2={y}
-              stroke={Colors.line} strokeWidth="1" />
-          );
-        })}
-
-        {/* Labels eixo Y */}
-        {[0, 0.5, 1].map((t, i) => {
-          const y = PAD.top + chartH * (1 - t);
-          const val = (minPts + range * t).toFixed(0);
-          return (
-            <SvgText key={i} x={PAD.left - 4} y={y + 4} fontSize="8"
-              fill={Colors.faint} textAnchor="end">{val}</SvgText>
-          );
-        })}
-
-        {/* Área preenchida */}
-        <Path d={areaPath} fill="url(#areaGrad)" />
-
-        {/* Linha principal */}
-        <Polyline points={linePoints} fill="none"
-          stroke={Colors.gold} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-
-        {/* Pontos */}
-        {pts.map((p, i) => (
-          <Circle key={i} cx={p.x} cy={p.y} r={selected === i ? 7 : 4}
-            fill={selected === i ? Colors.gold : Colors.bg}
-            stroke={Colors.gold} strokeWidth="2"
-            onPress={() => setSelected(selected === i ? null : i)}
-          />
-        ))}
-
-        {/* Labels eixo X */}
-        {pts.map((p, i) => (
-          <SvgText key={i} x={p.x} y={H - 6} fontSize="8"
-            fill={selected === i ? Colors.gold : Colors.faint}
-            textAnchor="middle">{p.label}</SvgText>
-        ))}
-
-        {/* Tooltip do ponto selecionado */}
-        {selected !== null && (() => {
-          const p = pts[selected];
-          const bx = Math.min(Math.max(p.x - 40, 0), W - 88);
-          const by = p.y - 44;
-          return (
-            <>
-              <Line x1={p.x} y1={p.y} x2={p.x} y2={PAD.top + chartH}
-                stroke={Colors.gold} strokeWidth="1" strokeDasharray="3,3" />
-              <Path d={`M${bx},${by} h80 a4,4 0 0 1 4,4 v24 a4,4 0 0 1 -4,4 h-80 a4,4 0 0 1 -4,-4 v-24 a4,4 0 0 1 4,-4 z`}
-                fill={Colors.surf2} />
-              <SvgText x={bx + 40} y={by + 14} fontSize="10" fill={Colors.gold}
-                textAnchor="middle" fontWeight="700">{p.pts.toFixed(2)} pts</SvgText>
-              <SvgText x={bx + 40} y={by + 26} fontSize="8" fill={Colors.muted}
-                textAnchor="middle">{p.pos}° lugar</SvgText>
-            </>
-          );
-        })()}
-      </Svg>
-
-      {/* Legenda min/max */}
-      <View style={tl.legend}>
-        <View style={tl.legendItem}>
-          <Text style={tl.legendDot}>●</Text>
-          <Text style={tl.legendTxt}>Mínimo: <Text style={{ color: Colors.coral }}>{minPts.toFixed(2)}</Text></Text>
-        </View>
-        <View style={tl.legendItem}>
-          <Text style={tl.legendDot}>●</Text>
-          <Text style={tl.legendTxt}>Máximo: <Text style={{ color: Colors.teal }}>{maxPts.toFixed(2)}</Text></Text>
-        </View>
-        <View style={tl.legendItem}>
-          <Text style={tl.legendTxt}>{data.length} comps</Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-const makeTlStyles = (Colors: ThemeColors) => StyleSheet.create({
-  wrap:        { backgroundColor: Colors.surf, borderRadius: Radius.md, padding: Spacing.md, gap: 8 },
-  header:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title:       { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.faint, letterSpacing: 1.5 },
-  trendBadge:  { borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3 },
-  trendTxt:    { fontFamily: FontFamily.numberBold, fontSize: 11 },
-  legend:      { flexDirection: 'row', gap: Spacing.md, paddingTop: 4 },
-  legendItem:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  legendDot:   { fontSize: 8, color: Colors.gold },
-  legendTxt:   { fontFamily: FontFamily.body, fontSize: 10, color: Colors.muted },
-  empty:       { alignItems: 'center', paddingVertical: 32, gap: 8 },
-  emptyIcon:   { fontSize: 32 },
-  emptyTxt:    { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, textAlign: 'center' },
-});
-
-function StreakSection({ history, recentMatches }: { history: StreakHistory; recentMatches: MatchDetail[] }) {
-  const { colors: Colors } = useTheme();
-  const st = useMemo(() => makeStreakStyles(Colors), [Colors]);
-  const [selectedMatch, setSelectedMatch] = useState<MatchDetail | null>(null);
-  // Mais recente primeiro (esquerda).
-  const recent = [...recentMatches.slice(-18)].reverse();
-  if (recent.length === 0) return null;
-
-  const currentColor = history.current > 0 ? Colors.teal : history.current < 0 ? Colors.coral : Colors.muted;
-  const currentLabel = history.current > 0
-    ? `${history.current} vitória${history.current > 1 ? 's' : ''} seguida${history.current > 1 ? 's' : ''}`
-    : history.current < 0
-      ? `${Math.abs(history.current)} derrota${Math.abs(history.current) > 1 ? 's' : ''} seguida${Math.abs(history.current) > 1 ? 's' : ''}`
-      : 'sem jogos recentes';
-
-  return (
-    <View style={st.card}>
-      <View style={st.header}>
-        <Text style={st.label}>SEQUÊNCIA DE RESULTADOS</Text>
-        <Text style={[st.current, { color: currentColor }]}>{currentLabel}</Text>
-      </View>
-      <View style={st.strip}>
-        {recent.map((g, i) => (
-          <TouchableOpacity
-            key={i}
-            activeOpacity={0.7}
-            onPress={() => setSelectedMatch(g)}
-            style={[st.chip, {
-              backgroundColor: g.won ? `${Colors.teal}33` : `${Colors.coral}33`,
-              borderColor: g.won ? `${Colors.teal}66` : `${Colors.coral}66`,
-            }]}
-          >
-            <Text style={[st.chipTxt, { color: g.won ? Colors.teal : Colors.coral }]}>{g.won ? 'V' : 'D'}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      <MatchDetailModal match={selectedMatch} onClose={() => setSelectedMatch(null)} />
-      <Text style={st.max}>
-        Melhor sequência: <Text style={{ color: Colors.gold, fontFamily: FontFamily.bodyMed }}>{history.max} vitória{history.max !== 1 ? 's' : ''} seguidas</Text>
-      </Text>
-    </View>
-  );
-}
-
-const makeStreakStyles = (Colors: ThemeColors) => StyleSheet.create({
-  card: {
-    backgroundColor: Colors.surf, borderWidth: 1,
-    borderColor: Colors.line, borderRadius: 12, padding: 11, gap: 8,
-  },
-  header:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  label:   { fontFamily: FontFamily.numberBold, fontSize: 8, fontWeight: '700', letterSpacing: 1.5, color: Colors.faint },
-  current: { fontFamily: FontFamily.numberBold, fontSize: 11, fontWeight: '700' },
-  strip:   { flexDirection: 'row', gap: 3 },
-  chip:    { flex: 1, height: 32, borderRadius: Radius.sm, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  chipTxt: { fontFamily: FontFamily.numberBold, fontSize: 12, fontWeight: '700' },
-  max:     { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
-});
 
 function SituationSection({ stats }: { stats: SituationStat[] }) {
   const { colors: Colors } = useTheme();
@@ -280,55 +58,13 @@ export default function StatsScreen() {
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { state } = useCompetitions();
   const { myPlayerId } = useAuth();
-  const { groupPlayers, findPlayer } = useGroupPlayers();
+  const { groupPlayers } = useGroupPlayers();
   const MY_ID = myPlayerId ?? '';
 
   const formatStats = useMemo(
     () => computeFormatStats(state.competitions, MY_ID),
     [state.competitions, MY_ID]
   );
-
-  const streakHistory = useMemo(
-    () => computeStreakHistory(state.competitions, MY_ID),
-    [state.competitions, MY_ID]
-  );
-
-  const recentMatchesDetailed = useMemo(() => {
-    const list: MatchDetail[] = [];
-    state.competitions.forEach(comp => {
-      comp.matches.forEach(m => {
-        if (m.scoreA == null || m.scoreB == null) return;
-        const inA = m.aId === MY_ID || m.teamA?.includes(MY_ID);
-        const inB = m.bId === MY_ID || m.teamB?.includes(MY_ID);
-        if (!inA && !inB) return;
-
-        const won = inA ? m.scoreA > m.scoreB : m.scoreB > m.scoreA;
-        const gA = m.sets?.length ? m.sets.reduce((sum, x) => sum + x.a, 0) : m.scoreA;
-        const gB = m.sets?.length ? m.sets.reduce((sum, x) => sum + x.b, 0) : m.scoreB;
-        const myScore = inA ? gA : gB;
-        const oppScore = inA ? gB : gA;
-
-        let opponent = '?', partner: string | null = null;
-        if (m.teamA && m.teamB) {
-          const myTeam  = inA ? m.teamA : m.teamB;
-          const oppTeam = inA ? m.teamB : m.teamA;
-          opponent = oppTeam.map(pid => findPlayer(pid)?.name.split(' ')[0] ?? pid).join(' / ');
-          const pid = myTeam.find(id => id !== MY_ID);
-          if (pid) partner = findPlayer(pid)?.name.split(' ')[0] ?? pid;
-        } else {
-          const oppId = inA ? m.bId : m.aId;
-          if (oppId) {
-            const oppComp = comp.competitors.find(c => c.id === oppId);
-            opponent = oppComp?.name ?? findPlayer(oppId)?.name ?? oppId;
-          }
-        }
-
-        list.push({ won, myScore, oppScore, opponent, partner, compName: comp.name, date: m.playedAt ?? comp.date ?? '' });
-      });
-    });
-    // Do mais antigo pro mais recente — StreakSection pega os últimos N (mais recentes) via slice(-N).
-    return list.sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
-  }, [state.competitions, MY_ID, findPlayer]);
 
   const situationStats = useMemo(
     () => computeSituationStats(state.competitions, MY_ID),
@@ -356,35 +92,6 @@ export default function StatsScreen() {
 
   const insight = generateFormatInsight(formatStats);
 
-  // Histórico de pontos — uma entrada por competição em que participei
-  const pointsHistory = useMemo(() => {
-    const compsWithMe = state.competitions
-      .filter(c => c.status !== 'upcoming' && c.matches.some(m => {
-        const ids = [...(m.teamA ?? []), ...(m.teamB ?? []), m.aId, m.bId].filter(Boolean);
-        return ids.includes(MY_ID) && m.scoreA != null;
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    return compsWithMe.map((comp, idx) => {
-      // Calcula pontos acumulados até essa competição
-      const compsUpTo = compsWithMe.slice(0, idx + 1);
-      const games = compsUpTo.flatMap(extractPlayerGames);
-      const rank = buildRanking(
-        groupPlayers.map(p => ({ id: p.id, name: p.name, short: '', color: p.color, handicap: p.handicap })),
-        games
-      );
-      const me = rank.find(r => r.id === MY_ID);
-      const pos = rank.findIndex(r => r.id === MY_ID) + 1;
-      return {
-        label: comp.name.length > 8 ? comp.name.slice(0, 8) + '…' : comp.name,
-        pts: me?.points ?? 0,
-        pos,
-        date: comp.date,
-        wins: me?.wins ?? 0,
-      };
-    });
-  }, [state.competitions, MY_ID, groupPlayers]);
-
   return (
     <SafeAreaView style={s.container} edges={['top']}>
       <View style={s.header}>
@@ -407,12 +114,6 @@ export default function StatsScreen() {
             <Text style={s.ratingPos}>{myPos > 0 ? `${myPos}°` : '—'}</Text>
           </View>
         </View>
-
-        {/* Timeline de pontos */}
-        <PointsTimeline data={pointsHistory} />
-
-        {/* Sequência de resultados */}
-        <StreakSection history={streakHistory} recentMatches={recentMatchesDetailed} />
 
         {/* Percentil no grupo */}
         {total > 1 && myPos > 0 && (

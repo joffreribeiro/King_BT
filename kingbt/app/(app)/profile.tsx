@@ -133,7 +133,7 @@ export default function ProfileScreen() {
   const winRate = me.played > 0 ? Math.round((me.wins / me.played) * 100) : 0;
 
   // Match history
-  const matchHistory: Array<{ id: string; compName: string; format: string; opponents: string; partner: string | null; myScore: number; oppScore: number; won: boolean; isTeam: boolean; date: string }> = [];
+  const matchHistory: Array<{ id: string; compName: string; format: string; opponents: string; partner: string | null; myScore: number; oppScore: number; won: boolean; isTeam: boolean; gender: string; date: string }> = [];
   state.competitions.forEach(comp => {
     comp.matches.forEach(m => {
       if (m.scoreA == null || m.scoreB == null) return;
@@ -162,12 +162,14 @@ export default function ProfileScreen() {
       }
       matchHistory.push({
         id: `${comp.id}_${m.id}`, compName: comp.name, format: comp.format, opponents, partner,
-        myScore, oppScore, won, isTeam, date: m.playedAt ?? comp.date ?? '',
+        myScore, oppScore, won, isTeam, gender: comp.gender, date: m.playedAt ?? comp.date ?? '',
       });
     });
   });
-  // state.competitions já vem ordenado por data desc (mais recente primeiro) —
-  // matchHistory[0] é o jogo mais recente.
+  // Ordena ascendente (data + ordem de criação dentro da competição) e inverte —
+  // um sort estável descendente não reordenaria partidas com a mesma data (mesma competição).
+  matchHistory.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  matchHistory.reverse();
 
   // Evo points
   const evoPoints: { label: string; pts: number; pos: number }[] = (() => {
@@ -186,7 +188,7 @@ export default function ProfileScreen() {
       const me = rank.find(r => r.id === MY_ID);
       const pos = rank.findIndex(r => r.id === MY_ID) + 1;
       return { label: comp.name.slice(0, 7), pts: me?.points ?? 0, pos };
-    });
+    }).slice(-8); // últimas 8 competições (mesmo corte do "Pontos por competição")
   })();
 
   // Activity heatmap

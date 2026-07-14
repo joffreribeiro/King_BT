@@ -1,22 +1,22 @@
-import { View, Text, Dimensions } from 'react-native';
+import { View, Text, type LayoutChangeEvent } from 'react-native';
 import { useState } from 'react';
 import { FontFamily, Spacing } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Card } from '@/components';
 import Svg, { Polyline, Line, Circle, Text as SvgText, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 
-const chartFullW = Dimensions.get('window').width - Spacing.md * 2;
-
 // ─── Gráfico de Evolução de Pontos ────────────────────────────────────────────
 export function PointsTimeline({ data }: { data: { label: string; pts: number; pos: number }[] }) {
   const { colors: Colors } = useTheme();
   const [selected, setSelected] = useState<number | null>(null);
+  const [W, setW] = useState(0);
 
   if (data.length < 2) return null;
 
-  const W = chartFullW;
-  const H = 150;
-  const PAD = { top: 16, bottom: 28, left: 28, right: 12 };
+  const onLayout = (e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width);
+
+  const H = 140;
+  const PAD = { top: 16, bottom: 32, left: 28, right: 12 };
   const chartW = W - PAD.left - PAD.right;
   const chartH = H - PAD.top - PAD.bottom;
 
@@ -51,10 +51,12 @@ export function PointsTimeline({ data }: { data: { label: string; pts: number; p
         </View>
       </View>
 
+      <View onLayout={onLayout} style={{ height: H }}>
+      {W > 0 && (
       <Svg width={W} height={H}>
         <Defs>
           <LinearGradient id="profAreaGrad" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor={Colors.gold} stopOpacity="0.25" />
+            <Stop offset="0%" stopColor={Colors.gold} stopOpacity="0.45" />
             <Stop offset="100%" stopColor={Colors.gold} stopOpacity="0" />
           </LinearGradient>
         </Defs>
@@ -82,7 +84,7 @@ export function PointsTimeline({ data }: { data: { label: string; pts: number; p
 
         {/* Pontos */}
         {pts.map((p, i) => (
-          <Circle key={i} cx={p.x} cy={p.y} r={selected === i ? 7 : 4}
+          <Circle key={i} cx={p.x} cy={p.y} r={selected === i ? 6 : 4}
             fill={selected === i ? Colors.gold : Colors.bg}
             stroke={Colors.gold} strokeWidth="2"
             onPress={() => setSelected(selected === i ? null : i)} />
@@ -96,25 +98,31 @@ export function PointsTimeline({ data }: { data: { label: string; pts: number; p
           </SvgText>
         ))}
 
-        {/* Tooltip */}
+        {/* Tooltip — vira pra baixo quando o ponto está muito no topo */}
         {selected !== null && (() => {
           const p = pts[selected];
-          const bx = Math.min(Math.max(p.x - 40, 0), W - 92);
-          const by = Math.max(p.y - 44, 0);
+          const boxW = 88, boxH = 34;
+          const bx = Math.min(Math.max(p.x - boxW / 2, 2), W - boxW - 2);
+          const flipDown = p.y - boxH - 10 < PAD.top;
+          const by = flipDown ? p.y + 10 : p.y - boxH - 10;
           return (
             <>
-              <Line x1={p.x} y1={p.y} x2={p.x} y2={PAD.top + chartH}
+              <Line x1={p.x} y1={p.y} x2={p.x}
+                y2={flipDown ? by : by + boxH}
                 stroke={Colors.gold} strokeWidth="1" strokeDasharray="3,3" />
-              <Path d={`M${bx},${by} h80 a4,4 0 0 1 4,4 v24 a4,4 0 0 1 -4,4 h-80 a4,4 0 0 1 -4,-4 v-24 a4,4 0 0 1 4,-4 z`}
-                fill="#1C1810" />
-              <SvgText x={bx + 40} y={by + 14} fontSize="10" fill={Colors.gold}
+              <Path
+                d={`M${bx},${by} h${boxW} a4,4 0 0 1 4,4 v${boxH - 8} a4,4 0 0 1 -4,4 h${-boxW} a4,4 0 0 1 -4,-4 v${-(boxH - 8)} a4,4 0 0 1 4,-4 z`}
+                fill={Colors.surf2} stroke={Colors.gold} strokeWidth="0.5" />
+              <SvgText x={bx + boxW / 2} y={by + 15} fontSize="10" fill={Colors.gold}
                 textAnchor="middle" fontWeight="700">{p.pts.toFixed(2)} pts</SvgText>
-              <SvgText x={bx + 40} y={by + 26} fontSize="8" fill={Colors.muted}
+              <SvgText x={bx + boxW / 2} y={by + 27} fontSize="8" fill={Colors.muted}
                 textAnchor="middle">{p.pos}° lugar</SvgText>
             </>
           );
         })()}
       </Svg>
+      )}
+      </View>
     </Card>
   );
 }

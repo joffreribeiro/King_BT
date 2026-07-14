@@ -16,10 +16,22 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
   const l20 = useMemo(() => makeL20Styles(Colors), [Colors]);
   const [selectedMatch, setSelectedMatch] = useState<MatchDetail | null>(null);
   // matchHistory já vem do mais recente pro mais antigo.
-  const recent7 = matchHistory.slice(0, 7);
   const last20  = matchHistory.slice(0, 20);
+  const recentSeq = last20;
   const last20Wins   = last20.filter((g: any) => g.won).length;
   const last20Losses = last20.filter((g: any) => !g.won).length;
+
+  // Quebra por formato: Simples (individual), Duplas (competição não-mista), Mista (competição misto)
+  const catOf = (g: any) => (!g.isTeam ? 'Simples' : g.gender === 'misto' ? 'Mista' : 'Duplas');
+  const formatBreakdown = ['Simples', 'Duplas', 'Mista'].map(label => {
+    const games = last20.filter((g: any) => catOf(g) === label);
+    return {
+      label,
+      wins: games.filter((g: any) => g.won).length,
+      losses: games.filter((g: any) => !g.won).length,
+      total: games.length,
+    };
+  }).filter(f => f.total > 0);
 
   return (
     <View style={tab.content}>
@@ -37,7 +49,23 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
       {last20.length > 0 && (
         <Card>
           <Text style={tab.sectionTitle}>Últimos {last20.length} jogos</Text>
-          <View style={{ flexDirection: 'row', gap: Spacing.md }}>
+
+          {/* Quebra por formato */}
+          {formatBreakdown.map(f => (
+            <View key={f.label} style={l20.breakdownRow}>
+              <Text style={l20.breakdownLabel}>{f.label}</Text>
+              <View style={l20.breakdownBar}>
+                <View style={[l20.barWin, { flex: f.wins || 0.001 }]}>
+                  {f.wins > 0 && <Text style={l20.barNum}>{f.wins}</Text>}
+                </View>
+                <View style={[l20.barLoss, { flex: f.losses || 0.001 }]}>
+                  {f.losses > 0 && <Text style={l20.barNum}>{f.losses}</Text>}
+                </View>
+              </View>
+            </View>
+          ))}
+
+          <View style={{ flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.md }}>
             <View style={l20.resultBox}>
               <Text style={l20.resultIcon}>✅</Text>
               <Text style={[l20.resultNum, { color: Colors.teal }]}>{last20Wins}</Text>
@@ -59,22 +87,6 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
         </Card>
       )}
 
-      {/* Stats 3 colunas */}
-      <Card style={{ paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xs }}>
-        <View style={statRow.row}>
-          {[
-            { l: 'JOGADOS', v: me.played,  c: Colors.text },
-            { l: 'VITÓRIAS', v: me.wins,   c: Colors.teal },
-            { l: 'DERROTAS', v: me.losses, c: Colors.coral },
-          ].map((item, i, arr) => (
-            <View key={item.l} style={[statRow.cell, i < arr.length - 1 && statRow.divider]}>
-              <Text style={[statRow.val, { color: item.c }]}>{item.v}</Text>
-              <Text style={statRow.lbl}>{item.l}</Text>
-            </View>
-          ))}
-        </View>
-      </Card>
-
       {/* Stats completo */}
       <Card style={{ paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xs }}>
         <View style={statRow.row}>
@@ -92,6 +104,72 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
           ))}
         </View>
       </Card>
+
+      {/* Sequência de Resultados */}
+      {recentSeq.length > 0 && (
+        <Card>
+          <Text style={tab.sectionTitle}>Sequência de Resultados</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {recentSeq.map((g: any, i: number) => (
+              <TouchableOpacity
+                key={i}
+                activeOpacity={0.7}
+                onPress={() => setSelectedMatch({
+                  won: g.won, myScore: g.myScore, oppScore: g.oppScore,
+                  opponent: g.opponents, partner: g.partner, compName: g.compName, date: g.date,
+                })}
+                style={{
+                  flexGrow: 1, flexBasis: 32, height: 32, borderRadius: 8,
+                  backgroundColor: g.won ? Colors.teal + '33' : Colors.coral + '33',
+                  borderWidth: 1, borderColor: g.won ? Colors.teal + '66' : Colors.coral + '66',
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 12, color: g.won ? Colors.teal : Colors.coral }}>
+                  {g.won ? 'V' : 'D'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Card>
+      )}
+
+      <MatchDetailModal match={selectedMatch} onClose={() => setSelectedMatch(null)} />
+
+      {/* Evolução de pontos */}
+      <PointsTimeline data={evoPoints.map((p: any, i: number) => ({ ...p, pos: i + 1 }))} />
+
+      {/* Pontos por competição */}
+      {ratingHistory.length >= 2 && (
+        <Card style={{ gap: Spacing.sm }}>
+          <Text style={tab.sectionTitle}>Pontos por competição</Text>
+          <RatingChart ratings={ratingHistory} />
+        </Card>
+      )}
+
+      {/* Análise por Formato */}
+      <TouchableOpacity
+        onPress={() => router.push('/(app)/stats')}
+        activeOpacity={0.8}
+        style={{
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+          backgroundColor: 'rgba(107,127,215,0.10)', borderWidth: 1,
+          borderColor: 'rgba(107,127,215,0.25)', borderRadius: 12, padding: 14,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text style={{ fontSize: 20 }}>📊</Text>
+          <View>
+            <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: '#6B7FD7' }}>
+              Análise por Formato
+            </Text>
+            <Text style={{ fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted }}>
+              Aproveitamento por tipo de competição
+            </Text>
+          </View>
+        </View>
+        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 18, color: '#6B7FD7' }}>›</Text>
+      </TouchableOpacity>
 
       {/* Próxima conquista */}
       {nextAchievement && (
@@ -146,74 +224,6 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
         </Card>
       )}
 
-      {/* Análise por Formato */}
-      <TouchableOpacity
-        onPress={() => router.push('/(app)/stats')}
-        activeOpacity={0.8}
-        style={{
-          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-          backgroundColor: 'rgba(107,127,215,0.10)', borderWidth: 1,
-          borderColor: 'rgba(107,127,215,0.25)', borderRadius: 12, padding: 14,
-        }}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Text style={{ fontSize: 20 }}>📊</Text>
-          <View>
-            <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: '#6B7FD7' }}>
-              Análise por Formato
-            </Text>
-            <Text style={{ fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted }}>
-              Aproveitamento por tipo de competição
-            </Text>
-          </View>
-        </View>
-        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 18, color: '#6B7FD7' }}>›</Text>
-      </TouchableOpacity>
-
-      {/* Sequência de Resultados */}
-      {recent7.length > 0 && (
-        <Card>
-          <Text style={tab.sectionTitle}>Sequência de Resultados</Text>
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            {recent7.map((g: any, i: number) => (
-              <TouchableOpacity
-                key={i}
-                activeOpacity={0.7}
-                onPress={() => setSelectedMatch({
-                  won: g.won, myScore: g.myScore, oppScore: g.oppScore,
-                  opponent: g.opponents, partner: g.partner, compName: g.compName, date: g.date,
-                })}
-                style={{
-                  flex: 1, height: 32, borderRadius: 8,
-                  backgroundColor: g.won ? Colors.teal + '33' : Colors.coral + '33',
-                  borderWidth: 1, borderColor: g.won ? Colors.teal + '66' : Colors.coral + '66',
-                  alignItems: 'center', justifyContent: 'center',
-                }}
-              >
-                <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 12, color: g.won ? Colors.teal : Colors.coral }}>
-                  {g.won ? 'V' : 'D'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Card>
-      )}
-
-      <MatchDetailModal match={selectedMatch} onClose={() => setSelectedMatch(null)} />
-
-      {/* Evolução de pontos */}
-      <PointsTimeline data={evoPoints.map((p: any, i: number) => ({ ...p, pos: i + 1 }))} />
-
-
-
-      {/* Pontos por competição */}
-      {ratingHistory.length >= 2 && (
-        <Card style={{ gap: Spacing.sm }}>
-          <Text style={tab.sectionTitle}>Pontos por competição</Text>
-          <RatingChart ratings={ratingHistory} />
-        </Card>
-      )}
-
     </View>
   );
 }
@@ -227,6 +237,12 @@ const makeStatRowStyles = (Colors: ThemeColors) => StyleSheet.create({
 });
 
 const makeL20Styles = (Colors: ThemeColors) => StyleSheet.create({
+  breakdownRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: 6 },
+  breakdownLabel: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, width: 60 },
+  breakdownBar:   { flex: 1, flexDirection: 'row', height: 18, borderRadius: 4, overflow: 'hidden' },
+  barWin:         { backgroundColor: Colors.teal + 'CC', alignItems: 'center', justifyContent: 'center' },
+  barLoss:        { backgroundColor: Colors.coral + 'CC', alignItems: 'center', justifyContent: 'center' },
+  barNum:         { fontFamily: FontFamily.numberBold, fontSize: 12, color: '#fff', paddingHorizontal: 6 },
   resultBox: { flex: 1, alignItems: 'center', backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.sm, gap: 2 },
   resultIcon: { fontSize: 18 },
   resultNum:  { fontFamily: FontFamily.titleBold, fontSize: 22 },

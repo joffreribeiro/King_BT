@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -10,6 +10,7 @@ import { useAuth } from '@/store/AuthContext';
 import { fetchCompetitionsOnce } from '@/firebase/competitions';
 import { computeFormatStats, mergeFormatStats, generateFormatInsight, type FormatStat } from '@/logic/formatStats';
 import { computeSituationStats, mergeSituationStats, type SituationStat } from '@/logic/situationStats';
+import { computeNamedRivalries, mergeNamedRivalries, reduceNamedRivalries, type NamedRivalryMaps, type NamedRivalryStats } from '@/logic/rivalries';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 import { MatchDetailModal } from '@/components/MatchDetailModal';
@@ -35,12 +36,15 @@ interface RecentMatch {
   oppScore: number;
   won: boolean;
   date: string;
+  isTeam: boolean;
+  gender: string;
 }
 
 interface GroupLoadResult extends GroupPerf {
   recentMatches: RecentMatch[];
   formatStats: FormatStat[];
   situationStats: SituationStat[];
+  rivalryMaps: NamedRivalryMaps;
 }
 
 function computeMergedStreak(matches: { won: boolean; date: string }[]): { current: number; max: number } {
@@ -64,10 +68,13 @@ export default function DesempenhoGeralScreen() {
   const [loading, setLoading] = useState(true);
   const [perGroup, setPerGroup] = useState<GroupPerf[]>([]);
   const [recentMatches, setRecentMatches] = useState<RecentMatch[]>([]);
+  const [last20, setLast20] = useState<RecentMatch[]>([]);
   const [streak, setStreak] = useState({ current: 0, max: 0 });
   const [formatStats, setFormatStats] = useState<FormatStat[]>([]);
   const [situationStats, setSituationStats] = useState<SituationStat[]>([]);
+  const [rivalries, setRivalries] = useState<NamedRivalryStats | null>(null);
   const [selectedMatch, setSelectedMatch] = useState<RecentMatch | null>(null);
+  const [selectedCat, setSelectedCat] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,7 +94,7 @@ export default function DesempenhoGeralScreen() {
             if (!playerId) {
               return {
                 groupId: g.id, name: g.name, played: 0, wins: 0, myPos: 0, total: 0, points: 0, percentile: 0,
-                recentMatches: [], formatStats: [], situationStats: [],
+                recentMatches: [], formatStats: [], situationStats: [], rivalryMaps: { partners: {}, rivals: {} },
               };
             }
 
@@ -145,13 +152,19 @@ export default function DesempenhoGeralScreen() {
                 groupRecent.push({
                   id: `${g.id}_${m.id}`, groupName: g.name, compName: comp.name,
                   opponent, partner, myScore, oppScore, won, date: m.playedAt ?? comp.date ?? '',
+                  isTeam: !!(m.teamA && m.teamB), gender: comp.gender,
                 });
               });
             });
 
+            const rivalryMaps = computeNamedRivalries(
+              playerId, competitions, (pid) => findPlayer(pid)?.name ?? pid,
+            );
+
             return {
               groupId: g.id, name: g.name, played, wins, myPos, total, points, percentile,
               recentMatches: groupRecent, formatStats: groupFormatStats, situationStats: groupSituationStats,
+              rivalryMaps,
             };
           } catch {
             return null;
@@ -164,10 +177,12 @@ export default function DesempenhoGeralScreen() {
 
         const allMatches = valid.flatMap(r => r.recentMatches).sort((a, b) => a.date.localeCompare(b.date));
         // Mais recente primeiro (esquerda).
-        setRecentMatches([...allMatches.slice(-12)].reverse());
+        setRecentMatches([...allMatches.slice(-20)].reverse());
+        setLast20([...allMatches.slice(-20)].reverse());
         setStreak(computeMergedStreak(allMatches));
         setFormatStats(mergeFormatStats(valid.map(r => r.formatStats)));
         setSituationStats(mergeSituationStats(valid.map(r => r.situationStats)));
+        setRivalries(reduceNamedRivalries(mergeNamedRivalries(valid.map(r => r.rivalryMaps))));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -183,6 +198,15 @@ export default function DesempenhoGeralScreen() {
   const groupsWithGames = perGroup.filter(g => g.played > 0).sort((a, b) => b.played - a.played);
   const situationWithData = situationStats.filter(st => st.played > 0);
   const insight = generateFormatInsight(formatStats);
+
+  // Últimos 20 jogos (todos os grupos) — quebra por formato
+  const l20Wins = last20.filter(m => m.won).length;
+  const l20Losses = last20.length - l20Wins;
+  const catOf = (m: RecentMatch) => (!m.isTeam ? 'Simples' : m.gender === 'misto' ? 'Mista' : 'Duplas');
+  const l20Breakdown = ['Simples', 'Duplas', 'Mista'].map(label => {
+    const games = last20.filter(m => catOf(m) === label);
+    return { label, wins: games.filter(m => m.won).length, losses: games.filter(m => !m.won).length, total: games.length };
+  }).filter(f => f.total > 0);
 
   const streakColor = streak.current > 0 ? Colors.teal : streak.current < 0 ? Colors.coral : Colors.muted;
   const streakLabel = streak.current > 0
@@ -236,6 +260,45 @@ export default function DesempenhoGeralScreen() {
                 </View>
               </View>
             </View>
+
+            {/* Últimos 20 jogos (todos os grupos) */}
+            {last20.length > 0 && (
+              <View style={s.summaryCard}>
+                <Text style={s.l20Title}>Últimos {last20.length} jogos</Text>
+                {l20Breakdown.map(f => (
+                  <TouchableOpacity key={f.label} style={s.l20Row} activeOpacity={0.7} onPress={() => setSelectedCat(f.label)}>
+                    <Text style={s.l20Label}>{f.label}</Text>
+                    <View style={s.l20Bar}>
+                      <View style={[s.l20BarWin, { flex: f.wins || 0.001 }]}>
+                        {f.wins > 0 && <Text style={s.l20BarNum}>{f.wins}</Text>}
+                      </View>
+                      <View style={[s.l20BarLoss, { flex: f.losses || 0.001 }]}>
+                        {f.losses > 0 && <Text style={s.l20BarNum}>{f.losses}</Text>}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+                <View style={{ flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.sm }}>
+                  <View style={s.l20Box}>
+                    <Text style={s.l20Icon}>✅</Text>
+                    <Text style={[s.l20Num, { color: Colors.teal }]}>{l20Wins}</Text>
+                    <Text style={s.l20Lbl}>Vitórias</Text>
+                  </View>
+                  <View style={s.l20Box}>
+                    <Text style={s.l20Icon}>❌</Text>
+                    <Text style={[s.l20Num, { color: Colors.coral }]}>{l20Losses}</Text>
+                    <Text style={s.l20Lbl}>Derrotas</Text>
+                  </View>
+                  <View style={s.l20Box}>
+                    <Text style={s.l20Icon}>📊</Text>
+                    <Text style={[s.l20Num, { color: Colors.gold }]}>
+                      {last20.length > 0 ? Math.round((l20Wins / last20.length) * 100) : 0}%
+                    </Text>
+                    <Text style={s.l20Lbl}>Aproveit.</Text>
+                  </View>
+                </View>
+              </View>
+            )}
 
             {/* Sequência de resultados */}
             {recentMatches.length > 0 && (
@@ -346,10 +409,69 @@ export default function DesempenhoGeralScreen() {
           </>
         )}
 
+        {/* Rivalidades — agregadas por nome em todos os grupos */}
+        {rivalries && (rivalries.biggestPartner || rivalries.bestPartner || rivalries.biggestRival || rivalries.carrasco || rivalries.fregues) && (() => {
+          const rows = [
+            { emoji: '🎾', label: 'Maior Parceiro',          sub: 'Com quem mais jogou',   stat: rivalries.biggestPartner, detail: (x: any) => `${x.played} jogo${x.played !== 1 ? 's' : ''} juntos` },
+            { emoji: '🤝', label: 'Parceiro Mais Eficiente', sub: 'Com quem mais venceu',   stat: rivalries.bestPartner,    detail: (x: any) => `${x.wins}V / ${x.played - x.wins}D · ${Math.round(x.pct * 100)}%` },
+            { emoji: '⚔️', label: 'Maior Rival',             sub: 'Quem mais enfrentou',   stat: rivalries.biggestRival,   detail: (x: any) => `${x.played} confronto${x.played !== 1 ? 's' : ''}` },
+            { emoji: '👹', label: 'Carrasco',                sub: 'Quem mais te venceu',   stat: rivalries.carrasco,       detail: (x: any) => `${x.wins} derrota${x.wins !== 1 ? 's' : ''}` },
+            { emoji: '😅', label: 'Freguês',                 sub: 'Quem você mais venceu', stat: rivalries.fregues,        detail: (x: any) => `${x.wins} vitória${x.wins !== 1 ? 's' : ''}` },
+          ].filter(r => r.stat);
+          return (
+            <>
+              <Text style={s.sectionLabel}>RIVALIDADES</Text>
+              <View style={s.summaryCard}>
+                {rows.map(({ emoji, label, sub, stat, detail }, i) => (
+                  <View key={label} style={[s.rivalryRow, i < rows.length - 1 && s.rivalryBorder]}>
+                    <Text style={s.rivalryEmoji}>{emoji}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.rivalryLabel}>{label}</Text>
+                      <Text style={s.rivalrySub}>{sub}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', maxWidth: 130 }}>
+                      <Text style={s.rivalryName} numberOfLines={1}>{stat!.name.split(' ')[0]}</Text>
+                      <Text style={s.rivalryDetail} numberOfLines={1}>{detail(stat)}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </>
+          );
+        })()}
+
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
 
       <MatchDetailModal match={selectedMatch} onClose={() => setSelectedMatch(null)} />
+
+      {/* Lista de jogos da categoria clicada (Últimos 20 jogos) */}
+      <Modal visible={!!selectedCat} transparent animationType="fade" onRequestClose={() => setSelectedCat(null)}>
+        <TouchableOpacity style={s.catOverlay} activeOpacity={1} onPress={() => setSelectedCat(null)}>
+          <TouchableOpacity style={s.catBox} activeOpacity={1}>
+            <Text style={s.catTitle}>{selectedCat} · últimos 20 jogos</Text>
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+              {last20.filter(m => catOf(m) === selectedCat).map(m => (
+                <View key={m.id} style={s.catRow}>
+                  <View style={[s.catBadge, { backgroundColor: m.won ? Colors.teal + '33' : Colors.coral + '33' }]}>
+                    <Text style={[s.catBadgeTxt, { color: m.won ? Colors.teal : Colors.coral }]}>{m.won ? 'V' : 'D'}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.catOpp} numberOfLines={1}>
+                      vs {m.opponent}{m.partner ? ` · com ${m.partner}` : ''}
+                    </Text>
+                    <Text style={s.catSub} numberOfLines={1}>{[m.groupName, m.date?.slice(0, 10)].filter(Boolean).join(' · ')}</Text>
+                  </View>
+                  <Text style={[s.catScore, { color: m.won ? Colors.teal : Colors.coral }]}>{m.myScore}–{m.oppScore}</Text>
+                </View>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={s.catCloseBtn} onPress={() => setSelectedCat(null)}>
+              <Text style={s.catCloseTxt}>Fechar</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -397,6 +519,38 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   formRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   formChip: { flexGrow: 1, flexBasis: 32, height: 32, borderRadius: Radius.sm, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   formChipTxt: { fontFamily: FontFamily.numberBold, fontSize: 12, fontWeight: '700' },
+
+  l20Title:   { fontFamily: FontFamily.titleBold, fontSize: 14, color: Colors.text, marginBottom: Spacing.sm },
+  l20Row:     { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: 6 },
+  l20Label:   { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, width: 60 },
+  l20Bar:     { flex: 1, flexDirection: 'row', height: 18, borderRadius: 4, overflow: 'hidden' },
+  l20BarWin:  { backgroundColor: Colors.teal + 'CC', alignItems: 'center', justifyContent: 'center' },
+  l20BarLoss: { backgroundColor: Colors.coral + 'CC', alignItems: 'center', justifyContent: 'center' },
+  l20BarNum:  { fontFamily: FontFamily.numberBold, fontSize: 12, color: '#fff', paddingHorizontal: 6 },
+  l20Box:     { flex: 1, alignItems: 'center', backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.sm, gap: 2 },
+  l20Icon:    { fontSize: 18 },
+  l20Num:     { fontFamily: FontFamily.titleBold, fontSize: 22 },
+  l20Lbl:     { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+
+  catOverlay:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: Spacing.xl },
+  catBox:      { backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.lg, width: '100%', maxWidth: 380 },
+  catTitle:    { fontFamily: FontFamily.titleBold, fontSize: 15, color: Colors.text, marginBottom: Spacing.sm },
+  catRow:      { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  catBadge:    { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  catBadgeTxt: { fontFamily: FontFamily.numberBold, fontSize: 12, fontWeight: '700' },
+  catOpp:      { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
+  catSub:      { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+  catScore:    { fontFamily: FontFamily.numberBold, fontSize: 15 },
+  catCloseBtn: { marginTop: Spacing.md, paddingVertical: Spacing.sm, alignItems: 'center' },
+  catCloseTxt: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.gold },
+
+  rivalryRow:    { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 8 },
+  rivalryBorder: { borderBottomWidth: 1, borderBottomColor: Colors.line },
+  rivalryEmoji:  { fontSize: 22 },
+  rivalryLabel:  { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
+  rivalrySub:    { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
+  rivalryName:   { fontFamily: FontFamily.titleBold, fontSize: 13, color: Colors.text },
+  rivalryDetail: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
 
   groupCard: { borderWidth: 1, borderColor: Colors.line, backgroundColor: Colors.surf, borderRadius: 11, padding: 10, marginBottom: 6 },
   groupHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 6, marginBottom: 4 },

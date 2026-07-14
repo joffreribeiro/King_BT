@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { goToPlayer, goToTrilha } from '@/logic/nav';
@@ -7,6 +7,7 @@ import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Badge, Card } from '@/components';
 import { MatchDetailModal, type MatchDetail } from '@/components/MatchDetailModal';
+import { PointsTimeline } from '@/components/profile/PointsTimeline';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { buildRanking } from '@/logic/scoring';
@@ -14,7 +15,6 @@ import { extractPlayerGames } from '@/logic/formats';
 import { computeBadges } from '@/logic/badges';
 import { computeFormatStats } from '@/logic/formatStats';
 import { computeRivalries } from '@/logic/rivalries';
-import Svg, { Polyline, Line, Circle, Text as SvgText } from 'react-native-svg';
 
 
 export default function PlayerDetailScreen() {
@@ -54,7 +54,7 @@ export default function PlayerDetailScreen() {
   const winRate = me.played > 0 ? Math.round((me.wins / me.played) * 100) : 0;
 
   // Match history
-  const matchHistory: Array<{ compId: string; compName: string; format: string; opponents: string; partner: string | null; myScore: number; oppScore: number; won: boolean; date: string; isTeam: boolean }> = [];
+  const matchHistory: Array<{ compId: string; compName: string; format: string; opponents: string; partner: string | null; myScore: number; oppScore: number; won: boolean; date: string; isTeam: boolean; gender: string }> = [];
   state.competitions.forEach(comp => {
     comp.matches.forEach(m => {
       if (m.scoreA == null || m.scoreB == null) return;
@@ -80,23 +80,30 @@ export default function PlayerDetailScreen() {
           opponents = oppComp?.name ?? findPlayer(oppId)?.name ?? oppId;
         }
       }
-      matchHistory.push({ compId: comp.id, compName: comp.name, format: comp.format, opponents, partner, myScore, oppScore, won, date: m.playedAt ?? comp.date ?? '', isTeam: !!(m.teamA && m.teamB) });
+      matchHistory.push({ compId: comp.id, compName: comp.name, format: comp.format, opponents, partner, myScore, oppScore, won, date: m.playedAt ?? comp.date ?? '', isTeam: !!(m.teamA && m.teamB), gender: comp.gender });
     });
   });
-  matchHistory.sort((a, b) => b.date.localeCompare(a.date));
+  // Sort ascendente + reverse — um sort estável descendente não reordenaria
+  // partidas com a mesma data (mesma competição, já que playedAt nunca é preenchido).
+  matchHistory.sort((a, b) => a.date.localeCompare(b.date));
+  matchHistory.reverse();
 
   // Últimos 20 jogos
   const last20 = matchHistory.slice(0, 20);
   const last20Wins = last20.filter(g => g.won).length;
   const last20Losses = last20.filter(g => !g.won).length;
 
-  // Simples = partidas individuais (aId/bId), Duplas = partidas com teamA/teamB
-  const simplesGames = last20.filter(g => !g.isTeam);
-  const duplasGames  = last20.filter(g => g.isTeam);
-  const formatBreakdown = [
-    { label: 'Simples', wins: simplesGames.filter(g => g.won).length, losses: simplesGames.filter(g => !g.won).length, total: simplesGames.length },
-    { label: 'Duplas',  wins: duplasGames.filter(g => g.won).length,  losses: duplasGames.filter(g => !g.won).length,  total: duplasGames.length },
-  ];
+  // Quebra por formato: Simples (individual), Duplas (competição não-mista), Mista (competição misto)
+  const catOf = (g: typeof last20[number]) => (!g.isTeam ? 'Simples' : g.gender === 'misto' ? 'Mista' : 'Duplas');
+  const formatBreakdown = ['Simples', 'Duplas', 'Mista'].map(label => {
+    const games = last20.filter(g => catOf(g) === label);
+    return {
+      label,
+      wins: games.filter(g => g.won).length,
+      losses: games.filter(g => !g.won).length,
+      total: games.length,
+    };
+  }).filter(f => f.total > 0);
 
   // Jogos por mês nos últimos 12 meses
   const now = new Date();
@@ -111,27 +118,25 @@ export default function PlayerDetailScreen() {
   }
   const maxMonthly = Math.max(...monthlyData.map(m => m.count), 1);
 
-  // Evolution chart
-  const screenW = Dimensions.get('window').width - Spacing.md * 2 - Spacing.md * 2 - 32;
-  const evoPoints: { label: string; pts: number }[] = state.competitions
-    .filter(c => c.status === 'done' || c.matches.some(m => m.scoreA != null))
-    .map(comp => {
-      const games = extractPlayerGames(comp);
-      const myGames = games.filter(g => g.teamA.includes(id!) || g.teamB.includes(id!));
-      if (myGames.length === 0) return null;
-      let wins = 0, played = 0, gp = 0, gc = 0;
-      myGames.forEach(g => {
-        const inA = g.teamA.includes(id!);
-        played++;
-        if (inA) { gp += g.scoreA; gc += g.scoreB; if (g.scoreA > g.scoreB) wins++; }
-        else { gp += g.scoreB; gc += g.scoreA; if (g.scoreB > g.scoreA) wins++; }
-      });
-      const ga = gc > 0 ? gp / gc : gp > 0 ? 999 : 0;
-      const pts = Math.round((wins * 3 + played * 0.5 + ga * 2) * 100) / 100;
-      return { label: comp.name.slice(0, 8), pts };
-    })
-    .filter(Boolean) as { label: string; pts: number }[];
-  evoPoints.reverse();
+  // Evolução de pontos — pontos acumulados + posição a cada competição (mesmo cálculo do perfil)
+  const evoPoints: { label: string; pts: number; pos: number }[] = (() => {
+    const players = groupPlayers.map(p => ({ id: p.id, name: p.name, short: '', color: p.color, handicap: p.handicap }));
+    const compsWithMe = state.competitions
+      .filter(c => c.matches.some(m => {
+        const ids = [...(m.teamA ?? []), ...(m.teamB ?? []), m.aId, m.bId].filter(Boolean);
+        return ids.includes(id!) && m.scoreA != null;
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    return compsWithMe.map((comp, idx) => {
+      const compsUpTo = compsWithMe.slice(0, idx + 1);
+      const games = compsUpTo.flatMap(extractPlayerGames);
+      const rank = buildRanking(players, games);
+      const meRank = rank.find(r => r.id === id);
+      const pos = rank.findIndex(r => r.id === id) + 1;
+      return { label: comp.name.slice(0, 7), pts: meRank?.points ?? 0, pos };
+    }).slice(-8); // últimas 8 competições
+  })();
 
   // Best partnerships
   type PairInfo = { partnerId: string; wins: number; losses: number; played: number };
@@ -191,62 +196,6 @@ export default function PlayerDetailScreen() {
           <Text style={styles.ptsVal}>{me.points.toFixed(2)}</Text>
         </Card>
 
-        {/* Stats compactas */}
-        <Card style={{ paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xs }}>
-          <View style={statRow.row}>
-            {[
-              { l: 'J',    v: me.played,                        c: Colors.text },
-              { l: 'V',    v: me.wins,                          c: Colors.teal },
-              { l: 'D',    v: me.losses,                        c: Colors.coral },
-              { l: 'GP',   v: me.gamesPro,                      c: Colors.teal },
-              { l: 'GC',   v: me.gamesCon,                      c: Colors.coral },
-              { l: 'SG',   v: (me.sg >= 0 ? '+' : '') + me.sg, c: me.sg >= 0 ? Colors.teal : Colors.coral },
-              { l: 'GA',   v: me.ga.toFixed(2),                 c: Colors.gold },
-              { l: 'WIN%', v: `${winRate}%`,                    c: Colors.goldBright },
-            ].map((item, i, arr) => (
-              <View key={item.l} style={[statRow.cell, i < arr.length - 1 && statRow.divider]}>
-                <Text style={[statRow.val, { color: item.c }]}>{item.v}</Text>
-                <Text style={statRow.lbl}>{item.l}</Text>
-              </View>
-            ))}
-          </View>
-        </Card>
-
-        {/* Sequência de Resultados — mais recente à esquerda (matchHistory já vem ordenado do mais novo pro mais antigo) */}
-        {(() => {
-          const recentGames = matchHistory.slice(0, 7);
-          if (recentGames.length === 0) return null;
-          return (
-            <Card>
-              <Text style={styles.sectionTitle}>Sequência de Resultados</Text>
-              <View style={{ flexDirection: 'row', gap: 6 }}>
-                {recentGames.map((g, i) => (
-                  <TouchableOpacity
-                    key={i}
-                    activeOpacity={0.7}
-                    onPress={() => setSelectedMatch({
-                      won: g.won, myScore: g.myScore, oppScore: g.oppScore,
-                      opponent: g.opponents, partner: g.partner, compName: g.compName, date: g.date,
-                    })}
-                    style={{
-                      width: 32, height: 32, borderRadius: 8,
-                      backgroundColor: g.won ? Colors.teal + '33' : Colors.coral + '33',
-                      borderWidth: 1, borderColor: g.won ? Colors.teal + '66' : Colors.coral + '66',
-                      alignItems: 'center', justifyContent: 'center',
-                    }}
-                  >
-                    <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 12, color: g.won ? Colors.teal : Colors.coral }}>
-                      {g.won ? 'V' : 'D'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </Card>
-          );
-        })()}
-
-        <MatchDetailModal match={selectedMatch} onClose={() => setSelectedMatch(null)} />
-
         {/* Últimos 20 jogos por formato */}
         {last20.length > 0 && (
           <Card>
@@ -290,6 +239,62 @@ export default function PlayerDetailScreen() {
             </View>
           </Card>
         )}
+
+        {/* Stats compactas */}
+        <Card style={{ paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xs }}>
+          <View style={statRow.row}>
+            {[
+              { l: 'GP',   v: me.gamesPro,                      c: Colors.teal },
+              { l: 'GC',   v: me.gamesCon,                      c: Colors.coral },
+              { l: 'SG',   v: (me.sg >= 0 ? '+' : '') + me.sg, c: me.sg >= 0 ? Colors.teal : Colors.coral },
+              { l: 'GA',   v: me.ga.toFixed(2),                 c: Colors.gold },
+              { l: 'WIN%', v: `${winRate}%`,                    c: Colors.goldBright },
+            ].map((item, i, arr) => (
+              <View key={item.l} style={[statRow.cell, i < arr.length - 1 && statRow.divider]}>
+                <Text style={[statRow.val, { color: item.c }]}>{item.v}</Text>
+                <Text style={statRow.lbl}>{item.l}</Text>
+              </View>
+            ))}
+          </View>
+        </Card>
+
+        {/* Sequência de Resultados — mais recente à esquerda (matchHistory já vem ordenado do mais novo pro mais antigo) */}
+        {(() => {
+          const recentGames = matchHistory.slice(0, 20);
+          if (recentGames.length === 0) return null;
+          return (
+            <Card>
+              <Text style={styles.sectionTitle}>Sequência de Resultados</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {recentGames.map((g, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    activeOpacity={0.7}
+                    onPress={() => setSelectedMatch({
+                      won: g.won, myScore: g.myScore, oppScore: g.oppScore,
+                      opponent: g.opponents, partner: g.partner, compName: g.compName, date: g.date,
+                    })}
+                    style={{
+                      flexGrow: 1, flexBasis: 32, height: 32, borderRadius: 8,
+                      backgroundColor: g.won ? Colors.teal + '33' : Colors.coral + '33',
+                      borderWidth: 1, borderColor: g.won ? Colors.teal + '66' : Colors.coral + '66',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 12, color: g.won ? Colors.teal : Colors.coral }}>
+                      {g.won ? 'V' : 'D'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </Card>
+          );
+        })()}
+
+        <MatchDetailModal match={selectedMatch} onClose={() => setSelectedMatch(null)} />
+
+        {/* Gráfico de evolução — mesmo componente do perfil */}
+        <PointsTimeline data={evoPoints} />
 
         {/* Jogos nos últimos 12 meses */}
         {monthlyData.some(m => m.count > 0) && (
@@ -351,36 +356,6 @@ export default function PlayerDetailScreen() {
             ))}
           </Card>
         )}
-
-        {/* Gráfico de evolução */}
-        {evoPoints.length >= 2 && (() => {
-          const chartH = 100;
-          const chartW = screenW;
-          const maxPts = Math.max(...evoPoints.map(p => p.pts));
-          const minPts = Math.min(...evoPoints.map(p => p.pts));
-          const range = Math.max(maxPts - minPts, 1);
-          const pad = 12;
-          const xStep = evoPoints.length > 1 ? (chartW - pad * 2) / (evoPoints.length - 1) : chartW - pad * 2;
-          const toY = (pts: number) => pad + ((maxPts - pts) / range) * (chartH - pad * 2);
-          const pts = evoPoints.map((p, i) => `${pad + i * xStep},${toY(p.pts)}`).join(' ');
-          return (
-            <Card>
-              <Text style={styles.sectionTitle}>Evolução de pontos</Text>
-              <Svg width={chartW} height={chartH}>
-                <Line x1={pad} y1={chartH - pad} x2={chartW - pad} y2={chartH - pad} stroke={Colors.line} strokeWidth={1} />
-                <Polyline points={pts} fill="none" stroke={Colors.gold} strokeWidth={2} />
-                {evoPoints.map((p, i) => (
-                  <Circle key={i} cx={pad + i * xStep} cy={toY(p.pts)} r={4} fill={Colors.gold} />
-                ))}
-                {evoPoints.map((p, i) => (
-                  <SvgText key={i} x={pad + i * xStep} y={chartH - 2} fontSize={9} fill={Colors.faint} textAnchor="middle">
-                    {p.label}
-                  </SvgText>
-                ))}
-              </Svg>
-            </Card>
-          );
-        })()}
 
         {/* Melhores parcerias */}
         {partnerships.length > 0 && (

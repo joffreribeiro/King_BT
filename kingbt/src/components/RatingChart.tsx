@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, type LayoutChangeEvent } from 'react-native';
 import { FontFamily, Radius, Spacing, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 
 const BAR_H    = 80;  // altura máxima da barra
-const BAR_W    = 44;  // largura fixa de cada barra
+const BAR_W    = 44;  // largura fixa de cada barra (modo scroll)
 const BAR_GAP  = 10;  // espaço entre barras
 
 interface Entry {
@@ -29,66 +29,91 @@ function normalize(ratings: Entry[] | number[]): Entry[] {
 export function RatingChart({ ratings }: Props) {
   const { colors: Colors } = useTheme();
   const rc = useMemo(() => makeRcStyles(Colors), [Colors]);
+  const [containerW, setContainerW] = useState(0);
   const data = normalize(ratings);
   if (data.length < 2) return null;
 
   const maxPts = Math.max(...data.map(d => d.pts), 0.01);
   const best   = Math.max(...data.map(d => d.pts));
 
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={rc.scroll}
-    >
-      {data.map((item, i) => {
-        const isLast   = i === data.length - 1;
-        const isBest   = item.pts === best && best > 0;
-        const barH     = Math.max(6, (item.pts / maxPts) * BAR_H);
-        const opacity  = 0.35 + (item.pts / maxPts) * 0.65;
-        const barColor = isBest ? Colors.gold : `rgba(243,197,68,${opacity})`;
-        const aprov    = item.played ? Math.round((item.wins ?? 0) / item.played * 100) : null;
+  // Se as barras couberem na largura disponível, distribui por toda a tela;
+  // senão, mantém o scroll horizontal.
+  const naturalW = data.length * BAR_W + (data.length - 1) * BAR_GAP;
+  const fitsFullWidth = containerW > 0 && naturalW <= containerW;
 
-        return (
-          <View key={i} style={rc.col}>
-            {/* Valor acima da barra */}
-            <Text style={[rc.pts, isBest && rc.ptsBest]}>
-              {item.pts.toFixed(1)}
-            </Text>
+  const onLayout = (e: LayoutChangeEvent) => setContainerW(e.nativeEvent.layout.width);
 
-            {/* Badge "melhor" */}
-            {isBest && (
-              <View style={rc.bestBadge}>
-                <Text style={rc.bestTxt}>↑</Text>
-              </View>
-            )}
+  const column = (item: Entry, i: number, flex: boolean) => {
+    const isBest   = item.pts === best && best > 0;
+    const barH     = Math.max(6, (item.pts / maxPts) * BAR_H);
+    const opacity  = 0.35 + (item.pts / maxPts) * 0.65;
+    const barColor = isBest ? Colors.gold : `rgba(243,197,68,${opacity})`;
+    const aprov    = item.played ? Math.round((item.wins ?? 0) / item.played * 100) : null;
 
-            {/* Barra */}
-            <View style={rc.barWrap}>
-              <View style={[
-                rc.bar,
-                { height: barH, backgroundColor: barColor },
-                isBest && rc.barBest,
-              ]} />
-            </View>
+    return (
+      <View key={i} style={[rc.col, flex ? { flex: 1 } : { width: BAR_W }]}>
+        {/* Valor acima da barra */}
+        <Text style={[rc.pts, isBest && rc.ptsBest]}>
+          {item.pts.toFixed(1)}
+        </Text>
 
-            {/* Label da competição */}
-            <Text style={[rc.label, isBest && rc.labelBest]} numberOfLines={1}>
-              {item.label}
-            </Text>
-
-            {/* Aproveitamento (se disponível) */}
-            {aprov !== null && (
-              <Text style={rc.aprov}>{aprov}%</Text>
-            )}
+        {/* Badge "melhor" */}
+        {isBest && (
+          <View style={rc.bestBadge}>
+            <Text style={rc.bestTxt}>↑</Text>
           </View>
-        );
-      })}
-    </ScrollView>
+        )}
+
+        {/* Barra */}
+        <View style={rc.barWrap}>
+          <View style={[
+            rc.bar,
+            { height: barH, backgroundColor: barColor },
+            isBest && rc.barBest,
+          ]} />
+        </View>
+
+        {/* Label da competição */}
+        <Text style={[rc.label, isBest && rc.labelBest]} numberOfLines={1}>
+          {item.label}
+        </Text>
+
+        {/* Aproveitamento (se disponível) */}
+        {aprov !== null && (
+          <Text style={rc.aprov}>{aprov}%</Text>
+        )}
+      </View>
+    );
+  };
+
+  if (fitsFullWidth) {
+    return (
+      <View onLayout={onLayout} style={rc.fullRow}>
+        {data.map((item, i) => column(item, i, true))}
+      </View>
+    );
+  }
+
+  return (
+    <View onLayout={onLayout}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={rc.scroll}
+      >
+        {data.map((item, i) => column(item, i, false))}
+      </ScrollView>
+    </View>
   );
 }
 
 const makeRcStyles = (Colors: ThemeColors) => StyleSheet.create({
+  fullRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: BAR_GAP,
+    paddingVertical: Spacing.xs,
+  },
   scroll: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -97,7 +122,6 @@ const makeRcStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 2,
   },
   col: {
-    width: BAR_W,
     alignItems: 'center',
     gap: 3,
   },
@@ -121,7 +145,7 @@ const makeRcStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.gold,
   },
   barWrap: {
-    width: BAR_W,
+    width: '100%',
     height: BAR_H,
     justifyContent: 'flex-end',
     alignItems: 'center',
@@ -144,7 +168,7 @@ const makeRcStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 9,
     color: Colors.faint,
     textAlign: 'center',
-    width: BAR_W,
+    width: '100%',
   },
   labelBest: {
     color: Colors.gold,
