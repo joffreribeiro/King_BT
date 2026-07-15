@@ -193,7 +193,7 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
         </View>
 
         {/* Linha A */}
-        <View style={[live.boardRow, { backgroundColor: 'rgba(243,197,68,0.06)' }]}>
+        <View style={[live.boardRow, { backgroundColor: Colors.gold + '0F' }]}>
           {/* Indicador de serviço (futuro) */}
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 }}>
             {playersA.map((p, i) => (
@@ -221,7 +221,7 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
         <View style={live.boardDiv} />
 
         {/* Linha B */}
-        <View style={[live.boardRow, { backgroundColor: 'rgba(84,185,129,0.06)' }]}>
+        <View style={[live.boardRow, { backgroundColor: Colors.teal + '0F' }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 }}>
             {playersB.map((p, i) => (
               <Avatar key={i} name={p.name} color={p.color} size={28} />
@@ -810,29 +810,29 @@ const makeLiveStyles = (Colors: ThemeColors) => StyleSheet.create({
   backBtn: { position: 'absolute', top: 20, left: 20, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: Colors.surf2, borderRadius: Radius.full, zIndex: 10 },
   backTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: Spacing.md, marginTop: 64, justifyContent: 'center' },
-  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(229,72,61,0.12)', borderWidth: 1, borderColor: 'rgba(229,72,61,0.3)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#E5483D' },
-  liveText: { fontSize: 9, fontWeight: '700', color: '#E5483D', letterSpacing: 1, fontFamily: FontFamily.numberBold },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.coral + '1F', borderWidth: 1, borderColor: Colors.coral + '4D', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.coral },
+  liveText: { fontSize: 9, fontWeight: '700', color: Colors.coral, letterSpacing: 1, fontFamily: FontFamily.numberBold },
   compName: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, flexShrink: 1 },
-  tiebreakBanner: { backgroundColor: 'rgba(243,197,68,0.15)', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 3, alignSelf: 'center', marginBottom: Spacing.sm },
+  tiebreakBanner: { backgroundColor: Colors.gold + '26', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 3, alignSelf: 'center', marginBottom: Spacing.sm },
   tiebreakBannerTxt: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold, letterSpacing: 1 },
 
   // Board estilo TV
   board: {
     backgroundColor: Colors.surf,
     borderRadius: 12, borderWidth: 1,
-    borderColor: 'rgba(214,175,70,0.18)',
+    borderColor: Colors.line,
     overflow: 'hidden', marginBottom: Spacing.lg,
   },
   boardHeader: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 12, paddingVertical: 5,
     backgroundColor: 'rgba(0,0,0,0.3)',
-    borderBottomWidth: 1, borderBottomColor: 'rgba(214,175,70,0.1)',
+    borderBottomWidth: 1, borderBottomColor: Colors.line,
   },
   boardColHdr: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 1, width: 36, textAlign: 'center' },
   boardRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10 },
-  boardDiv: { height: 1, backgroundColor: 'rgba(214,175,70,0.1)' },
+  boardDiv: { height: 1, backgroundColor: Colors.line },
   boardName: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text, flex: 1 },
   boardCell: { fontFamily: FontFamily.numberBold, fontSize: 22, width: 36, textAlign: 'center' },
   boardPts: { fontFamily: FontFamily.titleBold, fontSize: 28, textAlign: 'center', letterSpacing: -1 },
@@ -842,14 +842,14 @@ const makeLiveStyles = (Colors: ThemeColors) => StyleSheet.create({
   btnsArea: { gap: Spacing.sm },
   playerBtns: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   playerBtnLabel: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text, textAlign: 'center' },
-  minusBtnA: { width: 44, height: 44, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(214,175,70,0.15)', alignItems: 'center', justifyContent: 'center' },
+  minusBtnA: { width: 44, height: 44, borderRadius: 10, backgroundColor: Colors.surf2, borderWidth: 1, borderColor: Colors.line, alignItems: 'center', justifyContent: 'center' },
   minusTxtA: { fontFamily: FontFamily.titleBold, fontSize: 24, color: Colors.muted, lineHeight: 30 },
-  plusBtnA: { width: 56, height: 56, borderRadius: 12, backgroundColor: 'rgba(243,197,68,0.18)', borderWidth: 1.5, borderColor: 'rgba(243,197,68,0.5)', alignItems: 'center', justifyContent: 'center' },
-  plusTxtA: { fontFamily: FontFamily.titleBold, fontSize: 32, color: '#F3C544', lineHeight: 38 },
-  minusBtnB: { width: 44, height: 44, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(84,185,129,0.15)', alignItems: 'center', justifyContent: 'center' },
+  plusBtnA: { width: 56, height: 56, borderRadius: 12, backgroundColor: Colors.gold + '2E', borderWidth: 1.5, borderColor: Colors.gold + '80', alignItems: 'center', justifyContent: 'center' },
+  plusTxtA: { fontFamily: FontFamily.titleBold, fontSize: 32, color: Colors.gold, lineHeight: 38 },
+  minusBtnB: { width: 44, height: 44, borderRadius: 10, backgroundColor: Colors.surf2, borderWidth: 1, borderColor: Colors.teal + '26', alignItems: 'center', justifyContent: 'center' },
   minusTxtB: { fontFamily: FontFamily.titleBold, fontSize: 24, color: Colors.muted, lineHeight: 30 },
-  plusBtnB: { width: 56, height: 56, borderRadius: 12, backgroundColor: 'rgba(84,185,129,0.15)', borderWidth: 1.5, borderColor: 'rgba(84,185,129,0.4)', alignItems: 'center', justifyContent: 'center' },
-  plusTxtB: { fontFamily: FontFamily.titleBold, fontSize: 32, color: '#54B981', lineHeight: 38 },
+  plusBtnB: { width: 56, height: 56, borderRadius: 12, backgroundColor: Colors.teal + '26', borderWidth: 1.5, borderColor: Colors.teal + '66', alignItems: 'center', justifyContent: 'center' },
+  plusTxtB: { fontFamily: FontFamily.titleBold, fontSize: 32, color: Colors.teal, lineHeight: 38 },
 
   // legado (não usados mas mantidos para não quebrar referências)
   scoreArea: { flexDirection: 'row' },

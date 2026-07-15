@@ -62,3 +62,20 @@ export const FontFamily = {
   number:     'SpaceGrotesk_500Medium',
   numberBold: 'SpaceGrotesk_700Bold',
 } as const;
+
+// Escala de tipografia — consolida os tamanhos/pesos que já eram repetidos
+// soltos em cada tela (rótulo de seção, título de card, número de destaque etc.).
+// Uso: `<Text style={Type.label}>` ou espalhado num StyleSheet: `{ ...Type.body, color: Colors.text }`.
+export const Type = {
+  display:  { fontFamily: FontFamily.titleBold, fontSize: 40, lineHeight: 46 },
+  numberLg: { fontFamily: FontFamily.titleBold, fontSize: 28, lineHeight: 32 },
+  h1:       { fontFamily: FontFamily.titleBold, fontSize: 20, lineHeight: 26 },
+  h2:       { fontFamily: FontFamily.title,     fontSize: 17, lineHeight: 22 },
+  title:    { fontFamily: FontFamily.title,     fontSize: 15, lineHeight: 20 },
+  number:   { fontFamily: FontFamily.numberBold, fontSize: 18, lineHeight: 22 },
+  body:     { fontFamily: FontFamily.body,      fontSize: 13, lineHeight: 18 },
+  bodyMed:  { fontFamily: FontFamily.bodyMed,   fontSize: 13, lineHeight: 18 },
+  caption:  { fontFamily: FontFamily.body,      fontSize: 11, lineHeight: 15 },
+  // Rótulo maiúsculo de seção — o padrão "SECTION LABEL" repetido em quase toda tela.
+  label:    { fontFamily: FontFamily.numberBold, fontSize: 9, lineHeight: 12, letterSpacing: 1.5 },
+} as const;

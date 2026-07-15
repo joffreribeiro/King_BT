@@ -81,10 +81,10 @@ function MatchCard({ entry, index }: { entry: MatchEntry; index: number }) {
 
   const translateX = anim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] });
 
-  const winBg     = 'rgba(84,185,129,0.10)';
-  const lossBg    = 'rgba(229,72,61,0.08)';
-  const winBorder = 'rgba(84,185,129,0.28)';
-  const lossBorder= 'rgba(229,72,61,0.24)';
+  const winBg     = Colors.teal + '19';
+  const lossBg    = Colors.coral + '14';
+  const winBorder = Colors.teal + '47';
+  const lossBorder= Colors.coral + '3D';
 
   return (
     <Animated.View style={{ opacity: anim, transform: [{ translateX }] }}>
@@ -372,8 +372,8 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   title:    { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text, lineHeight: 30 },
   subtitle: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: 2 },
   headerBadge: {
-    backgroundColor: 'rgba(243,197,68,0.12)',
-    borderWidth: 1, borderColor: 'rgba(243,197,68,0.3)',
+    backgroundColor: Colors.gold + '1F',
+    borderWidth: 1, borderColor: Colors.gold + '4D',
     borderRadius: Radius.full,
     paddingHorizontal: 10, paddingVertical: 4,
     marginTop: 4,
@@ -404,7 +404,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     top: 10,
     bottom: 10,
     width: 2,
-    backgroundColor: 'rgba(214,175,70,0.25)',
+    backgroundColor: Colors.gold + '40',
     borderRadius: 1,
   },
   timelineRow: {

@@ -1,6 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { collection, query, where, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase/config';
@@ -14,6 +13,7 @@ import { computeNamedRivalries, mergeNamedRivalries, reduceNamedRivalries, type 
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 import { MatchDetailModal } from '@/components/MatchDetailModal';
+import { ScreenHeader, ProgressBar } from '@/components';
 
 interface GroupPerf {
   groupId: string;
@@ -217,12 +217,7 @@ export default function DesempenhoGeralScreen() {
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={s.back}>←</Text>
-        </TouchableOpacity>
-        <Text style={s.title}>Desempenho Geral</Text>
-      </View>
+      <ScreenHeader title="Desempenho Geral" />
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         <Text style={s.hint}>Soma do seu desempenho em todos os grupos que você participa.</Text>
@@ -246,11 +241,8 @@ export default function DesempenhoGeralScreen() {
               </View>
               <View style={s.summaryBody}>
                 <View style={{ flex: 1 }}>
-                  <View style={s.progressTrack}>
-                    <View style={[
-                      s.progressBar,
-                      { width: `${overallPct * 100}%` as any, backgroundColor: overallPct > 0.65 ? Colors.teal : Colors.gold },
-                    ]} />
+                  <View style={{ marginBottom: 4 }}>
+                    <ProgressBar pct={overallPct * 100} color={overallPct > 0.65 ? Colors.teal : Colors.gold} height={6} />
                   </View>
                   <Text style={s.progressPercent}>{Math.round(overallPct * 100)}% aproveitamento</Text>
                 </View>
@@ -340,9 +332,7 @@ export default function DesempenhoGeralScreen() {
                     {g.played} partidas · {g.wins}V {g.played - g.wins}D · rating {g.points.toFixed(2)}
                     {g.total > 1 ? ` · acima de ${g.percentile}% do grupo` : ''}
                   </Text>
-                  <View style={s.groupProgressTrack}>
-                    <View style={[s.groupProgressBar, { width: `${pct}%` as any, backgroundColor: Colors.gold }]} />
-                  </View>
+                  <ProgressBar pct={pct} color={Colors.gold} height={4} />
                 </View>
               );
             })}
@@ -360,9 +350,7 @@ export default function DesempenhoGeralScreen() {
                       </View>
                       <Text style={[s.formatPct, { color: f.color }]}>{f.pct}%</Text>
                     </View>
-                    <View style={s.groupProgressTrack}>
-                      <View style={[s.groupProgressBar, { width: `${f.pct}%` as any, backgroundColor: f.color }]} />
-                    </View>
+                    <ProgressBar pct={f.pct} color={f.color} height={4} />
                   </View>
                 ))}
 
@@ -378,8 +366,8 @@ export default function DesempenhoGeralScreen() {
                     <View key={f.format} style={s.podiumRow}>
                       <Text style={s.podiumMedal}>{medals[i] ?? '🏅'}</Text>
                       <Text style={[s.podiumFormat, { color: f.color }]}>{f.label}</Text>
-                      <View style={s.podiumBar}>
-                        <View style={[s.podiumFill, { width: `${f.pct}%` as any, backgroundColor: f.color }]} />
+                      <View style={{ flex: 1 }}>
+                        <ProgressBar pct={f.pct} color={f.color} height={4} />
                       </View>
                       <Text style={[s.podiumPct, { color: f.color }]}>{f.pct}%</Text>
                     </View>
@@ -399,9 +387,7 @@ export default function DesempenhoGeralScreen() {
                       <Text style={s.situationCount}>{st.played} · {st.wins}V {st.played - st.wins}D</Text>
                       <Text style={[s.situationPct, { color: Colors.gold }]}>{st.pct}%</Text>
                     </View>
-                    <View style={s.groupProgressTrack}>
-                      <View style={[s.groupProgressBar, { width: `${st.pct}%` as any, backgroundColor: Colors.gold }]} />
-                    </View>
+                    <ProgressBar pct={st.pct} color={Colors.gold} height={4} />
                   </View>
                 ))}
               </>
@@ -478,26 +464,18 @@ export default function DesempenhoGeralScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line,
-  },
-  back:  { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
-  title: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text, flex: 1 },
   scroll: { padding: Spacing.md, gap: Spacing.sm, paddingBottom: Spacing.xl },
 
   hint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, lineHeight: 19, marginBottom: 4 },
 
   summaryCard: {
     backgroundColor: Colors.surf, borderWidth: 1,
-    borderColor: 'rgba(243,197,68,0.18)', borderRadius: 12, padding: 11,
+    borderColor: Colors.gold + '2E', borderRadius: 12, padding: 11,
   },
   summaryHeader:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   summaryLabel:      { fontFamily: FontFamily.numberBold, fontSize: 8, fontWeight: '700', letterSpacing: 1.5, color: Colors.faint },
   summaryMatchCount: { fontFamily: FontFamily.numberBold, fontSize: 9, fontWeight: '700', color: Colors.gold },
   summaryBody:       { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  progressTrack:     { height: 6, backgroundColor: Colors.surf2, borderRadius: 3, overflow: 'hidden', flex: 1, marginBottom: 4 },
-  progressBar:       { height: 6, borderRadius: 3 },
   progressPercent:   { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.gold },
   summaryRecord:     { alignItems: 'flex-end' },
   recordWins:        { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.teal },
@@ -558,8 +536,6 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   groupRank: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.muted },
   groupPct:  { fontFamily: FontFamily.numberBold, fontSize: 13, fontWeight: '700' },
   groupCount: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.muted, marginBottom: 6 },
-  groupProgressTrack: { height: 4, backgroundColor: Colors.surf2, borderRadius: 2, overflow: 'hidden' },
-  groupProgressBar:   { height: 4, borderRadius: 2 },
 
   formatCard: { borderWidth: 1, borderRadius: 11, padding: 10, marginBottom: 6 },
   formatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7, gap: 6 },
@@ -568,7 +544,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   formatPct:   { fontFamily: FontFamily.numberBold, fontSize: 13, fontWeight: '700' },
 
   insightCard: {
-    backgroundColor: 'rgba(243,197,68,0.08)', borderWidth: 1, borderColor: 'rgba(243,197,68,0.15)',
+    backgroundColor: Colors.gold + '14', borderWidth: 1, borderColor: Colors.gold + '26',
     borderRadius: 11, padding: 12, marginTop: 4,
   },
   insightLabel: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.gold, fontWeight: '700', marginBottom: 5, letterSpacing: 0.5 },
@@ -577,8 +553,6 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   podiumRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.line },
   podiumMedal:  { fontSize: 18, width: 28 },
   podiumFormat: { fontFamily: FontFamily.bodyMed, fontSize: 12, width: 72 },
-  podiumBar:    { flex: 1, height: 4, backgroundColor: Colors.surf2, borderRadius: 2, overflow: 'hidden' },
-  podiumFill:   { height: 4, borderRadius: 2 },
   podiumPct:    { fontFamily: FontFamily.numberBold, fontSize: 12, width: 38, textAlign: 'right' },
 
   situationRow:    { backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line, borderRadius: 11, padding: 10, gap: 6, marginBottom: 6 },

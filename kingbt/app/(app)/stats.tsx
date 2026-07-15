@@ -1,5 +1,5 @@
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList,
+  View, Text, StyleSheet, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMemo } from 'react';
@@ -13,6 +13,7 @@ import { computeSituationStats, type SituationStat } from '@/logic/situationStat
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { ScreenHeader, ProgressBar } from '@/components';
 
 function SituationSection({ stats }: { stats: SituationStat[] }) {
   const { colors: Colors } = useTheme();
@@ -30,9 +31,7 @@ function SituationSection({ stats }: { stats: SituationStat[] }) {
             <Text style={su.rowCount}>{s.played} · {s.wins}V {s.played - s.wins}D</Text>
             <Text style={[su.rowPct, { color: Colors.gold }]}>{s.pct}%</Text>
           </View>
-          <View style={su.track}>
-            <View style={[su.bar, { width: `${s.pct}%` as any, backgroundColor: Colors.gold }]} />
-          </View>
+          <ProgressBar pct={s.pct} color={Colors.gold} height={4} />
         </View>
       ))}
     </>
@@ -49,8 +48,6 @@ const makeSituationStyles = (Colors: ThemeColors) => StyleSheet.create({
   rowLabel:  { flex: 1, fontFamily: FontFamily.title, fontSize: 13, color: Colors.text, fontWeight: '700' },
   rowCount:  { fontFamily: FontFamily.body, fontSize: 10, color: Colors.muted },
   rowPct:    { fontFamily: FontFamily.numberBold, fontSize: 13, fontWeight: '700', width: 40, textAlign: 'right' },
-  track:     { height: 4, backgroundColor: Colors.surf2, borderRadius: 2, overflow: 'hidden' },
-  bar:       { height: 4, borderRadius: 2 },
 });
 
 export default function StatsScreen() {
@@ -94,12 +91,7 @@ export default function StatsScreen() {
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.navigate("/(app)/profile")}>
-          <Text style={s.back}>←</Text>
-        </TouchableOpacity>
-        <Text style={s.title}>Análise por Formato</Text>
-      </View>
+      <ScreenHeader title="Análise por Formato" onBack={() => router.navigate("/(app)/profile")} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>
 
@@ -145,14 +137,8 @@ export default function StatsScreen() {
           </View>
           <View style={s.summaryBody}>
             <View style={{ flex: 1 }}>
-              <View style={s.progressTrack}>
-                <View style={[
-                  s.progressBar,
-                  {
-                    width: `${overallPct * 100}%` as any,
-                    backgroundColor: overallPct > 0.65 ? Colors.teal : Colors.gold,
-                  },
-                ]} />
+              <View style={{ marginBottom: 4 }}>
+                <ProgressBar pct={overallPct * 100} color={overallPct > 0.65 ? Colors.teal : Colors.gold} height={6} />
               </View>
               <Text style={s.progressPercent}>{Math.round(overallPct * 100)}% aproveitamento</Text>
             </View>
@@ -191,12 +177,7 @@ export default function StatsScreen() {
                     <Text style={[s.formatRecord, { color: f.color }]}>{f.wins}–{f.played - f.wins}</Text>
                   </View>
                 </View>
-                <View style={s.formatProgressTrack}>
-                  <View style={[
-                    s.formatProgressBar,
-                    { width: `${f.pct}%` as any, backgroundColor: f.color },
-                  ]} />
-                </View>
+                <ProgressBar pct={f.pct} color={f.color} height={4} />
               </View>
             ))}
 
@@ -217,8 +198,8 @@ export default function StatsScreen() {
                 <View key={f.format} style={s.podiumRow}>
                   <Text style={s.podiumMedal}>{medals[i] ?? '🏅'}</Text>
                   <Text style={[s.podiumFormat, { color: f.color }]}>{f.label}</Text>
-                  <View style={s.podiumBar}>
-                    <View style={[s.podiumFill, { width: `${f.pct}%` as any, backgroundColor: f.color }]} />
+                  <View style={{ flex: 1 }}>
+                    <ProgressBar pct={f.pct} color={f.color} height={4} />
                   </View>
                   <Text style={[s.podiumPct, { color: f.color }]}>{f.pct}%</Text>
                 </View>
@@ -235,12 +216,6 @@ export default function StatsScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line,
-  },
-  back:  { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
-  title: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text, flex: 1 },
   scroll: { padding: Spacing.md, gap: Spacing.sm },
 
   // Rating card
@@ -257,7 +232,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   ratingCard: {
     flexDirection: 'row',
     backgroundColor: Colors.surf,
-    borderWidth: 1, borderColor: 'rgba(243,197,68,0.2)',
+    borderWidth: 1, borderColor: Colors.gold + '33',
     borderRadius: 14, padding: 16,
     marginBottom: 4,
   },
@@ -271,14 +246,12 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   // Summary
   summaryCard: {
     backgroundColor: Colors.surf, borderWidth: 1,
-    borderColor: 'rgba(243,197,68,0.18)', borderRadius: 12, padding: 11,
+    borderColor: Colors.gold + '2E', borderRadius: 12, padding: 11,
   },
   summaryHeader:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
   summaryLabel:      { fontFamily: FontFamily.numberBold, fontSize: 8, fontWeight: '700', letterSpacing: 1.5, color: Colors.faint },
   summaryMatchCount: { fontFamily: FontFamily.numberBold, fontSize: 9, fontWeight: '700', color: Colors.gold },
   summaryBody:       { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  progressTrack:     { height: 6, backgroundColor: Colors.surf2, borderRadius: 3, overflow: 'hidden', flex: 1, marginBottom: 4 },
-  progressBar:       { height: 6, borderRadius: 3 },
   progressPercent:   { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.gold },
   summaryRecord:     { alignItems: 'flex-end' },
   recordWins:        { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.teal },
@@ -300,13 +273,11 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   formatStats:        { alignItems: 'flex-end' },
   formatRate:         { fontFamily: FontFamily.numberBold, fontSize: 13, fontWeight: '700' },
   formatRecord:       { fontFamily: FontFamily.number, fontSize: 10, fontWeight: '600', marginTop: 1 },
-  formatProgressTrack:{ height: 4, backgroundColor: Colors.surf2, borderRadius: 2, overflow: 'hidden' },
-  formatProgressBar:  { height: 4, borderRadius: 2 },
 
   // Insight
   insightCard: {
-    backgroundColor: 'rgba(243,197,68,0.08)',
-    borderWidth: 1, borderColor: 'rgba(243,197,68,0.15)',
+    backgroundColor: Colors.gold + '14',
+    borderWidth: 1, borderColor: Colors.gold + '26',
     borderRadius: 11, padding: 12, marginTop: 4,
   },
   insightLabel: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.gold, fontWeight: '700', marginBottom: 5, letterSpacing: 0.5 },
@@ -320,8 +291,6 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   podiumMedal:  { fontSize: 18, width: 28 },
   podiumFormat: { fontFamily: FontFamily.bodyMed, fontSize: 12, width: 72 },
-  podiumBar:    { flex: 1, height: 4, backgroundColor: Colors.surf2, borderRadius: 2, overflow: 'hidden' },
-  podiumFill:   { height: 4, borderRadius: 2 },
   podiumPct:    { fontFamily: FontFamily.numberBold, fontSize: 12, width: 38, textAlign: 'right' },
 
   empty: { alignItems: 'center', paddingVertical: Spacing.xl, gap: Spacing.sm },

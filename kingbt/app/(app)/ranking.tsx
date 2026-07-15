@@ -6,7 +6,6 @@ import { router } from 'expo-router';
 import { goToPlayer } from '@/logic/nav';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Shadows } from '@/theme/shadows';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, Card } from '@/components';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
@@ -656,8 +655,8 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   rowHeader: { paddingVertical: 5 },
   rowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.line },
   rowMe: { backgroundColor: Colors.gold + '14', borderLeftWidth: 3, borderLeftColor: Colors.gold },
-  rowUp: { borderColor: 'rgba(84,185,129,0.20)' },
-  rowDown: { borderColor: 'rgba(229,72,61,0.15)' },
+  rowUp: { borderColor: Colors.teal + '33' },
+  rowDown: { borderColor: Colors.coral + '26' },
 
   trendBorder: {
     position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,

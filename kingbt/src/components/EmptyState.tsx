@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Svg, { Circle, Rect, Path, Line, Ellipse } from 'react-native-svg';
-import { FontFamily } from '@/theme';
+import { Type, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 
 function RacketSvg() {
   return (
@@ -67,6 +69,8 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({ icon = 'racket', title, subtitle, ctaLabel, onCta }: EmptyStateProps) {
+  const { colors: Colors } = useTheme();
+  const es = useMemo(() => makeStyles(Colors), [Colors]);
   const IconComp = ICONS[icon];
   return (
     <View style={es.container}>
@@ -82,7 +86,7 @@ export function EmptyState({ icon = 'racket', title, subtitle, ctaLabel, onCta }
   );
 }
 
-const es = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
@@ -91,31 +95,26 @@ const es = StyleSheet.create({
     gap: 16,
   },
   title: {
-    fontFamily: FontFamily.title,
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#F6EFDD',
+    ...Type.title,
+    color: Colors.text,
     textAlign: 'center',
   },
   subtitle: {
-    fontFamily: FontFamily.body,
-    fontSize: 12,
-    color: '#6E6452',
+    ...Type.caption,
+    color: Colors.faint,
     textAlign: 'center',
     lineHeight: 20,
     maxWidth: 220,
   },
   cta: {
-    backgroundColor: '#F3C544',
+    backgroundColor: Colors.gold,
     borderRadius: 12,
     paddingHorizontal: 28,
     paddingVertical: 14,
     marginTop: 4,
   },
   ctaText: {
-    fontFamily: FontFamily.title,
-    color: '#000',
-    fontWeight: '700',
-    fontSize: 14,
+    ...Type.title,
+    color: Colors.bg, // mesmo par bg/gold usado no botão primário (Button.tsx)
   },
 });
