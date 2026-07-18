@@ -24,6 +24,7 @@ import { GroupPlayersProvider } from '@/store/GroupPlayersContext';
 import { SettingsProvider } from '@/store/SettingsContext';
 import { FeedProvider } from '@/store/FeedContext';
 import { SyncQueueProvider } from '@/store/SyncQueueContext';
+import { UpdateProvider } from '@/store/UpdateContext';
 import { ThemeProvider, useTheme } from '@/store/ThemeContext';
 
 SplashScreen.preventAutoHideAsync();
@@ -64,6 +65,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
     <AuthProvider>
+    <UpdateProvider>
     <SettingsProvider>
     <GroupPlayersProvider>
     <CompetitionsProvider>
@@ -75,6 +77,7 @@ export default function RootLayout() {
     </CompetitionsProvider>
     </GroupPlayersProvider>
     </SettingsProvider>
+    </UpdateProvider>
     </AuthProvider>
     </ThemeProvider>
   );

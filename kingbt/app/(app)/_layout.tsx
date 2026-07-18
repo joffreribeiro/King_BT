@@ -1,7 +1,7 @@
 import { Tabs, router } from 'expo-router';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated,
-  Modal, ScrollView, Pressable, Image,
+  Modal, ScrollView, Pressable, Image, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMemo, useRef, useEffect, useState } from 'react';
@@ -10,6 +10,7 @@ import { useTheme } from '@/store/ThemeContext';
 import { useSyncQueue } from '@/store/SyncQueueContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { useUpdate } from '@/store/UpdateContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Avatar } from '@/components';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -306,6 +307,39 @@ function OfflineBanner() {
   );
 }
 
+// Banner de atualização disponível
+function UpdateBanner() {
+  const { updateAvailable } = useUpdate();
+  const { colors: Colors } = useTheme();
+  const styles = useMemo(() => makeStyles(Colors), [Colors]);
+  const [dismissed, setDismissed] = useState(false);
+
+  if (!updateAvailable || dismissed) return null;
+
+  const apkUrl = 'https://github.com/joffreribeiro/King_BT/releases/download/latest-apk/kingbt.apk';
+
+  return (
+    <View style={styles.updateBanner}>
+      <View style={styles.updateContent}>
+        <Text style={{ fontSize: 12 }}>⬆️</Text>
+        <Text style={styles.updateText}>Versão atualizada disponível</Text>
+      </View>
+      <View style={styles.updateActions}>
+        <TouchableOpacity onPress={() => setDismissed(true)} hitSlop={6}>
+          <Text style={styles.updateDismiss}>Depois</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => Linking.openURL(apkUrl)}
+          hitSlop={6}
+          style={styles.updateBtn}
+        >
+          <Text style={styles.updateBtnText}>Atualizar</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 // Banner de modo visitante — usuário está vendo um grupo público sem ser membro
 function VisitorBanner() {
   const { colors: Colors } = useTheme();
@@ -380,6 +414,7 @@ export default function AppLayout() {
   return (
     <ErrorBoundary label="AppLayout">
       <OfflineBanner />
+      <UpdateBanner />
       {!isMember && <VisitorBanner />}
       <AppHeader onMenuPress={() => setDrawerOpen(true)} />
 
@@ -493,6 +528,17 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 5,
   },
   offlineText: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.coral },
+  updateBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+    backgroundColor: Colors.teal + '22', borderBottomWidth: 1, borderBottomColor: Colors.teal + '44',
+    paddingVertical: 6, paddingHorizontal: Spacing.md,
+  },
+  updateContent: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  updateText: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.teal },
+  updateActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  updateDismiss: { fontFamily: FontFamily.bodyMed, fontSize: 10, color: Colors.muted },
+  updateBtn: { paddingHorizontal: 10, paddingVertical: 4, backgroundColor: Colors.teal, borderRadius: 4 },
+  updateBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 10, color: '#000', fontWeight: '600' },
   visitorBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: Colors.gold + '22', borderBottomWidth: 1, borderBottomColor: Colors.gold + '44',
