@@ -1,0 +1,62 @@
+name: Build e publicar APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "kingbt/**"
+      - ".github/workflows/build-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kingbt
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: kingbt/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Gerar projeto Android nativo (expo prebuild)
+        run: npx expo prebuild --platform android --non-interactive
+
+      - name: Definir versionCode/versionName do build
+        run: |
+          APP_VERSION=$(node -p "require('./app.json').expo.version")
+          sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/" android/app/build.gradle
+          sed -i "s/versionName \"${APP_VERSION}\"/versionName \"${APP_VERSION}-${{ github.run_number }}\"/" android/app/build.gradle
+
+      - name: Build APK release
+        working-directory: kingbt/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Renomear APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk kingbt.apk
+
+      - name: Publicar release no GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-apk
+          name: "King BT (build ${{ github.run_number }})"
+          body: "Build automático gerado a partir do commit ${{ github.sha }}."
+          files: kingbt/kingbt.apk
+          make_latest: true
