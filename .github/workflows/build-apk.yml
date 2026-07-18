@@ -34,7 +34,7 @@ jobs:
       - uses: android-actions/setup-android@v3
 
       - name: Instalar dependências
-        run: npm ci
+        run: npm install
 
       - name: Gerar projeto Android nativo (expo prebuild)
         run: npx expo prebuild --platform android --non-interactive

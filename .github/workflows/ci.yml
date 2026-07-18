@@ -21,7 +21,7 @@ jobs:
           cache-dependency-path: kingbt/package-lock.json
 
       - name: Instalar dependências
-        run: npm ci
+        run: npm install
 
       - name: Typecheck
         run: npm run typecheck
