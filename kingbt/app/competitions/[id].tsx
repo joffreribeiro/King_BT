@@ -52,7 +52,6 @@ export default function CompetitionDetail() {
   const [showChampion, setShowChampion]   = useState(false);
   const [confirmBusy, setConfirmBusy]     = useState(false);
   const [showAddAvulso, setShowAddAvulso] = useState(false);
-  const [activeTab, setActiveTab] = useState<'regras' | 'classificacao' | 'partidas'>('partidas');
   const [avulsoTeamA, setAvulsoTeamA]     = useState<string[]>([]);
   const [avulsoTeamB, setAvulsoTeamB]     = useState<string[]>([]);
   const [showAddGuest, setShowAddGuest]   = useState(false);
@@ -61,6 +60,14 @@ export default function CompetitionDetail() {
   const champAnim  = useRef(new Animated.Value(0)).current;
   const screenW = Dimensions.get('window').width;
   const confettiFired = useRef(false);
+
+  // Para competição tipo "Grupo", inicia na aba correta baseado na fase ativa
+  const [activeTab, setActiveTab] = useState<'regras' | 'classificacao' | 'partidas'>(() => {
+    if (comp?.format !== 'grupos') return 'partidas';
+    // Se há grupos incompletos, abre em "classificacao", senão em "partidas" (mata-mata)
+    const allGroupsComplete = comp.groupDefs?.every((_, gi) => groupComplete(comp.matches, gi)) ?? false;
+    return allGroupsComplete ? 'partidas' : 'classificacao';
+  });
 
   function triggerChampion() {
     if (confettiFired.current) return;
@@ -81,6 +88,14 @@ export default function CompetitionDetail() {
   useEffect(() => {
     if (comp?.status === 'done' && competitionChampion(comp, id => findPlayer(id)?.name ?? id)) triggerChampion();
   }, [!!comp]);
+
+  // Para competição tipo "Grupo", ajusta a aba quando a fase muda (grupos completos → mata-mata)
+  useEffect(() => {
+    if (comp?.format === 'grupos') {
+      const allGroupsComplete = comp.groupDefs?.every((_, gi) => groupComplete(comp.matches, gi)) ?? false;
+      setActiveTab(allGroupsComplete ? 'partidas' : 'classificacao');
+    }
+  }, [comp?.matches]);
 
   if (!comp) {
     return (
