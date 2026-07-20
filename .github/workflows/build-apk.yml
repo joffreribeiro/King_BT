@@ -17,6 +17,12 @@ jobs:
     defaults:
       run:
         working-directory: kingbt
+    env:
+      # Embutido no bundle JS para o app comparar sua própria versão com a
+      # mais recente publicada (ver src/store/UpdateContext.tsx). Precisa
+      # estar disponível em todos os passos, pois o bundle JS é gerado
+      # dentro do "gradlew assembleRelease", não num passo isolado.
+      EXPO_PUBLIC_GIT_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
 
