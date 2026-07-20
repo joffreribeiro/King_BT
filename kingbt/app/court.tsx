@@ -9,15 +9,21 @@ import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
 import { updateLiveScore } from '@/firebase/competitions';
+import { saveAnaliseFs, loadAnaliseFs } from '@/firebase/analises';
+import { PointLogModal } from '@/components/analise/PointLogModal';
 import {
-  carregarAnalise, placardInicial, avancaPonto, formatGameScore,
-  winRuleFromComp, type BtAnalise, type BtPlacardState,
+  carregarAnalise, salvarAnalise, placardInicial, avancaPonto, formatGameScore, formatSetScore,
+  winRuleFromComp, type BtAnalise, type BtPlacardState, type BtPonto,
 } from '@/logic/btTracker';
 import type { Match, Competition } from '@/logic/types';
 
 function firstUnscored(matches: Match[]): Match | undefined {
   return matches.find(m => m.scoreA == null && ((m.aId && m.bId) || (m.teamA && m.teamB)));
 }
+
+// Alvo de games inalcançável: usado no Avulso para o set nunca fechar sozinho,
+// deixando a contagem de games livre até o usuário registrar o placar.
+const GAMES_LIVRE = 9999;
 
 function btHint(a: number, b: number, G: number = 6): string | null {
   if (a === G - 1 && b === G - 1) return `Empate em ${G - 1}-${G - 1} — jogue até ${G + 1}!`;
@@ -97,11 +103,98 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
   const { colors: Colors } = useTheme();
   const live = useMemo(() => makeLiveStyles(Colors), [Colors]);
   const { findPlayer } = useGroupPlayers();
+  const { group } = useAuth();
 
-  // Usa o BtPlacardState para seguir as regras da competição
-  const rule = winRuleFromComp(comp.config.winRule);
+  // Avulso: mesma regra de sets da competição (melhor de N, super tie-break no
+  // set decisivo), mas com games LIVRES dentro do set — `games` alto impede o
+  // fechamento automático. Quem fecha cada set é o usuário, pelo botão.
+  const isAvulso = comp.format === 'avulso';
+  const rule = isAvulso
+    ? { ...winRuleFromComp(comp.config.winRule), games: GAMES_LIVRE }
+    : winRuleFromComp(comp.config.winRule);
+  const setsParaVencer = Math.ceil((rule.sets ?? 3) / 2);
   const [placard, setPlacard] = useState<BtPlacardState>(() => placardInicial(rule));
   const historyRef = useRef<BtPlacardState[]>([]);
+
+  // Histórico de pontos (modo simples — sem detalhamento tático), para "ver pontos"
+  const [pontos, setPontos] = useState<BtPonto[]>([]);
+  const [showPointLog, setShowPointLog] = useState(false);
+
+  // Placar inicial a partir do que já está registrado na competição (marcação
+  // manual ou partida encerrada), para a Quadra abrir sincronizada em vez de
+  // zerada. Sets anteriores viram histórico; o último set fica como o atual,
+  // permitindo continuar a marcação de onde parou.
+  function placardDoMatch(): BtPlacardState | null {
+    const st = placardInicial(rule);
+    const sets = match.sets;
+    if (sets?.length) {
+      const anteriores = sets.slice(0, -1);
+      const atual = sets[sets.length - 1];
+      for (const s of anteriores) {
+        st.historicGamesA.push(s.a);
+        st.historicGamesB.push(s.b);
+        if (s.a > s.b) st.setsA += 1;
+        else if (s.b > s.a) st.setsB += 1;
+      }
+      st.gamesA = atual.a;
+      st.gamesB = atual.b;
+      return st;
+    }
+    // Avulso sem sets: scoreA/scoreB são os games do set único
+    if (isAvulso && match.scoreA != null && match.scoreB != null) {
+      st.gamesA = match.scoreA;
+      st.gamesB = match.scoreB;
+      return st;
+    }
+    return null;
+  }
+
+  // Ao montar (partida nova ou reaberta), recupera os pontos já registrados e
+  // reconstrói o placar repetindo-os — sobrevive a fechar/reabrir a tela. Sem
+  // pontos, cai para o placar já registrado na competição.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const remote = group?.id ? await loadAnaliseFs(group.id, match.id).catch(() => null) : null;
+      const local = remote ?? await carregarAnalise(match.id, comp.id).catch(() => null);
+      if (cancelled) return;
+
+      if (local && !local.placarFinal && local.pontos.length > 0) {
+        // Reconstrói também a pilha de desfazer, para o "−" funcionar certo
+        // mesmo logo após reabrir a partida (antes de marcar um ponto novo).
+        const statesHistory: BtPlacardState[] = [];
+        let st = placardInicial(rule);
+        for (const pt of local.pontos) {
+          statesHistory.push(st);
+          st = avancaPonto(st, pt.vencedorDupla);
+        }
+        historyRef.current = statesHistory;
+        setPontos(local.pontos);
+        setPlacard(st);
+        return;
+      }
+
+      const doMatch = placardDoMatch();
+      if (doMatch) setPlacard(doMatch);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [match.id]);
+
+  function persistAnalise(novosPontos: BtPonto[], placarFinal?: BtAnalise['placarFinal']) {
+    const teamA0 = match.teamA ?? (match.aId ? [match.aId] : []);
+    const teamB0 = match.teamB ?? (match.bId ? [match.bId] : []);
+    const analise: BtAnalise = {
+      id: match.id, competitionId: comp.id, matchId: match.id,
+      criadaEm: Date.now(), rule,
+      jogadores: { a1: teamA0[0] ?? '', a2: teamA0[1] ?? '', b1: teamB0[0] ?? '', b2: teamB0[1] ?? '' },
+      nomes: {},
+      pontos: novosPontos,
+      ...(placarFinal ? { placarFinal } : {}),
+    };
+    salvarAnalise(analise).catch(() => {});
+    if (group?.id) saveAnaliseFs(group.id, analise).catch(() => {});
+  }
 
   // Pontos do game atual (0-3 internamente, exibidos como 0/15/30/40)
   const GAME_LABELS = ['0', '15', '30', '40'];
@@ -133,13 +226,42 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
   function addPoint(dupla: 'A' | 'B') {
     // Salva estado anterior para desfazer
     historyRef.current = [...historyRef.current, placard];
+
+    // Registra o ponto no histórico (modo simples: sem detalhamento tático,
+    // mesma convenção do "ponto rápido" do King Scout)
+    const novoPonto: BtPonto = {
+      id: Date.now().toString() + Math.random().toString(36).slice(2),
+      timestamp: Date.now(),
+      gameScore: formatGameScore(placard),
+      setScore: formatSetScore(placard),
+      sacador: teamA[0] ?? teamB[0] ?? '',
+      posicaoSaque: 'Direita-3',
+      vencedorDupla: dupla,
+      finalizacao: 'SemDetalhe',
+    };
+    const novosPontos = [...pontos, novoPonto];
+    setPontos(novosPontos);
+
+    const eraSuperTie = placard.superTiebreakAtivo;
     const next = avancaPonto(placard, dupla);
     setPlacard(next);
     // Publica placar ao vivo
     onLiveScore?.(next.gamesA, next.gamesB, next.setsA, next.setsB);
+    // No Avulso o set normal nunca fecha sozinho (games livres) — só o super
+    // tie-break decisivo encerra por conta própria.
     if (next.encerrada) {
+      // O btTracker grava o set de super tie-break como 0-0 (os pontos não
+      // viram games). Registra os pontos disputados para o placar fazer sentido.
+      if (eraSuperTie && next.historicGamesA.length > 0) {
+        const i = next.historicGamesA.length - 1;
+        next.historicGamesA[i] = placard.pontosA + (dupla === 'A' ? 1 : 0);
+        next.historicGamesB[i] = placard.pontosB + (dupla === 'B' ? 1 : 0);
+      }
       const sets = next.historicGamesA.map((gA, i) => ({ a: gA, b: next.historicGamesB[i] ?? 0 }));
+      persistAnalise(novosPontos, { setsA: next.setsA, setsB: next.setsB, gamesA: next.historicGamesA, gamesB: next.historicGamesB });
       onSave(next.setsA, next.setsB, sets);
+    } else {
+      persistAnalise(novosPontos);
     }
   }
 
@@ -147,6 +269,77 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
     // Desfaz: volta ao estado anterior
     const prev = historyRef.current.pop();
     if (prev) setPlacard(prev);
+    if (pontos.length > 0) {
+      const novosPontos = pontos.slice(0, -1);
+      setPontos(novosPontos);
+      persistAnalise(novosPontos);
+    }
+  }
+
+  // ── Avulso: sets fechados manualmente (games livres) ─────────────────────
+  // Grava o resultado a partir de um placard: sets vencidos + games de cada set.
+  function salvarAvulso(st: BtPlacardState) {
+    const sets = st.historicGamesA.map((gA, i) => ({ a: gA, b: st.historicGamesB[i] ?? 0 }));
+    persistAnalise(pontos, {
+      setsA: st.setsA, setsB: st.setsB,
+      gamesA: st.historicGamesA, gamesB: st.historicGamesB,
+    });
+    onSave(st.setsA, st.setsB, sets);
+  }
+
+  // Fecha o set atual: quem tem mais games vence o set. Ao ficar 1-1 (set
+  // decisivo), ativa o super tie-break; ao atingir os sets necessários, encerra.
+  function fecharSetAvulso() {
+    const gA = placard.gamesA, gB = placard.gamesB;
+    if (gA === gB) return; // set não pode terminar empatado
+    const next: BtPlacardState = {
+      ...placard,
+      historicGamesA: [...placard.historicGamesA, gA],
+      historicGamesB: [...placard.historicGamesB, gB],
+      setsA: placard.setsA + (gA > gB ? 1 : 0),
+      setsB: placard.setsB + (gB > gA ? 1 : 0),
+      gamesA: 0, gamesB: 0, pontosA: 0, pontosB: 0,
+      tiebreak: false, superTiebreakAtivo: false,
+      pontosJogadosNoTiebreak: 0, sacadorInicioTiebreak: null,
+    };
+    if (next.setsA >= setsParaVencer || next.setsB >= setsParaVencer) {
+      next.encerrada = true;
+      next.winnerDupla = next.setsA > next.setsB ? 'A' : 'B';
+    } else if (rule.superTiebreak && next.setsA === setsParaVencer - 1 && next.setsB === setsParaVencer - 1) {
+      next.tiebreak = true;
+      next.superTiebreakAtivo = true;
+    }
+    historyRef.current = [...historyRef.current, placard];
+    setPlacard(next);
+    onLiveScore?.(next.gamesA, next.gamesB, next.setsA, next.setsB);
+    if (next.encerrada) salvarAvulso(next);
+  }
+
+  // Encerra a partida agora, contando o set em andamento (se tiver games).
+  function registrarPlacarAvulso() {
+    const gA = placard.gamesA, gB = placard.gamesB;
+    const temSetAberto = gA !== gB;
+    const st: BtPlacardState = temSetAberto
+      ? {
+          ...placard,
+          historicGamesA: [...placard.historicGamesA, gA],
+          historicGamesB: [...placard.historicGamesB, gB],
+          setsA: placard.setsA + (gA > gB ? 1 : 0),
+          setsB: placard.setsB + (gB > gA ? 1 : 0),
+        }
+      : placard;
+    if (st.setsA === st.setsB) return; // empate não é permitido
+    const placarTxt = st.historicGamesA.map((g, i) => `${g}-${st.historicGamesB[i] ?? 0}`).join(', ');
+    const msg = `Registrar ${nameA} ${st.setsA} × ${st.setsB} ${nameB}  (${placarTxt})?`;
+    const salvar = () => salvarAvulso(st);
+    if (Platform.OS === 'web') {
+      if (window.confirm(msg)) salvar();
+    } else {
+      Alert.alert('Registrar placar?', msg, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Registrar', onPress: salvar },
+      ]);
+    }
   }
 
   const isTiebreak = placard.tiebreak;
@@ -165,11 +358,23 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
         <Text style={live.backTxt}>← Sair</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity style={live.pointsBtn} onPress={() => setShowPointLog(true)}>
+        <Text style={live.pointsBtnTxt}>📋 Pontos</Text>
+      </TouchableOpacity>
+
       {/* Header */}
       <View style={live.headerRow}>
         <LiveBadge />
         <Text style={live.compName} numberOfLines={1}>{comp.name}</Text>
       </View>
+
+      <PointLogModal
+        visible={showPointLog}
+        onClose={() => setShowPointLog(false)}
+        pontos={pontos}
+        nameA={nameA}
+        nameB={nameB}
+      />
 
       {/* Tiebreak label */}
       {scoreLabel && (
@@ -243,8 +448,9 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
 
         {/* Rodapé: regra */}
         <Text style={live.ruleHint}>
-          MD{rule.sets} · {rule.games} games · TB {rule.tiebreak}
-          {rule.superTiebreak ? ` · STB ${rule.superTiebreakPts}` : ''}
+          {isAvulso
+            ? `MD${rule.sets} · games livres${rule.superTiebreak ? ` · STB ${rule.superTiebreakPts}` : ''}`
+            : `MD${rule.sets} · ${rule.games} games · TB ${rule.tiebreak}${rule.superTiebreak ? ` · STB ${rule.superTiebreakPts}` : ''}`}
         </Text>
       </View>
 
@@ -269,6 +475,30 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
             <Text style={live.plusTxtB}>+</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Avulso: games livres — o usuário fecha cada set e encerra a partida */}
+        {isAvulso && !placard.superTiebreakAtivo && (
+          <TouchableOpacity
+            style={[live.fecharSetBtn, placard.gamesA === placard.gamesB && live.registrarBtnOff]}
+            onPress={fecharSetAvulso}
+            disabled={placard.gamesA === placard.gamesB}
+            activeOpacity={0.85}
+          >
+            <Text style={live.fecharSetTxt}>
+              + Fechar set ({placard.gamesA} × {placard.gamesB})
+            </Text>
+          </TouchableOpacity>
+        )}
+        {isAvulso && (
+          <TouchableOpacity
+            style={[live.registrarBtn, placard.gamesA === placard.gamesB && placard.setsA === placard.setsB && live.registrarBtnOff]}
+            onPress={registrarPlacarAvulso}
+            disabled={placard.gamesA === placard.gamesB && placard.setsA === placard.setsB}
+            activeOpacity={0.85}
+          >
+            <Text style={live.registrarTxt}>✓ Registrar placar</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -312,7 +542,7 @@ export default function CourtScreen() {
   const { state, dispatch } = useCompetitions();
   const { findPlayer } = useGroupPlayers();
   const { group, user, isAdmin, isSuperAdmin, myPlayerId } = useAuth();
-  const params = useLocalSearchParams<{ compId?: string }>();
+  const params = useLocalSearchParams<{ compId?: string; matchId?: string }>();
   const [selectedCompId, setSelectedCompId] = useState<string | null>(params.compId ?? null);
   const [liveMatch, setLiveMatch] = useState<Match | null>(null);
   const [spectMatchId, setSpectMatchId] = useState<string | null>(null);
@@ -345,16 +575,20 @@ export default function CourtScreen() {
     });
   }
 
-  // Auto-abrir próximo jogo quando compId é passado por param
+  // Auto-abrir jogo quando compId é passado por param — se matchId também vier,
+  // abre essa partida específica (mesmo já com placar, pra remarcação ao vivo);
+  // senão, abre o próximo jogo sem placar.
   useEffect(() => {
     if (params.compId && !liveMatch && !spectMatchId) {
       const comp = state.competitions.find(c => c.id === params.compId);
       if (comp) {
-        const next = firstUnscored(comp.matches);
-        if (next) abrirMatch(next);
+        const target = params.matchId
+          ? comp.matches.find(m => m.id === params.matchId)
+          : firstUnscored(comp.matches);
+        if (target) abrirMatch(target);
       }
     }
-  }, [params.compId, state.competitions]);
+  }, [params.compId, params.matchId, state.competitions]);
 
   // Verifica quais partidas da comp selecionada têm análise BT salva
   useEffect(() => {
@@ -550,7 +784,10 @@ export default function CourtScreen() {
     return (
       <SafeAreaView style={s.container} edges={['top']}>
         <View style={s.header}>
-          <TouchableOpacity onPress={() => { setSpectMatchId(null); if (params.compId) router.replace('/(app)'); }}>
+          <TouchableOpacity onPress={() => {
+            setSpectMatchId(null);
+            if (params.compId) { if (router.canGoBack()) router.back(); else router.replace('/(app)'); }
+          }}>
             <Text style={s.back}>←</Text>
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
@@ -618,13 +855,16 @@ export default function CourtScreen() {
     return (
       <>
         <CourtLive
+          key={liveMatch.id}
           comp={selectedComp}
           match={liveMatch}
           onSave={(a, b, sets) => handleSave(a, b, sets)}
           onBack={() => {
             dispatch({ type: 'CLEAR_LIVE_SCORE', compId: selectedCompId!, matchId: liveMatch.id });
             if (params.compId) {
-              router.replace('/(app)');
+              // Volta para a tela de onde veio (ex.: a competição), não para a home
+              if (router.canGoBack()) router.back();
+              else router.replace('/(app)');
             } else {
               setLiveMatch(null);
             }
@@ -648,7 +888,10 @@ export default function CourtScreen() {
       <>
         <SafeAreaView style={s.container} edges={['top']}>
           <View style={s.header}>
-            <TouchableOpacity onPress={() => { if (params.compId) { router.replace('/(app)'); } else { setSelectedCompId(null); setLiveMatch(null); } }}>
+            <TouchableOpacity onPress={() => {
+              if (params.compId) { if (router.canGoBack()) router.back(); else router.replace('/(app)'); }
+              else { setSelectedCompId(null); setLiveMatch(null); }
+            }}>
               <Text style={s.back}>←</Text>
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
@@ -809,6 +1052,13 @@ const makeLiveStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   backBtn: { position: 'absolute', top: 20, left: 20, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: Colors.surf2, borderRadius: Radius.full, zIndex: 10 },
   backTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
+  pointsBtn: { position: 'absolute', top: 20, right: 20, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: Colors.surf2, borderRadius: Radius.full, zIndex: 10 },
+  pointsBtnTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
+  registrarBtn: { marginTop: Spacing.sm, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' },
+  registrarBtnOff: { opacity: 0.35 },
+  registrarTxt: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg },
+  fecharSetBtn: { marginTop: Spacing.sm, borderWidth: 1.5, borderColor: Colors.teal, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' },
+  fecharSetTxt: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.teal },
   headerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: Spacing.md, marginTop: 64, justifyContent: 'center' },
   liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.coral + '1F', borderWidth: 1, borderColor: Colors.coral + '4D', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.coral },

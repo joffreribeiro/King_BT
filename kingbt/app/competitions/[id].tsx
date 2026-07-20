@@ -27,7 +27,7 @@ import { ScorerModal } from '@/components/competition/ScorerModal';
 import { FreeScoreModal } from '@/components/competition/FreeScoreModal';
 import { AvulsoView } from '@/components/competition/AvulsoView';
 import {
-  RotatingView, ClassificacaoView, LeagueView, GroupsPhaseView, KOView,
+  RotatingView, LeagueView, GroupsPhaseView, KOView,
 } from '@/components/competition/FormatViews';
 
 // Cor aleatória para o perfil criado ao aprovar uma solicitação de inscrição
@@ -500,11 +500,17 @@ export default function CompetitionDetail() {
                   { key: 'classificacao', label: '🏆 Fase de Grupos' },
                   { key: 'partidas',      label: '⚔️ Mata-mata' },
                 ] as const
-              : [
-                  { key: 'regras',        label: '📋 Regras' },
-                  { key: 'classificacao', label: '🏆 Classificação' },
-                  { key: 'partidas',      label: '🎾 Partidas' },
-                ] as const
+              : comp.format === 'liga' || comp.format === 'avulso' || comp.format === 'super8'
+                ? [
+                    // Classificação + jogos numa aba só (sem duplicar o ranking)
+                    { key: 'regras',   label: '📋 Regras' },
+                    { key: 'partidas', label: '🎾 Partidas' },
+                  ] as const
+                : [
+                    { key: 'regras',        label: '📋 Regras' },
+                    { key: 'classificacao', label: '🏆 Classificação' },
+                    { key: 'partidas',      label: '🎾 Partidas' },
+                  ] as const
             ).map(t => (
               <TouchableOpacity
                 key={t.key}
@@ -522,13 +528,11 @@ export default function CompetitionDetail() {
           {activeTab === 'classificacao' && (
             comp.format === 'grupos'
               ? <GroupsPhaseView comp={comp} onScore={handleScore} onClear={handleClear} />
-              : comp.format === 'liga' || comp.format === 'avulso' || comp.format === 'super8'
-                ? <ClassificacaoView comp={comp} />
-                : <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-                    <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', marginTop: 32 }}>
-                      Formato mata-mata não possui classificação.
-                    </Text>
-                  </ScrollView>
+              : <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+                  <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', marginTop: 32 }}>
+                    Formato mata-mata não possui classificação.
+                  </Text>
+                </ScrollView>
           )}
 
           {activeTab === 'partidas' && (

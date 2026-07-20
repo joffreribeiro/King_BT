@@ -1,7 +1,8 @@
 import {
-  View, Text, StyleSheet, TouchableOpacity, Picker,
+  View, Text, StyleSheet, TouchableOpacity,
   ActivityIndicator, KeyboardAvoidingView, Platform, Modal,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { useState, useEffect, useMemo } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useAuth, type UnlinkedPlayer } from '@/store/AuthContext';

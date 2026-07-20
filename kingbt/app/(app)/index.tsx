@@ -189,12 +189,16 @@ function CompCard({ comp, onDelete, onClone }: {
   }, []);
 
   // Player bubbles
+  // Quando a competição usa competidores nomeados (duplas/times), aId/bId dos
+  // matches referenciam o id do competidor (ex.: "d0"), não um jogador — nesse
+  // caso os jogadores reais já vêm do loop de competitors.members abaixo.
+  const usesCompetitors = comp.competitors.length > 0;
   const ids = new Set<string>();
   comp.matches.forEach(m => {
-    (m.teamA ?? (m.aId ? [m.aId] : [])).forEach(id => ids.add(id));
-    (m.teamB ?? (m.bId ? [m.bId] : [])).forEach(id => ids.add(id));
+    (m.teamA ?? (!usesCompetitors && m.aId ? [m.aId] : [])).forEach(id => ids.add(id));
+    (m.teamB ?? (!usesCompetitors && m.bId ? [m.bId] : [])).forEach(id => ids.add(id));
   });
-  if (comp.competitors.length > 0) comp.competitors.forEach(c => c.members.forEach(mid => ids.add(mid)));
+  if (usesCompetitors) comp.competitors.forEach(c => c.members.forEach(mid => ids.add(mid)));
   const allPlayerIds = [...ids];
   const players = allPlayerIds.slice(0, 8).map(id => {
     const c = comp.competitors.find(x => x.members.includes(id));
@@ -289,16 +293,6 @@ function CompCard({ comp, onDelete, onClone }: {
               </View>
               <Text style={[styles.progressLabel, { color: accent }]}>{Math.round(pct * 100)}%</Text>
               <Text style={styles.dateText}>{done}/{total} jogos</Text>
-              {isActive && (
-                <TouchableOpacity
-                  onPress={e => { e.stopPropagation?.(); router.push({ pathname: '/court', params: { compId: comp.id } }); }}
-                  hitSlop={8}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.teal + '22', borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: Colors.teal + '44' }}
-                >
-                  <Text style={{ fontSize: 11 }}>🏓</Text>
-                  <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.teal }}>Quadra</Text>
-                </TouchableOpacity>
-              )}
             </View>
           )}
         </View>

@@ -7,8 +7,10 @@ import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
 import type { Match, Competition } from '@/logic/types';
 import { carregarAnalise, placardInicial, avancaPonto, winRuleFromComp, type BtAnalise } from '@/logic/btTracker';
+import { loadAnaliseFs } from '@/firebase/analises';
 import { deriveWinRule, isDecidingSet as isDecidingSetShared } from '@/logic/setOutcome';
 import { getCompetitor } from './helpers';
+import { PointLogModal } from '@/components/analise/PointLogModal';
 
 export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear, isAdmin = false }: {
   match: Match | null; comp: Competition;
@@ -19,10 +21,11 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
   isAdmin?: boolean;
 }) {
   const { findPlayer } = useGroupPlayers();
-  const { isSuperAdmin } = useAuth();
+  const { isSuperAdmin, group } = useAuth();
   const { colors: Colors } = useTheme();
   const sc = useMemo(() => makeSc(Colors), [Colors]);
   const [analise, setAnalise] = useState<BtAnalise | null>(null);
+  const [showPointLog, setShowPointLog] = useState(false);
 
   const { maxSets, setsToWin, gamesWin, superTb, superTbPts, tieAt } = useMemo(
     () => deriveWinRule(comp.config.winRule),
@@ -39,7 +42,9 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
   useEffect(() => {
     if (!match) return;
 
-    carregarAnalise(match.id, comp.id).then(a => {
+    (group?.id ? loadAnaliseFs(group.id, match.id).catch(() => null) : Promise.resolve(null))
+      .then(remote => remote ?? carregarAnalise(match.id, comp.id))
+      .then(a => {
       setAnalise(a);
 
       // Prioridade 1: placar final do King Scout (partida encerrada)
@@ -178,6 +183,23 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
     if (setScores.length > 1) setSetScores(prev => prev.slice(0, -1));
   }
 
+  function abrirMarcacaoAoVivo() {
+    const ir = () => {
+      onClose();
+      router.push({ pathname: '/court', params: { compId: comp.id, matchId: match!.id } });
+    };
+    if (!alreadyScored) { ir(); return; }
+    const msg = 'Esta partida já tem placar registrado. Entrar na marcação ao vivo e marcar um novo ponto vai sobrescrever esse resultado. Continuar?';
+    if (Platform.OS === 'web') {
+      if (window.confirm(msg)) ir();
+    } else {
+      Alert.alert('Sobrescrever placar?', msg, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Continuar', style: 'destructive', onPress: ir },
+      ]);
+    }
+  }
+
   function abrirBtTracker() {
     onClose();
     const wr = comp.config.winRule;
@@ -222,7 +244,7 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ justifyContent: 'flex-end', flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <View style={sc.sheet}>
           <Text style={sc.title}>Registrar Placar</Text>
-          <Text style={sc.sub}>{nameA}{'\nvs\n'}{nameB}</Text>
+          <Text style={sc.sub}>{nameA} vs {nameB}</Text>
           <Text style={sc.setsRule}>Melhor de {maxSets} sets · {gamesWin} games por set</Text>
 
           {/* Placar calculado automaticamente */}
@@ -322,6 +344,18 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
             <Text style={sc.adminNote}>⚙️ Admin — você pode corrigir ou apagar este placar.</Text>
           )}
 
+          {/* Ver pontos (log simples) e marcação ao vivo — disponível pra todos */}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {!!analise?.pontos?.length && (
+              <TouchableOpacity style={sc.pointsBtn} onPress={() => setShowPointLog(true)}>
+                <Text style={sc.pointsBtnTxt}>📋 Ver pontos</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={sc.pointsBtn} onPress={abrirMarcacaoAoVivo}>
+              <Text style={sc.pointsBtnTxt}>🔴 Marcação ao vivo</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* King Scout — exclusivo do Super Admin */}
           {!isSuperAdmin ? null : analise && !analiseEncerrada ? (
             // Análise em andamento — permite continuar ou ver parcial
@@ -389,6 +423,13 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
         </View>
         </ScrollView>
       </View>
+      <PointLogModal
+        visible={showPointLog}
+        onClose={() => setShowPointLog(false)}
+        pontos={analise?.pontos ?? []}
+        nameA={nameA}
+        nameB={nameB}
+      />
     </Modal>
   );
 }
@@ -418,6 +459,8 @@ const makeSc = (Colors: ThemeColors) => StyleSheet.create({
   saveText: { fontFamily: FontFamily.title, color: Colors.bg },
   lockedText: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint, textAlign: 'center' },
   adminNote: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.gold, textAlign: 'center' },
+  pointsBtn: { flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
+  pointsBtnTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
   clearBtn: { alignItems: 'center', paddingVertical: Spacing.xs },
   clearBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.coral },
   btBtn: { borderWidth: 1, borderColor: Colors.gold + '55', backgroundColor: Colors.gold + '15', borderRadius: Radius.md, padding: Spacing.sm + 2, alignItems: 'center' },

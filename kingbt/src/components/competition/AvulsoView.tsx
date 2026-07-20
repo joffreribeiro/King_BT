@@ -2,11 +2,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { useMemo } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Card } from '@/components';
-import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import type { Match, Competition } from '@/logic/types';
-import { buildRanking } from '@/logic/scoring';
-import { extractPlayerGames } from '@/logic/formats';
+import { PlayerRankingTable } from './FormatViews';
 import { GameRow } from './GameRow';
 
 export function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
@@ -17,23 +14,15 @@ export function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
 }) {
   const { colors: Colors } = useTheme();
   const avulsoS = useMemo(() => makeAvulsoStyles(Colors), [Colors]);
-  const { findPlayer } = useGroupPlayers();
   const scored = comp.matches.filter(m => m.scoreA != null);
   const pending = comp.matches.filter(m => m.scoreA == null);
-
-  // Ranking por jogador (fonte única: buildRanking)
-  const playerIds = [...new Set(comp.matches.flatMap(m => [...(m.teamA ?? []), ...(m.teamB ?? [])]))];
-  const players = playerIds.map(pid => {
-    const pl = findPlayer(pid);
-    return pl
-      ? { id: pl.id, name: pl.name, short: pl.name.slice(0, 3), color: pl.color }
-      : { id: pid, name: pid, short: pid, color: Colors.gold };
-  });
-  const rankingStats = buildRanking(players, extractPlayerGames(comp));
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: Spacing.md, gap: Spacing.md }}
       showsVerticalScrollIndicator={false}>
+
+      {/* Classificação */}
+      <PlayerRankingTable comp={comp} />
 
       {/* Botão adicionar jogo */}
       {comp.status !== 'done' && (
@@ -65,29 +54,6 @@ export function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
         </View>
       )}
 
-      {/* Ranking */}
-      {rankingStats.length > 0 && (
-        <View style={{ gap: Spacing.xs }}>
-          <Text style={avulsoS.sectionTitle}>RANKING</Text>
-          <Card padding={0} style={{ overflow: 'hidden' }}>
-            {rankingStats.map((r, i) => {
-              const pl = findPlayer(r.id);
-              return (
-                <View key={r.id} style={[avulsoS.rankRow, i < rankingStats.length - 1 && { borderBottomWidth: 1, borderBottomColor: Colors.line }]}>
-                  <Text style={avulsoS.rankPos}>{i + 1}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                    {pl && <Avatar name={pl.name} color={pl.color} size={22} />}
-                    <Text style={avulsoS.rankName} numberOfLines={1}>{pl?.name ?? r.id}</Text>
-                  </View>
-                  <Text style={avulsoS.rankStat}>{r.wins}V {r.losses}D</Text>
-                  <Text style={avulsoS.rankPts}>{r.points.toFixed(2)}</Text>
-                </View>
-              );
-            })}
-          </Card>
-        </View>
-      )}
-
       {comp.matches.length === 0 && (
         <View style={avulsoS.empty}>
           <Text style={avulsoS.emptyIcon}>📋</Text>
@@ -106,11 +72,6 @@ const makeAvulsoStyles = (Colors: ThemeColors) => StyleSheet.create({
   addBtnIcon:  { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.bg },
   addBtnText:  { fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg },
   sectionTitle:{ fontFamily: FontFamily.title, fontSize: 12, color: Colors.muted, letterSpacing: 1 },
-  rankRow:     { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.sm, paddingVertical: 8 },
-  rankPos:     { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted, width: 20, textAlign: 'center' },
-  rankName:    { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text, flex: 1 },
-  rankStat:    { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
-  rankPts:     { fontFamily: FontFamily.numberBold, fontSize: 14, color: Colors.gold, width: 52, textAlign: 'right' },
   empty:       { alignItems: 'center', paddingVertical: Spacing.xl, gap: Spacing.sm },
   emptyIcon:   { fontSize: 40 },
   emptyText:   { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },

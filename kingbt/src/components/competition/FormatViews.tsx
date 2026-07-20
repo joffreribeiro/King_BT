@@ -29,6 +29,8 @@ export function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: C
 
   return (
     <ScrollView contentContainerStyle={vw.scroll}>
+        <PlayerRankingTable comp={comp} />
+
         <Card style={vw.prog}>
           <View style={vw.progRow}>
             <Text style={vw.progLabel}>Progresso</Text>
@@ -91,40 +93,14 @@ export function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: C
   );
 }
 
-// ─── Classificação unificada ──────────────────────────────────────────────────
-export function ClassificacaoView({ comp }: { comp: Competition }) {
+// ─── Ranking por jogador (Avulso / Super8) — fonte única: buildRanking ───────
+// Componente "plano" (sem ScrollView próprio) para compor com a lista de jogos
+// numa única aba, como já se faz em GroupsPhaseView com StandingsTable.
+export function PlayerRankingTable({ comp }: { comp: Competition }) {
   const { findPlayer } = useGroupPlayers();
   const { colors: Colors } = useTheme();
-  const vw = useMemo(() => makeVw(Colors), [Colors]);
   const stRow = useMemo(() => makeStRow(Colors), [Colors]);
 
-  // Liga
-  if (comp.format === 'liga') {
-    return (
-      <ScrollView contentContainerStyle={vw.scroll}>
-        <StandingsTable comp={comp} ids={comp.competitors.map(c => c.id)} matches={comp.matches} />
-        <View style={{ height: Spacing.xl }} />
-      </ScrollView>
-    );
-  }
-
-  // Grupos
-  if (comp.format === 'grupos') {
-    return (
-      <ScrollView contentContainerStyle={vw.scroll}>
-        {comp.groupDefs?.map((gd, gi) => (
-          <View key={gi}>
-            <Text style={vw.section}>{gd.name}</Text>
-            <StandingsTable comp={comp} ids={gd.ids}
-              matches={comp.matches.filter(m => m.stage === 'group' && m.groupIdx === gi)} />
-          </View>
-        ))}
-        <View style={{ height: Spacing.xl }} />
-      </ScrollView>
-    );
-  }
-
-  // Avulso / Super8 — ranking por jogador (fonte única: buildRanking)
   const playerIds = [...new Set(comp.matches.flatMap(m => [...(m.teamA ?? []), ...(m.teamB ?? [])]))];
   const players = playerIds.map(pid => {
     const pl = findPlayer(pid);
@@ -134,56 +110,55 @@ export function ClassificacaoView({ comp }: { comp: Competition }) {
   });
   const rankingStats = buildRanking(players, extractPlayerGames(comp));
 
+  if (rankingStats.length === 0) return null;
+
   return (
-    <ScrollView contentContainerStyle={vw.scroll}>
-      <Card padding={0} style={{ overflow: 'hidden' }}>
-        <View style={[stRow.row, stRow.header]}>
-          <Text style={[stRow.c0, stRow.th]}>#</Text>
-          <Text style={[stRow.cName, stRow.th]}>JOGADOR</Text>
-          <Text style={[stRow.cN, stRow.th]}>V</Text>
-          <Text style={[stRow.cN, stRow.th]}>D</Text>
-          <Text style={[stRow.cN, stRow.th]}>GP</Text>
-          <Text style={[stRow.cN, stRow.th]}>GC</Text>
-          <Text style={[stRow.cN, stRow.th]}>SG</Text>
-          <Text style={[stRow.cNw, stRow.th]}>GA</Text>
-          <Text style={[stRow.cPts, stRow.th]}>PTS</Text>
-        </View>
-        {rankingStats.map((r, i) => {
-          const pl = findPlayer(r.id);
-          return (
-            <View key={r.id} style={[stRow.row, i < rankingStats.length - 1 && stRow.border]}>
-              <Text style={[stRow.c0, stRow.pos]}>{i + 1}</Text>
-              <TouchableOpacity
-                style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}
-                onPress={() => pl && goToPlayer(r.id)}
-                disabled={!pl}
-                activeOpacity={0.7}
-              >
-                {pl && <Avatar name={pl.name} color={pl.color} size={22} />}
-                <View style={{ flex: 1 }}>
-                  <Text style={stRow.name} numberOfLines={1}>{pl?.name ?? r.id}</Text>
-                  <Text style={stRow.meta}>{r.played}J · {r.winRate}% aprov.</Text>
-                </View>
-              </TouchableOpacity>
-              <Text style={stRow.cN}>{r.wins}</Text>
-              <Text style={stRow.cN}>{r.losses}</Text>
-              <Text style={stRow.cN}>{r.gamesPro}</Text>
-              <Text style={stRow.cN}>{r.gamesCon}</Text>
-              <Text style={[stRow.cN, { color: sgColor(r.sg, Colors) }]}>{r.sg > 0 ? '+' : ''}{r.sg}</Text>
-              <Text style={stRow.cNw} numberOfLines={1}>
-                {r.ga >= 10 ? r.ga.toFixed(1) : r.ga.toFixed(2)}
-              </Text>
-              <Text style={[stRow.cPts, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>{r.points.toFixed(2)}</Text>
-            </View>
-          );
-        })}
-        {/* Legenda */}
-        <View style={stRow.legend}>
-          <Text style={stRow.legendText}>V: Vitórias · D: Derrotas · GP: Games Pró · GC: Games Contra · SG: Saldo · GA: Game Average · PTS: Pontuação</Text>
-        </View>
-      </Card>
-      <View style={{ height: Spacing.xl }} />
-    </ScrollView>
+    <Card padding={0} style={{ overflow: 'hidden', marginBottom: Spacing.sm }}>
+      <View style={[stRow.row, stRow.header]}>
+        <Text style={[stRow.c0, stRow.th]}>#</Text>
+        <Text style={[stRow.cName, stRow.th]}>JOGADOR</Text>
+        <Text style={[stRow.cN, stRow.th]}>V</Text>
+        <Text style={[stRow.cN, stRow.th]}>D</Text>
+        <Text style={[stRow.cN, stRow.th]}>GP</Text>
+        <Text style={[stRow.cN, stRow.th]}>GC</Text>
+        <Text style={[stRow.cN, stRow.th]}>SG</Text>
+        <Text style={[stRow.cNw, stRow.th]}>GA</Text>
+        <Text style={[stRow.cPts, stRow.th]}>PTS</Text>
+      </View>
+      {rankingStats.map((r, i) => {
+        const pl = findPlayer(r.id);
+        return (
+          <View key={r.id} style={[stRow.row, i < rankingStats.length - 1 && stRow.border]}>
+            <Text style={[stRow.c0, stRow.pos]}>{i + 1}</Text>
+            <TouchableOpacity
+              style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}
+              onPress={() => pl && goToPlayer(r.id)}
+              disabled={!pl}
+              activeOpacity={0.7}
+            >
+              {pl && <Avatar name={pl.name} color={pl.color} size={22} />}
+              <View style={{ flex: 1 }}>
+                <Text style={stRow.name} numberOfLines={1}>{pl?.name ?? r.id}</Text>
+                <Text style={stRow.meta}>{r.played}J · {r.winRate}% aprov.</Text>
+              </View>
+            </TouchableOpacity>
+            <Text style={stRow.cN}>{r.wins}</Text>
+            <Text style={stRow.cN}>{r.losses}</Text>
+            <Text style={stRow.cN}>{r.gamesPro}</Text>
+            <Text style={stRow.cN}>{r.gamesCon}</Text>
+            <Text style={[stRow.cN, { color: sgColor(r.sg, Colors) }]}>{r.sg > 0 ? '+' : ''}{r.sg}</Text>
+            <Text style={stRow.cNw} numberOfLines={1}>
+              {r.ga >= 10 ? r.ga.toFixed(1) : r.ga.toFixed(2)}
+            </Text>
+            <Text style={[stRow.cPts, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>{r.points.toFixed(2)}</Text>
+          </View>
+        );
+      })}
+      {/* Legenda */}
+      <View style={stRow.legend}>
+        <Text style={stRow.legendText}>V: Vitórias · D: Derrotas · GP: Games Pró · GC: Games Contra · SG: Saldo · GA: Game Average · PTS: Pontuação</Text>
+      </View>
+    </Card>
   );
 }
 
@@ -194,6 +169,8 @@ export function LeagueView({ comp, onScore, onClear, onSubstitute }: { comp: Com
   const nextId = firstUnscored(comp.matches);
   return (
     <ScrollView contentContainerStyle={vw.scroll}>
+      <StandingsTable comp={comp} ids={comp.competitors.map(c => c.id)} matches={comp.matches} />
+
       {rounds.map(r => (
         <View key={r}>
           <Text style={vw.section}>Rodada {r}</Text>
