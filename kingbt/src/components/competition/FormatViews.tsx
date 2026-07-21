@@ -8,6 +8,7 @@ import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card, OptionModal } from '@/components';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { useSettings } from '@/store/SettingsContext';
 import type { Match, Competition } from '@/logic/types';
 import { firstUnscored, buildBracketShareText, sgColor } from './helpers';
 import { GameRow } from './GameRow';
@@ -98,6 +99,7 @@ export function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: C
 // numa única aba, como já se faz em GroupsPhaseView com StandingsTable.
 export function PlayerRankingTable({ comp }: { comp: Competition }) {
   const { findPlayer } = useGroupPlayers();
+  const { scoringConfig } = useSettings();
   const { colors: Colors } = useTheme();
   const stRow = useMemo(() => makeStRow(Colors), [Colors]);
 
@@ -108,7 +110,7 @@ export function PlayerRankingTable({ comp }: { comp: Competition }) {
       ? { id: pl.id, name: pl.name, short: pl.name.slice(0, 3), color: pl.color }
       : { id: pid, name: pid, short: pid, color: Colors.gold };
   });
-  const rankingStats = buildRanking(players, extractPlayerGames(comp));
+  const rankingStats = buildRanking(players, extractPlayerGames(comp), scoringConfig);
 
   if (rankingStats.length === 0) return null;
 

@@ -1,6 +1,7 @@
 import type { Match, MatchSource, GroupDef, Competition, Standing, Competitor } from './types';
 import { generateSchedule, generateScheduleIndividual, generateScheduleDuplas } from './roundRobin';
 import { gameAverage, statPoints, compareRank } from './scoring';
+import { DEFAULT_SCORING, type ScoringConfig } from './scoringConfig';
 
 // ─── Liga (round-robin Circle method) ────────────────────────────────────────
 
@@ -142,7 +143,7 @@ export function genGroups(
 
 // ─── Standings ────────────────────────────────────────────────────────────────
 
-export function standings(ids: string[], matches: Match[], nameOf?: (id: string) => string): Standing[] {
+export function standings(ids: string[], matches: Match[], nameOf?: (id: string) => string, cfg: ScoringConfig = DEFAULT_SCORING): Standing[] {
   // acc.gc = games contra (acumulador interno, não exposto)
   const acc: Record<string, { played: number; wins: number; losses: number; gf: number; gc: number }> = {};
   ids.forEach(id => { acc[id] = { played: 0, wins: 0, losses: 0, gf: 0, gc: 0 }; });
@@ -162,7 +163,7 @@ export function standings(ids: string[], matches: Match[], nameOf?: (id: string)
   const rows: Standing[] = ids.map(id => {
     const s = acc[id];
     const ga = gameAverage({ gamesPro: s.gf, gamesCon: s.gc });
-    const pts = statPoints({ played: s.played, wins: s.wins, gamesPro: s.gf, gamesCon: s.gc });
+    const pts = statPoints({ played: s.played, wins: s.wins, gamesPro: s.gf, gamesCon: s.gc }, cfg);
     return { id, played: s.played, wins: s.wins, losses: s.losses, gf: s.gf, ga, gd: s.gf - s.gc, pts };
   });
 
@@ -287,7 +288,7 @@ export function resolveCompetition(comp: Competition): Competition {
 
 export type AvulsoChampion = { id: string; members: string[]; name?: string };
 
-export function competitionChampion(comp: Competition, nameOf?: (id: string) => string): Competitor | AvulsoChampion | null {
+export function competitionChampion(comp: Competition, nameOf?: (id: string) => string, cfg: ScoringConfig = DEFAULT_SCORING): Competitor | AvulsoChampion | null {
   // Avulso / Super8: calcula ranking dos teamA/teamB diretos
   if (comp.format === 'avulso' || comp.format === 'super8') {
     const scored = comp.matches.filter(m => m.scoreA != null && m.scoreB != null && m.scoreA !== m.scoreB && m.teamA?.length && m.teamB?.length);
@@ -325,7 +326,7 @@ export function competitionChampion(comp: Competition, nameOf?: (id: string) => 
     const resolveNameOf = (id: string) => nameOf ? nameOf(id) : (comp.competitors.find(c => c.id === id)?.name ?? id);
     const rankRow = (id: string, s: { wins: number; played: number; pro: number; con: number }) => ({
       id,
-      points: statPoints({ played: s.played, wins: s.wins, gamesPro: s.pro, gamesCon: s.con }),
+      points: statPoints({ played: s.played, wins: s.wins, gamesPro: s.pro, gamesCon: s.con }, cfg),
       sg: s.pro - s.con,
       ga: gameAverage({ gamesPro: s.pro, gamesCon: s.con }),
       wins: s.wins,
@@ -338,7 +339,7 @@ export function competitionChampion(comp: Competition, nameOf?: (id: string) => 
     return { id: champId, members: [champId] };
   }
   if (comp.format === 'liga') {
-    const st = standings(comp.competitors.map(c => c.id), comp.matches);
+    const st = standings(comp.competitors.map(c => c.id), comp.matches, nameOf, cfg);
     const allDone = comp.matches.every(m => m.scoreA != null && m.scoreB != null);
     return allDone && st[0] ? comp.competitors.find(c => c.id === st[0].id) ?? null : null;
   }

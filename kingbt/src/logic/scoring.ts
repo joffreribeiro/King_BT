@@ -1,4 +1,5 @@
 import type { Player, PlayerStat, RankedPlayer } from './types';
+import { DEFAULT_SCORING, type ScoringConfig } from './scoringConfig';
 
 export type { PlayerStat, RankedPlayer };
 
@@ -32,9 +33,12 @@ export function gameAverage(s: Pick<ScoreStats, 'gamesPro' | 'gamesCon'>): numbe
   return Math.min(9.99, s.gamesPro / s.gamesCon);
 }
 
-/** Pts = (V×3) + (J×0,5) + (GA×2) */
-export function statPoints(s: ScoreStats): number {
-  return s.wins * 3 + s.played * 0.5 + gameAverage(s) * 2;
+/**
+ * Pts = (V×winCoef) + (J×playedCoef) + (GA×gaCoef).
+ * Coeficientes vêm do cfg (padrão: V×3 + J×0,5 + GA×2).
+ */
+export function statPoints(s: ScoreStats, cfg: ScoringConfig = DEFAULT_SCORING): number {
+  return s.wins * cfg.winCoef + s.played * cfg.playedCoef + gameAverage(s) * cfg.gaCoef;
 }
 
 /**
@@ -79,7 +83,8 @@ export function applyGame(
 
 export function buildRanking(
   players: Player[],
-  games: Array<{ teamA: string[]; teamB: string[]; scoreA: number; scoreB: number }>
+  games: Array<{ teamA: string[]; teamB: string[]; scoreA: number; scoreB: number }>,
+  cfg: ScoringConfig = DEFAULT_SCORING,
 ): RankedPlayer[] {
   const map: Record<string, PlayerStat> = {};
   players.forEach(p => { map[p.id] = { ...blankStat(), id: p.id }; });
@@ -107,7 +112,7 @@ export function buildRanking(
     return {
       ...p, ...s, sg, ga,
       winRate: s.played ? Math.round((s.wins / s.played) * 100) : 0,
-      points: Math.round(statPoints(s) * 100) / 100,
+      points: Math.round(statPoints(s, cfg) * 100) / 100,
     } as RankedPlayer;
   });
 

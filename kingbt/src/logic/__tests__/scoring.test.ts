@@ -1,4 +1,5 @@
 import { statPoints, gameAverage, compareRank, buildRanking } from '../scoring';
+import { validateScoringConfig, DEFAULT_SCORING } from '../scoringConfig';
 import { standings, competitionChampion, extractPlayerGames } from '../formats';
 import type { Player, Match, Competition } from '../types';
 
@@ -14,6 +15,50 @@ describe('statPoints — fórmula V×3 + J×0,5 + GA×2', () => {
   it('GA satura em 9.99 quando não há games contra', () => {
     expect(gameAverage({ gamesPro: 5, gamesCon: 0 })).toBe(9.99);
     expect(gameAverage({ gamesPro: 0, gamesCon: 0 })).toBe(0);
+  });
+
+  it('usa coeficientes custom quando cfg é fornecido', () => {
+    // cfg custom: V×5 + J×1 + GA×0 → só vitórias e jogos contam.
+    // 2 vitórias, 3 jogos, GA irrelevante (coef 0) → 2*5 + 3*1 + 0 = 13
+    const cfg = { winCoef: 5, playedCoef: 1, gaCoef: 0 };
+    expect(statPoints({ played: 3, wins: 2, gamesPro: 12, gamesCon: 6 }, cfg)).toBe(13);
+  });
+
+  it('sem cfg mantém a fórmula padrão (retrocompatibilidade)', () => {
+    const s = { played: 3, wins: 2, gamesPro: 12, gamesCon: 6 };
+    expect(statPoints(s)).toBe(statPoints(s, { winCoef: 3, playedCoef: 0.5, gaCoef: 2 }));
+  });
+});
+
+// ─── validateScoringConfig ──────────────────────────────────────────────────
+
+describe('validateScoringConfig — saneamento de entrada', () => {
+  it('aceita config válido', () => {
+    expect(validateScoringConfig({ winCoef: 4, playedCoef: 1, gaCoef: 2 }))
+      .toEqual({ winCoef: 4, playedCoef: 1, gaCoef: 2 });
+  });
+
+  it('rejeita negativo, NaN, string e fora do intervalo → fallback', () => {
+    expect(validateScoringConfig({ winCoef: -1, playedCoef: 0.5, gaCoef: 2 })).toEqual(DEFAULT_SCORING);
+    expect(validateScoringConfig({ winCoef: NaN, playedCoef: 0.5, gaCoef: 2 })).toEqual(DEFAULT_SCORING);
+    expect(validateScoringConfig({ winCoef: '3', playedCoef: 0.5, gaCoef: 2 })).toEqual(DEFAULT_SCORING);
+    expect(validateScoringConfig({ winCoef: 999, playedCoef: 0.5, gaCoef: 2 })).toEqual(DEFAULT_SCORING);
+    expect(validateScoringConfig(null)).toEqual(DEFAULT_SCORING);
+    expect(validateScoringConfig(undefined)).toEqual(DEFAULT_SCORING);
+  });
+});
+
+// ─── buildRanking com cfg custom ────────────────────────────────────────────
+
+describe('buildRanking — respeita cfg custom', () => {
+  it('recalcula pontos com coeficientes alterados', () => {
+    const players: Player[] = ['a', 'b'].map(id => ({ id, name: id, short: id, color: '#000' }));
+    const games = [{ teamA: ['a'], teamB: ['b'], scoreA: 6, scoreB: 3 }];
+    const cfg = { winCoef: 10, playedCoef: 0, gaCoef: 0 };
+    const rk = buildRanking(players, games, cfg);
+    const a = rk.find(r => r.id === 'a')!;
+    // Só vitórias contam (×10): 1 vitória → 10 pontos.
+    expect(a.points).toBe(10);
   });
 });
 

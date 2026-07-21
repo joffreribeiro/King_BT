@@ -2,7 +2,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, Alert, Platform, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
@@ -14,6 +14,9 @@ import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { addGuestPlayer, removeGuestPlayer, updatePlayerHandicap, deleteGroup } from '@/firebase/groupPlayers';
 import { searchUsers, type AppUser } from '@/firebase/users';
 import { EditNameModal } from '@/components/competition/EditNameModal';
+import { setScoringConfig } from '@/firebase/scoringConfig';
+import { DEFAULT_SCORING, isScoringConfigValid, type ScoringConfig } from '@/logic/scoringConfig';
+import { statPoints } from '@/logic/scoring';
 import type { Format } from '@/logic/types';
 
 const GUEST_COLORS = ['#FFD166', '#2DD4BF', '#A78BFA', '#34D399', '#F472B6', '#94A3B8', '#FB923C', '#60A5FA'];
@@ -32,7 +35,7 @@ const FORMAT_OPTIONS: { key: Format | ''; label: string }[] = [
 const version = Constants.expoConfig?.version ?? '1.0.0';
 
 export default function SettingsScreen() {
-  const { group, isAdmin, leaveGroup, user, removeFromGroup, promoteToAdmin, addExistingUserToGroup, setGroupVisibility, updateGroupName } = useAuth();
+  const { group, isAdmin, isSuperAdmin, leaveGroup, user, removeFromGroup, promoteToAdmin, addExistingUserToGroup, setGroupVisibility, updateGroupName } = useAuth();
   const { mode, colors: Colors, setMode } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { groupPlayers } = useGroupPlayers();
@@ -76,8 +79,73 @@ export default function SettingsScreen() {
   }
   const {
     defaultMaxScore, setDefaultMaxScore, defaultFormat, setDefaultFormat,
-    keepSacadorAfterSave, setKeepSacadorAfterSave,
+    keepSacadorAfterSave, setKeepSacadorAfterSave, scoringConfig,
   } = useSettings();
+
+  // ── Fórmula de pontuação (Super Admin) ──────────────────────────────
+  // Guarda os coeficientes como texto para permitir edição livre (incl. vírgula
+  // decimal); a validação/parse acontece no preview e no salvar.
+  const [scoreForm, setScoreForm] = useState({
+    winCoef:    String(scoringConfig.winCoef),
+    playedCoef: String(scoringConfig.playedCoef),
+    gaCoef:     String(scoringConfig.gaCoef),
+  });
+  const [savingScore, setSavingScore] = useState(false);
+
+  // Ressincroniza o formulário quando a fórmula chega/atualiza do Firestore
+  // (só enquanto o usuário não está no meio de um salvamento).
+  useEffect(() => {
+    if (savingScore) return;
+    setScoreForm({
+      winCoef:    String(scoringConfig.winCoef),
+      playedCoef: String(scoringConfig.playedCoef),
+      gaCoef:     String(scoringConfig.gaCoef),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoringConfig.winCoef, scoringConfig.playedCoef, scoringConfig.gaCoef]);
+
+  // Aceita vírgula decimal; string vazia/invalida → NaN (rejeitado na validação).
+  const parseCoef = (v: string) => Number(v.replace(',', '.').trim());
+  const parsedScoring: ScoringConfig = {
+    winCoef:    parseCoef(scoreForm.winCoef),
+    playedCoef: parseCoef(scoreForm.playedCoef),
+    gaCoef:     parseCoef(scoreForm.gaCoef),
+  };
+  const scoringValid = isScoringConfigValid(parsedScoring);
+  // Preview em tempo real: exemplo fixo (5V, 8J, GA 1.5) recalculado com os
+  // coeficientes digitados. GA 1.5 = 3 games pró / 2 contra.
+  const previewPts = scoringValid
+    ? statPoints({ played: 8, wins: 5, gamesPro: 3, gamesCon: 2 }, parsedScoring)
+    : null;
+
+  function notify(title: string, msg: string) {
+    if (Platform.OS === 'web') window.alert(`${title}\n\n${msg}`);
+    else Alert.alert(title, msg);
+  }
+
+  async function handleSaveScoring() {
+    if (!scoringValid) {
+      notify('Fórmula inválida', 'Use apenas números ≥ 0 e ≤ 100 nos três campos.');
+      return;
+    }
+    setSavingScore(true);
+    try {
+      await setScoringConfig(parsedScoring);
+      notify('Fórmula salva', 'A nova pontuação já vale para todos os grupos.');
+    } catch {
+      notify('Erro ao salvar', 'Não foi possível salvar a fórmula. Tente novamente.');
+    } finally {
+      setSavingScore(false);
+    }
+  }
+
+  function handleResetScoring() {
+    setScoreForm({
+      winCoef:    String(DEFAULT_SCORING.winCoef),
+      playedCoef: String(DEFAULT_SCORING.playedCoef),
+      gaCoef:     String(DEFAULT_SCORING.gaCoef),
+    });
+  }
 
   // Na web o Share.share abre o painel de compartilhamento do sistema, que
   // falha no desktop ("Não foi possível mostrar todas as maneiras de
@@ -291,6 +359,61 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </Card>
         </View>
+
+        {/* Fórmula de pontuação — exclusivo Super Admin */}
+        {isSuperAdmin && (
+          <View>
+            <Text style={s.sectionTitle}>Fórmula de pontuação</Text>
+            <Text style={s.sectionHint}>
+              Pts = (Vitórias × A) + (Jogos × B) + (Game Average × C). Vale para todos os grupos.
+            </Text>
+            <Card style={{ gap: Spacing.sm }}>
+              <View style={s.scoreRow}>
+                {([
+                  { key: 'winCoef',    label: 'Vitórias (A)' },
+                  { key: 'playedCoef', label: 'Jogos (B)' },
+                  { key: 'gaCoef',     label: 'GA (C)' },
+                ] as const).map(f => (
+                  <View key={f.key} style={s.scoreField}>
+                    <Text style={s.scoreLabel}>{f.label}</Text>
+                    <TextInput
+                      style={s.scoreInput}
+                      value={scoreForm[f.key]}
+                      onChangeText={t => setScoreForm(prev => ({ ...prev, [f.key]: t }))}
+                      keyboardType="decimal-pad"
+                      placeholder="0"
+                      placeholderTextColor={Colors.faint}
+                    />
+                  </View>
+                ))}
+              </View>
+
+              <View style={s.previewBox}>
+                {scoringValid ? (
+                  <Text style={s.previewText}>
+                    Ex.: 5 vitórias + 8 jogos + GA 1.5 ={' '}
+                    <Text style={s.previewPts}>{previewPts} pontos</Text>
+                  </Text>
+                ) : (
+                  <Text style={s.previewError}>Valores inválidos — use números entre 0 e 100.</Text>
+                )}
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+                <TouchableOpacity
+                  style={[s.scoreSaveBtn, (!scoringValid || savingScore) && { opacity: 0.4 }]}
+                  onPress={handleSaveScoring}
+                  disabled={!scoringValid || savingScore}
+                >
+                  <Text style={s.scoreSaveText}>{savingScore ? 'Salvando…' : 'Salvar fórmula'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.scoreResetBtn} onPress={handleResetScoring}>
+                  <Text style={s.scoreResetText}>Restaurar padrão</Text>
+                </TouchableOpacity>
+              </View>
+            </Card>
+          </View>
+        )}
 
         {/* Grupo */}
         {group && (
@@ -569,6 +692,22 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   themeLabel: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
   themeCheck: { width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.gold + '22', borderWidth: 1.5, borderColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
   themeCheckMark: { fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.gold },
+
+  scoreRow: { flexDirection: 'row', gap: Spacing.sm },
+  scoreField: { flex: 1, gap: 4 },
+  scoreLabel: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.muted, textAlign: 'center' },
+  scoreInput: {
+    backgroundColor: Colors.bg, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line,
+    paddingVertical: 10, fontFamily: FontFamily.numberBold, fontSize: 18, color: Colors.text, textAlign: 'center',
+  },
+  previewBox: { backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.sm, alignItems: 'center' },
+  previewText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
+  previewPts: { fontFamily: FontFamily.numberBold, color: Colors.gold },
+  previewError: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.coral },
+  scoreSaveBtn: { flex: 1, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
+  scoreSaveText: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.bg },
+  scoreResetBtn: { flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
+  scoreResetText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
 
   groupCard: { gap: Spacing.sm },
   groupName: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },

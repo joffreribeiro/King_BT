@@ -16,6 +16,7 @@ import { GROUP } from '@/mocks/data';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { useSettings } from '@/store/SettingsContext';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 import { sgColor } from '@/components/competition/helpers';
@@ -63,6 +64,7 @@ export default function RankingScreen() {
   const { state } = useCompetitions();
   const { myPlayerId } = useAuth();
   const { groupPlayers, findPlayer } = useGroupPlayers();
+  const { scoringConfig } = useSettings();
   // Tela estreita (celular): esconde V/D/J/GP/GC — o subtítulo do jogador já
   // resume J e % de aproveitamento, então nada de essencial se perde.
   const { width: screenWidth } = useWindowDimensions();
@@ -130,14 +132,15 @@ export default function RankingScreen() {
   const allGames = filteredComps.flatMap(extractPlayerGames);
   const ranking = buildRanking(
     groupPlayers.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color, handicap: p.handicap })),
-    allGames
+    allGames,
+    scoringConfig
   );
 
   const deltas = useMemo(
     () => computeRankingDeltas(filteredComps, groupPlayers.map(p => ({
       id: p.id, name: p.name, short: p.name.slice(0,3).toUpperCase(), color: p.color, handicap: p.handicap,
-    }))),
-    [filteredComps, groupPlayers]
+    })), scoringConfig),
+    [filteredComps, groupPlayers, scoringConfig]
   );
 
   const first  = ranking[0];

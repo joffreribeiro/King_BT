@@ -13,6 +13,7 @@ import { computeSituationStats, type SituationStat } from '@/logic/situationStat
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { useSettings } from '@/store/SettingsContext';
 import { ScreenHeader, ProgressBar } from '@/components';
 
 function SituationSection({ stats }: { stats: SituationStat[] }) {
@@ -56,6 +57,7 @@ export default function StatsScreen() {
   const { state } = useCompetitions();
   const { myPlayerId } = useAuth();
   const { groupPlayers } = useGroupPlayers();
+  const { scoringConfig } = useSettings();
   const MY_ID = myPlayerId ?? '';
 
   const formatStats = useMemo(
@@ -77,7 +79,8 @@ export default function StatsScreen() {
   const allGames = state.competitions.flatMap(extractPlayerGames);
   const ranking  = buildRanking(
     groupPlayers.map(p => ({ id: p.id, name: p.name, short: '', color: p.color, handicap: p.handicap })),
-    allGames
+    allGames,
+    scoringConfig
   );
   const myRank = ranking.find(r => r.id === MY_ID);
   const myPos  = ranking.findIndex(r => r.id === MY_ID) + 1;

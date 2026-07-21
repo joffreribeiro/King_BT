@@ -9,6 +9,7 @@ import { Avatar, Card } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
+import { useSettings } from '@/store/SettingsContext';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 import { computeGroupRivalries } from '@/logic/rivalries';
@@ -20,6 +21,7 @@ export default function DashboardScreen() {
   const { state } = useCompetitions();
   const { groupPlayers, findPlayer } = useGroupPlayers();
   const { myPlayerId } = useAuth();
+  const { scoringConfig } = useSettings();
 
   // Saudação por hora
   const hour = new Date().getHours();
@@ -34,7 +36,7 @@ export default function DashboardScreen() {
 
   const allGames = state.competitions.flatMap(extractPlayerGames);
   const rankPlayers = groupPlayers.map(p => ({ id: p.id, name: p.name, short: '', color: p.color, handicap: p.handicap }));
-  const ranking = buildRanking(rankPlayers, allGames);
+  const ranking = buildRanking(rankPlayers, allGames, scoringConfig);
   const mostActive = [...ranking].sort((a, b) => b.played - a.played)[0];
   const mostActivePlayer = mostActive ? findPlayer(mostActive.id) : null;
 
