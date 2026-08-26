@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
-import { Avatar, Card } from '@/components';
+import { Avatar, Card, VisibilityPicker } from '@/components';
 import { useAuth } from '@/store/AuthContext';
 import { useSettings } from '@/store/SettingsContext';
 import { useTheme } from '@/store/ThemeContext';
@@ -453,31 +453,7 @@ export default function SettingsScreen() {
         {group && (
           <View>
             <Text style={s.sectionTitle}>Visibilidade do grupo</Text>
-            <Card style={{ gap: Spacing.sm }}>
-              <TouchableOpacity
-                style={s.visRow}
-                onPress={() => setGroupVisibility('privado')}
-                activeOpacity={0.8}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={s.visLabel}>🔒 Privado</Text>
-                  <Text style={s.visDesc}>Só quem tem o código pode entrar e ver o grupo.</Text>
-                </View>
-                {(group.visibility ?? 'privado') === 'privado' && <Text style={s.visCheck}>✓</Text>}
-              </TouchableOpacity>
-              <View style={{ height: 1, backgroundColor: Colors.line }} />
-              <TouchableOpacity
-                style={s.visRow}
-                onPress={() => setGroupVisibility('publico')}
-                activeOpacity={0.8}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={s.visLabel}>🌍 Público</Text>
-                  <Text style={s.visDesc}>Qualquer pessoa pode visitar (ver ranking e jogos) sem entrar no grupo.</Text>
-                </View>
-                {group.visibility === 'publico' && <Text style={s.visCheck}>✓</Text>}
-              </TouchableOpacity>
-            </Card>
+            <VisibilityPicker value={group.visibility ?? 'privado'} onChange={setGroupVisibility} />
           </View>
         )}
 
@@ -649,10 +625,6 @@ export default function SettingsScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  visRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  visLabel: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
-  visDesc: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: 2 },
-  visCheck: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.teal },
   tabBar: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.line, backgroundColor: Colors.bg, paddingHorizontal: Spacing.md },
   tabItem: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', position: 'relative' },
   tabItemActive: {},

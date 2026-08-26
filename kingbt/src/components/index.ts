@@ -23,3 +23,5 @@ export type { OptionItem } from './OptionModal';
 export { ScreenHeader } from './ScreenHeader';
 export { ProgressBar } from './ProgressBar';
 export { StatCard } from './StatCard';
+export { VisibilityPicker } from './VisibilityPicker';
+export type { GroupVisibility } from './VisibilityPicker';

@@ -19,6 +19,8 @@
 import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 const CHROME_CANDIDATES = [
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
@@ -28,7 +30,7 @@ const DEBUG_PORT = 9222;
 const BASE_URL = process.env.KINGBT_URL ?? 'http://localhost:8081';
 // Perfil dedicado do driver — isolado do Chrome pessoal do usuário.
 // A sessão do Firebase Auth (localStorage/IndexedDB) fica salva aqui entre execuções.
-const USER_DATA_DIR = 'C:/Users/Joffre/AppData/Local/Temp/kingbt-driver-profile';
+const USER_DATA_DIR = path.join(os.tmpdir(), 'kingbt-driver-profile');
 
 function findChrome() {
   for (const c of CHROME_CANDIDATES) if (fs.existsSync(c)) return c;

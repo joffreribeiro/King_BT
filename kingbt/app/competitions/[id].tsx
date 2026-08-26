@@ -8,6 +8,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Badge, Card } from '@/components';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { competitionChampion, groupComplete } from '@/logic/formats';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
@@ -295,6 +296,7 @@ export default function CompetitionDetail() {
   }
 
   return (
+    <ErrorBoundary label="CompetitionDetail">
     <SafeAreaView style={main.container} edges={['top']}>
       {/* Confetti */}
       {showConfetti && (
@@ -695,6 +697,7 @@ export default function CompetitionDetail() {
       )}
 
     </SafeAreaView>
+    </ErrorBoundary>
   );
 }
 

@@ -78,7 +78,7 @@ type AuthContextType = AuthState & {
   resetPassword: (email: string) => Promise<boolean>;
   joinGroup: (code: string) => Promise<{ unlinkedPlayers: UnlinkedPlayer[]; needsLink?: boolean }>;
   linkToPlayer: (playerId: string) => Promise<void>;
-  createGroup: (name: string) => Promise<void>;
+  createGroup: (name: string, visibility?: 'privado' | 'publico') => Promise<void>;
   leaveGroup: () => Promise<void>;
   switchGroup: (groupId: string) => Promise<void>;
   getMyGroups: () => Promise<Group[]>;
@@ -472,7 +472,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function createGroup(name: string) {
+  async function createGroup(name: string, visibility: 'privado' | 'publico' = 'privado') {
     if (!user) { setError('Faça login primeiro.'); return; }
     try {
       setError(null);
@@ -492,6 +492,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         code,
         admins: [user.uid],
         members: [user.uid],
+        visibility,
       });
       // Cria player no grupo
       await setDoc(doc(db, 'groups', groupRef.id, 'players', user.uid), {
@@ -505,7 +506,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const prevGroupIds2: string[] = userSnap2.data()?.groupIds ?? [];
       const groupIds2 = prevGroupIds2.includes(groupRef.id) ? prevGroupIds2 : [...prevGroupIds2, groupRef.id];
       await setDoc(doc(db, 'users', user.uid), { groupId: groupRef.id, groupIds: groupIds2 }, { merge: true });
-      setGroup({ id: groupRef.id, name, code, admins: [user.uid], members: [user.uid] });
+      setGroup({ id: groupRef.id, name, code, admins: [user.uid], members: [user.uid], visibility });
       setGroupIds(groupIds2);
       setIsAdmin(true);
     } catch (e: any) {

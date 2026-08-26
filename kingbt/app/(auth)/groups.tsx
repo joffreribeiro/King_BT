@@ -10,6 +10,7 @@ import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
 import type { Group, UnlinkedPlayer } from '@/store/AuthContext';
 import { LinkPlayerModal } from '@/components/LinkPlayerModal';
+import { VisibilityPicker, type GroupVisibility } from '@/components';
 
 type Mode = 'list' | 'join' | 'create';
 
@@ -23,6 +24,7 @@ export default function GroupsScreen() {
   const [loadingGroups, setLoadingGroups] = useState(true);
   const [code, setCode]         = useState('');
   const [name, setName]         = useState('');
+  const [visibility, setVisibility] = useState<GroupVisibility>('privado');
   const [busy, setBusy]         = useState(false);
 
   // Modal de vínculo de perfil — só aparece ao entrar num grupo novo por código
@@ -100,7 +102,7 @@ export default function GroupsScreen() {
     if (!name.trim()) return;
     setBusy(true);
     clearError();
-    await createGroup(name.trim());
+    await createGroup(name.trim(), visibility);
     setBusy(false);
     router.replace('/(app)');
   }
@@ -109,6 +111,7 @@ export default function GroupsScreen() {
     clearError();
     setCode('');
     setName('');
+    setVisibility('privado');
     setMode(m);
   }
 
@@ -267,6 +270,7 @@ export default function GroupsScreen() {
                   </Text>
                 </View>
               )}
+              <VisibilityPicker value={visibility} onChange={setVisibility} />
               <TouchableOpacity
                 style={[styles.btnPrimary, (!name.trim() || busy) && styles.btnDisabled]}
                 onPress={handleCreate}

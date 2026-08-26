@@ -9,6 +9,7 @@ import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useAuth, type UnlinkedPlayer } from '@/store/AuthContext';
 import { LinkPlayerModal } from '@/components/LinkPlayerModal';
+import { VisibilityPicker, type GroupVisibility } from '@/components';
 
 type Mode = 'join' | 'create';
 
@@ -20,6 +21,7 @@ export default function JoinGroupScreen() {
   const [mode, setMode]   = useState<Mode>('join');
   const [code, setCode]   = useState('');
   const [name, setName]   = useState('');
+  const [visibility, setVisibility] = useState<GroupVisibility>('privado');
   const [busy, setBusy]   = useState(false);
 
   // Modal de vínculo de perfil
@@ -49,7 +51,7 @@ export default function JoinGroupScreen() {
     if (!name.trim()) return;
     setBusy(true);
     clearError();
-    await createGroup(name.trim());
+    await createGroup(name.trim(), visibility);
     setBusy(false);
   }
 
@@ -57,6 +59,7 @@ export default function JoinGroupScreen() {
     clearError();
     setCode('');
     setName('');
+    setVisibility('privado');
     setMode(m);
   }
 
@@ -152,6 +155,7 @@ export default function JoinGroupScreen() {
                   </Text>
                 </View>
               )}
+              <VisibilityPicker value={visibility} onChange={setVisibility} />
               <TouchableOpacity
                 style={[styles.btnPrimary, (!name.trim() || busy) && styles.btnDisabled]}
                 onPress={handleCreate}
