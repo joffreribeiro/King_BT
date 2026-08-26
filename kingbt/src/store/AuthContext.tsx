@@ -4,6 +4,7 @@ import {
   signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   updateProfile,
   GoogleAuthProvider,
   signOut,
@@ -73,6 +74,8 @@ type AuthContextType = AuthState & {
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (name: string, email: string, password: string) => Promise<void>;
+  /** Envia e-mail de redefinição de senha (Firebase Auth). Retorna true em caso de sucesso. */
+  resetPassword: (email: string) => Promise<boolean>;
   joinGroup: (code: string) => Promise<{ unlinkedPlayers: UnlinkedPlayer[]; needsLink?: boolean }>;
   linkToPlayer: (playerId: string) => Promise<void>;
   createGroup: (name: string) => Promise<void>;
@@ -249,6 +252,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (e.code === 'auth/email-already-in-use') setError('E-mail já cadastrado.');
       else if (e.code === 'auth/weak-password') setError('Senha muito fraca. Use 6+ caracteres.');
       else setError('Erro ao criar conta. Tente novamente.');
+    }
+  }
+
+  async function resetPassword(email: string): Promise<boolean> {
+    try {
+      setError(null);
+      await sendPasswordResetEmail(auth, email);
+      return true;
+    } catch (e: any) {
+      if (e.code === 'auth/invalid-email') setError('E-mail inválido.');
+      else if (e.code === 'auth/user-not-found') setError('Não encontramos uma conta com esse e-mail.');
+      else setError('Erro ao enviar e-mail de redefinição. Tente novamente.');
+      return false;
     }
   }
 
@@ -510,7 +526,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthContextType>(() => ({
     user, group, isAdmin: effectiveAdmin, loading, error, myPlayerId, playerLoading, groupIds, isMember, isSuperAdmin,
-    signInWithGoogle, signInWithEmail, signUpWithEmail, joinGroup, linkToPlayer,
+    signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, joinGroup, linkToPlayer,
     createGroup, leaveGroup, switchGroup, getMyGroups, updateProfileName, logout,
     clearError: () => setError(null), promoteToAdmin, removeFromGroup, addExistingUserToGroup, setGroupVisibility, updateGroupName,
     // eslint-disable-next-line react-hooks/exhaustive-deps

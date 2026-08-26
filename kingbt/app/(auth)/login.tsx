@@ -15,7 +15,7 @@ const { width: SW, height: SH } = Dimensions.get('window');
 const ICON_CX = SW / 2;
 const ICON_CY = 140;
 
-type Mode = 'options' | 'signin' | 'signup';
+type Mode = 'options' | 'signin' | 'signup' | 'forgot';
 
 // ── Anéis pulsantes ───────────────────────────────────────────────────────────
 function PulseRing({ size, delay, borderColor }: { size: number; delay: number; borderColor: string }) {
@@ -97,7 +97,7 @@ function useLoginParticles(count: number) {
 export default function LoginScreen() {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, error, clearError, user, groupIds, loading } = useAuth();
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, error, clearError, user, groupIds, loading } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('options');
 
@@ -150,8 +150,9 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [busy, setBusy]         = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
-  function reset(m: Mode) { clearError(); setMode(m); }
+  function reset(m: Mode) { clearError(); setResetSent(false); setMode(m); }
 
   async function handleGoogle() {
     setBusy(true); await signInWithGoogle(); setBusy(false);
@@ -165,6 +166,14 @@ export default function LoginScreen() {
   async function handleSignUp() {
     if (!name || !email || !password) return;
     setBusy(true); await signUpWithEmail(name, email, password); setBusy(false);
+  }
+
+  async function handleResetPassword() {
+    if (!email) return;
+    setBusy(true);
+    const ok = await resetPassword(email);
+    setBusy(false);
+    if (ok) setResetSent(true);
   }
 
   return (
@@ -259,6 +268,10 @@ export default function LoginScreen() {
                 </TouchableOpacity>
               </View>
 
+              <TouchableOpacity onPress={() => reset('forgot')} style={styles.forgotBtn}>
+                <Text style={styles.linkText}>Esqueceu a senha?</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity
                 style={[styles.btnPrimary, (!email || !password || busy) && styles.btnDisabled]}
                 onPress={handleSignIn} disabled={!email || !password || busy} activeOpacity={0.85}>
@@ -268,6 +281,40 @@ export default function LoginScreen() {
               <TouchableOpacity onPress={() => reset('signup')} style={styles.linkBtn}>
                 <Text style={styles.linkText}>Não tem conta? <Text style={styles.linkAccent}>Criar conta</Text></Text>
               </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ── Esqueceu a senha ── */}
+          {mode === 'forgot' && (
+            <View style={styles.form}>
+              <TouchableOpacity onPress={() => reset('signin')} style={styles.backBtn}>
+                <Text style={styles.backText}>← Voltar</Text>
+              </TouchableOpacity>
+              <Text style={styles.title}>Redefinir senha</Text>
+
+              {resetSent ? (
+                <View style={styles.successBox}>
+                  <Text style={styles.successText}>
+                    Enviamos um link de redefinição de senha para {email}. Verifique sua caixa de entrada (e o spam).
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.linkText}>
+                    Informe seu e-mail cadastrado. Vamos enviar um link para você criar uma nova senha.
+                  </Text>
+
+                  <TextInput style={styles.input} value={email} onChangeText={setEmail}
+                    placeholder="E-mail" placeholderTextColor={Colors.faint}
+                    keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
+
+                  <TouchableOpacity
+                    style={[styles.btnPrimary, (!email || busy) && styles.btnDisabled]}
+                    onPress={handleResetPassword} disabled={!email || busy} activeOpacity={0.85}>
+                    {busy ? <ActivityIndicator color={Colors.bg} /> : <Text style={styles.btnText}>Enviar link de redefinição</Text>}
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           )}
 
@@ -351,6 +398,8 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   title: { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text },
   errorBox: { backgroundColor: Colors.coral + '22', borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.coral + '44', marginBottom: Spacing.xs },
   errorText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.coral },
+  successBox: { backgroundColor: Colors.teal + '22', borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.teal + '44' },
+  successText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.teal },
   input: { backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, fontFamily: FontFamily.body, fontSize: 15, color: Colors.text },
   passwordWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line },
   passwordInput: { flex: 1, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, fontFamily: FontFamily.body, fontSize: 15, color: Colors.text },
@@ -369,6 +418,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   backBtn: { paddingBottom: Spacing.xs },
   backText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.teal },
   linkBtn: { alignItems: 'center' },
+  forgotBtn: { alignItems: 'flex-end' },
   linkText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted },
   linkAccent: { color: Colors.gold, fontFamily: FontFamily.bodyMed },
 });
