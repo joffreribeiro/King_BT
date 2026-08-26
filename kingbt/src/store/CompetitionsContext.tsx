@@ -4,7 +4,7 @@ import { applySubstitution } from '@/logic/substitution';
 import { resolveCompetition, extractPlayerGames, buildCompetition } from '@/logic/formats';
 import { computeRivalries } from '@/logic/rivalries';
 import { MOCK_COMPETITIONS } from '@/mocks/competitions';
-import { subscribeCompetitions, createCompetition, updateCompetition as fsUpdateComp, deleteCompetition as fsDeleteComp, updateLiveScore } from '@/firebase/competitions';
+import { subscribeCompetitions, createCompetition, updateCompetition as fsUpdateComp, deleteCompetition as fsDeleteComp, updateLiveScore, fetchCompetitionsOnce } from '@/firebase/competitions';
 import { createFeedItem } from '@/firebase/feed';
 import { Timestamp } from 'firebase/firestore';
 import { buildRanking } from '@/logic/scoring';
@@ -174,6 +174,10 @@ type CtxType = {
   state: State;
   dispatch: React.Dispatch<Action>;
   addCompetition: (comp: Competition) => Promise<string>;
+  /** Puxa as competições do servidor uma vez (pull-to-refresh) — o listener em
+   * tempo real já mantém tudo sincronizado; isso serve mais como reconexão
+   * explícita e feedback visual pro usuário do que uma correção de dados. */
+  refresh: () => Promise<void>;
 };
 
 const Ctx = createContext<CtxType | null>(null);
@@ -544,8 +548,14 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
     return firestoreId;
   }
 
+  async function refresh() {
+    if (!group) return;
+    const comps = await fetchCompetitionsOnce(group.id);
+    dispatch({ type: 'SET', competitions: comps });
+  }
+
   return (
-    <Ctx.Provider value={{ state, dispatch: wrappedDispatch, addCompetition }}>
+    <Ctx.Provider value={{ state, dispatch: wrappedDispatch, addCompetition, refresh }}>
       {children}
     </Ctx.Provider>
   );

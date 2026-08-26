@@ -1,14 +1,17 @@
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { subscribeFeed, type FeedItem } from '@/firebase/feed';
+import { subscribeFeed, fetchFeedOnce, type FeedItem } from '@/firebase/feed';
 import { useAuth } from './AuthContext';
 
 type FeedContextType = {
   items: FeedItem[];
   loaded: boolean;
   error: string | null;
+  /** Busca o feed do servidor uma vez (pull-to-refresh) — o listener em tempo
+   * real já mantém tudo sincronizado; serve mais como reconexão explícita. */
+  refresh: () => Promise<void>;
 };
 
-const Ctx = createContext<FeedContextType>({ items: [], loaded: false, error: null });
+const Ctx = createContext<FeedContextType>({ items: [], loaded: false, error: null, refresh: async () => {} });
 
 export function FeedProvider({ children }: { children: ReactNode }) {
   const { user, group } = useAuth();
@@ -43,7 +46,15 @@ export function FeedProvider({ children }: { children: ReactNode }) {
     return unsub;
   }, [user, group]);
 
-  return <Ctx.Provider value={{ items, loaded, error }}>{children}</Ctx.Provider>;
+  async function refresh() {
+    if (!group) return;
+    const data = await fetchFeedOnce(group.id);
+    setItems(data);
+    setLoaded(true);
+    setError(null);
+  }
+
+  return <Ctx.Provider value={{ items, loaded, error, refresh }}>{children}</Ctx.Provider>;
 }
 
 export function useFeed() {

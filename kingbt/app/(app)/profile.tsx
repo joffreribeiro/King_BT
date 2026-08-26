@@ -1,9 +1,9 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, Platform, Modal,
+  Alert, Platform, Modal, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useCallback } from 'react';
 import { router } from 'expo-router';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
@@ -14,6 +14,7 @@ import type { ShareStatsData } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { useSettings } from '@/store/SettingsContext';
 import { addGuestPlayer, removeGuestPlayer } from '@/firebase/groupPlayers';
 import { EditNameModal } from '@/components/competition/EditNameModal';
 import QRCode from 'react-native-qrcode-svg';
@@ -35,9 +36,10 @@ type Tab = 'resumo' | 'historico' | 'rivalidades';
 export default function ProfileScreen() {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
-  const { state } = useCompetitions();
+  const { state, refresh } = useCompetitions();
   const { logout, leaveGroup, group, user, isAdmin, myPlayerId, updateProfileName } = useAuth();
   const { groupPlayers, findPlayer } = useGroupPlayers();
+  const { scoringConfig } = useSettings();
   const MY_ID = myPlayerId ?? '';
   const player = groupPlayers.find(p => p.id === MY_ID) ?? null;
 
@@ -48,23 +50,14 @@ export default function ProfileScreen() {
   const [sharingInProgress, setSharingInProgress] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [guestColor, setGuestColor] = useState(GUEST_COLORS[0]);
+  const [refreshing, setRefreshing] = useState(false);
   const shareCardRef = useRef<View>(null);
 
-  if (!player) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text, textAlign: 'center', marginBottom: 12 }}>
-          Perfil não vinculado
-        </Text>
-        <Text style={{ fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, textAlign: 'center', marginBottom: 24 }}>
-          Saia do grupo e entre novamente para vincular seu perfil.
-        </Text>
-        <TouchableOpacity onPress={logout} style={{ backgroundColor: Colors.gold, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32 }}>
-          <Text style={{ fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg }}>Sair da conta</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refresh(); }
+    finally { setRefreshing(false); }
+  }, [refresh]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   async function handleLeaveGroup() {
@@ -123,56 +116,63 @@ export default function ProfileScreen() {
   }
 
   // ── Data ────────────────────────────────────────────────────────────────────
-  const allGames = state.competitions.flatMap(extractPlayerGames);
-  const ranking  = buildRanking(
+  // Tudo abaixo é memoizado por depender só de state.competitions/groupPlayers/
+  // scoringConfig/MY_ID — antes recalculava tudo a cada render (inclusive só
+  // trocando de aba Resumo/Histórico/Rivalidades, sem nenhum desses mudar).
+  const allGames = useMemo(() => state.competitions.flatMap(extractPlayerGames), [state.competitions]);
+
+  const ranking = useMemo(() => buildRanking(
     groupPlayers.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color, handicap: p.handicap })),
-    allGames
-  );
+    allGames,
+    scoringConfig
+  ), [groupPlayers, allGames, scoringConfig]);
+
   const me     = ranking.find(r => r.id === MY_ID) ?? ranking[0];
   const myPos  = ranking.findIndex(r => r.id === MY_ID) + 1;
-  const winRate = me.played > 0 ? Math.round((me.wins / me.played) * 100) : 0;
+  const winRate = me && me.played > 0 ? Math.round((me.wins / me.played) * 100) : 0;
 
-  // Match history
-  const matchHistory: Array<{ id: string; compName: string; format: string; opponents: string; partner: string | null; myScore: number; oppScore: number; won: boolean; isTeam: boolean; gender: string; date: string }> = [];
-  state.competitions.forEach(comp => {
-    comp.matches.forEach(m => {
-      if (m.scoreA == null || m.scoreB == null) return;
-      const inA = m.teamA ? m.teamA.includes(MY_ID) : m.aId === MY_ID;
-      const inB = m.teamB ? m.teamB.includes(MY_ID) : m.bId === MY_ID;
-      if (!inA && !inB) return;
-      const won = (inA ? m.scoreA : m.scoreB) > (inA ? m.scoreB : m.scoreA);
-      const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA;
-      const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB;
-      const myScore = inA ? gA : gB;
-      const oppScore = inA ? gB : gA;
-      const isTeam = !!(m.teamA && m.teamB);
-      let opponents = '?', partner: string | null = null;
-      if (m.teamA && m.teamB) {
-        const myTeam  = inA ? m.teamA : m.teamB;
-        const oppTeam = inA ? m.teamB : m.teamA;
-        opponents = oppTeam.map(pid => findPlayer(pid)?.name.split(' ')[0] ?? pid).join(' / ');
-        const pid = myTeam.find(id => id !== MY_ID);
-        if (pid) partner = findPlayer(pid)?.name.split(' ')[0] ?? pid;
-      } else {
-        const oppId = inA ? m.bId : m.aId;
-        if (oppId) {
-          const oppComp = comp.competitors.find(c => c.id === oppId);
-          opponents = oppComp?.name ?? findPlayer(oppId)?.name ?? oppId;
+  const matchHistory = useMemo(() => {
+    const list: Array<{ id: string; compName: string; format: string; opponents: string; partner: string | null; myScore: number; oppScore: number; won: boolean; isTeam: boolean; gender: string; date: string }> = [];
+    state.competitions.forEach(comp => {
+      comp.matches.forEach(m => {
+        if (m.scoreA == null || m.scoreB == null) return;
+        const inA = m.teamA ? m.teamA.includes(MY_ID) : m.aId === MY_ID;
+        const inB = m.teamB ? m.teamB.includes(MY_ID) : m.bId === MY_ID;
+        if (!inA && !inB) return;
+        const won = (inA ? m.scoreA : m.scoreB) > (inA ? m.scoreB : m.scoreA);
+        const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA;
+        const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB;
+        const myScore = inA ? gA : gB;
+        const oppScore = inA ? gB : gA;
+        const isTeam = !!(m.teamA && m.teamB);
+        let opponents = '?', partner: string | null = null;
+        if (m.teamA && m.teamB) {
+          const myTeam  = inA ? m.teamA : m.teamB;
+          const oppTeam = inA ? m.teamB : m.teamA;
+          opponents = oppTeam.map(pid => findPlayer(pid)?.name.split(' ')[0] ?? pid).join(' / ');
+          const pid = myTeam.find(id => id !== MY_ID);
+          if (pid) partner = findPlayer(pid)?.name.split(' ')[0] ?? pid;
+        } else {
+          const oppId = inA ? m.bId : m.aId;
+          if (oppId) {
+            const oppComp = comp.competitors.find(c => c.id === oppId);
+            opponents = oppComp?.name ?? findPlayer(oppId)?.name ?? oppId;
+          }
         }
-      }
-      matchHistory.push({
-        id: `${comp.id}_${m.id}`, compName: comp.name, format: comp.format, opponents, partner,
-        myScore, oppScore, won, isTeam, gender: comp.gender, date: m.playedAt ?? comp.date ?? '',
+        list.push({
+          id: `${comp.id}_${m.id}`, compName: comp.name, format: comp.format, opponents, partner,
+          myScore, oppScore, won, isTeam, gender: comp.gender, date: m.playedAt ?? comp.date ?? '',
+        });
       });
     });
-  });
-  // Ordena ascendente (data + ordem de criação dentro da competição) e inverte —
-  // um sort estável descendente não reordenaria partidas com a mesma data (mesma competição).
-  matchHistory.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  matchHistory.reverse();
+    // Ordena ascendente (data + ordem de criação dentro da competição) e inverte —
+    // um sort estável descendente não reordenaria partidas com a mesma data (mesma competição).
+    list.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    list.reverse();
+    return list;
+  }, [state.competitions, MY_ID, findPlayer]);
 
-  // Evo points
-  const evoPoints: { label: string; pts: number; pos: number }[] = (() => {
+  const evoPoints = useMemo(() => {
     const players = groupPlayers.map(p => ({ id: p.id, name: p.name, short: '', color: p.color, handicap: p.handicap }));
     const compsWithMe = state.competitions
       .filter(c => c.matches.some(m => {
@@ -181,32 +181,36 @@ export default function ProfileScreen() {
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    return compsWithMe.map((comp, idx) => {
-      const compsUpTo = compsWithMe.slice(0, idx + 1);
-      const games = compsUpTo.flatMap(extractPlayerGames);
-      const rank = buildRanking(players, games);
-      const me = rank.find(r => r.id === MY_ID);
+    // Acumula os jogos incrementalmente em vez de re-extrair e re-somar tudo
+    // desde o início a cada competição (era O(n²): re-fazia flatMap+buildRanking
+    // sobre as competições inteiras de novo pra cada uma das n competições).
+    const runningGames: ReturnType<typeof extractPlayerGames> = [];
+    return compsWithMe.map(comp => {
+      runningGames.push(...extractPlayerGames(comp));
+      const rank = buildRanking(players, runningGames, scoringConfig);
+      const meAtPoint = rank.find(r => r.id === MY_ID);
       const pos = rank.findIndex(r => r.id === MY_ID) + 1;
-      return { label: comp.name.slice(0, 7), pts: me?.points ?? 0, pos };
+      return { label: comp.name.slice(0, 7), pts: meAtPoint?.points ?? 0, pos };
     }).slice(-8); // últimas 8 competições (mesmo corte do "Pontos por competição")
-  })();
+  }, [state.competitions, groupPlayers, MY_ID, scoringConfig]);
 
-  // Activity heatmap
-  const activityData: Record<string, number> = {};
-  state.competitions.forEach(comp => {
-    comp.matches.forEach(m => {
-      if (m.scoreA == null) return;
-      const inA = m.teamA ? m.teamA.includes(MY_ID) : m.aId === MY_ID;
-      const inB = m.teamB ? m.teamB.includes(MY_ID) : m.bId === MY_ID;
-      if (!inA && !inB) return;
-      const dateKey = (m.playedAt ?? comp.date ?? '').split('T')[0];
-      if (!dateKey) return;
-      activityData[dateKey] = Math.min(3, (activityData[dateKey] ?? 0) + 1);
+  const activityData = useMemo(() => {
+    const data: Record<string, number> = {};
+    state.competitions.forEach(comp => {
+      comp.matches.forEach(m => {
+        if (m.scoreA == null) return;
+        const inA = m.teamA ? m.teamA.includes(MY_ID) : m.aId === MY_ID;
+        const inB = m.teamB ? m.teamB.includes(MY_ID) : m.bId === MY_ID;
+        if (!inA && !inB) return;
+        const dateKey = (m.playedAt ?? comp.date ?? '').split('T')[0];
+        if (!dateKey) return;
+        data[dateKey] = Math.min(3, (data[dateKey] ?? 0) + 1);
+      });
     });
-  });
+    return data;
+  }, [state.competitions, MY_ID]);
 
-  // Rating history
-  const ratingHistory: { label: string; pts: number; wins: number; played: number }[] = state.competitions
+  const ratingHistory = useMemo(() => state.competitions
     .filter(c => c.matches.some(m => m.scoreA != null && (
       m.teamA?.includes(MY_ID) || m.teamB?.includes(MY_ID) || m.aId === MY_ID || m.bId === MY_ID
     )))
@@ -222,61 +226,81 @@ export default function ProfileScreen() {
         else { gp += g.scoreB; gc += g.scoreA; if (g.scoreB > g.scoreA) wins++; }
       });
       const ga = gc > 0 ? gp / gc : gp > 0 ? 2 : 0;
-      const pts = Math.round((wins * 3 + played * 0.5 + ga * 2) * 100) / 100;
+      const pts = Math.round((wins * scoringConfig.winCoef + played * scoringConfig.playedCoef + ga * scoringConfig.gaCoef) * 100) / 100;
       return { label: comp.name.length > 9 ? comp.name.slice(0, 9) + '…' : comp.name, pts, wins, played };
+    }), [state.competitions, MY_ID, scoringConfig]);
+
+  const partnerships = useMemo(() => {
+    type PairInfo = { partnerId: string; wins: number; losses: number; played: number };
+    const partnerMap = new Map<string, PairInfo>();
+    state.competitions.forEach(comp => {
+      comp.matches.forEach(m => {
+        if (m.scoreA == null || !m.teamA || !m.teamB) return;
+        const inA = m.teamA.includes(MY_ID), inB = m.teamB.includes(MY_ID);
+        if (!inA && !inB) return;
+        const myTeam = inA ? m.teamA : m.teamB;
+        const partner = myTeam.find(id => id !== MY_ID);
+        if (!partner) return;
+        const won = inA ? m.scoreA! > m.scoreB! : m.scoreB! > m.scoreA!;
+        if (!partnerMap.has(partner)) partnerMap.set(partner, { partnerId: partner, wins: 0, losses: 0, played: 0 });
+        const ps = partnerMap.get(partner)!;
+        ps.played++;
+        if (won) ps.wins++; else ps.losses++;
+      });
     });
+    return [...partnerMap.values()]
+      .filter(p => p.played >= 2)
+      .sort((a, b) => b.wins - a.wins)
+      .slice(0, 5);
+  }, [state.competitions, MY_ID]);
 
-  // Partnerships
-  type PairInfo = { partnerId: string; wins: number; losses: number; played: number };
-  const partnerMap = new Map<string, PairInfo>();
-  state.competitions.forEach(comp => {
-    comp.matches.forEach(m => {
-      if (m.scoreA == null || !m.teamA || !m.teamB) return;
-      const inA = m.teamA.includes(MY_ID), inB = m.teamB.includes(MY_ID);
-      if (!inA && !inB) return;
-      const myTeam = inA ? m.teamA : m.teamB;
-      const partner = myTeam.find(id => id !== MY_ID);
-      if (!partner) return;
-      const won = inA ? m.scoreA! > m.scoreB! : m.scoreB! > m.scoreA!;
-      if (!partnerMap.has(partner)) partnerMap.set(partner, { partnerId: partner, wins: 0, losses: 0, played: 0 });
-      const ps = partnerMap.get(partner)!;
-      ps.played++;
-      if (won) ps.wins++; else ps.losses++;
-    });
-  });
-  const partnerships = [...partnerMap.values()]
-    .filter(p => p.played >= 2)
-    .sort((a, b) => b.wins - a.wins)
-    .slice(0, 5);
+  const formatStats = useMemo(() => computeFormatStats(state.competitions, MY_ID), [state.competitions, MY_ID]);
+  const rivalries   = useMemo(() => computeRivalries(MY_ID, state.competitions), [MY_ID, state.competitions]);
 
-  const formatStats = computeFormatStats(state.competitions, MY_ID);
-  const rivalries   = computeRivalries(MY_ID, state.competitions);
+  const achStats = useMemo(() => computeAchievementStats(state.competitions, MY_ID), [state.competitions, MY_ID]);
 
-  // Next achievement
-  const achStats = computeAchievementStats(state.competitions, MY_ID);
-  const achStatsWithRating = { ...achStats, currentRating: me?.points ?? 0 };
-  const nextAch = ACHIEVEMENTS
-    .map(a => ({ a, prog: a.progress(achStatsWithRating) }))
-    .filter(({ prog }) => prog > 0 && prog < 1)
-    .sort((a, b) => b.prog - a.prog)[0];
-  const nextAchievement = nextAch ? {
-    icon:  nextAch.a.icon,
-    title: nextAch.a.title,
-    color: nextAch.a.color,
-    prog:  nextAch.prog,
-    label: nextAch.a.progressLabel(achStatsWithRating),
-    desc:  nextAch.a.description,
-  } : null;
-
-  const unlockedAchievements = ACHIEVEMENTS.filter(a => a.progress(achStatsWithRating) >= 1);
-
-  if (!me) return null;
+  const { nextAchievement, unlockedAchievements } = useMemo(() => {
+    const achStatsWithRating = { ...achStats, currentRating: me?.points ?? 0 };
+    const nextAch = ACHIEVEMENTS
+      .map(a => ({ a, prog: a.progress(achStatsWithRating) }))
+      .filter(({ prog }) => prog > 0 && prog < 1)
+      .sort((a, b) => b.prog - a.prog)[0];
+    return {
+      nextAchievement: nextAch ? {
+        icon:  nextAch.a.icon,
+        title: nextAch.a.title,
+        color: nextAch.a.color,
+        prog:  nextAch.prog,
+        label: nextAch.a.progressLabel(achStatsWithRating),
+        desc:  nextAch.a.description,
+      } : null,
+      unlockedAchievements: ACHIEVEMENTS.filter(a => a.progress(achStatsWithRating) >= 1),
+    };
+  }, [achStats, me?.points]);
 
   const TABS: { key: Tab; label: string }[] = [
     { key: 'resumo',      label: 'RESUMO' },
     { key: 'historico',   label: 'HISTÓRICO' },
     { key: 'rivalidades', label: 'RIVALIDADES' },
   ];
+
+  if (!player) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text, textAlign: 'center', marginBottom: 12 }}>
+          Perfil não vinculado
+        </Text>
+        <Text style={{ fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, textAlign: 'center', marginBottom: 24 }}>
+          Saia do grupo e entre novamente para vincular seu perfil.
+        </Text>
+        <TouchableOpacity onPress={logout} style={{ backgroundColor: Colors.gold, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32 }}>
+          <Text style={{ fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg }}>Sair da conta</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
+  if (!me) return null;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -317,7 +341,9 @@ export default function ProfileScreen() {
       </View>
 
       {/* Scroll content */}
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />}
+      >
         {activeTab === 'resumo' && (
           <ResumoTab
             me={me} myPos={myPos} winRate={winRate}

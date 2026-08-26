@@ -1,8 +1,8 @@
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, Animated,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, Animated, RefreshControl, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
@@ -11,7 +11,7 @@ import { useFeed } from '@/store/FeedContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
-import { toggleReaction, addComment, type FeedItem } from '@/firebase/feed';
+import { toggleReaction, addComment, deleteComment, type FeedItem } from '@/firebase/feed';
 import { goToPlayer } from '@/logic/nav';
 
 const EMOJIS = ['👑', '🔥', '💪'] as const;
@@ -140,6 +140,7 @@ function CommentsModal({ item, visible, onClose }: { item: FeedItem; visible: bo
   const { colors: Colors } = useTheme();
   const cm = useMemo(() => makeCmStyles(Colors), [Colors]);
   const { user, group } = useAuth();
+  const { findPlayer } = useGroupPlayers();
   const [comment, setComment] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -151,6 +152,19 @@ function CommentsModal({ item, visible, onClose }: { item: FeedItem; visible: bo
       setComment('');
     } catch { /* ignore */ }
     finally { setSending(false); }
+  }
+
+  function handleDeleteComment(c: FeedItem['comments'][number]) {
+    if (!group) return;
+    const doDelete = () => deleteComment(group.id, item.id, c).catch(() => {});
+    if (Platform.OS === 'web') {
+      if (window.confirm('Apagar este comentário?')) doDelete();
+    } else {
+      Alert.alert('Apagar comentário', 'Tem certeza?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Apagar', style: 'destructive', onPress: doDelete },
+      ]);
+    }
   }
 
   return (
@@ -167,15 +181,27 @@ function CommentsModal({ item, visible, onClose }: { item: FeedItem; visible: bo
             {item.comments.length === 0 && (
               <Text style={cm.empty}>Seja o primeiro a comentar.</Text>
             )}
-            {item.comments.map((c, i) => (
-              <View key={i} style={cm.commentRow}>
-                <View style={cm.commentDot} />
-                <View style={{ flex: 1 }}>
-                  <Text style={cm.commentAuthor}>{c.name.split(' ')[0]}</Text>
-                  <Text style={cm.commentText}>{c.text}</Text>
+            {item.comments.map((c, i) => {
+              const pl = findPlayer(c.uid);
+              const isMine = user?.uid === c.uid;
+              return (
+                <View key={i} style={cm.commentRow}>
+                  <Avatar name={pl?.name ?? c.name} color={pl?.color ?? Colors.gold} size={24} />
+                  <View style={{ flex: 1 }}>
+                    <View style={cm.commentHeader}>
+                      <Text style={cm.commentAuthor}>{c.name.split(' ')[0]}</Text>
+                      <Text style={cm.commentTime}>{timeAgo(c.ts)}</Text>
+                    </View>
+                    <Text style={cm.commentText}>{c.text}</Text>
+                  </View>
+                  {isMine && (
+                    <TouchableOpacity onPress={() => handleDeleteComment(c)} hitSlop={8} style={cm.commentDelete}>
+                      <Text style={cm.commentDeleteTxt}>✕</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </ScrollView>
           <View style={cm.inputRow}>
             <TextInput
@@ -211,9 +237,12 @@ const makeCmStyles = (Colors: ThemeColors) => StyleSheet.create({
   list:        { maxHeight: 300 },
   empty:       { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', paddingVertical: Spacing.md },
   commentRow:  { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start' },
-  commentDot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.gold, marginTop: 6 },
+  commentHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   commentAuthor: { fontFamily: FontFamily.title, fontSize: 12, color: Colors.gold },
+  commentTime: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
   commentText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.text },
+  commentDelete: { padding: 4 },
+  commentDeleteTxt: { fontSize: 12, color: Colors.coral },
   inputRow:    { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.line, paddingTop: Spacing.sm },
   input:       { flex: 1, backgroundColor: Colors.surf2, borderRadius: Radius.sm, paddingHorizontal: 12, paddingVertical: 8, fontFamily: FontFamily.body, fontSize: 13, color: Colors.text, borderWidth: 1, borderColor: Colors.line },
   sendBtn:     { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
@@ -636,20 +665,25 @@ export default function FeedScreen() {
   const { items, loaded, error } = useFeed();
   const { group } = useAuth();
 
-  // Agrupar match_result por compName preservando ordem cronológica
+  // Agrupa match_result da mesma competição E do mesmo dia num card só.
+  // Antes agrupava só por compName ao longo do feed inteiro — uma competição
+  // "Avulso" (sessão livre, fica aberta por semanas) acumulava jogos de datas
+  // bem diferentes debaixo do mesmo card, carimbado com a data do primeiro.
   const rows: FeedRow[] = [];
-  const seen = new Map<string, FeedItem[]>();
+  let lastGroup: { compId?: string; day: string; bucket: FeedItem[] } | null = null;
   for (const item of items) {
     if (item.type === 'match_result') {
-      const key = item.compName ?? '__unknown__';
-      if (!seen.has(key)) {
-        const bucket: FeedItem[] = [];
-        seen.set(key, bucket);
-        rows.push({ kind: 'group', compName: key, matches: bucket });
+      const day = (item.timestamp?.toDate?.() ?? new Date()).toDateString();
+      if (lastGroup && lastGroup.compId === item.compId && lastGroup.day === day) {
+        lastGroup.bucket.push(item);
+      } else {
+        const bucket: FeedItem[] = [item];
+        rows.push({ kind: 'group', compName: item.compName ?? '__unknown__', matches: bucket });
+        lastGroup = { compId: item.compId, day, bucket };
       }
-      seen.get(key)!.push(item);
     } else {
       rows.push({ kind: 'single', item });
+      lastGroup = null;
     }
   }
 
@@ -660,13 +694,26 @@ export default function FeedScreen() {
     return null;
   }
 
+  const [refreshing, setRefreshing] = useState(false);
+  const { refresh: refreshFeed } = useFeed();
+  const { refresh: refreshCompetitions } = useCompetitions();
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await Promise.all([refreshFeed(), refreshCompetitions()]); }
+    finally { setRefreshing(false); }
+  }, [refreshFeed, refreshCompetitions]);
+
   return (
     <SafeAreaView style={s.container} edges={['top']}>
       <FlatList
         data={rows}
-        keyExtractor={(r, i) => r.kind === 'group' ? r.compName : r.item.id}
+        // grupos não têm mais chave única garantida por compName (a mesma
+        // competição pode virar mais de um card, um por dia) — usa o id do
+        // primeiro jogo do grupo, que é sempre único.
+        keyExtractor={(r) => r.kind === 'group' ? r.matches[0].id : r.item.id}
         contentContainerStyle={s.list}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />}
         ListHeaderComponent={
           <View style={s.titleRow}>
             <Text style={s.title}>Feed do grupo</Text>

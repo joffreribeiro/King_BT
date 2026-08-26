@@ -1,7 +1,7 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Platform, TextInput, Animated } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Platform, TextInput, Animated, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
@@ -48,42 +48,6 @@ const FORMAT_FILTERS: { key: Format | 'all'; label: string }[] = [
   { key: 'mata',   label: 'Mata-mata' },
   { key: 'super8', label: 'Super 8' },
 ];
-
-function Skeleton({ width = '100%' as number | string, height = 16, radius = 8 }: {
-  width?: number | string; height?: number; radius?: number;
-}) {
-  const { colors: Colors } = useTheme();
-  const opacity = useRef(new Animated.Value(0.3)).current;
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.7, duration: 700, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.3, duration: 700, useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
-  return <Animated.View style={{ width: width as any, height, borderRadius: radius, backgroundColor: Colors.surf2, opacity }} />;
-}
-
-function SkeletonCard() {
-  const { colors: Colors } = useTheme();
-  return (
-    <View style={{ backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm, marginHorizontal: Spacing.md }}>
-      <View style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }}>
-        <Skeleton width={36} height={36} radius={8} />
-        <View style={{ flex: 1, gap: 6 }}>
-          <Skeleton width="60%" height={14} />
-          <Skeleton width="40%" height={10} />
-        </View>
-      </View>
-      <Skeleton height={1} radius={1} />
-      <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
-        <Skeleton width="30%" height={10} />
-        <Skeleton width="20%" height={10} />
-      </View>
-    </View>
-  );
-}
 
 function formatDate(iso: string) {
   const d = new Date(iso + 'T12:00:00');
@@ -141,8 +105,8 @@ function CompSkeleton() {
   );
 }
 
-function CompCard({ comp, onDelete, onClone }: {
-  comp: Competition; onDelete: (id: string) => void; onClone: (id: string) => void;
+function CompCard({ comp, onDelete, onClone, isAdmin }: {
+  comp: Competition; onDelete: (id: string) => void; onClone: (id: string) => void; isAdmin: boolean;
 }) {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
@@ -177,16 +141,22 @@ function CompCard({ comp, onDelete, onClone }: {
     ? pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.1, 0.45] })
     : new Animated.Value(0);
 
-  // Badge pulse para todos os cards
+  // Badge pulse — só para competições em andamento; "encerrada" fica parado
+  // (antes todos os cards pulsavam pra sempre, mesmo os já finalizados, o
+  // que além de gastar bateria com loops eternos tirava o destaque de quem
+  // realmente está em andamento).
   const badgePulse = useRef(new Animated.Value(1)).current;
   useEffect(() => {
-    Animated.loop(
+    if (!isActive) return;
+    const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(badgePulse, { toValue: 0.6, duration: 1200, useNativeDriver: true }),
         Animated.timing(badgePulse, { toValue: 1,   duration: 1200, useNativeDriver: true }),
       ])
-    ).start();
-  }, []);
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [isActive]);
 
   // Player bubbles
   // Quando a competição usa competidores nomeados (duplas/times), aId/bId dos
@@ -211,7 +181,7 @@ function CompCard({ comp, onDelete, onClone }: {
     <TouchableOpacity
       activeOpacity={0.75}
       onPress={() => router.push({ pathname: '/competitions/[id]', params: { id: comp.id } })}
-      onLongPress={handleLongPress}
+      onLongPress={isAdmin ? handleLongPress : undefined}
       delayLongPress={600}
     >
       <Animated.View style={[
@@ -304,10 +274,17 @@ function CompCard({ comp, onDelete, onClone }: {
 export default function HubScreen() {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
-  const { state, dispatch } = useCompetitions();
+  const { state, dispatch, refresh } = useCompetitions();
   const { group, isAdmin, myPlayerId } = useAuth();
   const { groupPlayers } = useGroupPlayers();
   const me = groupPlayers.find(p => p.id === myPlayerId);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refresh(); }
+    finally { setRefreshing(false); }
+  }, [refresh]);
 
   const myStreak = computeStreak(state.competitions, myPlayerId ?? '');
 
@@ -338,6 +315,7 @@ export default function HubScreen() {
         keyExtractor={c => c.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />}
         ListHeaderComponent={
           <View>
             {/* Skeleton loading */}
@@ -440,19 +418,17 @@ export default function HubScreen() {
                 comp={item}
                 onDelete={isAdmin ? (id) => dispatch({ type: 'DELETE', compId: id }) : () => {}}
                 onClone={isAdmin ? (id) => dispatch({ type: 'CLONE', compId: id }) : () => {}}
+                isAdmin={isAdmin}
               />
             </View>
           );
         }}
         ItemSeparatorComponent={() => <View style={{ height: Spacing.xs }} />}
         ListEmptyComponent={
-          !state.synced ? (
-            <View style={{ gap: Spacing.sm, paddingTop: Spacing.xs }}>
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-            </View>
-          ) : (
+          // O skeleton de carregamento já aparece no header (CompSkeleton,
+          // acima dos filtros) — nada aqui pra não empilhar dois estilos
+          // de skeleton diferentes ao mesmo tempo.
+          !state.synced ? null : (
             hasFilter ? (
               <EmptyState
                 icon="racket"

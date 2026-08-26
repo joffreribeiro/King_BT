@@ -1,6 +1,6 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform, useWindowDimensions, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useCallback } from 'react';
 import ViewShot from 'react-native-view-shot';
 import { router } from 'expo-router';
 import { goToPlayer } from '@/logic/nav';
@@ -12,7 +12,6 @@ import { AnimatedNumber } from '@/components/AnimatedNumber';
 import { SkeletonRanking } from '@/components/SkeletonLoader';
 import { TrendBadge } from '@/components/TrendBadge';
 import { BottomSheet } from '@/components/BottomSheet';
-import { GROUP } from '@/mocks/data';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -29,6 +28,12 @@ import type { PlayerInfo } from '@/store/GroupPlayersContext';
 import RankingCard from '@/components/RankingCard';
 import { PodiumHQ } from '@/components/PodiumHQ';
 
+
+// Formata coeficiente/valor no padrão pt-BR (vírgula), até 2 casas, sem
+// zeros à direita desnecessários — ex.: 3 -> "3", 0.5 -> "0,5", 1.362 -> "1,36".
+function fmtCoef(n: number): string {
+  return (Math.round(n * 100) / 100).toString().replace('.', ',');
+}
 
 function h2hBetween(
   state: ReturnType<typeof import('@/store/CompetitionsContext').useCompetitions>['state'],
@@ -61,10 +66,23 @@ export default function RankingScreen() {
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const cmp = useMemo(() => makeCmpStyles(Colors), [Colors]);
   const modal = useMemo(() => makeModalStyles(Colors), [Colors]);
-  const { state } = useCompetitions();
-  const { myPlayerId } = useAuth();
+  const { state, refresh } = useCompetitions();
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await refresh(); }
+    finally { setRefreshing(false); }
+  }, [refresh]);
+  const { myPlayerId, group } = useAuth();
   const { groupPlayers, findPlayer } = useGroupPlayers();
   const { scoringConfig } = useSettings();
+  // Dados reais do grupo para PDF/imagem — sem equivalente de "local" no
+  // schema do grupo ainda, então fica em branco em vez de mostrar um
+  // endereço de outro grupo (era o mock GROUP.location fixo).
+  const groupName = group?.name ?? 'King BT';
+  const season = String(new Date().getFullYear());
+  const roundsDone = state.competitions.filter(c => c.status === 'done').length;
+  const groupLocation = '';
   // Tela estreita (celular): esconde V/D/J/GP/GC — o subtítulo do jogador já
   // resume J e % de aproveitamento, então nada de essencial se perde.
   const { width: screenWidth } = useWindowDimensions();
@@ -87,8 +105,8 @@ export default function RankingScreen() {
       title: '', titleEmoji: '', guest: p.guest ?? false,
     }));
     return generateRankingHtml(
-      ranking, mockPlayers, GROUP.name, GROUP.season,
-      GROUP.roundsDone, GROUP.location,
+      ranking, mockPlayers, groupName, season,
+      roundsDone, groupLocation,
       new Date().toLocaleDateString('pt-BR'),
     );
   }
@@ -150,7 +168,9 @@ export default function RankingScreen() {
   return (
     <FadeScreen>
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />}
+      >
 
         {/* Header com gradiente */}
         <LinearGradient
@@ -159,12 +179,12 @@ export default function RankingScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
         >
-        <View style={styles.header}>
+        <View style={[styles.header, compact && styles.headerCompact]}>
           <View>
             <Text style={styles.title}>Ranking</Text>
-            <Text style={styles.subtitle}>Temporada 2026</Text>
+            <Text style={styles.subtitle}>Temporada {season}</Text>
           </View>
-          <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+          <View style={[{ flexDirection: 'row', gap: Spacing.xs }, compact && styles.headerActionsCompact]}>
             <TouchableOpacity style={styles.formulaBtn} onPress={() => setShowCompare(true)}>
               <Text style={styles.formulaBtnText}>Comparar</Text>
             </TouchableOpacity>
@@ -341,10 +361,10 @@ export default function RankingScreen() {
           <RankingCard
             ranking={ranking}
             players={groupPlayers.map(p => ({ id: p.id, name: p.name, color: p.color, short: p.name.slice(0, 3).toUpperCase(), title: '', titleEmoji: '', guest: p.guest ?? false }))}
-            groupName={GROUP.name}
-            season={GROUP.season}
-            roundsDone={GROUP.roundsDone}
-            location={GROUP.location}
+            groupName={groupName}
+            season={season}
+            roundsDone={roundsDone}
+            location={groupLocation}
             date={new Date().toLocaleDateString('pt-BR')}
           />
         </ViewShot>
@@ -459,19 +479,32 @@ export default function RankingScreen() {
           <Text style={modal.formula}>
             <Text style={{ color: Colors.gold }}>Pts</Text>
             {' = '}
-            <Text style={{ color: Colors.teal }}>(V × 3)</Text>
+            <Text style={{ color: Colors.teal }}>(V × {fmtCoef(scoringConfig.winCoef)})</Text>
             {' + '}
-            <Text style={{ color: Colors.text }}>(J × 0,5)</Text>
+            <Text style={{ color: Colors.text }}>(J × {fmtCoef(scoringConfig.playedCoef)})</Text>
             {' + '}
-            <Text style={{ color: Colors.goldBright }}>(GA × 2)</Text>
+            <Text style={{ color: Colors.goldBright }}>(GA × {fmtCoef(scoringConfig.gaCoef)})</Text>
           </Text>
           <Text style={modal.note}>GA = Games Pró ÷ Games Contra</Text>
           <View style={modal.divider} />
-          <View style={modal.example}>
-            <Text style={modal.exTitle}>Exemplo — Joffre:</Text>
-            <Text style={modal.exText}>(11×3) + (15×0,5) + (1,36×2)</Text>
-            <Text style={modal.exText}>= 33 + 7,5 + 2,72 = <Text style={{ color: Colors.gold }}>43,21 pts</Text></Text>
-          </View>
+          {(() => {
+            const me = ranking.find(r => r.id === MY_ID);
+            if (!me) return null;
+            const winPts = me.wins * scoringConfig.winCoef;
+            const playedPts = me.played * scoringConfig.playedCoef;
+            const gaPts = me.ga * scoringConfig.gaCoef;
+            return (
+              <View style={modal.example}>
+                <Text style={modal.exTitle}>Seu exemplo:</Text>
+                <Text style={modal.exText}>
+                  ({me.wins}×{fmtCoef(scoringConfig.winCoef)}) + ({me.played}×{fmtCoef(scoringConfig.playedCoef)}) + ({fmtCoef(me.ga)}×{fmtCoef(scoringConfig.gaCoef)})
+                </Text>
+                <Text style={modal.exText}>
+                  = {fmtCoef(winPts)} + {fmtCoef(playedPts)} + {fmtCoef(gaPts)} = <Text style={{ color: Colors.gold }}>{me.points.toFixed(2).replace('.', ',')} pts</Text>
+                </Text>
+              </View>
+            );
+          })()}
           <View style={modal.divider} />
           <Text style={modal.desempateTitle}>Critérios de desempate</Text>
           {['1° Pontuação King BT', '2° Game Average (GA)', '3° Saldo de Games (SG)', '4° Nº de Vitórias', '5° Confronto Direto'].map(d => (
@@ -615,6 +648,10 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
     paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm,
   },
+  // Tela estreita: título e botões não cabem numa linha só — empilha o
+  // título em cima e deixa a linha de ações quebrar em duas linhas.
+  headerCompact: { flexDirection: 'column', alignItems: 'stretch', gap: Spacing.sm },
+  headerActionsCompact: { flexWrap: 'wrap' },
   title: { fontFamily: FontFamily.titleBold, fontSize: 28, color: Colors.text },
   subtitle: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: 2 },
   formulaBtn: {

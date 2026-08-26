@@ -52,6 +52,14 @@ export function subscribeFeed(
   );
 }
 
+/** Busca o feed uma única vez (sem listener) — usado no pull-to-refresh; o
+ * listener em tempo real já mantém tudo sincronizado sozinho. */
+export async function fetchFeedOnce(groupId: string): Promise<FeedItem[]> {
+  const q = query(feedCol(groupId), orderBy('timestamp', 'desc'), limit(50));
+  const snap = await getDocs(q);
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as FeedItem));
+}
+
 export async function createFeedItem(
   groupId: string,
   item: Omit<FeedItem, 'id'>
@@ -96,4 +104,15 @@ export async function addComment(
   await updateDoc(ref, {
     comments: arrayUnion({ uid, name, text, ts: Timestamp.now() }),
   });
+}
+
+/** Remove um comentário específico — precisa do objeto completo (arrayRemove
+ * compara por valor, não por índice) exatamente como veio do FeedItem. */
+export async function deleteComment(
+  groupId: string,
+  feedId: string,
+  comment: FeedItem['comments'][number],
+): Promise<void> {
+  const ref = doc(db, 'groups', groupId, 'feed', feedId);
+  await updateDoc(ref, { comments: arrayRemove(comment) });
 }
