@@ -104,3 +104,14 @@ export const Type = {
   // Rótulo maiúsculo de seção — o padrão "SECTION LABEL" repetido em quase toda tela.
   label:    { fontFamily: FontFamily.numberBold, fontSize: 9, lineHeight: 12, letterSpacing: 1.5 },
 } as const;
+
+/**
+ * Cores de identificação de jogador. NÃO é tema: a cor identifica a pessoa e
+ * precisa ser a mesma no claro e no escuro. Estava duplicada em quatro telas,
+ * e uma das cópias já havia divergido (7 cores, outra ordem) — um convidado
+ * criado por aquela tela recebia cor de uma paleta diferente.
+ */
+export const PLAYER_COLORS = [
+  '#FFD166', '#2DD4BF', '#A78BFA', '#34D399',
+  '#F472B6', '#94A3B8', '#FB923C', '#60A5FA',
+];

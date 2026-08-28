@@ -47,7 +47,7 @@ const makeSituationStyles = (Colors: ThemeColors) => StyleSheet.create({
   row:       { backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line, borderRadius: 11, padding: 10, gap: 6, marginBottom: 6 },
   rowHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   rowLabel:  { flex: 1, fontFamily: FontFamily.title, fontSize: 13, color: Colors.text, fontWeight: '700' },
-  rowCount:  { fontFamily: FontFamily.body, fontSize: 10, color: Colors.muted },
+  rowCount:  { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
   rowPct:    { fontFamily: FontFamily.numberBold, fontSize: 13, fontWeight: '700', width: 40, textAlign: 'right' },
 });
 
@@ -224,14 +224,14 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   // Rating card
   percentileCard: { backgroundColor: Colors.surf, borderRadius: Radius.md, padding: Spacing.md, gap: 8, marginBottom: 4, borderWidth: 1, borderColor: Colors.line },
   percentileHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  percentileTitle: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.faint, letterSpacing: 1.5 },
+  percentileTitle: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.faint, letterSpacing: 1.5 },
   percentileValue: { fontFamily: FontFamily.numberBold, fontSize: 22, color: Colors.gold },
-  percentileDesc: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  percentileDesc: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   percentileBar: { height: 8, backgroundColor: Colors.surf2, borderRadius: 4, overflow: 'visible', marginTop: 4, position: 'relative' },
   percentileFill: { height: '100%', backgroundColor: Colors.gold, borderRadius: 4 },
   percentileMarker: { position: 'absolute', top: -3, width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.gold, marginLeft: -7, borderWidth: 2, borderColor: Colors.bg },
   percentileFooter: { flexDirection: 'row', justifyContent: 'space-between' },
-  percentileFooterTxt: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
+  percentileFooterTxt: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   ratingCard: {
     flexDirection: 'row',
     backgroundColor: Colors.surf,
@@ -252,7 +252,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderColor: Colors.gold + '2E', borderRadius: 12, padding: 11,
   },
   summaryHeader:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  summaryLabel:      { fontFamily: FontFamily.numberBold, fontSize: 8, fontWeight: '700', letterSpacing: 1.5, color: Colors.faint },
+  summaryLabel:      { fontFamily: FontFamily.numberBold, fontSize: 9, fontWeight: '700', letterSpacing: 1.5, color: Colors.faint },
   summaryMatchCount: { fontFamily: FontFamily.numberBold, fontSize: 9, fontWeight: '700', color: Colors.gold },
   summaryBody:       { flexDirection: 'row', gap: 12, alignItems: 'center' },
   progressPercent:   { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.gold },
@@ -272,10 +272,10 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center', marginBottom: 7,
   },
   formatName:         { fontFamily: FontFamily.title, fontSize: 13, color: Colors.text, fontWeight: '700' },
-  formatMatchCount:   { fontFamily: FontFamily.body, fontSize: 10, color: Colors.muted, marginTop: 2 },
+  formatMatchCount:   { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, marginTop: 2 },
   formatStats:        { alignItems: 'flex-end' },
   formatRate:         { fontFamily: FontFamily.numberBold, fontSize: 13, fontWeight: '700' },
-  formatRecord:       { fontFamily: FontFamily.number, fontSize: 10, fontWeight: '600', marginTop: 1 },
+  formatRecord:       { fontFamily: FontFamily.number, fontSize: 11, fontWeight: '600', marginTop: 1 },
 
   // Insight
   insightCard: {
@@ -284,7 +284,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderRadius: 11, padding: 12, marginTop: 4,
   },
   insightLabel: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.gold, fontWeight: '700', marginBottom: 5, letterSpacing: 0.5 },
-  insightText:  { fontFamily: FontFamily.body, fontSize: 12, color: Colors.text, lineHeight: 18 },
+  insightText:  { fontFamily: FontFamily.body, fontSize: 13, color: Colors.text, lineHeight: 18 },
 
   // Podium
   podiumRow: {
@@ -293,10 +293,10 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: Colors.line,
   },
   podiumMedal:  { fontSize: 18, width: 28 },
-  podiumFormat: { fontFamily: FontFamily.bodyMed, fontSize: 12, width: 72 },
-  podiumPct:    { fontFamily: FontFamily.numberBold, fontSize: 12, width: 38, textAlign: 'right' },
+  podiumFormat: { fontFamily: FontFamily.bodyMed, fontSize: 13, width: 72 },
+  podiumPct:    { fontFamily: FontFamily.numberBold, fontSize: 13, width: 38, textAlign: 'right' },
 
   empty: { alignItems: 'center', paddingVertical: Spacing.xl, gap: Spacing.sm },
-  emptyTitle: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
+  emptyTitle: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
   emptySub:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
 });

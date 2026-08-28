@@ -197,7 +197,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   tabBar: { flexDirection: 'row', backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: 3 },
   tab: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: Radius.sm - 2 },
   tabActive: { backgroundColor: Colors.gold },
-  tabText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
+  tabText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.muted },
   tabTextActive: { color: Colors.bg },
 
   errorBox: { backgroundColor: Colors.coral + '22', borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.coral + '44' },
@@ -209,12 +209,12 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
 
   codePreview: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, backgroundColor: Colors.surf2, borderRadius: Radius.sm, padding: Spacing.sm },
   codePreviewLabel: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
-  codePreviewValue: { fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.gold, letterSpacing: 2 },
+  codePreviewValue: { fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.gold, letterSpacing: 2 },
 
   btnPrimary: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md + 2, minHeight: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
   btnDisabled: { backgroundColor: Colors.surf2 },
   btnIcon: { fontSize: 18 },
   btnText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg },
   logoutBtn: { alignItems: 'center', paddingTop: Spacing.sm },
-  logoutText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.faint },
+  logoutText: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.faint },
 });

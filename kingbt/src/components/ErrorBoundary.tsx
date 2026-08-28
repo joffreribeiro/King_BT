@@ -81,9 +81,9 @@ const s = StyleSheet.create({
   },
   icon:    { fontSize: 48 },
   title:   { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text, textAlign: 'center' },
-  message: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, textAlign: 'center', lineHeight: 22 },
+  message: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.muted, textAlign: 'center', lineHeight: 22 },
   stackWrap: { maxHeight: 120, width: '100%', backgroundColor: Colors.surf, borderRadius: Radius.sm, padding: Spacing.sm },
-  stack:   { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
+  stack:   { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   button:  { backgroundColor: Colors.gold, paddingVertical: Spacing.md, paddingHorizontal: Spacing.xl, borderRadius: Radius.md },
-  buttonText: { fontFamily: FontFamily.titleBold, fontSize: 14, color: Colors.bg },
+  buttonText: { fontFamily: FontFamily.titleBold, fontSize: 15, color: Colors.bg },
 });

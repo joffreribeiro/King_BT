@@ -124,7 +124,7 @@ const makeFsbStyles = (Colors: ThemeColors) => StyleSheet.create({
   box: { borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.sm, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: Spacing.sm, height: 42 },
   nameWrap: { flex: 1 },
-  name: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  name: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
   nameWin: { color: Colors.gold, fontFamily: FontFamily.title },
   scoreZone: {
     width: 100, alignSelf: 'stretch',
@@ -132,9 +132,9 @@ const makeFsbStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderLeftWidth: 1, borderLeftColor: Colors.line,
     paddingLeft: 6, backgroundColor: Colors.surf2,
   },
-  col: { width: 30, textAlign: 'center', fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.muted },
+  col: { width: 30, textAlign: 'center', fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.muted },
   colWin: { color: Colors.teal },
-  trophy: { fontSize: 14, paddingLeft: 4 },
+  trophy: { fontSize: 15, paddingLeft: 4 },
   div: { height: 1, backgroundColor: Colors.line, marginHorizontal: Spacing.sm },
 
   headerRow: { flexDirection: 'row', alignItems: 'center', height: 18 },
@@ -147,7 +147,7 @@ const makeFsbStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   headerCol: {
     width: 30, textAlign: 'center',
-    fontFamily: FontFamily.numberBold, fontSize: 7,
+    fontFamily: FontFamily.numberBold, fontSize: 9,
     color: Colors.faint, letterSpacing: 0.3,
   },
 });
@@ -238,7 +238,7 @@ function CommentsModal({ item, visible, onClose }: { item: FeedItem; visible: bo
               disabled={!comment.trim() || sending}
               style={[cm.sendBtn, (!comment.trim() || sending) && cm.sendBtnOff]}
             >
-              <Text style={cm.sendTxt}>↑</Text>
+              <Icon name="arrowUp" size={16} color={Colors.bg} />
             </TouchableOpacity>
           </View>
         </View>
@@ -251,16 +251,16 @@ const makeCmStyles = (Colors: ThemeColors) => StyleSheet.create({
   overlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
   sheet:       { backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.md, maxHeight: '70%' },
   handle:      { width: 36, height: 4, borderRadius: 2, backgroundColor: Colors.line, alignSelf: 'center', marginBottom: Spacing.sm },
-  title:       { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text, marginBottom: Spacing.sm },
+  title:       { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text, marginBottom: Spacing.sm },
   list:        { maxHeight: 300 },
   empty:       { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', paddingVertical: Spacing.md },
   commentRow:  { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start' },
   commentHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  commentAuthor: { fontFamily: FontFamily.title, fontSize: 12, color: Colors.gold },
-  commentTime: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
+  commentAuthor: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.gold },
+  commentTime: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   commentText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.text },
   commentDelete: { padding: 4 },
-  commentDeleteTxt: { fontSize: 12, color: Colors.coral },
+  commentDeleteTxt: { fontSize: 13, color: Colors.coral },
   inputRow:    { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.line, paddingTop: Spacing.sm },
   input:       { flex: 1, backgroundColor: Colors.surf2, borderRadius: Radius.sm, paddingHorizontal: 12, paddingVertical: 8, fontFamily: FontFamily.body, fontSize: 13, color: Colors.text, borderWidth: 1, borderColor: Colors.line },
   sendBtn:     { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
@@ -380,14 +380,14 @@ const makeMcStyles = (Colors: ThemeColors) => StyleSheet.create({
   accentBar:       { height: 3 },
   body:            { padding: Spacing.md, gap: Spacing.sm },
   header:          { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  compName:        { flex: 1, fontFamily: FontFamily.title, fontSize: 12 },
+  compName:        { flex: 1, fontFamily: FontFamily.title, fontSize: 13 },
   time:            { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
   scoreRow:        { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.sm, gap: 4 },
   side:            { flex: 1, gap: 4 },
   sideRight:       { alignItems: 'flex-end' },
   avatarRow:       { flexDirection: 'row', gap: -6 },
   avatarFallback:  { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  avatarFallbackTxt: { fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.faint },
+  avatarFallbackTxt: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.faint },
   sideName:        { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.muted },
   sideNameRight:   { textAlign: 'right' },
   sideNameWin:     { color: Colors.text },
@@ -396,7 +396,7 @@ const makeMcStyles = (Colors: ThemeColors) => StyleSheet.create({
   reactRow:        { flexDirection: 'row', alignItems: 'center', gap: 6 },
   reactBtn:        { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.surf2, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: Colors.line },
   reactBtnActive:  { backgroundColor: Colors.gold + '22', borderColor: Colors.gold + '44' },
-  reactEmoji:      { fontSize: 14 },
+  reactEmoji:      { fontSize: 15 },
   reactCount:      { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted },
   reactCountActive:{ color: Colors.gold },
   commentToggle:    { marginLeft: 'auto' as any, flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -476,7 +476,7 @@ const makeMilStyles = (Colors: ThemeColors) => StyleSheet.create({
   emoji:   { fontSize: 28, lineHeight: 34 },
   info:    { flex: 1, gap: 3 },
   title:   { fontFamily: FontFamily.title, fontSize: 13, color: Colors.gold },
-  desc:    { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  desc:    { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   avatars: { flexDirection: 'row', gap: 4, marginTop: 4 },
   time:    { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
 });
@@ -548,10 +548,10 @@ const makeRcStyles = (Colors: ThemeColors) => StyleSheet.create({
   left:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
   info:  { flex: 1 },
   title: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.text },
-  sub:   { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  sub:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   pos:   { color: Colors.gold },
   badge: { backgroundColor: Colors.teal + '22', borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4 },
-  arrow: { fontFamily: FontFamily.titleBold, fontSize: 16, color: Colors.teal },
+  arrow: { fontFamily: FontFamily.titleBold, fontSize: 17, color: Colors.teal },
 });
 
 // ─── Skeleton loader ──────────────────────────────────────────────────────────
@@ -667,7 +667,7 @@ const makeMrStyles = (Colors: ThemeColors) => StyleSheet.create({
   border:   { borderBottomWidth: 1, borderBottomColor: Colors.line },
   scoreRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.surf2, borderRadius: Radius.md, paddingHorizontal: Spacing.sm, paddingVertical: 8 },
   side:     { flex: 1 },
-  sideName: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted },
+  sideName: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
   win:      { color: Colors.text },
   score:    { fontFamily: FontFamily.titleBold, fontSize: 20, textAlign: 'center', minWidth: 60 },
   reactRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -780,6 +780,6 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   title:      { fontFamily: FontFamily.titleBold, fontSize: 24, color: Colors.text },
   groupName:  { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 2 },
   empty:      { alignItems: 'center', padding: Spacing.xl, gap: Spacing.sm },
-  emptyTitle: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.muted },
+  emptyTitle: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.muted },
   emptySub:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
 });

@@ -475,26 +475,13 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   list: { padding: Spacing.md, paddingTop: Spacing.sm },
 
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingBottom: 140,
-  },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
   },
   logo: { width: 52, height: 52 },
-  headerGroup: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
-  headerTitle: {
-    fontFamily: FontFamily.titleBold,
-    fontSize: 22,
-    color: Colors.text,
-    letterSpacing: 0.5,
-    maxWidth: 200,
-  },
+  headerGroup: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
 
   syncDot: {
     width: 10, height: 10, borderRadius: 5,
@@ -514,7 +501,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginBottom: Spacing.sm,
     alignItems: 'center',
   },
-  offlineText: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  offlineText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
 
   iconBtn: {
     width: 36, height: 36, borderRadius: 18,
@@ -649,6 +636,6 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   dateText: { ...Type.caption, fontFamily: FontFamily.number, color: Colors.faint },
 
   empty: { alignItems: 'center', padding: Spacing.xl, gap: Spacing.sm, marginTop: Spacing.lg },
-  emptyText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.muted },
+  emptyText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.muted },
   emptyHint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
 });

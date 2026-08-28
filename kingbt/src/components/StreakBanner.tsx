@@ -63,5 +63,5 @@ const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   icon:    { fontSize: 18 },
   message: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, lineHeight: 18 },
-  arrow:   { fontFamily: FontFamily.titleBold, fontSize: 16 },
+  arrow:   { fontFamily: FontFamily.titleBold, fontSize: 17 },
 });

@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState, useMemo } from 'react';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors, PLAYER_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar } from '@/components';
 import type { Format } from '@/logic/types';
@@ -23,7 +23,6 @@ type Params = {
 
 type GuestPlayer = { id: string; name: string; color: string; guest: true };
 
-const GUEST_COLORS = ['#94A3B8', '#FB923C', '#A78BFA', '#34D399', '#F472B6', '#2DD4BF', '#FCD34D'];
 
 export default function ParticipantsStep() {
   const { colors: Colors } = useTheme();
@@ -102,7 +101,7 @@ export default function ParticipantsStep() {
   async function addGuest() {
     const name = guestName.trim();
     if (!name || !group) return;
-    const color = GUEST_COLORS[guests.length % GUEST_COLORS.length];
+    const color = PLAYER_COLORS[guests.length % PLAYER_COLORS.length];
     setGuestName('');
     setShowGuestModal(false);
     const id = await addGuestPlayer(group.id, name, color);
@@ -201,7 +200,7 @@ export default function ParticipantsStep() {
           </Text>
           {isSuper8 && params.unit === 'duplas' && (
             <View style={styles.countBadge}>
-              <Text style={{ fontFamily: FontFamily.body, fontSize: 10, color: Colors.teal }}>auto</Text>
+              <Text style={{ fontFamily: FontFamily.body, fontSize: 11, color: Colors.teal }}>auto</Text>
             </View>
           )}
           <View style={styles.countBadge}>
@@ -323,7 +322,7 @@ export default function ParticipantsStep() {
 
             {balanced && suggestedPairs && (
               <View style={{ gap: 6 }}>
-                <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted, letterSpacing: 1.5 }}>
+                <Text style={{ fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted, letterSpacing: 1.5 }}>
                   SUGESTÃO DE DUPLAS
                 </Text>
                 {suggestedPairs.map(([idA, idB], i) => {
@@ -524,7 +523,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   stepItem: { flex: 1, alignItems: 'center', gap: 4 },
   stepLine: { height: 3, width: '100%', borderRadius: 2, backgroundColor: Colors.surf2 },
   stepLineActive: { backgroundColor: Colors.gold },
-  stepLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
+  stepLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   stepLabelActive: { color: Colors.gold, fontFamily: FontFamily.bodyMed },
   scroll: { padding: Spacing.md, gap: Spacing.md },
 
@@ -555,10 +554,10 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   playerCardBuf: { borderColor: Colors.teal, backgroundColor: Colors.teal + '11' },
   playerCardUsed: { opacity: 0.4 },
   playerInfo: { flex: 1, gap: 2 },
-  playerName: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
-  guestBadge: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.muted },
+  playerName: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
+  guestBadge: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
   removeGuest: { padding: 2 },
-  removeGuestText: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.coral },
+  removeGuestText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.coral },
 
   addGuestCard: {
     width: '47%',
@@ -575,7 +574,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 56,
   },
   addGuestIcon: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.muted },
-  addGuestText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
+  addGuestText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.muted },
 
   modalOverlay: { flex: 1, backgroundColor: '#000000aa', justifyContent: 'center', alignItems: 'center', padding: Spacing.xl },
   modalBox: { backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.lg, width: '100%', gap: Spacing.md },
@@ -584,7 +583,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   modalInput: {
     backgroundColor: Colors.bg, borderRadius: Radius.md, borderWidth: 1.5,
     borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md,
-    fontFamily: FontFamily.body, fontSize: 16, color: Colors.text,
+    fontFamily: FontFamily.body, fontSize: 17, color: Colors.text,
   },
   modalButtons: { flexDirection: 'row', gap: Spacing.sm },
   modalBtnCancel: { flex: 1, borderWidth: 1.5, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' },
@@ -601,8 +600,8 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1, borderColor: Colors.line,
   },
   balanceToggleActive: { backgroundColor: Colors.gold + '15', borderColor: Colors.gold + '44' },
-  balanceToggleTitle: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.text },
-  balanceToggleSub: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  balanceToggleTitle: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
+  balanceToggleSub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   balanceCheck: {
     width: 24, height: 24, borderRadius: 12,
     backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line,
@@ -617,15 +616,15 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   // Distribuição de grupos
   distSection: { gap: Spacing.sm, padding: Spacing.md, backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line },
   distTitle: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
-  distInfo: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint, lineHeight: 18 },
+  distInfo: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, lineHeight: 18 },
   distModeRow: { flexDirection: 'row', gap: Spacing.xs },
   distModeBtn: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, backgroundColor: Colors.surf2 },
   distModeBtnActive: { borderColor: Colors.gold + '88', backgroundColor: Colors.gold + '20' },
-  distModeTxt: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted },
+  distModeTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
   distModeTxtActive: { color: Colors.gold },
   // Atribuição manual
   assignRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 4 },
-  assignName: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  assignName: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
   assignBtns: { flexDirection: 'row', gap: 6 },
   groupBadge: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surf2, borderWidth: 1, borderColor: Colors.line },
   groupBadgeActive: { backgroundColor: Colors.gold, borderColor: Colors.gold },
@@ -633,12 +632,12 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   groupBadgeTxtActive: { color: Colors.bg },
   // Preview dos grupos
   groupPreview: { backgroundColor: Colors.surf2, borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.line },
-  groupPreviewLabel: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.gold },
-  groupPreviewNames: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: 2 },
+  groupPreviewLabel: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.gold },
+  groupPreviewNames: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 2 },
 
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: Spacing.md, paddingBottom: Spacing.lg, backgroundColor: Colors.bg, borderTopWidth: 1, borderTopColor: Colors.line },
   btnContinue: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' },
   btnDisabled: { backgroundColor: Colors.surf2 },
-  btnText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg },
+  btnText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg },
   btnTextDisabled: { color: Colors.faint },
 });

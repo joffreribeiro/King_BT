@@ -19,6 +19,7 @@ import { loadAnaliseFs } from '@/firebase/analises';
 import { useAuth } from '@/store/AuthContext';
 import { makeScoutOptions } from '@/components/analise/scoutOptions';
 import { BarChart, PieChart, LineChart } from 'react-native-gifted-charts';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 const { width: SW } = Dimensions.get('window');
 const CHART_W = SW - Spacing.md * 2 - 2;
@@ -67,8 +68,8 @@ function StatRow({ label, valA, valB, pctA, pctB }: { label: string; valA: numbe
 
 const makeSrStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  val: { width: 80, fontFamily: FontFamily.number, fontSize: 14, textAlign: 'center' },
-  label: { flex: 1, fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, textAlign: 'center' },
+  val: { width: 80, fontFamily: FontFamily.number, fontSize: 15, textAlign: 'center' },
+  label: { flex: 1, fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
 });
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -84,7 +85,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 const makeScStyles = (Colors: ThemeColors) => StyleSheet.create({
   wrap: { gap: Spacing.xs },
-  title: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.gold, marginBottom: 4 },
+  title: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.gold, marginBottom: 4 },
 });
 
 // ─── Abas de conteúdo ─────────────────────────────────────────────────────────
@@ -191,23 +192,23 @@ const makeRsStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1, borderColor: Colors.line, marginBottom: Spacing.md,
   },
   scoreTeam: { flex: 1, alignItems: 'center', gap: 6 },
-  scoreName: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted, textAlign: 'center' },
+  scoreName: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted, textAlign: 'center' },
   scoreNum: { fontFamily: FontFamily.numberBold, fontSize: 52 },
   scoreCenter: { alignItems: 'center', gap: 2 },
   scoreSep: { fontFamily: FontFamily.number, fontSize: 24, color: Colors.faint },
-  scoreLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
+  scoreLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   setsRow: { flexDirection: 'row', gap: Spacing.xs, justifyContent: 'center', marginBottom: Spacing.md },
   setChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: Colors.surf2, borderRadius: Radius.md,
     paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: Colors.line,
   },
-  setScore: { fontFamily: FontFamily.number, fontSize: 16 },
-  setSlash: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.faint },
+  setScore: { fontFamily: FontFamily.number, fontSize: 17 },
+  setSlash: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.faint },
   legend: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.lg, marginTop: Spacing.md },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendTxt: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, maxWidth: 120 },
+  legendTxt: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, maxWidth: 120 },
 });
 
 function AbaStats({ analise, stats }: { analise: BtAnalise; stats: BtEstatisticas }) {
@@ -242,8 +243,8 @@ function AbaStats({ analise, stats }: { analise: BtAnalise; stats: BtEstatistica
                 {analise.nomes[id]?.split(' ')[0] ?? id}
               </Text>
               <Text style={[sr.val, { color: Colors.text, fontSize: 12 }]}>{e.winners}</Text>
-              <Text style={[sr.val, { color: Colors.text, fontSize: 12 }]}>{e.aces}</Text>
-              <Text style={[sr.val, { color: Colors.coral, fontSize: 12 }]}>{e.errosNaoForcados}</Text>
+              <Text style={[sr.val, { color: Colors.text, fontSize: 13 }]}>{e.aces}</Text>
+              <Text style={[sr.val, { color: Colors.coral, fontSize: 13 }]}>{e.errosNaoForcados}</Text>
               <Text style={[sr.val, { color: notaCor, fontSize: 13, fontFamily: FontFamily.numberBold }]}>{e.nota.toFixed(1)}</Text>
             </View>
           );
@@ -382,9 +383,9 @@ function AbaSaques({ analise, stats }: { analise: BtAnalise; stats: BtEstatistic
 
 const makeSaqStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  pos: { flex: 1, fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
-  val: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.text, width: 70, textAlign: 'right' },
-  pct: { fontFamily: FontFamily.number, fontSize: 12, width: 44, textAlign: 'right' },
+  pos: { flex: 1, fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
+  val: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.text, width: 70, textAlign: 'right' },
+  pct: { fontFamily: FontFamily.number, fontSize: 13, width: 44, textAlign: 'right' },
 });
 
 function AbaFinalizacoes({ analise, stats }: { analise: BtAnalise; stats: BtEstatisticas }) {
@@ -528,7 +529,7 @@ function AbaLog({ analise }: { analise: BtAnalise }) {
 const makeLogStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', gap: Spacing.sm, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.line },
   dot: { width: 10, height: 10, borderRadius: 5, marginTop: 4 },
-  placar: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.text },
+  placar: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.text },
   detalhe: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
   vencedor: { fontFamily: FontFamily.bodyMed, fontSize: 11 },
 });
@@ -597,20 +598,18 @@ export default function RelatorioScreen() {
       <StatusBar barStyle="light-content" />
 
       {/* Header */}
-      <View style={r.header}>
-        <TouchableOpacity onPress={() => {
+      <ScreenHeader
+        title="Análise BT"
+        onBack={() => {
           if (router.canGoBack()) router.back();
           else router.replace({ pathname: '/competitions/[id]', params: { id: compId ?? '' } });
-        }}>
-          <Text style={r.back}>←</Text>
-        </TouchableOpacity>
-        <Text style={r.title}>Análise BT</Text>
-        {analise && stats && (
+        }}
+        right={analise && stats ? (
           <TouchableOpacity style={r.exportBtn} onPress={exportarPdf} disabled={exportando}>
             <Text style={r.exportTxt}>{exportando ? '...' : '⬇ PDF'}</Text>
           </TouchableOpacity>
-        )}
-      </View>
+        ) : undefined}
+      />
 
       {loading && (
         <View style={p.empty}>
@@ -622,7 +621,7 @@ export default function RelatorioScreen() {
         <View style={p.empty}>
           <Text style={p.emptyTxt}>Nenhuma análise encontrada para esta partida.</Text>
           <TouchableOpacity onPress={() => router.back()} style={{ marginTop: Spacing.md }}>
-            <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.teal }}>← Voltar</Text>
+            <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.teal }}>← Voltar</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -647,19 +646,14 @@ export default function RelatorioScreen() {
 
 const makeRStyles = (Colors: ThemeColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line,
-  },
-  back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
-  title: { flex: 1, fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
+  title: { flex: 1, fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
   exportBtn: { backgroundColor: Colors.surf2, borderRadius: Radius.full, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: Colors.line },
-  exportTxt: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.teal },
+  exportTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal },
 });
 
 const makePStyles = (Colors: ThemeColors) => StyleSheet.create({
   scroll: { padding: Spacing.md, gap: Spacing.lg },
   hint: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, marginTop: 4 },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
-  emptyTxt: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, textAlign: 'center' },
+  emptyTxt: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.muted, textAlign: 'center' },
 });

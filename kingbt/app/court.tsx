@@ -799,10 +799,10 @@ export default function CourtScreen() {
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
           {/* Aviso de trava */}
           <View style={{ backgroundColor: Colors.gold + '15', borderWidth: 1, borderColor: Colors.gold + '44', borderRadius: Radius.md, padding: Spacing.md, gap: 4 }}>
-            <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: Colors.gold }}>
+            <Text style={{ fontFamily: FontFamily.title, fontSize: 15, color: Colors.gold }}>
               ⚠️ {ls?.scorerName ?? 'Outra pessoa'} está marcando este jogo
             </Text>
-            <Text style={{ fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted }}>
+            <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted }}>
               Você está acompanhando ao vivo. O placar atualiza automaticamente.
             </Text>
           </View>
@@ -815,7 +815,7 @@ export default function CourtScreen() {
               <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.coral, textAlign: 'center', letterSpacing: 1 }}>● AO VIVO</Text>
             )}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.sm }}>
-              <Text style={{ flex: 1, fontFamily: FontFamily.title, fontSize: 16, color: Colors.text }} numberOfLines={2}>{nameA}</Text>
+              <Text style={{ flex: 1, fontFamily: FontFamily.title, fontSize: 17, color: Colors.text }} numberOfLines={2}>{nameA}</Text>
               <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 34, color: Colors.gold }}>
                 {finished ? spectMatch.scoreA : ls?.gamesA ?? 0}
               </Text>
@@ -823,10 +823,10 @@ export default function CourtScreen() {
               <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 34, color: Colors.gold }}>
                 {finished ? spectMatch.scoreB : ls?.gamesB ?? 0}
               </Text>
-              <Text style={{ flex: 1, fontFamily: FontFamily.title, fontSize: 16, color: Colors.text, textAlign: 'right' }} numberOfLines={2}>{nameB}</Text>
+              <Text style={{ flex: 1, fontFamily: FontFamily.title, fontSize: 17, color: Colors.text, textAlign: 'right' }} numberOfLines={2}>{nameB}</Text>
             </View>
             {!finished && (ls?.setsA ?? 0) + (ls?.setsB ?? 0) > 0 && (
-              <Text style={{ fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, textAlign: 'center' }}>
+              <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' }}>
                 Sets: {ls?.setsA ?? 0} × {ls?.setsB ?? 0}
               </Text>
             )}
@@ -839,7 +839,7 @@ export default function CourtScreen() {
               onPress={assumirMarcacao}
               activeOpacity={0.8}
             >
-              <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: Colors.coral }}>
+              <Text style={{ fontFamily: FontFamily.title, fontSize: 15, color: Colors.coral }}>
                 🔓 Assumir marcação{!stillLocked ? ' (marcador inativo)' : ''}
               </Text>
             </TouchableOpacity>
@@ -1006,12 +1006,12 @@ const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line },
   back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
   title: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text, flex: 1 },
-  meta: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  meta: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   scroll: { padding: Spacing.md, gap: Spacing.sm },
   empty: { alignItems: 'center', padding: Spacing.xl, gap: Spacing.sm },
   emptyTitle: { fontFamily: FontFamily.title, fontSize: 18, color: Colors.text },
   emptySub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
-  sectionLabel: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted, marginTop: Spacing.sm, marginBottom: 4 },
+  sectionLabel: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted, marginTop: Spacing.sm, marginBottom: 4 },
   analiseRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   analiseIcon: { fontSize: 18 },
   historico: { borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, padding: Spacing.sm, alignItems: 'center', marginTop: Spacing.sm },
@@ -1022,8 +1022,8 @@ const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1, borderColor: Colors.line,
   },
   compInfo: { flex: 1 },
-  compName: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
-  compMeta: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  compName: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
+  compMeta: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   arrow: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.gold },
 });
 
@@ -1065,7 +1065,7 @@ const makeLiveStyles = (Colors: ThemeColors) => StyleSheet.create({
   liveText: { fontSize: 9, fontWeight: '700', color: Colors.coral, letterSpacing: 1, fontFamily: FontFamily.numberBold },
   compName: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, flexShrink: 1 },
   tiebreakBanner: { backgroundColor: Colors.gold + '26', borderRadius: 6, paddingHorizontal: 12, paddingVertical: 3, alignSelf: 'center', marginBottom: Spacing.sm },
-  tiebreakBannerTxt: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold, letterSpacing: 1 },
+  tiebreakBannerTxt: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.gold, letterSpacing: 1 },
 
   // Board estilo TV
   board: {
@@ -1083,7 +1083,7 @@ const makeLiveStyles = (Colors: ThemeColors) => StyleSheet.create({
   boardColHdr: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 1, width: 36, textAlign: 'center' },
   boardRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10 },
   boardDiv: { height: 1, backgroundColor: Colors.line },
-  boardName: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text, flex: 1 },
+  boardName: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text, flex: 1 },
   boardCell: { fontFamily: FontFamily.numberBold, fontSize: 22, width: 36, textAlign: 'center' },
   boardPts: { fontFamily: FontFamily.titleBold, fontSize: 28, textAlign: 'center', letterSpacing: -1 },
   ruleHint: { fontFamily: FontFamily.number, fontSize: 9, color: Colors.faint, textAlign: 'center', paddingVertical: 5 },
@@ -1105,7 +1105,7 @@ const makeLiveStyles = (Colors: ThemeColors) => StyleSheet.create({
   scoreArea: { flexDirection: 'row' },
   side: { flex: 1 },
   avatarRow: { flexDirection: 'row' },
-  teamName: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  teamName: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
   score: { fontFamily: FontFamily.titleBold, fontSize: 72 },
   btnRow: { flexDirection: 'row', gap: Spacing.sm },
   vs: { alignItems: 'center' },
@@ -1124,7 +1124,7 @@ const makeMdStyles = (Colors: ThemeColors) => StyleSheet.create({
     padding: Spacing.lg, width: '100%', gap: Spacing.md,
     borderWidth: 1, borderColor: Colors.line,
   },
-  title: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text, textAlign: 'center' },
+  title: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text, textAlign: 'center' },
   miniCard: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.sm,
@@ -1145,12 +1145,12 @@ const makeMdStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderRadius: Radius.md, padding: Spacing.sm + 2, alignItems: 'center',
     borderWidth: 1, borderColor: Colors.line,
   },
-  btnSimplesTxt: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  btnSimplesTxt: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
   btnRelatorio: {
     borderRadius: Radius.md, padding: Spacing.sm, alignItems: 'center',
     backgroundColor: Colors.teal + '22', borderWidth: 1, borderColor: Colors.teal + '55',
   },
   btnRelatorioTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal },
   btnCancelar: { alignItems: 'center', padding: 6 },
-  btnCancelarTxt: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint },
+  btnCancelarTxt: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint },
 });

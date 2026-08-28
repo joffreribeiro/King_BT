@@ -198,13 +198,13 @@ const makeCardStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   headerLeft: { gap: 4 },
   logo: { width: 56, height: 56 },
-  headerTitle: { fontFamily: FontFamily.titleBold, fontSize: 16, color: Colors.gold, letterSpacing: 2 },
-  headerSub: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold + 'aa', letterSpacing: 4 },
-  headerAfter: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.muted, marginTop: 2 },
+  headerTitle: { fontFamily: FontFamily.titleBold, fontSize: 17, color: Colors.gold, letterSpacing: 2 },
+  headerSub: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.gold + 'aa', letterSpacing: 4 },
+  headerAfter: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, marginTop: 2 },
   headerRight: { flex: 1, gap: 4 },
   headerInfo: { flexDirection: 'row', justifyContent: 'space-between' },
   headerInfoLabel: { fontFamily: FontFamily.body, fontSize: 9, color: Colors.faint, letterSpacing: 0.5 },
-  headerInfoValue: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.text },
+  headerInfoValue: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.text },
 
   podiumWrap: {
     flexDirection: 'row',
@@ -216,9 +216,9 @@ const makeCardStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderBottomColor: Colors.gold + '22',
   },
   podCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
-  podPos: { fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.muted, marginBottom: 4 },
-  podName: { fontFamily: FontFamily.title, fontSize: 12, color: Colors.text, textAlign: 'center', marginTop: 4 },
-  podPts: { fontFamily: FontFamily.numberBold, fontSize: 14, color: Colors.gold, marginBottom: 4 },
+  podPos: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted, marginBottom: 4 },
+  podName: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.text, textAlign: 'center', marginTop: 4 },
+  podPts: { fontFamily: FontFamily.numberBold, fontSize: 15, color: Colors.gold, marginBottom: 4 },
   podBlock: { width: '100%', borderTopWidth: 2, alignItems: 'center', justifyContent: 'center' },
   podBlockNum: { fontFamily: FontFamily.titleBold, fontSize: 24, color: Colors.gold },
 
@@ -229,8 +229,8 @@ const makeCardStyles = (Colors: ThemeColors) => StyleSheet.create({
   rowTop: { backgroundColor: Colors.gold + '08' },
   th: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 0.5 },
   thNum: { width: 28, textAlign: 'center' },
-  td: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.text },
-  tdNum: { width: 28, textAlign: 'center', fontFamily: FontFamily.number, fontSize: 12, color: Colors.text },
+  td: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.text },
+  tdNum: { width: 28, textAlign: 'center', fontFamily: FontFamily.number, fontSize: 13, color: Colors.text },
 
   footer: {
     backgroundColor: '#111114',
@@ -241,5 +241,5 @@ const makeCardStyles = (Colors: ThemeColors) => StyleSheet.create({
     gap: 3,
   },
   footerFormula: { fontFamily: FontFamily.number, fontSize: 9, color: Colors.muted, textAlign: 'center' },
-  footerBrand: { fontFamily: FontFamily.titleBold, fontSize: 10, color: Colors.gold + 'aa', letterSpacing: 2 },
+  footerBrand: { fontFamily: FontFamily.titleBold, fontSize: 11, color: Colors.gold + 'aa', letterSpacing: 2 },
 });

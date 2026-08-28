@@ -435,7 +435,7 @@ const st = StyleSheet.create({
   },
   replayText: {
     fontFamily: FontFamily.titleBold,
-    fontSize: 12,
+    fontSize: 13,
     color: '#F3C544',
     letterSpacing: 0.5,
   },

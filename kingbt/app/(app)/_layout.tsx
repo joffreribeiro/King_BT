@@ -11,6 +11,7 @@ import { useSyncQueue } from '@/store/SyncQueueContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useUpdate } from '@/store/UpdateContext';
+import { useNotifications } from '@/hooks/useNotifications';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Avatar, Icon, type IconName } from '@/components';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -328,6 +329,7 @@ function AppHeader({ onMenuPress }: { onMenuPress: () => void }) {
   const { groupPlayers } = useGroupPlayers();
   const insets = useSafeAreaInsets();
   const myPlayer = groupPlayers.find(p => p.id === myPlayerId);
+  const { unread } = useNotifications();
 
   return (
     <View style={[hd.bar, { paddingTop: insets.top }]}>
@@ -352,7 +354,12 @@ function AppHeader({ onMenuPress }: { onMenuPress: () => void }) {
             style={hd.bellBtn}
             activeOpacity={0.75}
           >
-            <Icon name="bell" size={18} color={Colors.muted} />
+            <Icon name="bell" size={18} color={unread > 0 ? Colors.gold : Colors.muted} />
+            {unread > 0 && (
+              <View style={hd.bellBadge}>
+                <Text style={hd.bellBadgeText}>{unread > 9 ? '9+' : unread}</Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/(app)/profile')} activeOpacity={0.8}>
             <Avatar
@@ -420,6 +427,13 @@ const makeHdStyles = (Colors: ThemeColors) => StyleSheet.create({
   groupLabel: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted, letterSpacing: 1 },
   groupName: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text },
   bellBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
+  // Badge do sino — contorno na cor do fundo para destacar do ícone atrás.
+  bellBadge: {
+    position: 'absolute', top: -3, right: -3, minWidth: 16, height: 16, borderRadius: 8,
+    paddingHorizontal: 3, backgroundColor: Colors.coral, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: Colors.bg,
+  },
+  bellBadgeText: { fontFamily: FontFamily.numberBold, fontSize: 9, color: '#FFF', lineHeight: 12 },
   menuBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
 });
 
@@ -442,22 +456,22 @@ const makeDrStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: Colors.line, paddingTop: 56 },
   headerTitle: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
-  headerSub: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: 2 },
+  headerSub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 2 },
   closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
   content: { flex: 1, padding: 16 },
   sectionLabel: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.gold, letterSpacing: 1, marginBottom: 10, marginTop: 4 },
   groupBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1 },
   groupBtnActive: { backgroundColor: Colors.surf2, borderColor: Colors.gold },
-  groupBtnTxtActive: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.gold, flex: 1 },
+  groupBtnTxtActive: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.gold, flex: 1 },
   groupBtnNew: { padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: Colors.line },
-  groupBtnNewTxt: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
+  groupBtnNewTxt: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.muted },
   divider: { height: 1, backgroundColor: Colors.line, marginVertical: 16 },
   menuBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 10, marginBottom: 8 },
   menuBtnIcon: { width: 28, alignItems: 'flex-start' },
-  menuBtnTxt: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  menuBtnTxt: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
   footer: { padding: 16, borderTopWidth: 1, borderTopColor: Colors.line },
   logoutBtn: { padding: 12, borderRadius: 10, backgroundColor: 'rgba(229,72,61,0.12)', borderWidth: 1, borderColor: 'rgba(229,72,61,0.3)', alignItems: 'center' },
-  logoutTxt: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.coral },
+  logoutTxt: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.coral },
 });
 
 const makeFabStyles = (Colors: ThemeColors) => StyleSheet.create({
@@ -485,7 +499,7 @@ const makeFabStyles = (Colors: ThemeColors) => StyleSheet.create({
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   offlineBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: '#E5483D22', borderBottomWidth: 1, borderBottomColor: '#E5483D44',
+    backgroundColor: Colors.coral + '22', borderBottomWidth: 1, borderBottomColor: Colors.coral + '44',
     paddingVertical: 5,
   },
   offlineText: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.coral },
@@ -497,14 +511,14 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   updateContent: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
   updateText: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.teal },
   updateActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  updateDismiss: { fontFamily: FontFamily.bodyMed, fontSize: 10, color: Colors.muted },
+  updateDismiss: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.muted },
   updateBtn: { paddingHorizontal: 10, paddingVertical: 4, backgroundColor: Colors.teal, borderRadius: 4 },
-  updateBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 10, color: '#000', fontWeight: '600' },
+  updateBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: '#000', fontWeight: '600' },
   visitorBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: Colors.gold + '22', borderBottomWidth: 1, borderBottomColor: Colors.gold + '44',
     paddingVertical: 6, paddingHorizontal: Spacing.md,
   },
   visitorText: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.gold, textAlign: 'center' },
-  visitorExit: { fontFamily: FontFamily.title, fontSize: 12, color: Colors.gold, textDecorationLine: 'underline' },
+  visitorExit: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.gold, textDecorationLine: 'underline' },
 });

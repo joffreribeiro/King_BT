@@ -76,13 +76,13 @@ export function EditPontoModal({ ponto, nomes, jogadoresA, jogadoresB, onSave, o
 }
 
 const makeEpStyles = (Colors: ThemeColors) => StyleSheet.create({
-  title:      { fontFamily: FontFamily.titleBold, fontSize: 16, color: Colors.text, marginBottom: 2 },
-  sub:        { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted, marginBottom: Spacing.md },
+  title:      { fontFamily: FontFamily.titleBold, fontSize: 17, color: Colors.text, marginBottom: 2 },
+  sub:        { fontFamily: FontFamily.number, fontSize: 13, color: Colors.muted, marginBottom: Spacing.md },
   label:      { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted, marginTop: Spacing.sm, marginBottom: 4 },
   row:        { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   btnRow:     { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.lg },
   btnCancel:  { flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
-  btnCancelTxt: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
+  btnCancelTxt: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.muted },
   btnSave:    { flex: 2, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
-  btnSaveTxt: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.bg },
+  btnSaveTxt: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg },
 });

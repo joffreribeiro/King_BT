@@ -70,7 +70,7 @@ const bg = StyleSheet.create({
   emojiLocked: { opacity: 0.4 },
   label: {
     fontFamily: FontFamily.body,
-    fontSize: 10,
+    fontSize: 11,
     textAlign: 'center',
   },
 });

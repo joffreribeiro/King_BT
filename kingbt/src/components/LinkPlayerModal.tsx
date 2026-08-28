@@ -162,7 +162,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   btnText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg },
 
   backBtn: { paddingBottom: Spacing.xs },
-  backText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.teal },
+  backText: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.teal },
 
   pickerContainer: { backgroundColor: Colors.surf2, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, overflow: 'hidden' },
   picker: { height: 180 },
@@ -170,7 +170,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   modalBox: { backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
   modalTitle: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.text },
-  modalSubtitle: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, lineHeight: 20 },
+  modalSubtitle: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.muted, lineHeight: 20 },
   btnOutline: { borderWidth: 1.5, borderColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' },
-  btnOutlineText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.gold },
+  btnOutlineText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.gold },
 });

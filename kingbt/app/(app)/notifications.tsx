@@ -10,26 +10,9 @@ import { useTheme } from '@/store/ThemeContext';
 import { Avatar } from '@/components';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
-import { useCompetitions } from '@/store/CompetitionsContext';
+import { useNotifications, type NotifType, type AppNotif } from '@/hooks/useNotifications';
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
-
-type NotifType =
-  | 'result_new'
-  | 'comp_started'
-  | 'achievement_unlock'
-  | 'player_ranked_up'
-  | 'invite';
-
-interface AppNotif {
-  id: string;
-  type: NotifType;
-  title: string;
-  description: string;
-  read: boolean;
-  createdAt: Date;
-  actionCompId?: string;
-}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -86,66 +69,10 @@ export default function NotificationsScreen() {
   const styles = useMemo(() => makeNsStyles(Colors), [Colors]);
   const { myPlayerId } = useAuth();
   const { findPlayer } = useGroupPlayers();
-  const { state } = useCompetitions();
   const [tab, setTab] = useState<Tab>('notif');
   const [refreshing, setRefreshing] = useState(false);
 
-  // Gera notificações a partir dos dados reais da competição
-  const [notifs, setNotifs] = useState<AppNotif[]>(() => {
-    const list: AppNotif[] = [];
-
-    // Resultados recentes (últimas 5 partidas com placar)
-    state.competitions.forEach(comp => {
-      comp.matches
-        .filter(m => m.scoreA != null && m.playedAt)
-        .sort((a, b) => (b.playedAt ?? '').localeCompare(a.playedAt ?? ''))
-        .slice(0, 3)
-        .forEach(m => {
-          const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA;
-          const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB;
-          list.push({
-            id: `result_${m.id}`,
-            type: 'result_new',
-            title: `Novo resultado: ${comp.name}`,
-            description: `Placar registrado: ${gA}–${gB}`,
-            read: false,
-            createdAt: m.playedAt ? new Date(m.playedAt) : new Date(Date.now() - Math.random() * 86400000),
-            actionCompId: comp.id,
-          });
-        });
-    });
-
-    // Competições ativas
-    state.competitions
-      .filter(c => c.status === 'active')
-      .slice(0, 2)
-      .forEach(comp => {
-        list.push({
-          id: `comp_${comp.id}`,
-          type: 'comp_started',
-          title: `Competição em andamento`,
-          description: `${comp.name} está acontecendo agora`,
-          read: false,
-          createdAt: new Date(comp.date + 'T12:00:00'),
-          actionCompId: comp.id,
-        });
-      });
-
-    // Ordena por data DESC e limita
-    return list
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .slice(0, 20);
-  });
-
-  const unread = useMemo(() => notifs.filter(n => !n.read).length, [notifs]);
-
-  function markRead(id: string) {
-    setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-  }
-
-  function markAllRead() {
-    setNotifs(prev => prev.map(n => ({ ...n, read: true })));
-  }
+  const { notifs, unread, markRead, markAllRead } = useNotifications();
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -254,7 +181,7 @@ const makeNsStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 5,
   },
   badgeTxt: { fontFamily: FontFamily.numberBold, fontSize: 11, color: '#fff' },
-  markAll: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.teal },
+  markAll: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal },
 
   tabs: {
     flexDirection: 'row', marginHorizontal: Spacing.md,
@@ -263,7 +190,7 @@ const makeNsStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   tab: { flex: 1, paddingVertical: 7, borderRadius: Radius.sm, alignItems: 'center' },
   tabActive: { backgroundColor: Colors.surf },
-  tabLabel: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.faint },
+  tabLabel: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.faint },
   tabLabelActive: { color: Colors.gold },
 
   scroll: { paddingHorizontal: Spacing.md },
@@ -284,11 +211,11 @@ const makeNsStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   icon: { fontSize: 18 },
   title: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
-  desc: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint, lineHeight: 17 },
-  time: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
+  desc: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, lineHeight: 17 },
+  time: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
 
   empty: { alignItems: 'center', paddingVertical: 60, gap: Spacing.sm },
   emptyIcon: { fontSize: 44 },
-  emptyText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
+  emptyText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
   emptySub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', maxWidth: 240 },
 });

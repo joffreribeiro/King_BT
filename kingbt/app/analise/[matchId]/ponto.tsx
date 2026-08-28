@@ -25,6 +25,7 @@ import { useAuth } from '@/store/AuthContext';
 import { Chip } from '@/components/analise/Chip';
 import { EditPontoModal } from '@/components/analise/EditPontoModal';
 import { PhaseDivider } from '@/components/analise/PhaseDivider';
+import { ScreenHeader } from '@/components/ScreenHeader';
 import {
   POSICOES_SIMPLES, DIRECOES_PADRAO, DIRECAO_LOB,
   DIRECAO_DEVOLUCAO,
@@ -517,15 +518,13 @@ export default function PontoScreen() {
     return (
       <SafeAreaView style={s.safe} edges={['top']}>
         <StatusBar barStyle="light-content" />
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => {
+        <ScreenHeader
+          title="King Scout"
+          onBack={() => {
             if (router.canGoBack()) router.back();
             else router.replace({ pathname: '/competitions/[id]', params: { id: compId } });
-          }}>
-            <Text style={s.back}>←</Text>
-          </TouchableOpacity>
-          <Text style={s.headerTitle}>King Scout</Text>
-        </View>
+          }}
+        />
         <ScrollView contentContainerStyle={{ padding: 24, gap: 20, alignItems: 'center' }}>
           <View style={{ alignItems: 'center', gap: 8, marginTop: 16 }}>
             <Text style={{ fontSize: 40 }}>✅</Text>
@@ -541,9 +540,9 @@ export default function PontoScreen() {
               <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 40, color: pf.setsA > pf.setsB ? Colors.teal : Colors.muted }}>{pf.setsA}</Text>
             </View>
             <View style={{ alignItems: 'center', gap: 4 }}>
-              <Text style={{ fontFamily: FontFamily.body, fontSize: 14, color: Colors.faint }}>sets</Text>
+              <Text style={{ fontFamily: FontFamily.body, fontSize: 15, color: Colors.faint }}>sets</Text>
               {pf.gamesA.map((gA, i) => (
-                <Text key={i} style={{ fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint }}>
+                <Text key={i} style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint }}>
                   Set {i + 1}: {gA}–{pf.gamesB[i] ?? 0}
                 </Text>
               ))}
@@ -560,7 +559,7 @@ export default function PontoScreen() {
           >
             <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 15, color: Colors.bg }}>📊 Ver Relatório</Text>
           </TouchableOpacity>
-          <Text style={{ fontFamily: FontFamily.body, fontSize: 12, color: Colors.faint, textAlign: 'center' }}>
+          <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center' }}>
             {pontos.length} pontos registrados · toque em qualquer ponto no relatório para editar
           </Text>
         </ScrollView>
@@ -572,33 +571,32 @@ export default function PontoScreen() {
     <SafeAreaView style={s.safe} edges={['top']}>
       <StatusBar barStyle="light-content" />
 
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => {
+      <ScreenHeader
+        title="King Scout"
+        subtitle={`${pontos.length} pontos registrados`}
+        onBack={() => {
           if (router.canGoBack()) router.back();
           else router.replace({ pathname: '/competitions/[id]', params: { id: compId } });
-        }}>
-          <Text style={s.back}>←</Text>
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={s.headerTitle}>King Scout</Text>
-            <View style={[s.modeBadge, {
-              backgroundColor: isAoVivo ? 'rgba(84,185,129,0.15)' : isPadrao ? 'rgba(107,127,215,0.15)' : 'rgba(192,132,252,0.15)',
-              borderColor: isAoVivo ? 'rgba(84,185,129,0.4)' : isPadrao ? 'rgba(107,127,215,0.4)' : 'rgba(192,132,252,0.4)',
+        }}
+        below={
+          <View style={[s.modeBadge, {
+            alignSelf: 'flex-start', marginTop: 4,
+            backgroundColor: isAoVivo ? 'rgba(84,185,129,0.15)' : isPadrao ? 'rgba(107,127,215,0.15)' : 'rgba(192,132,252,0.15)',
+            borderColor: isAoVivo ? 'rgba(84,185,129,0.4)' : isPadrao ? 'rgba(107,127,215,0.4)' : 'rgba(192,132,252,0.4)',
+          }]}>
+            <Text style={[s.modeBadgeTxt, {
+              color: isAoVivo ? Colors.teal : isPadrao ? Colors.accentGrupos : Colors.accentSuper8,
             }]}>
-              <Text style={[s.modeBadgeTxt, {
-                color: isAoVivo ? Colors.teal : isPadrao ? '#6B7FD7' : '#C084FC',
-              }]}>
-                {isAoVivo ? 'Ao Vivo' : isPadrao ? 'Padrão' : 'Avançado'}
-              </Text>
-            </View>
+              {isAoVivo ? 'Ao Vivo' : isPadrao ? 'Padrão' : 'Avançado'}
+            </Text>
           </View>
-          <Text style={s.headerSub}>{pontos.length} pontos registrados</Text>
-        </View>
-        <TouchableOpacity style={s.encerrarBtn} onPress={pedirEncerrar}>
-          <Text style={s.encerrarTxt}>Encerrar</Text>
-        </TouchableOpacity>
-      </View>
+        }
+        right={
+          <TouchableOpacity style={s.encerrarBtn} onPress={pedirEncerrar}>
+            <Text style={s.encerrarTxt}>Encerrar</Text>
+          </TouchableOpacity>
+        }
+      />
 
       <View style={s.scoreboard}>
         {/* Times e placar atual */}
@@ -667,18 +665,18 @@ export default function PontoScreen() {
         <View style={s.modeBar}>
           {pontos.length > 0 && (
             <View style={[s.modeLockedBadge, {
-              backgroundColor: isAoVivo ? Colors.teal + '15' : isPadrao ? '#6B7FD715' : '#C084FC15',
-              borderColor: isAoVivo ? Colors.teal + '44' : isPadrao ? '#6B7FD744' : '#C084FC44',
+              backgroundColor: isAoVivo ? Colors.teal + '15' : isPadrao ? Colors.accentGrupos + '15' : Colors.accentSuper8 + '15',
+              borderColor: isAoVivo ? Colors.teal + '44' : isPadrao ? Colors.accentGrupos + '44' : Colors.accentSuper8 + '44',
             }]}>
-              <Text style={[s.modeLockedTxt, { color: isAoVivo ? Colors.teal : isPadrao ? '#6B7FD7' : '#C084FC' }]}>
+              <Text style={[s.modeLockedTxt, { color: isAoVivo ? Colors.teal : isPadrao ? Colors.accentGrupos : Colors.accentSuper8 }]}>
                 🔒 {isAoVivo ? 'Ao Vivo' : isPadrao ? 'Padrão' : 'Avançado'} — modo travado
               </Text>
             </View>
           )}
           {pontos.length === 0 && ([
             { key: 'aovivo',   label: 'Ao Vivo',   color: Colors.teal },
-            { key: 'padrao',   label: 'Padrão',    color: '#6B7FD7'  },
-            { key: 'avancado', label: 'Avançado',  color: '#C084FC'  },
+            { key: 'padrao',   label: 'Padrão',    color: Colors.accentGrupos  },
+            { key: 'avancado', label: 'Avançado',  color: Colors.accentSuper8  },
           ] as { key: ScoutMode; label: string; color: string }[]).map(m => (
             <TouchableOpacity
               key={m.key}
@@ -1223,21 +1221,18 @@ export default function PontoScreen() {
 
 const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
-  headerTitle: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
   headerSub: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
   encerrarBtn: { backgroundColor: Colors.coral + '22', borderRadius: Radius.full, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: Colors.coral + '66' },
-  encerrarTxt: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.coral },
+  encerrarTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.coral },
   scoreboard: { backgroundColor: Colors.surf, borderBottomWidth: 1, borderBottomColor: Colors.line },
   scoreRow:      { flexDirection: 'row', alignItems: 'center', padding: Spacing.md },
   scoreTeam:     { flex: 1, alignItems: 'center', gap: 4 },
   scoreTeamName: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, textAlign: 'center' },
   scoreNum:      { fontFamily: FontFamily.numberBold, fontSize: 42, lineHeight: 48 },
-  setsLabel:     { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
+  setsLabel:     { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   quickRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
   quickBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: Radius.md, borderWidth: 1, backgroundColor: Colors.surf2 },
-  quickTxt: { fontFamily: FontFamily.bodyMed, fontSize: 12 },
+  quickTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13 },
   setsHistoryRow: { flexDirection: 'row', gap: 6, justifyContent: 'center', paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm, flexWrap: 'wrap' },
   setHistChip:   { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.surf2, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: Colors.line },
   setHistLabel:  { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, marginRight: 3 },
@@ -1245,7 +1240,7 @@ const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   setHistDash:   { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   scoreCenter:   { alignItems: 'center', paddingHorizontal: Spacing.md, gap: 2 },
   gameScore:     { fontFamily: FontFamily.numberBold, fontSize: 20, color: Colors.text },
-  setScoreLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
+  setScoreLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   tiebreakLabel: { fontFamily: FontFamily.bodyMed, fontSize: 9, color: Colors.gold, backgroundColor: Colors.gold + '22', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, textAlign: 'center' },
   scroll:   { padding: Spacing.md, gap: Spacing.sm },
   label:    { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted, marginTop: Spacing.sm },
@@ -1257,20 +1252,20 @@ const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   regBtnOff:{ opacity: 0.35 },
   regBtnTxt:{ fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg },
   logHeader:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.md },
-  undoTxt:  { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.teal },
+  undoTxt:  { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal },
   logRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: 6, borderTopWidth: 1, borderTopColor: Colors.line },
   logRowFirst: { borderTopWidth: 0 },
   logDot:   { width: 8, height: 8, borderRadius: 4 },
-  logTxt:   { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, flex: 1 },
+  logTxt:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, flex: 1 },
   modeBadge: { borderRadius: Radius.full, borderWidth: 1, paddingHorizontal: 7, paddingVertical: 2 },
   modeBadgeTxt: { fontFamily: FontFamily.numberBold, fontSize: 9, letterSpacing: 0.5 },
   modeBar: { flexDirection: 'row', gap: Spacing.xs, paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs, borderBottomWidth: 1, borderBottomColor: Colors.line },
   modeBtn: { flex: 1, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1, borderColor: 'transparent', alignItems: 'center' },
-  modeBtnTxt: { fontFamily: FontFamily.bodyMed, fontSize: 12 },
+  modeBtnTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13 },
   modeLockedBadge: { flex: 1, paddingVertical: 7, borderRadius: Radius.full, borderWidth: 1, alignItems: 'center' },
   modeLockedTxt: { fontFamily: FontFamily.bodyMed, fontSize: 11 },
   extrasToggle: { borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: 8, alignItems: 'center', marginTop: Spacing.sm },
-  extrasToggleTxt: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted },
+  extrasToggleTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
   commentWrap: { backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, paddingHorizontal: Spacing.sm, marginTop: 4 },
   commentInput: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.text, paddingVertical: Spacing.sm, minHeight: 56, textAlignVertical: 'top' },
 });
@@ -1279,8 +1274,8 @@ const makeMStyles = (Colors: ThemeColors) => StyleSheet.create({
   overlay:      { flex: 1, backgroundColor: '#000000BB', justifyContent: 'center', alignItems: 'center', padding: Spacing.lg },
   card:         { backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.lg, width: '100%', gap: Spacing.md, borderWidth: 1, borderColor: Colors.line },
   title:        { fontFamily: FontFamily.title, fontSize: 18, color: Colors.text, textAlign: 'center' },
-  sub:          { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text, textAlign: 'center' },
-  sub2:         { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, textAlign: 'center' },
+  sub:          { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text, textAlign: 'center' },
+  sub2:         { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
   row:          { flexDirection: 'row', gap: Spacing.sm },
   btnCancel:    { flex: 1, padding: Spacing.sm, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.line, alignItems: 'center' },
   btnCancelTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },

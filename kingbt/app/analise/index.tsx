@@ -7,6 +7,7 @@ import { useTheme } from '@/store/ThemeContext';
 import { listarAnalises, type BtAnalise } from '@/logic/btTracker';
 import { useAuth } from '@/store/AuthContext';
 import { listAnalisesFs } from '@/firebase/analises';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString('pt-BR', {
@@ -55,11 +56,11 @@ const makeCardStyles = (Colors: ThemeColors) => StyleSheet.create({
     padding: Spacing.md, gap: Spacing.xs,
   },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  score: { fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.text },
+  score: { fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.text },
   date: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   teams: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   team: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13 },
-  vs: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.faint },
+  vs: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.faint },
   hint: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, marginTop: 2 },
 });
 
@@ -94,12 +95,7 @@ export default function AnaliseListScreen() {
     <SafeAreaView style={s.safe} edges={['top']}>
       <StatusBar barStyle="light-content" />
 
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={s.back}>←</Text>
-        </TouchableOpacity>
-        <Text style={s.title}>Histórico de Análises BT</Text>
-      </View>
+      <ScreenHeader title="Histórico de Análises BT" />
 
       {loading && (
         <View style={s.center}>
@@ -133,8 +129,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line,
   },
-  back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
-  title: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
+  title: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
   scroll: { padding: Spacing.md, gap: Spacing.sm },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl, gap: Spacing.sm },
   emptyTitle: { fontFamily: FontFamily.title, fontSize: 18, color: Colors.text, textAlign: 'center' },

@@ -136,10 +136,10 @@ const makeRls = (Colors: ThemeColors) => StyleSheet.create({
   card: { backgroundColor: Colors.surf, borderRadius: Radius.md, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
   divider: { height: 1, backgroundColor: Colors.line, marginHorizontal: Spacing.md },
-  icon: { fontSize: 16, width: 24, textAlign: 'center' },
+  icon: { fontSize: 17, width: 24, textAlign: 'center' },
   label: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, flex: 1 },
   value: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text, textAlign: 'right', flexShrink: 0, maxWidth: '55%' },
   tiebreakBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.gold + '22', alignItems: 'center', justifyContent: 'center' },
-  tiebreakN: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold },
+  tiebreakN: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.gold },
   notes: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, lineHeight: 20, padding: Spacing.md },
 });

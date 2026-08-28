@@ -4,7 +4,7 @@ import { useState, useRef, useMemo, useCallback } from 'react';
 import ViewShot from 'react-native-view-shot';
 import { router } from 'expo-router';
 import { goToPlayer } from '@/logic/nav';
-import { FontFamily, Spacing, Radius, Type, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, Type, type ThemeColors, Colors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, Card, Icon } from '@/components';
@@ -260,7 +260,7 @@ export default function RankingScreen() {
                 backgroundColor: period === p ? Colors.surf : 'transparent' }}
               onPress={() => setPeriod(p)}
             >
-              <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12,
+              <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 13,
                 color: period === p ? Colors.gold : Colors.faint }}>
                 {{ mes: 'Este mês', ano: 'Este ano', geral: 'Geral' }[p]}
               </Text>
@@ -557,13 +557,13 @@ export default function RankingScreen() {
 
 // Coroas SVG-like via emoji diferenciadas por posição
 const CROWN: Record<number, { emoji: string; color: string; glow: string }> = {
-  1: { emoji: '👑', color: '#F3C544', glow: '#F3C544' },
+  1: { emoji: '👑', color: Colors.gold, glow: Colors.gold },
   2: { emoji: '👑', color: '#A8B8C8', glow: '#A8B8C8' },
   3: { emoji: '👑', color: '#CD7F32', glow: '#CD7F32' },
 };
 
 const PILLAR: Record<number, { h: number; topBorder: string; bg: string }> = {
-  1: { h: 160, topBorder: '#F3C544', bg: '#1E1A10' },
+  1: { h: 160, topBorder: Colors.gold, bg: '#1E1A10' },
   2: { h: 110, topBorder: '#A8B8C8', bg: '#161820' },
   3: { h: 80,  topBorder: '#CD7F32', bg: '#1E1208' },
 };
@@ -712,7 +712,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     right: '25%',
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#F3C54420',
+    backgroundColor: Colors.gold + '20',
   },
   podium: {
     flexDirection: 'row',
@@ -741,7 +741,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   nameBlock: { flex: 1, overflow: 'hidden' },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4, overflow: 'hidden' },
   playerName: { ...Type.bodyMed, color: Colors.text, flexShrink: 1 },
-  playerMeta: { ...Type.caption, fontSize: 10, color: Colors.faint, marginTop: 1 },
+  playerMeta: { ...Type.caption, fontSize: 11, color: Colors.faint, marginTop: 1 },
   ptsText: { ...Type.title, fontFamily: FontFamily.numberBold, color: Colors.gold, textAlign: 'right', minWidth: 52 },
   trendSmall: { ...Type.caption, fontSize: 9, fontFamily: FontFamily.numberBold, color: Colors.faint },
 
@@ -770,9 +770,9 @@ const makeCmpStyles = (Colors: ThemeColors) => StyleSheet.create({
   compareCard: { backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm, marginTop: Spacing.sm },
   compareHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xs },
   compareName: { ...Type.bodyMed, color: Colors.text, marginTop: 4 },
-  compareVs: { fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.faint },
+  compareVs: { fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.faint },
   statRow: { flexDirection: 'row', alignItems: 'center' },
-  statVal: { flex: 1, fontFamily: FontFamily.numberBold, fontSize: 14, color: Colors.text },
+  statVal: { flex: 1, fontFamily: FontFamily.numberBold, fontSize: 15, color: Colors.text },
   statLabel: { width: 64, textAlign: 'center', ...Type.caption, color: Colors.faint },
 });
 
@@ -788,7 +788,7 @@ const makeModalStyles = (Colors: ThemeColors) => StyleSheet.create({
   divider: { height: 1, backgroundColor: Colors.line, marginVertical: Spacing.xs },
   example: { gap: 3 },
   exTitle: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.muted },
-  exText: { fontFamily: FontFamily.number, fontSize: 14, color: Colors.text },
+  exText: { fontFamily: FontFamily.number, fontSize: 15, color: Colors.text },
   desempateTitle: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.muted },
   desempateItem: { ...Type.body, color: Colors.text },
   closeBtn: {

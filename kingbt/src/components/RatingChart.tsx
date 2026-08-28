@@ -127,7 +127,7 @@ const makeRcStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   pts: {
     fontFamily: FontFamily.numberBold,
-    fontSize: 10,
+    fontSize: 11,
     color: Colors.faint,
   },
   ptsBest: {
@@ -176,7 +176,7 @@ const makeRcStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   aprov: {
     fontFamily: FontFamily.number,
-    fontSize: 8,
+    fontSize: 9,
     color: Colors.faint,
   },
 });

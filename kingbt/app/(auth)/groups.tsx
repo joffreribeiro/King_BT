@@ -10,7 +10,7 @@ import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
 import type { Group, UnlinkedPlayer } from '@/store/AuthContext';
 import { LinkPlayerModal } from '@/components/LinkPlayerModal';
-import { VisibilityPicker, type GroupVisibility } from '@/components';
+import { VisibilityPicker, type GroupVisibility, Icon } from '@/components';
 import { DEFAULT_SCORING, isScoringConfigValid, type ScoringConfig } from '@/logic/scoringConfig';
 import { statPoints } from '@/logic/scoring';
 
@@ -154,7 +154,7 @@ export default function GroupsScreen() {
         <View style={styles.header}>
           {router.canGoBack() && (
             <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-              <Text style={styles.backIcon}>‹</Text>
+              <Icon name="chevronLeft" size={18} color={Colors.text} />
             </TouchableOpacity>
           )}
           <Text style={styles.headerTitle}>Escolha seu grupo</Text>
@@ -192,7 +192,7 @@ export default function GroupsScreen() {
                             <Text style={styles.groupCardCode}>{g.code}</Text>
                           </View>
                           {currentGroup?.id === g.id && <Text style={styles.activeBadge}>Ativo</Text>}
-                          <Text style={styles.groupCardArrow}>›</Text>
+                          <Icon name="chevronRight" size={18} color={Colors.faint} />
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -206,7 +206,7 @@ export default function GroupsScreen() {
                         <Text style={styles.optionTitle}>Entrar com código</Text>
                         <Text style={styles.optionDesc}>Tem um convite? Digite o código</Text>
                       </View>
-                      <Text style={styles.groupCardArrow}>›</Text>
+                      <Icon name="chevronRight" size={18} color={Colors.faint} />
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.optionBtn} onPress={() => switchMode('create')} activeOpacity={0.8}>
                       <Text style={styles.optionIcon}>➕</Text>
@@ -214,7 +214,7 @@ export default function GroupsScreen() {
                         <Text style={styles.optionTitle}>Criar novo grupo</Text>
                         <Text style={styles.optionDesc}>Comece seu próprio grupo</Text>
                       </View>
-                      <Text style={styles.groupCardArrow}>›</Text>
+                      <Icon name="chevronRight" size={18} color={Colors.faint} />
                     </TouchableOpacity>
                   </View>
 
@@ -248,7 +248,8 @@ export default function GroupsScreen() {
           {mode === 'join' && (
             <View style={styles.formSection}>
               <TouchableOpacity onPress={() => switchMode('list')} style={styles.backLink}>
-                <Text style={styles.backLinkText}>← Voltar</Text>
+                <Icon name="chevronLeft" size={14} color={Colors.teal} />
+                <Text style={styles.backLinkText}>Voltar</Text>
               </TouchableOpacity>
               <Text style={styles.formTitle}>Entrar com código</Text>
               <View style={styles.inputWrap}>
@@ -278,7 +279,8 @@ export default function GroupsScreen() {
           {mode === 'create' && (
             <View style={styles.formSection}>
               <TouchableOpacity onPress={() => switchMode('list')} style={styles.backLink}>
-                <Text style={styles.backLinkText}>← Voltar</Text>
+                <Icon name="chevronLeft" size={14} color={Colors.teal} />
+                <Text style={styles.backLinkText}>Voltar</Text>
               </TouchableOpacity>
               <Text style={styles.formTitle}>Criar novo grupo</Text>
               <View style={styles.inputWrap}>
@@ -374,7 +376,6 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.line },
   backBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text, lineHeight: 24 },
   headerTitle: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
   scroll: { padding: Spacing.md, gap: Spacing.md },
 
@@ -388,20 +389,20 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   groupCardActive: { borderColor: Colors.gold, backgroundColor: Colors.surf2 },
   groupCardInfo: { flex: 1, gap: 2 },
   groupCardName: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
-  groupCardCode: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted, letterSpacing: 1 },
+  groupCardCode: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.muted, letterSpacing: 1 },
   groupCardArrow: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.faint },
-  activeBadge: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.gold, backgroundColor: Colors.gold + '22', paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.full },
-  visitBadge: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.teal, backgroundColor: Colors.teal + '22', paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.full },
+  activeBadge: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.gold, backgroundColor: Colors.gold + '22', paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.full },
+  visitBadge: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal, backgroundColor: Colors.teal + '22', paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.full },
 
   optionBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, padding: Spacing.md },
   optionIcon: { fontSize: 22 },
   optionInfo: { flex: 1, gap: 2 },
-  optionTitle: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.text },
-  optionDesc: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  optionTitle: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
+  optionDesc: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
 
   formSection: { gap: Spacing.md },
-  backLink: { paddingBottom: Spacing.xs },
-  backLinkText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.teal },
+  backLink: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingBottom: Spacing.xs },
+  backLinkText: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.teal },
   formTitle: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.text },
 
   inputWrap: { backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line },
@@ -410,20 +411,20 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
 
   codePreview: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, backgroundColor: Colors.surf2, borderRadius: Radius.sm, padding: Spacing.sm },
   codePreviewLabel: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
-  codePreviewValue: { fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.gold, letterSpacing: 2 },
+  codePreviewValue: { fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.gold, letterSpacing: 2 },
 
   scoreToggle: { paddingVertical: Spacing.xs },
-  scoreToggleText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.teal },
+  scoreToggleText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.teal },
   scoreCard: { gap: Spacing.sm, backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, padding: Spacing.md },
-  scoreHint: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  scoreHint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   scoreRow: { flexDirection: 'row', gap: Spacing.xs, flexWrap: 'wrap' },
   scoreField: { flexGrow: 1, minWidth: 70, gap: 4 },
   scoreLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
-  scoreInput: { backgroundColor: Colors.surf2, borderRadius: Radius.sm, borderWidth: 1, borderColor: Colors.line, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm, fontFamily: FontFamily.numberBold, fontSize: 14, color: Colors.text, textAlign: 'center' },
+  scoreInput: { backgroundColor: Colors.surf2, borderRadius: Radius.sm, borderWidth: 1, borderColor: Colors.line, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm, fontFamily: FontFamily.numberBold, fontSize: 15, color: Colors.text, textAlign: 'center' },
   scorePreviewBox: { backgroundColor: Colors.surf2, borderRadius: Radius.sm, padding: Spacing.sm },
-  scorePreviewText: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  scorePreviewText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   scorePreviewPts: { fontFamily: FontFamily.numberBold, color: Colors.gold },
-  scorePreviewError: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.coral },
+  scorePreviewError: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.coral },
 
   btnPrimary: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md + 2, alignItems: 'center', justifyContent: 'center' },
   btnDisabled: { backgroundColor: Colors.surf2 },

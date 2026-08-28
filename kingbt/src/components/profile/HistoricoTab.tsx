@@ -66,7 +66,7 @@ const makeHtStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   statItem:  { flex: 1, alignItems: 'center', gap: 2 },
   statVal:   { fontFamily: FontFamily.titleBold, fontSize: 20 },
-  statLbl:   { fontFamily: FontFamily.number, fontSize: 10, color: Colors.faint },
+  statLbl:   { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
   statDiv:   { width: 1, backgroundColor: Colors.line, alignSelf: 'stretch', marginVertical: 4 },
   timelineWrap: { position: 'relative' },
   timelineLine: {
@@ -152,7 +152,7 @@ export function HistoricoTab({ matchHistory }: any) {
           ))}
         </View>
       ) : (
-        <Text style={{ fontFamily: FontFamily.body, fontSize: 14, color: Colors.faint, textAlign: 'center', marginTop: Spacing.xl }}>
+        <Text style={{ fontFamily: FontFamily.body, fontSize: 15, color: Colors.faint, textAlign: 'center', marginTop: Spacing.xl }}>
           Nenhuma partida registrada
         </Text>
       )}
@@ -163,7 +163,7 @@ export function HistoricoTab({ matchHistory }: any) {
           style={{ alignItems: 'center', paddingVertical: Spacing.md }}
           onPress={() => setVisibleCount(v => v + 10)}
         >
-          <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.teal }}>
+          <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.teal }}>
             Carregar mais partidas
           </Text>
         </TouchableOpacity>

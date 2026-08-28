@@ -14,9 +14,9 @@ export const makeVw = (Colors: ThemeColors) => StyleSheet.create({
   rei: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.gold, textAlign: 'center' },
   section: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.muted, letterSpacing: 1, marginTop: Spacing.sm, marginBottom: Spacing.xs },
   locked: { alignItems: 'center', padding: Spacing.xl },
-  lockedText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, textAlign: 'center' },
+  lockedText: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.muted, textAlign: 'center' },
   groupsDoneBanner: { backgroundColor: Colors.teal + '18', borderRadius: Radius.md, padding: Spacing.md, alignItems: 'center', gap: Spacing.sm, borderWidth: 1, borderColor: Colors.teal + '44', marginTop: Spacing.sm },
-  groupsDoneTitle: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.teal },
+  groupsDoneTitle: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.teal },
   groupsDoneBtn: { backgroundColor: Colors.teal, borderRadius: Radius.md, paddingVertical: Spacing.xs + 2, paddingHorizontal: Spacing.md },
   groupsDoneBtnText: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.bg },
 });

@@ -235,7 +235,7 @@ export function KOView({ comp, onScore, onClear, preview = false }: { comp: Comp
       {/* Faixa de prévia enquanto a fase de grupos não termina */}
       {preview && (
         <View style={{ backgroundColor: Colors.gold + '15', borderBottomWidth: 1, borderBottomColor: Colors.gold + '33', paddingVertical: 6, paddingHorizontal: Spacing.md }}>
-          <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold, letterSpacing: 1, textAlign: 'center' }}>
+          <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.gold, letterSpacing: 1, textAlign: 'center' }}>
             PRÉVIA — AGUARDANDO CONCLUSÃO DOS GRUPOS
           </Text>
         </View>

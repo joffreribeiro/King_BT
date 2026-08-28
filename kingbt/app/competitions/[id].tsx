@@ -5,9 +5,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors, Type, PLAYER_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Badge, Card } from '@/components';
+import { Avatar, Badge, Card, ScreenHeader, Icon } from '@/components';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { competitionChampion, groupComplete } from '@/logic/formats';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -32,7 +32,6 @@ import {
 } from '@/components/competition/FormatViews';
 
 // Cor aleatória para o perfil criado ao aprovar uma solicitação de inscrição
-const GUEST_COLORS = ['#FFD166', '#2DD4BF', '#A78BFA', '#34D399', '#F472B6', '#94A3B8', '#FB923C', '#60A5FA'];
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
@@ -113,11 +112,12 @@ export default function CompetitionDetail() {
   if (!comp) {
     return (
       <SafeAreaView style={main.container}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md }}>
-          <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)')}>
-            <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal }}>←</Text>
-          </TouchableOpacity>
-          <Text style={{ color: Colors.coral, fontFamily: FontFamily.body, fontSize: 14 }}>
+        <ScreenHeader
+          title="Competição"
+          onBack={() => router.canGoBack() ? router.back() : router.replace('/(app)')}
+        />
+        <View style={{ padding: Spacing.md }}>
+          <Text style={{ color: Colors.coral, ...Type.body }}>
             Competição não encontrada.
           </Text>
         </View>
@@ -234,7 +234,7 @@ export default function CompetitionDetail() {
   // Admin aprova/recusa solicitações — aprovar vira membro pleno do grupo
   async function handleApproveJoin(request: NonNullable<typeof myJoinRequest>) {
     if (!group || !comp || !isAdmin) return;
-    await approveJoinRequest(group.id, comp.id, request, GUEST_COLORS[Math.floor(Math.random() * GUEST_COLORS.length)]);
+    await approveJoinRequest(group.id, comp.id, request, PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)]);
   }
 
   async function handleRejectJoin(request: NonNullable<typeof myJoinRequest>) {
@@ -246,7 +246,7 @@ export default function CompetitionDetail() {
     const name = guestName.trim();
     if (!name || !group) return;
     setGuestBusy(true);
-    const color = GUEST_COLORS[Math.floor(Math.random() * GUEST_COLORS.length)];
+    const color = PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)];
     await addGuestPlayer(group.id, name, color);
     setGuestName('');
     setGuestBusy(false);
@@ -343,38 +343,37 @@ export default function CompetitionDetail() {
       )}
 
       {/* Header */}
-      <View style={main.header}>
-        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)')}>
-          <Text style={main.back}>←</Text>
-        </TouchableOpacity>
-        <View style={main.headerInfo}>
-          <TouchableOpacity onLongPress={isAdmin ? () => setShowEditName(true) : undefined} activeOpacity={isAdmin ? 0.7 : 1}>
-            <Text style={main.compName} numberOfLines={1}>{comp.name}</Text>
-          </TouchableOpacity>
-          <Badge
-            label={comp.status === 'upcoming' ? 'Agendada' : comp.status === 'done' ? 'Concluída' : 'Ativa'}
-            variant={comp.status === 'upcoming' ? 'gold' : comp.status === 'done' ? 'teal' : 'gold'}
-            small
-          />
-        </View>
+      <ScreenHeader
+        title={comp.name}
+        onBack={() => router.canGoBack() ? router.back() : router.replace('/(app)')}
+        onTitleLongPress={isAdmin ? () => setShowEditName(true) : undefined}
+        below={
+          <View style={{ flexDirection: 'row', marginTop: 3 }}>
+            <Badge
+              label={comp.status === 'upcoming' ? 'Agendada' : comp.status === 'done' ? 'Concluída' : 'Ativa'}
+              variant={comp.status === 'upcoming' ? 'gold' : comp.status === 'done' ? 'teal' : 'gold'}
+              small
+            />
+          </View>
+        }
+        right={
         <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
           {comp.status === 'done' && champPlayer && (
             <TouchableOpacity onPress={() => setShowChampion(true)} style={main.iconBtn}>
-              <Text style={main.iconBtnText}>👑</Text>
+              <Icon name="crown" size={17} color={Colors.gold} />
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={handleShare} style={main.iconBtn}>
-            <Text style={main.iconBtnText}>↑</Text>
+            <Icon name="share" size={17} color={Colors.muted} />
           </TouchableOpacity>
           {isAdmin && (
             <TouchableOpacity onPress={() => setShowAdminMenu(true)} style={main.iconBtn}>
-              <Text style={main.iconBtnText}>⚙️</Text>
+              <Icon name="settings" size={17} color={Colors.muted} />
             </TouchableOpacity>
           )}
         </View>
-      </View>
-
-      {isAdmin && <Text style={main.editHint}>Segure o nome para renomear</Text>}
+        }
+      />
 
       {/* Menu admin */}
       {showAdminMenu && (
@@ -715,19 +714,14 @@ export default function CompetitionDetail() {
 
 const makeMainStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
-  headerInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
-  compName: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
-  editHint: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint, textAlign: 'center', paddingVertical: 2 },
   iconBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
   iconBtnText: { fontSize: 18, color: Colors.muted },
   adminMenu: { backgroundColor: Colors.surf2, borderBottomWidth: 1, borderBottomColor: Colors.line, padding: Spacing.sm, gap: Spacing.xs },
   adminMenuItem: { alignSelf: 'flex-end' },
   adminMenuClose: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   adminMenuAction: { paddingVertical: Spacing.xs },
-  adminMenuText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
-  adminMenuDanger: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.coral },
+  adminMenuText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
+  adminMenuDanger: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.coral },
   tabBar: { flexDirection: 'row', backgroundColor: Colors.surf2, borderBottomWidth: 1, borderBottomColor: Colors.line },
   tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: Colors.gold },
@@ -749,9 +743,9 @@ const makeMainStyles = (Colors: ThemeColors) => StyleSheet.create({
   champComp: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
   champActions: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.md, width: '100%' },
   champBtn: { flex: 1, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, paddingHorizontal: Spacing.sm, alignItems: 'center' },
-  champBtnText: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.bg },
+  champBtnText: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg },
   champClose: { flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, paddingHorizontal: Spacing.sm, alignItems: 'center' },
-  champCloseText: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted },
+  champCloseText: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.muted },
 });
 
 const makeUpcomingStyles = (Colors: ThemeColors) => StyleSheet.create({
@@ -762,13 +756,13 @@ const makeUpcomingStyles = (Colors: ThemeColors) => StyleSheet.create({
   confirmBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center', minHeight: 50 },
   confirmBtnJoin:   { backgroundColor: Colors.gold },
   confirmBtnCancel: { backgroundColor: Colors.surf2, borderWidth: 1, borderColor: Colors.line },
-  confirmBtnText:   { fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg },
+  confirmBtnText:   { fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg },
   section:     { gap: Spacing.sm },
-  sectionTitle:{ fontFamily: FontFamily.title, fontSize: 12, color: Colors.muted, letterSpacing: 1 },
+  sectionTitle:{ fontFamily: FontFamily.title, fontSize: 13, color: Colors.muted, letterSpacing: 1 },
   empty:       { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center', paddingVertical: Spacing.md },
   playerRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.line },
   playerName:  { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
   startBtn:    { backgroundColor: Colors.teal, borderRadius: Radius.md, paddingVertical: Spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 50 },
   startBtnIcon:{ fontSize: 18 },
-  startBtnText:{ fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg },
+  startBtnText:{ fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg },
 });

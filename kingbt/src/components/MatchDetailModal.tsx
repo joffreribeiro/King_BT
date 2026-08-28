@@ -51,12 +51,12 @@ export function MatchDetailModal({ match, onClose }: { match: MatchDetail | null
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: Spacing.xl },
   box: { backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.lg, gap: 4, width: '100%', maxWidth: 340, alignItems: 'center' },
-  result: { fontFamily: FontFamily.numberBold, fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase' },
+  result: { fontFamily: FontFamily.numberBold, fontSize: 13, letterSpacing: 1.5, textTransform: 'uppercase' },
   score: { fontFamily: FontFamily.titleBold, fontSize: 36, color: Colors.text, marginTop: 2 },
-  partner: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: 6 },
+  partner: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 6 },
   opponent: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text, marginTop: 1 },
   divider: { height: 1, backgroundColor: Colors.line, width: '100%', marginVertical: Spacing.sm },
-  meta: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  meta: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   closeBtn: { marginTop: Spacing.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xl },
-  closeTxt: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.gold },
+  closeTxt: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.gold },
 });

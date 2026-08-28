@@ -111,7 +111,7 @@ const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   group: {
     fontFamily: FontFamily.body,
-    fontSize: 12,
+    fontSize: 13,
     color: 'rgba(255,255,255,0.4)',
   },
   medal: {
@@ -128,7 +128,7 @@ const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   ptsLabel: {
     fontFamily: FontFamily.number,
-    fontSize: 10,
+    fontSize: 11,
     color: 'rgba(255,255,255,0.3)',
     letterSpacing: 2,
   },
@@ -155,7 +155,7 @@ const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   cellLbl: {
     fontFamily: FontFamily.body,
-    fontSize: 10,
+    fontSize: 11,
     color: 'rgba(255,255,255,0.35)',
   },
   footer: {

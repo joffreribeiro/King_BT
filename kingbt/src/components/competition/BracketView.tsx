@@ -75,12 +75,12 @@ const makeBkCardStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, height: (BK_CARD_H - 1) / 2 },
   winRow: { backgroundColor: Colors.gold + '22' },
   div: { height: 1, backgroundColor: Colors.line },
-  name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
   winName: { color: Colors.gold, fontFamily: FontFamily.bodyMed },
   byeRow: { backgroundColor: Colors.surf2 },
-  byeName: { color: Colors.text, fontFamily: FontFamily.numberBold, fontSize: 12, letterSpacing: 1 },
+  byeName: { color: Colors.text, fontFamily: FontFamily.numberBold, fontSize: 13, letterSpacing: 1 },
   placeholderName: { color: Colors.text, fontStyle: 'italic', fontSize: 13 },
-  score: { fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.muted, width: 22, textAlign: 'center' },
+  score: { fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.muted, width: 22, textAlign: 'center' },
   winScore: { color: Colors.teal },
 });
 
@@ -197,7 +197,7 @@ export function BracketView({ comp, onScore, onClear }: {
 
 const makeBkStyles = (Colors: ThemeColors) => StyleSheet.create({
   roundLabel: {
-    fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.muted,
+    fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted,
     letterSpacing: 1.5, textAlign: 'center',
   },
 });

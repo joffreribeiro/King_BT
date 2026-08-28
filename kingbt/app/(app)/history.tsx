@@ -12,6 +12,7 @@ import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 const PAGE_SIZE = 10;
 
@@ -147,7 +148,7 @@ const makeMcStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   title: {
     fontFamily: FontFamily.title,
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.text,
     fontWeight: '700',
     lineHeight: 20,
@@ -170,7 +171,7 @@ const makeMcStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   scoreSep: {
     fontFamily: FontFamily.number,
-    fontSize: 16,
+    fontSize: 17,
     color: Colors.faint,
   },
   footer: {
@@ -189,7 +190,7 @@ const makeMcStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   delta: {
     fontFamily: FontFamily.numberBold,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
   },
 });
@@ -273,18 +274,16 @@ export default function HistoryScreen() {
   return (
     <SafeAreaView style={s.container} edges={['top']}>
       {/* Header */}
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.navigate("/(app)/profile")} hitSlop={8}>
-          <Text style={s.back}>←</Text>
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={s.title}>Histórico</Text>
-          <Text style={s.subtitle}>Suas últimas partidas e performance</Text>
-        </View>
-        <View style={s.headerBadge}>
-          <Text style={s.headerBadgeText}>{winPct}%</Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Histórico"
+        subtitle="Suas últimas partidas e performance"
+        onBack={() => router.navigate("/(app)/profile")}
+        right={
+          <View style={s.headerBadge}>
+            <Text style={s.headerBadgeText}>{winPct}%</Text>
+          </View>
+        }
+      />
 
       {/* Stats strip */}
       <View style={s.statsRow}>
@@ -355,14 +354,7 @@ export default function HistoryScreen() {
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
 
-  header: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.xs,
-    gap: Spacing.sm,
-  },
-  back:     { fontFamily: FontFamily.titleBold, fontSize: 24, color: Colors.text, lineHeight: 30, width: 32 },
   title:    { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text, lineHeight: 30 },
-  subtitle: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: 2 },
   headerBadge: {
     backgroundColor: Colors.gold + '1F',
     borderWidth: 1, borderColor: Colors.gold + '4D',
@@ -384,7 +376,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   statItem:   { flex: 1, alignItems: 'center', gap: 2 },
   statVal:    { fontFamily: FontFamily.titleBold, fontSize: 20 },
-  statLbl:    { fontFamily: FontFamily.number, fontSize: 10, color: Colors.faint },
+  statLbl:    { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
   statDivider:{ width: 1, backgroundColor: Colors.line, alignSelf: 'stretch', marginVertical: 4 },
 
   list: { paddingHorizontal: Spacing.md, paddingTop: 0 },
@@ -423,7 +415,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   loadMoreText: {
     fontFamily: FontFamily.bodyMed,
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.teal,
   },
 
@@ -431,6 +423,6 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     flex: 1, alignItems: 'center', justifyContent: 'center',
     gap: Spacing.sm, padding: Spacing.xl,
   },
-  emptyTitle: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
+  emptyTitle: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
   emptySub:   { fontFamily: FontFamily.body,  fontSize: 13, color: Colors.muted, textAlign: 'center' },
 });

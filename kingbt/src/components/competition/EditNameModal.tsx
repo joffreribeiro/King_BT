@@ -50,7 +50,7 @@ const makeEnStyles = (Colors: ThemeColors) => StyleSheet.create({
   input: {
     backgroundColor: Colors.bg, borderRadius: Radius.md, borderWidth: 1.5,
     borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md,
-    fontFamily: FontFamily.body, fontSize: 16, color: Colors.text,
+    fontFamily: FontFamily.body, fontSize: 17, color: Colors.text,
   },
   btns: { flexDirection: 'row', gap: Spacing.sm },
   cancel: { flex: 1, borderWidth: 1.5, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' },

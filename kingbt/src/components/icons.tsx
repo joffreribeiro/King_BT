@@ -11,7 +11,8 @@ export type IconName =
   | 'crown' | 'search' | 'filter' | 'bell' | 'share' | 'clone'
   | 'trash' | 'compare' | 'clock' | 'chevronLeft' | 'close' | 'more' | 'plus'
   | 'users' | 'chart' | 'calendar' | 'settings' | 'menu'
-  | 'edit' | 'qr' | 'logout' | 'swap' | 'check' | 'x' | 'comment';
+  | 'edit' | 'qr' | 'logout' | 'swap' | 'check' | 'x' | 'comment'
+  | 'chevronRight' | 'minus' | 'arrowUp';
 
 type Props = { name: IconName; size?: number; color: string };
 
@@ -78,6 +79,12 @@ function paths(name: IconName, s: any) {
       </>;
     case 'chevronLeft':
       return <Path d="M15 5l-7 7 7 7" {...s} />;
+    case 'chevronRight':
+      return <Path d="M9 5l7 7-7 7" {...s} />;
+    case 'minus':
+      return <Path d="M5 12h14" {...s} />;
+    case 'arrowUp':
+      return <Path d="M12 20V4M6 10l6-6 6 6" {...s} />;
     case 'close':
       return <Path d="M6 6l12 12M18 6L6 18" {...s} />;
     case 'more':

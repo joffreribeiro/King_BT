@@ -7,6 +7,7 @@ import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { koRoundName, matchWinner } from '@/logic/formats';
 import { getCompetitor } from '@/components/competition/helpers';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 export default function TrilhaScreen() {
   const { colors: Colors } = useTheme();
@@ -26,12 +27,7 @@ export default function TrilhaScreen() {
   if (!comp || !myComp || myMatches.length === 0) {
     return (
       <SafeAreaView style={s.container} edges={['top']}>
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={s.back}>←</Text>
-          </TouchableOpacity>
-          <Text style={s.title}>Trilha no chaveamento</Text>
-        </View>
+        <ScreenHeader title="Trilha no chaveamento" />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.lg }}>
           <Text style={{ fontSize: 32 }}>🗺️</Text>
           <Text style={{ color: Colors.muted, fontFamily: FontFamily.body, textAlign: 'center', marginTop: Spacing.sm }}>
@@ -44,15 +40,10 @@ export default function TrilhaScreen() {
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={s.back}>←</Text>
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={s.title}>Trilha no chaveamento</Text>
-          <Text style={s.subtitle} numberOfLines={1}>{comp.name}</Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Trilha no chaveamento"
+        subtitle={comp.name}
+      />
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         {myMatches.map((m, i) => {
@@ -109,13 +100,7 @@ export default function TrilhaScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line,
-  },
-  back:     { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
   title:    { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
-  subtitle: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: 1 },
   scroll:   { padding: Spacing.md, paddingBottom: Spacing.xl },
 
   stepRow: { flexDirection: 'row', gap: Spacing.sm },
@@ -128,10 +113,10 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderRadius: Radius.md, padding: Spacing.sm, marginBottom: Spacing.sm, gap: 6,
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  round:      { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.faint, letterSpacing: 1 },
-  result:     { fontFamily: FontFamily.numberBold, fontSize: 10, letterSpacing: 1 },
+  round:      { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.faint, letterSpacing: 1 },
+  result:     { fontFamily: FontFamily.numberBold, fontSize: 11, letterSpacing: 1 },
   matchup:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  opponentName: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
-  score:      { fontFamily: FontFamily.titleBold, fontSize: 16, color: Colors.faint },
+  opponentName: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
+  score:      { fontFamily: FontFamily.titleBold, fontSize: 17, color: Colors.faint },
   date:       { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
 });

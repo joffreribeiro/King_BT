@@ -19,5 +19,5 @@ export function PhaseDivider({ label }: { label: string }) {
 const makePhStyles = (Colors: ThemeColors) => StyleSheet.create({
   wrap: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.sm },
   line: { flex: 1, height: 1, backgroundColor: Colors.line },
-  txt: { fontFamily: FontFamily.bodyMed, fontSize: 10, color: Colors.faint, letterSpacing: 1 },
+  txt: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.faint, letterSpacing: 1 },
 });

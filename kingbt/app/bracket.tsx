@@ -11,6 +11,7 @@ import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
 import { koRoundName, competitionChampion } from '@/logic/formats';
 import type { Match, Competition } from '@/logic/types';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 const BK_CARD_H  = 62;
 const BK_GAP     = 12;
@@ -84,12 +85,7 @@ export default function BracketScreen() {
   if (!comp) {
     return (
       <SafeAreaView style={s.container} edges={['top']}>
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={s.back}>←</Text>
-          </TouchableOpacity>
-          <Text style={s.title}>Chaveamento</Text>
-        </View>
+        <ScreenHeader title="Chaveamento" />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: Colors.muted, fontFamily: FontFamily.body }}>Competição não encontrada.</Text>
         </View>
@@ -141,15 +137,10 @@ export default function BracketScreen() {
   if (rounds.length === 0) {
     return (
       <SafeAreaView style={s.container} edges={['top']}>
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={s.back}>←</Text>
-          </TouchableOpacity>
-          <Text style={s.title} numberOfLines={1}>{comp.name}</Text>
-        </View>
+        <ScreenHeader title={comp.name} />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl }}>
           <Text style={{ fontSize: 32 }}>⏳</Text>
-          <Text style={{ fontFamily: FontFamily.title, fontSize: 16, color: Colors.text, marginTop: 12 }}>
+          <Text style={{ fontFamily: FontFamily.title, fontSize: 17, color: Colors.text, marginTop: 12 }}>
             Chaveamento ainda não definido
           </Text>
           <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', marginTop: 6 }}>
@@ -173,12 +164,9 @@ export default function BracketScreen() {
   return (
     <SafeAreaView style={s.container} edges={['top']}>
       {/* Header */}
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={s.back}>←</Text>
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={s.title} numberOfLines={1}>{comp.name}</Text>
+      <ScreenHeader
+        title={comp.name}
+        below={
           <View style={s.statusRow}>
             <View style={[s.statusBadge, { backgroundColor: comp.status === 'done' ? Colors.teal + '22' : Colors.gold + '22', borderColor: comp.status === 'done' ? Colors.teal + '55' : Colors.gold + '55' }]}>
               <Text style={[s.statusText, { color: comp.status === 'done' ? Colors.teal : Colors.gold }]}>
@@ -187,8 +175,8 @@ export default function BracketScreen() {
             </View>
             <Text style={s.phaseName}>Fase: {phaseName}</Text>
           </View>
-        </View>
-      </View>
+        }
+      />
 
       {/* Progress bar */}
       <View style={s.progressWrap}>
@@ -334,8 +322,8 @@ const makeBkStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 8, height: (BK_CARD_H - 1) / 2,
   },
   div:  { height: 1, backgroundColor: 'rgba(214,175,70,0.1)' },
-  name: { flex: 1, fontFamily: FontFamily.body, fontSize: 10, color: Colors.muted },
-  score:{ fontFamily: FontFamily.numberBold, fontSize: 12 },
+  name: { flex: 1, fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+  score:{ fontFamily: FontFamily.numberBold, fontSize: 13 },
   liveDot: {
     position: 'absolute', top: 4, right: 4,
     width: 5, height: 5, borderRadius: 3,
@@ -356,15 +344,10 @@ const makeBkStyles = (Colors: ThemeColors) => StyleSheet.create({
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line,
-  },
-  back:  { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
   title: { fontFamily: FontFamily.titleBold, fontSize: 17, color: Colors.text },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 },
   statusBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: Radius.full, borderWidth: 1 },
-  statusText:  { fontFamily: FontFamily.numberBold, fontSize: 10 },
+  statusText:  { fontFamily: FontFamily.numberBold, fontSize: 11 },
   phaseName:   { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   progressWrap: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
@@ -388,7 +371,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(107,127,215,0.25)',
     borderRadius: 12, padding: 14,
   },
-  nextLabel: { fontFamily: FontFamily.numberBold, fontSize: 8, color: '#6B7FD7', letterSpacing: 1.5, marginBottom: 4 },
-  nextTitle: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.text, fontWeight: '700' },
+  nextLabel: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.accentGrupos, letterSpacing: 1.5, marginBottom: 4 },
+  nextTitle: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text, fontWeight: '700' },
   nextSub:   { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, marginTop: 2 },
 });

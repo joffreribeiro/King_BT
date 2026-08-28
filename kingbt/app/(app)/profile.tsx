@@ -7,7 +7,7 @@ import { useState, useRef, useMemo, useCallback } from 'react';
 import { router } from 'expo-router';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors, PLAYER_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Badge, Card, ShareStatsCard, Icon } from '@/components';
 import type { ShareStatsData } from '@/components';
@@ -28,7 +28,6 @@ import { ResumoTab } from '@/components/profile/ResumoTab';
 import { HistoricoTab } from '@/components/profile/HistoricoTab';
 import { RivalidadesTab } from '@/components/profile/RivalidadesTab';
 
-const GUEST_COLORS = ['#FFD166', '#2DD4BF', '#A78BFA', '#34D399', '#F472B6', '#94A3B8', '#FB923C', '#60A5FA'];
 
 type Tab = 'resumo' | 'historico' | 'rivalidades';
 
@@ -49,7 +48,7 @@ export default function ProfileScreen() {
   const [showQR, setShowQR] = useState(false);
   const [sharingInProgress, setSharingInProgress] = useState(false);
   const [guestName, setGuestName] = useState('');
-  const [guestColor, setGuestColor] = useState(GUEST_COLORS[0]);
+  const [guestColor, setGuestColor] = useState(PLAYER_COLORS[0]);
   const [refreshing, setRefreshing] = useState(false);
   const shareCardRef = useRef<View>(null);
 
@@ -87,7 +86,7 @@ export default function ProfileScreen() {
   async function handleAddGuest() {
     if (!guestName.trim() || !group) return;
     await addGuestPlayer(group.id, guestName.trim(), guestColor);
-    setGuestName(''); setGuestColor(GUEST_COLORS[0]); setShowAddGuest(false);
+    setGuestName(''); setGuestColor(PLAYER_COLORS[0]); setShowAddGuest(false);
   }
 
   function handleRemoveGuest(pid: string, name: string) {
@@ -290,11 +289,11 @@ export default function ProfileScreen() {
         <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text, textAlign: 'center', marginBottom: 12 }}>
           Perfil não vinculado
         </Text>
-        <Text style={{ fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, textAlign: 'center', marginBottom: 24 }}>
+        <Text style={{ fontFamily: FontFamily.body, fontSize: 15, color: Colors.muted, textAlign: 'center', marginBottom: 24 }}>
           Saia do grupo e entre novamente para vincular seu perfil.
         </Text>
         <TouchableOpacity onPress={logout} style={{ backgroundColor: Colors.gold, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32 }}>
-          <Text style={{ fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg }}>Sair da conta</Text>
+          <Text style={{ fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg }}>Sair da conta</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -504,7 +503,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md,
     paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, width: '100%',
   },
-  settingsBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  settingsBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
 
   accountDivider: { height: 1, backgroundColor: Colors.line, width: '100%', marginVertical: Spacing.xs },
   accountActions: { flexDirection: 'row', gap: Spacing.sm, width: '100%' },

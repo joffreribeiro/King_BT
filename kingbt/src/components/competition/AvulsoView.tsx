@@ -70,10 +70,10 @@ export function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
 const makeAvulsoStyles = (Colors: ThemeColors) => StyleSheet.create({
   addBtn:      { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
   addBtnIcon:  { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.bg },
-  addBtnText:  { fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg },
-  sectionTitle:{ fontFamily: FontFamily.title, fontSize: 12, color: Colors.muted, letterSpacing: 1 },
+  addBtnText:  { fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg },
+  sectionTitle:{ fontFamily: FontFamily.title, fontSize: 13, color: Colors.muted, letterSpacing: 1 },
   empty:       { alignItems: 'center', paddingVertical: Spacing.xl, gap: Spacing.sm },
   emptyIcon:   { fontSize: 40 },
-  emptyText:   { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
+  emptyText:   { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
   emptyHint:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
 });

@@ -15,6 +15,7 @@ import {
 } from '@/logic/btTreino';
 import { saveTreinoFs, loadTreinoFs } from '@/firebase/treinos';
 import { BarChart } from 'react-native-gifted-charts';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 type Aba = 'Golpes' | 'Análise';
 
@@ -76,7 +77,7 @@ const makeDashStyles = (Colors: ThemeColors) => StyleSheet.create({
   card: { flex: 1, minWidth: '45%', backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, padding: Spacing.sm, gap: 2 },
   label: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
   value: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
-  hint: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
+  hint: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
 });
 
 export default function TreinoDetailScreen() {
@@ -144,20 +145,16 @@ export default function TreinoDetailScreen() {
     <SafeAreaView style={s.safe} edges={['top']}>
       <StatusBar barStyle="light-content" />
 
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/treino')}>
-          <Text style={s.back}>←</Text>
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={s.title} numberOfLines={1}>{treino?.titulo ?? 'Análise Individual'}</Text>
-          <Text style={s.subtitle} numberOfLines={1}>{nome}</Text>
-        </View>
-        {treino && (
+      <ScreenHeader
+        title={treino?.titulo ?? 'Análise Individual'}
+        subtitle={nome}
+        onBack={() => router.canGoBack() ? router.back() : router.replace('/treino')}
+        right={treino ? (
           <TouchableOpacity style={s.exportBtn} onPress={exportarPdf} disabled={exportando}>
             <Text style={s.exportTxt}>{exportando ? '...' : '⬇ PDF'}</Text>
           </TouchableOpacity>
-        )}
-      </View>
+        ) : undefined}
+      />
 
       {loading && (
         <View style={s.center}><Text style={s.hint}>Carregando...</Text></View>
@@ -209,7 +206,7 @@ export default function TreinoDetailScreen() {
                         barWidth={20}
                         spacing={16}
                         hideRules
-                        xAxisLabelTextStyle={{ color: Colors.muted, fontSize: 8, fontFamily: FontFamily.body }}
+                        xAxisLabelTextStyle={{ color: Colors.muted, fontSize: 9, fontFamily: FontFamily.body }}
                         yAxisTextStyle={{ color: Colors.muted, fontSize: 9 }}
                         noOfSections={4}
                         barBorderRadius={4}
@@ -232,15 +229,9 @@ export default function TreinoDetailScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line,
-  },
-  back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
-  title: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
-  subtitle: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  title: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
   exportBtn: { backgroundColor: Colors.surf2, borderRadius: Radius.full, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: Colors.line },
-  exportTxt: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.teal },
+  exportTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal },
   tabBar: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.line, paddingHorizontal: Spacing.md },
   tab: { paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: Colors.gold },
@@ -251,5 +242,5 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   hint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
   dashGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   chartWrap: { gap: Spacing.xs },
-  sectionTitle: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.gold },
+  sectionTitle: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.gold },
 });

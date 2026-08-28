@@ -39,7 +39,7 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
           dizendo a mesma coisa, e o de cima gastava ~90px só com um número. */}
       <Card elevated style={{ gap: Spacing.sm }}>
         <View style={{ alignItems: 'center', gap: 2 }}>
-          <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted, letterSpacing: 2 }}>
+          <Text style={{ fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted, letterSpacing: 2 }}>
             PONTUAÇÃO KING BT
           </Text>
           <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 40, color: Colors.gold, lineHeight: 46 }}>
@@ -124,7 +124,7 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
                   alignItems: 'center', justifyContent: 'center',
                 }}
               >
-                <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 12, color: g.won ? Colors.teal : Colors.coral }}>
+                <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 13, color: g.won ? Colors.teal : Colors.coral }}>
                   {g.won ? 'V' : 'D'}
                 </Text>
               </TouchableOpacity>
@@ -159,7 +159,7 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <Icon name="chart" size={20} color={Colors.accentGrupos} />
           <View>
-            <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: Colors.accentGrupos }}>
+            <Text style={{ fontFamily: FontFamily.title, fontSize: 15, color: Colors.accentGrupos }}>
               Análise por Formato
             </Text>
             <Text style={{ fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted }}>
@@ -188,7 +188,7 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
                   borderRadius: 2,
                 }} />
               </View>
-              <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted }}>
+              <Text style={{ fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted }}>
                 {nextAchievement.label} · {nextAchievement.desc}
               </Text>
             </View>
@@ -202,7 +202,7 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm }}>
             <Text style={tab.sectionTitle}>Conquistas</Text>
             <TouchableOpacity onPress={() => router.push('/(app)/achievements')}>
-              <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.teal }}>Ver todas →</Text>
+              <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal }}>Ver todas →</Text>
             </TouchableOpacity>
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -237,11 +237,11 @@ const makeStatRowStyles = (Colors: ThemeColors) => StyleSheet.create({
 
 const makeL20Styles = (Colors: ThemeColors) => StyleSheet.create({
   breakdownRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: 6 },
-  breakdownLabel: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, width: 60 },
+  breakdownLabel: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, width: 60 },
   breakdownBar:   { flex: 1, flexDirection: 'row', height: 18, borderRadius: 4, overflow: 'hidden' },
   barWin:         { backgroundColor: Colors.teal + 'CC', alignItems: 'center', justifyContent: 'center' },
   barLoss:        { backgroundColor: Colors.coral + 'CC', alignItems: 'center', justifyContent: 'center' },
-  barNum:         { fontFamily: FontFamily.numberBold, fontSize: 12, color: '#fff', paddingHorizontal: 6 },
+  barNum:         { fontFamily: FontFamily.numberBold, fontSize: 13, color: '#fff', paddingHorizontal: 6 },
   resultBox: { flex: 1, alignItems: 'center', backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.sm, gap: 2 },
   resultNum:  { fontFamily: FontFamily.titleBold, fontSize: 22 },
   resultLbl:  { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },

@@ -146,7 +146,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   closeIcon: {
     fontFamily: FontFamily.titleBold,
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.text,
   },
   headerTitle: {
@@ -166,7 +166,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   stepItem: { flex: 1, alignItems: 'center', gap: 4 },
   stepLine: { height: 3, width: '100%', borderRadius: 2, backgroundColor: Colors.surf2 },
   stepLineActive: { backgroundColor: Colors.gold },
-  stepLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
+  stepLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   stepLabelActive: { color: Colors.gold, fontFamily: FontFamily.bodyMed },
 
   // Scroll
@@ -199,7 +199,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   cardDesc: {
     fontFamily: FontFamily.body,
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.muted,
     lineHeight: 17,
   },
@@ -243,7 +243,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   btnText: {
     fontFamily: FontFamily.title,
-    fontSize: 16,
+    fontSize: 17,
     color: Colors.bg,
   },
   btnTextDisabled: {

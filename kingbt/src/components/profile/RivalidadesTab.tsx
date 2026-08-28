@@ -91,7 +91,7 @@ export function RivalidadesTab({ rivalries, partnerships, findPlayer }: any) {
       {rivalItems.length === 0 && partnerItems.length === 0 && (
         <View style={{ alignItems: 'center', paddingVertical: Spacing.xl, gap: Spacing.sm }}>
           <Text style={{ fontSize: 36 }}>⚔️</Text>
-          <Text style={{ fontFamily: FontFamily.title, fontSize: 16, color: Colors.text }}>Sem rivalidades ainda</Text>
+          <Text style={{ fontFamily: FontFamily.title, fontSize: 17, color: Colors.text }}>Sem rivalidades ainda</Text>
           <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' }}>
             Dispute partidas para ver seus rivais e parceiros aqui.
           </Text>
@@ -111,6 +111,6 @@ const makeRvStyles = (Colors: ThemeColors) => StyleSheet.create({
   stats:     { flexDirection: 'row', backgroundColor: Colors.surf2, borderTopWidth: 1, borderTopColor: Colors.line },
   statCell:  { flex: 1, alignItems: 'center', paddingVertical: 8, gap: 2 },
   statBorder:{ borderLeftWidth: 1, borderLeftColor: Colors.line },
-  statVal:   { fontFamily: FontFamily.numberBold, fontSize: 14 },
+  statVal:   { fontFamily: FontFamily.numberBold, fontSize: 15 },
   statLbl:   { fontFamily: FontFamily.number, fontSize: 9, color: Colors.faint },
 });

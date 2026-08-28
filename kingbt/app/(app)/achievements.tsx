@@ -16,6 +16,7 @@ import { ACHIEVEMENTS, CATEGORY_LABELS, type AchievementCategory } from '@/const
 import { AchievementCard } from '@/components/AchievementCard';
 import { AchievementUnlockedModal } from '@/components/AchievementUnlockedModal';
 import type { Achievement } from '@/constants/achievements';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 const CATEGORY_ORDER: AchievementCategory[] = ['wins', 'streak', 'rating', 'titles', 'formats', 'social'];
 
@@ -58,18 +59,16 @@ export default function AchievementsScreen() {
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.navigate("/(app)/profile")}>
-          <Text style={s.back}>←</Text>
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={s.title}>Conquistas</Text>
-          <Text style={s.subtitle}>{unlockedCount}/{totalCount} desbloqueadas</Text>
-        </View>
-        <View style={s.pctBadge}>
-          <Text style={s.pctText}>{overallPct}%</Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Conquistas"
+        subtitle={`${unlockedCount}/${totalCount} desbloqueadas`}
+        onBack={() => router.navigate("/(app)/profile")}
+        right={
+          <View style={s.pctBadge}>
+            <Text style={s.pctText}>{overallPct}%</Text>
+          </View>
+        }
+      />
 
       {/* Overall progress bar */}
       <View style={s.overallBar}>
@@ -118,13 +117,7 @@ export default function AchievementsScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line,
-  },
-  back:     { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
   title:    { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
-  subtitle: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, marginTop: 1 },
   pctBadge: {
     backgroundColor: 'rgba(243,197,68,0.12)', borderWidth: 1,
     borderColor: 'rgba(243,197,68,0.3)', borderRadius: Radius.full,
@@ -146,5 +139,5 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontFamily: FontFamily.numberBold, fontSize: 9,
     color: Colors.faint, letterSpacing: 1.5,
   },
-  catCount: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.muted },
+  catCount: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted },
 });

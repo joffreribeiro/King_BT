@@ -39,7 +39,8 @@ export default function PlayerDetailScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <TouchableOpacity style={styles.backRow} onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/ranking')}>
-          <Text style={styles.backText}>← Ranking</Text>
+          <Icon name="chevronLeft" size={15} color={Colors.teal} />
+          <Text style={styles.backText}>Ranking</Text>
         </TouchableOpacity>
         <Text style={{ color: Colors.coral, padding: Spacing.md }}>Jogador não encontrado.</Text>
       </SafeAreaView>
@@ -177,7 +178,8 @@ export default function PlayerDetailScreen() {
 
         <View style={styles.topBar}>
           <TouchableOpacity style={styles.backRow} onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/ranking')}>
-            <Text style={styles.backText}>← Ranking</Text>
+            <Icon name="chevronLeft" size={15} color={Colors.teal} />
+            <Text style={styles.backText}>Ranking</Text>
           </TouchableOpacity>
           {/* H2H só existia no menu lateral — aqui é onde faz sentido pedir. */}
           {myPlayerId && myPlayerId !== id && (
@@ -295,7 +297,7 @@ export default function PlayerDetailScreen() {
                       alignItems: 'center', justifyContent: 'center',
                     }}
                   >
-                    <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 12, color: g.won ? Colors.teal : Colors.coral }}>
+                    <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 13, color: g.won ? Colors.teal : Colors.coral }}>
                       {g.won ? 'V' : 'D'}
                     </Text>
                   </TouchableOpacity>
@@ -457,7 +459,7 @@ export default function PlayerDetailScreen() {
 
         {matchHistory.length === 0 && (
           <Card style={{ alignItems: 'center', padding: Spacing.lg }}>
-            <Text style={{ fontFamily: FontFamily.body, fontSize: 14, color: Colors.faint }}>
+            <Text style={{ fontFamily: FontFamily.body, fontSize: 15, color: Colors.faint }}>
               Nenhuma partida registrada ainda.
             </Text>
           </Card>
@@ -474,19 +476,19 @@ const makeMonthlyStyles = (Colors: ThemeColors) => StyleSheet.create({
   col: { flex: 1, alignItems: 'center', gap: 2 },
   barWrap: { height: 80, justifyContent: 'flex-end', width: '100%', alignItems: 'center' },
   bar: { width: '80%', borderRadius: 3 },
-  count: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold },
+  count: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.gold },
   label: { fontFamily: FontFamily.body, fontSize: 9, color: Colors.muted },
-  year: { fontFamily: FontFamily.body, fontSize: 8, color: Colors.faint, marginTop: -2 },
+  year: { fontFamily: FontFamily.body, fontSize: 9, color: Colors.faint, marginTop: -2 },
 });
 
 const makeL20Styles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: 6 },
-  label: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, width: 60 },
+  label: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, width: 60 },
   bar: { flex: 1, flexDirection: 'row', height: 18, borderRadius: 4, overflow: 'hidden' },
   barWin: { backgroundColor: Colors.teal + 'CC' },
   barLoss: { backgroundColor: Colors.coral + 'CC' },
   num: { fontFamily: FontFamily.numberBold, fontSize: 13, width: 22, textAlign: 'center' },
-  barNum: { fontFamily: FontFamily.numberBold, fontSize: 12, color: '#fff', paddingHorizontal: 6, alignSelf: 'center' },
+  barNum: { fontFamily: FontFamily.numberBold, fontSize: 13, color: '#fff', paddingHorizontal: 6, alignSelf: 'center' },
   resultBox: { flex: 1, alignItems: 'center', backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.sm, gap: 2 },
   resultIcon: { fontSize: 18 },
   resultNum: { fontFamily: FontFamily.titleBold, fontSize: 22 },
@@ -497,8 +499,8 @@ const makeStatRowStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
   cell: { flex: 1, alignItems: 'center', paddingVertical: Spacing.xs },
   divider: { borderRightWidth: 1, borderRightColor: Colors.line },
-  val: { fontFamily: FontFamily.numberBold, fontSize: 14 },
-  lbl: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.muted, marginTop: 2 },
+  val: { fontFamily: FontFamily.numberBold, fontSize: 15 },
+  lbl: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, marginTop: 2 },
 });
 
 const makeBdgStyles = (Colors: ThemeColors) => StyleSheet.create({
@@ -506,7 +508,7 @@ const makeBdgStyles = (Colors: ThemeColors) => StyleSheet.create({
   item: { width: 72, alignItems: 'center', gap: 4, padding: Spacing.sm, backgroundColor: Colors.surf2, borderRadius: Radius.md },
   locked: { opacity: 0.35 },
   emoji: { fontSize: 28 },
-  name: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.text, textAlign: 'center' },
+  name: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.text, textAlign: 'center' },
   nameLocked: { color: Colors.faint },
   empty: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center', paddingVertical: Spacing.sm },
 });
@@ -515,7 +517,7 @@ const makePshipStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
   border: { borderBottomWidth: 1, borderBottomColor: Colors.line },
   name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
-  rec: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted },
+  rec: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.muted },
   wr: { fontFamily: FontFamily.numberBold, fontSize: 13, width: 36, textAlign: 'right' },
 });
 
@@ -534,7 +536,7 @@ const makeHistStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
   border: { borderBottomWidth: 1, borderBottomColor: Colors.line },
   badge: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
-  badgeText: { fontFamily: FontFamily.numberBold, fontSize: 12 },
+  badgeText: { fontFamily: FontFamily.numberBold, fontSize: 13 },
   info: { flex: 1, gap: 2 },
   opp: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
   compName: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
@@ -547,22 +549,22 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   scroll: { padding: Spacing.md, gap: Spacing.md },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xs },
-  backRow: { flexDirection: 'row', alignItems: 'center' },
-  backText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.teal },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  backText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.teal },
   compareBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     borderWidth: 1, borderColor: Colors.gold + '55', borderRadius: Radius.full,
     paddingHorizontal: Spacing.sm + 2, paddingVertical: 5,
   },
-  compareBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.gold },
+  compareBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.gold },
   heroBanner: { position: 'relative', overflow: 'hidden', borderRadius: Radius.lg, marginBottom: Spacing.sm },
   heroBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 120 },
   heroInner: { alignItems: 'center', paddingTop: Spacing.xl, paddingBottom: Spacing.lg, gap: Spacing.sm },
   name: { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text },
   badgeRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
   ptsCard: { alignItems: 'center', gap: 4 },
-  ptsLabel: { fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted, letterSpacing: 2 },
+  ptsLabel: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted, letterSpacing: 2 },
   ptsVal: { fontFamily: FontFamily.titleBold, fontSize: 52, color: Colors.gold, lineHeight: 60 },
-  ptsEq: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted },
-  sectionTitle: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.text, marginBottom: Spacing.sm },
+  ptsEq: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.muted },
+  sectionTitle: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text, marginBottom: Spacing.sm },
 });

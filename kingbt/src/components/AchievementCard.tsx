@@ -94,12 +94,12 @@ const ac = StyleSheet.create({
   },
   icon:  { fontSize: 26, lineHeight: 30 },
   title: { fontFamily: FontFamily.title, fontSize: 13, fontWeight: '700', marginBottom: 2 },
-  desc:  { fontFamily: FontFamily.body, fontSize: 10, color: '#6E6452', lineHeight: 14 },
+  desc:  { fontFamily: FontFamily.body, fontSize: 11, color: '#6E6452', lineHeight: 14 },
   checkBadge: {
     width: 24, height: 24, borderRadius: 12,
     borderWidth: 1, alignItems: 'center', justifyContent: 'center',
   },
-  checkText: { fontFamily: FontFamily.numberBold, fontSize: 12 },
+  checkText: { fontFamily: FontFamily.numberBold, fontSize: 13 },
 
   progressSection: { gap: 4 },
   trackRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -110,5 +110,5 @@ const ac = StyleSheet.create({
   bar: { height: 5, borderRadius: 3 },
   pctText: { fontFamily: FontFamily.numberBold, fontSize: 9, minWidth: 36, textAlign: 'right' },
   nearlyText: { fontFamily: FontFamily.bodyMed, fontSize: 9, fontWeight: '600' },
-  unlockedText: { fontFamily: FontFamily.bodyMed, fontSize: 10, fontWeight: '700', marginTop: 4 },
+  unlockedText: { fontFamily: FontFamily.bodyMed, fontSize: 11, fontWeight: '700', marginTop: 4 },
 });

@@ -79,11 +79,11 @@ const m = StyleSheet.create({
   icon:         { fontSize: 64, lineHeight: 72, marginBottom: 4 },
   badgeUnlocked:{ fontFamily: FontFamily.titleBold, fontSize: 18, fontWeight: '800' },
   badgeTitle:   { fontFamily: FontFamily.title, fontSize: 15, color: '#F6EFDD', fontWeight: '700' },
-  badgeDesc:    { fontFamily: FontFamily.body, fontSize: 12, color: '#A99B7C', textAlign: 'center', lineHeight: 18 },
+  badgeDesc:    { fontFamily: FontFamily.body, fontSize: 13, color: '#A99B7C', textAlign: 'center', lineHeight: 18 },
   btn: {
     marginTop: 12,
     paddingHorizontal: 40, paddingVertical: 13,
     borderRadius: 12,
   },
-  btnText: { fontFamily: FontFamily.title, color: '#000', fontWeight: '700', fontSize: 14 },
+  btnText: { fontFamily: FontFamily.title, color: '#000', fontWeight: '700', fontSize: 15 },
 });

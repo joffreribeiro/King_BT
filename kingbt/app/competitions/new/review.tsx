@@ -251,8 +251,8 @@ function SummaryRow({ label, value, last = false }: { label: string; value: stri
 const makeSrStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing.sm },
   border: { borderBottomWidth: 1, borderBottomColor: Colors.line },
-  label: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted },
-  value: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  label: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.muted },
+  value: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
 });
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
@@ -265,7 +265,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   stepItem: { flex: 1, alignItems: 'center', gap: 4 },
   stepLine: { height: 3, width: '100%', borderRadius: 2, backgroundColor: Colors.surf2 },
   stepLineActive: { backgroundColor: Colors.gold },
-  stepLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
+  stepLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   stepLabelActive: { color: Colors.gold, fontFamily: FontFamily.bodyMed },
   scroll: { padding: Spacing.md, gap: Spacing.md },
 
@@ -284,8 +284,8 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   btnCreate: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 50 },
   btnDisabled: { opacity: 0.5 },
   btnCreateIcon: { fontSize: 18 },
-  btnCreateText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg },
+  btnCreateText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg },
   btnSchedule: { borderWidth: 1.5, borderColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 46 },
-  btnScheduleIcon: { fontSize: 16 },
+  btnScheduleIcon: { fontSize: 17 },
   btnScheduleText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.gold },
 });

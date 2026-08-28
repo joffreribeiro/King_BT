@@ -5,8 +5,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
-import { Avatar, Card, VisibilityPicker } from '@/components';
+import { FontFamily, Spacing, Radius, type ThemeColors, PLAYER_COLORS } from '@/theme';
+import { Avatar, Card, VisibilityPicker, ScreenHeader } from '@/components';
+import { Icon } from '@/components/icons';
 import { useAuth } from '@/store/AuthContext';
 import { useSettings } from '@/store/SettingsContext';
 import { useTheme } from '@/store/ThemeContext';
@@ -17,20 +18,6 @@ import { EditNameModal } from '@/components/competition/EditNameModal';
 import { setScoringConfig } from '@/firebase/scoringConfig';
 import { DEFAULT_SCORING, isScoringConfigValid, type ScoringConfig } from '@/logic/scoringConfig';
 import { statPoints } from '@/logic/scoring';
-import type { Format } from '@/logic/types';
-
-const GUEST_COLORS = ['#FFD166', '#2DD4BF', '#A78BFA', '#34D399', '#F472B6', '#94A3B8', '#FB923C', '#60A5FA'];
-
-const MAX_SCORE_OPTIONS = [4, 6, 7, 8, 10];
-
-const FORMAT_OPTIONS: { key: Format | ''; label: string }[] = [
-  { key: '', label: 'Nenhum' },
-  { key: 'avulso', label: 'Avulso' },
-  { key: 'liga', label: 'Liga' },
-  { key: 'grupos', label: 'Grupos' },
-  { key: 'mata', label: 'Mata-mata' },
-  { key: 'super8', label: 'Super 8' },
-];
 
 const version = Constants.expoConfig?.version ?? '1.0.0';
 
@@ -43,7 +30,7 @@ export default function SettingsScreen() {
   const [showEditGroupName, setShowEditGroupName] = useState(false);
   const [showAddGuest, setShowAddGuest] = useState(false);
   const [guestName, setGuestName]       = useState('');
-  const [guestColor, setGuestColor]     = useState(GUEST_COLORS[0]);
+  const [guestColor, setGuestColor]     = useState(PLAYER_COLORS[0]);
   const [copied, setCopied]             = useState<'code' | 'invite' | null>(null);
   const [showAddMember, setShowAddMember] = useState(false);
   const [memberSearch, setMemberSearch]   = useState('');
@@ -54,7 +41,7 @@ export default function SettingsScreen() {
   async function handleAddGuest() {
     if (!guestName.trim() || !group) return;
     await addGuestPlayer(group.id, guestName.trim(), guestColor);
-    setGuestName(''); setGuestColor(GUEST_COLORS[0]); setShowAddGuest(false);
+    setGuestName(''); setGuestColor(PLAYER_COLORS[0]); setShowAddGuest(false);
   }
 
   const groupPlayerUids = useMemo(
@@ -73,13 +60,12 @@ export default function SettingsScreen() {
 
   async function handleAddExistingMember(u: AppUser) {
     setAddingMemberUid(u.uid);
-    await addExistingUserToGroup({ uid: u.uid, name: u.name }, GUEST_COLORS[groupPlayers.length % GUEST_COLORS.length]);
+    await addExistingUserToGroup({ uid: u.uid, name: u.name }, PLAYER_COLORS[groupPlayers.length % PLAYER_COLORS.length]);
     setAddingMemberUid(null);
     setMemberSearch(''); setMemberResults([]); setShowAddMember(false);
   }
   const {
-    defaultMaxScore, setDefaultMaxScore, defaultFormat, setDefaultFormat,
-    keepSacadorAfterSave, setKeepSacadorAfterSave, scoringConfig,
+    scoringConfig,
   } = useSettings();
 
   // ── Fórmula de pontuação (admin do grupo) ──────────────────────────────
@@ -258,13 +244,10 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/profile')}>
-          <Text style={s.back}>←</Text>
-        </TouchableOpacity>
-        <Text style={s.title}>Configurações</Text>
-        <View style={{ width: 32 }} />
-      </View>
+      <ScreenHeader
+        title="Configurações"
+        onBack={() => router.canGoBack() ? router.back() : router.replace('/(app)/profile')}
+      />
 
       {/* Tab bar — só aparece para admin */}
       {isAdmin && (
@@ -276,7 +259,7 @@ export default function SettingsScreen() {
               onPress={() => setActiveTab(tab)}
             >
               <Text style={[s.tabLabel, activeTab === tab && s.tabLabelActive]}>
-                {tab === 'geral' ? 'Geral' : '⚙️ Admin'}
+                {tab === 'geral' ? 'Geral' : 'Admin'}
               </Text>
               {activeTab === tab && <View style={s.tabIndicator} />}
             </TouchableOpacity>
@@ -288,89 +271,65 @@ export default function SettingsScreen() {
 
         {/* ── ABA GERAL ── */}
         {activeTab === 'geral' && <>
-
-        {/* Versão */}
-        <Card style={s.versionCard}>
-          <Text style={s.versionLabel}>KING BT</Text>
-          <Text style={s.versionNum}>v{version}</Text>
-          <Text style={s.versionSub}>Beach Tennis Tournament Manager</Text>
-        </Card>
-
-        {/* Placar padrão */}
-        <View>
-          <Text style={s.sectionTitle}>Placar padrão</Text>
-          <Text style={s.sectionHint}>Pontuação máxima exibida nos atalhos rápidos do modal de placar</Text>
-          <View style={s.chipRow}>
-            {MAX_SCORE_OPTIONS.map(v => (
-              <TouchableOpacity
-                key={v}
-                style={[s.chip, defaultMaxScore === v && s.chipActive]}
-                onPress={() => setDefaultMaxScore(v)}
-              >
-                <Text style={[s.chipText, defaultMaxScore === v && s.chipTextActive]}>{v}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Formato favorito */}
-        <View>
-          <Text style={s.sectionTitle}>Formato favorito</Text>
-          <Text style={s.sectionHint}>Pré-selecionado ao criar nova competição</Text>
-          <View style={s.chipRow}>
-            {FORMAT_OPTIONS.map(f => (
-              <TouchableOpacity
-                key={f.key}
-                style={[s.chip, defaultFormat === f.key && s.chipActive]}
-                onPress={() => setDefaultFormat(f.key)}
-              >
-                <Text style={[s.chipText, defaultFormat === f.key && s.chipTextActive]}>{f.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Tema */}
-        <View>
-          <Text style={s.sectionTitle}>Tema</Text>
-          <Card style={s.themeCard}>
-            <TouchableOpacity
-              style={[s.themeRow, mode === 'dark' && s.themeRowActive]}
-              onPress={() => setMode('dark')}
-              activeOpacity={0.8}
-            >
-              <Text style={s.themeLabel}>🌙 Escuro</Text>
-              {mode === 'dark' && <View style={s.themeCheck}><Text style={s.themeCheckMark}>✓</Text></View>}
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.themeRow, mode === 'light' && s.themeRowActive]}
-              onPress={() => setMode('light')}
-              activeOpacity={0.8}
-            >
-              <Text style={s.themeLabel}>☀️ Claro</Text>
-              {mode === 'light' && <View style={s.themeCheck}><Text style={s.themeCheckMark}>✓</Text></View>}
-            </TouchableOpacity>
-          </Card>
-        </View>
-
-        {/* King Scout */}
-        <View>
-          <Text style={s.sectionTitle}>King Scout</Text>
-          <Card style={s.themeCard}>
-            <TouchableOpacity
-              style={[s.themeRow, keepSacadorAfterSave && s.themeRowActive]}
-              onPress={() => setKeepSacadorAfterSave(!keepSacadorAfterSave)}
-              activeOpacity={0.8}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={s.themeLabel}>Manter sacador após salvar ponto</Text>
-                <Text style={s.sectionHint}>
-                  Ao registrar um ponto, mantém o sacador e a posição de saque
-                  selecionados para o próximo ponto, em vez de limpar o formulário.
-                </Text>
+        {/* Grupo */}
+        {group && (
+          <View>
+            <Text style={s.sectionTitle}>Grupo</Text>
+            <Card style={s.groupCard}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={s.groupName}>{group.name}</Text>
+                {isAdmin && (
+                  <TouchableOpacity onPress={() => setShowEditGroupName(true)} hitSlop={8}>
+                    <Icon name="edit" size={14} color={Colors.muted} />
+                  </TouchableOpacity>
+                )}
               </View>
-              {keepSacadorAfterSave && <View style={s.themeCheck}><Text style={s.themeCheckMark}>✓</Text></View>}
-            </TouchableOpacity>
+              <View style={s.codeRow}>
+                <Text style={s.codeLabel}>Código</Text>
+                <Text style={s.code}>{group.code}</Text>
+                {/* Ação secundária com borda neutra — antes era uma pílula
+                    verde-água, cor que no resto do app significa resultado
+                    positivo (vitória, saldo, forma), não botão. */}
+                <TouchableOpacity style={s.codeShareBtn} onPress={handleShareCode}>
+                  {copied === 'code' && <Icon name="check" size={12} color={Colors.teal} />}
+                  <Text style={[s.codeShareText, copied === 'code' && { color: Colors.teal }]}>
+                    {copied === 'code' ? 'Copiado!' : 'Copiar'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={s.inviteBtn} onPress={handleShareInvite}>
+                <Icon name={copied === 'invite' ? 'check' : 'share'} size={15} color={Colors.gold} />
+                <Text style={s.inviteBtnText}>
+                  {copied === 'invite' ? 'Convite copiado! Cole no WhatsApp' : 'Convidar para o grupo'}
+                </Text>
+              </TouchableOpacity>
+            </Card>
+          </View>
+        )}
+
+        {/* Preferências — antes eram três seções soltas ("Placar padrão",
+            "Formato favorito", "King Scout"), cada uma com título próprio,
+            empurrando o que interessa para baixo da dobra. */}
+        <View>
+          <Text style={s.sectionTitle}>Preferências</Text>
+          <Card style={s.prefCard}>
+            <View style={s.prefBlock}>
+              <Text style={s.prefLabel}>Tema</Text>
+              <View style={s.chipRow}>
+                {([
+                  { key: 'dark',  label: 'Escuro' },
+                  { key: 'light', label: 'Claro' },
+                ] as const).map(t => (
+                  <TouchableOpacity
+                    key={t.key}
+                    style={[s.chip, mode === t.key && s.chipActive]}
+                    onPress={() => setMode(t.key)}
+                  >
+                    <Text style={[s.chipText, mode === t.key && s.chipTextActive]}>{t.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           </Card>
         </View>
 
@@ -430,35 +389,10 @@ export default function SettingsScreen() {
           </View>
         )}
 
-        {/* Grupo */}
-        {group && (
-          <View>
-            <Text style={s.sectionTitle}>Grupo</Text>
-            <Card style={s.groupCard}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={s.groupName}>{group.name}</Text>
-                {isAdmin && (
-                  <TouchableOpacity onPress={() => setShowEditGroupName(true)} hitSlop={8}>
-                    <Text style={{ fontSize: 14 }}>✏️</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-              <View style={s.codeRow}>
-                <Text style={s.codeLabel}>Código</Text>
-                <Text style={s.code}>{group.code}</Text>
-                <TouchableOpacity style={s.codeShareBtn} onPress={handleShareCode}>
-                  <Text style={s.codeShareText}>{copied === 'code' ? '✓ Copiado!' : 'Copiar'}</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity style={s.inviteBtn} onPress={handleShareInvite}>
-                <Text style={s.inviteBtnText}>
-                  {copied === 'invite' ? '✓ Convite copiado! Cole no WhatsApp' : '🔗 Convidar para o grupo'}
-                </Text>
-              </TouchableOpacity>
-            </Card>
-          </View>
-        )}
+        {/* Versão — informação de rodapé, não merece o topo da tela */}
+        <Text style={s.versionFooter}>KING BT · v{version}</Text>
 
+        
         </> /* fim aba Geral */}
 
         {/* ── ABA ADMIN ── */}
@@ -480,13 +414,13 @@ export default function SettingsScreen() {
               <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
                 <TouchableOpacity onPress={() => { setShowAddMember(false); setShowAddGuest(v => !v); }}
                   style={{ paddingHorizontal: Spacing.sm, paddingVertical: 3, backgroundColor: Colors.surf2, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.line }}>
-                  <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.teal }}>
+                  <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal }}>
                     {showAddGuest ? '− Cancelar' : '+ Convidado'}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => { setShowAddGuest(false); setShowAddMember(v => !v); }}
                   style={{ paddingHorizontal: Spacing.sm, paddingVertical: 3, backgroundColor: Colors.surf2, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.line }}>
-                  <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.gold }}>
+                  <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.gold }}>
                     {showAddMember ? '− Cancelar' : '+ Membro existente'}
                   </Text>
                 </TouchableOpacity>
@@ -509,17 +443,17 @@ export default function SettingsScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                       <TouchableOpacity onPress={() => updatePlayerHandicap(group.id, p.id, Math.max(-3, h - 1))} hitSlop={6}
                         style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.line }}>
-                        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 14, color: Colors.text, lineHeight: 18 }}>−</Text>
+                        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 15, color: Colors.text, lineHeight: 18 }}>−</Text>
                       </TouchableOpacity>
                       <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 13, width: 24, textAlign: 'center', color: h > 0 ? Colors.teal : h < 0 ? Colors.coral : Colors.faint }}>
                         {h > 0 ? `+${h}` : h === 0 ? '0' : h}
                       </Text>
                       <TouchableOpacity onPress={() => updatePlayerHandicap(group.id, p.id, Math.min(3, h + 1))} hitSlop={6}
                         style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.line }}>
-                        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 14, color: Colors.text, lineHeight: 18 }}>+</Text>
+                        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 15, color: Colors.text, lineHeight: 18 }}>+</Text>
                       </TouchableOpacity>
                     </View>
-                    {isPlayerAdmin && <View style={s.adminBadge}><Text style={s.adminText}>👑 admin</Text></View>}
+                    {isPlayerAdmin && <View style={s.adminBadge}><Icon name="crown" size={10} color={Colors.gold} /><Text style={s.adminText}>admin</Text></View>}
                     {!isPlayerAdmin && (
                       <View style={p.guest ? s.guestBadge : s.memberBadge}>
                         <Text style={p.guest ? s.guestText : s.memberText}>{p.guest ? 'conv.' : 'membro'}</Text>
@@ -527,7 +461,7 @@ export default function SettingsScreen() {
                     )}
                     {canPromote && (
                       <TouchableOpacity style={s.promoteBtn} onPress={() => handlePromoteToAdmin(p.uid!, p.name)} hitSlop={8}>
-                        <Text style={s.promoteBtnText}>👑</Text>
+                        <Icon name="crown" size={15} color={Colors.muted} />
                       </TouchableOpacity>
                     )}
                     {!isSelf && (
@@ -548,7 +482,7 @@ export default function SettingsScreen() {
                   placeholder="Nome do convidado" placeholderTextColor={Colors.faint} autoFocus
                 />
                 <View style={{ flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' }}>
-                  {GUEST_COLORS.map(c => (
+                  {PLAYER_COLORS.map(c => (
                     <TouchableOpacity key={c} onPress={() => setGuestColor(c)}
                       style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: c, borderWidth: guestColor === c ? 3 : 0, borderColor: Colors.text }} />
                   ))}
@@ -556,7 +490,7 @@ export default function SettingsScreen() {
                 <TouchableOpacity
                   style={{ backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center', opacity: guestName.trim() ? 1 : 0.4 }}
                   onPress={handleAddGuest} disabled={!guestName.trim()}>
-                  <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: Colors.bg }}>Adicionar convidado</Text>
+                  <Text style={{ fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg }}>Adicionar convidado</Text>
                 </TouchableOpacity>
               </Card>
             )}
@@ -580,7 +514,7 @@ export default function SettingsScreen() {
                     disabled={addingMemberUid === u.uid}
                     style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 8, opacity: addingMemberUid === u.uid ? 0.5 : 1 }}
                   >
-                    <Avatar name={u.name} color={GUEST_COLORS[0]} size={28} />
+                    <Avatar name={u.name} color={PLAYER_COLORS[0]} size={28} />
                     <View style={{ flex: 1 }}>
                       <Text style={s.playerName} numberOfLines={1}>{u.name}</Text>
                       {u.email && <Text style={s.sectionHint} numberOfLines={1}>{u.email}</Text>}
@@ -599,10 +533,10 @@ export default function SettingsScreen() {
           <Card style={s.dangerCard}>
             <Text style={s.dangerHint}>Ações irreversíveis. Use com cautela.</Text>
             <TouchableOpacity style={s.dangerBtn} onPress={handleLeaveGroup}>
-              <Text style={s.dangerBtnText}>🚪 Sair do grupo</Text>
+              <Icon name="logout" size={15} color={Colors.coral} /><Text style={s.dangerBtnText}>Sair do grupo</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[s.dangerBtn, s.dangerBtnRed]} onPress={handleDeleteGroup}>
-              <Text style={[s.dangerBtnText, s.dangerBtnTextRed]}>🗑️ Excluir grupo permanentemente</Text>
+              <Icon name="trash" size={15} color={Colors.coral} /><Text style={[s.dangerBtnText, s.dangerBtnTextRed]}>Excluir grupo permanentemente</Text>
             </TouchableOpacity>
           </Card>
         </View>
@@ -646,22 +580,19 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   tabLabel: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.faint },
   tabLabelActive: { color: Colors.gold, fontWeight: '700' },
   tabIndicator: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 2.5, backgroundColor: Colors.gold, borderRadius: 1 },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
-    borderBottomWidth: 1, borderBottomColor: Colors.line,
-  },
-  back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
   title: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
   scroll: { padding: Spacing.md, gap: Spacing.lg },
 
-  versionCard: { alignItems: 'center', gap: 4, paddingVertical: Spacing.lg },
-  versionLabel: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.faint, letterSpacing: 2 },
-  versionNum: { fontFamily: FontFamily.titleBold, fontSize: 40, color: Colors.gold },
-  versionSub: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  versionFooter: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center', letterSpacing: 1 },
+  prefCard: { gap: 0, paddingVertical: Spacing.xs },
+  prefBlock: { paddingVertical: Spacing.sm, gap: 6 },
+  prefLabel: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
+  prefHint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
+  prefDivider: { height: 1, backgroundColor: Colors.line },
+  prefToggle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm },
 
-  sectionTitle: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.text, marginBottom: 4 },
-  sectionHint: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginBottom: Spacing.sm },
+  sectionTitle: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text, marginBottom: 4 },
+  sectionHint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginBottom: Spacing.sm },
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   chip: {
@@ -676,9 +607,9 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   themeCard: { gap: Spacing.xs },
   themeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xs, borderRadius: Radius.sm },
   themeRowActive: { backgroundColor: Colors.surf2 },
-  themeLabel: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  themeLabel: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
   themeCheck: { width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.gold + '22', borderWidth: 1.5, borderColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
-  themeCheckMark: { fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.gold },
+  themeCheckMark: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.gold },
 
   scoreRow: { flexDirection: 'row', gap: Spacing.sm },
   scoreField: { flex: 1, gap: 4 },
@@ -692,19 +623,19 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   previewPts: { fontFamily: FontFamily.numberBold, color: Colors.gold },
   previewError: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.coral },
   scoreSaveBtn: { flex: 1, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
-  scoreSaveText: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.bg },
+  scoreSaveText: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg },
   scoreResetBtn: { flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
-  scoreResetText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
+  scoreResetText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.muted },
 
   groupCard: { gap: Spacing.sm },
   groupName: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
   codeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  codeLabel: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  codeLabel: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   code: { flex: 1, fontFamily: FontFamily.numberBold, fontSize: 22, color: Colors.teal, letterSpacing: 3 },
-  codeShareBtn: { backgroundColor: Colors.teal + '22', borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 4, borderWidth: 1, borderColor: Colors.teal + '44' },
-  codeShareText: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.teal },
-  inviteBtn: { backgroundColor: Colors.surf2, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center', borderWidth: 1, borderColor: Colors.line },
-  inviteBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  codeShareBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.surf2, borderRadius: Radius.full, paddingHorizontal: Spacing.sm + 2, paddingVertical: 4, borderWidth: 1, borderColor: Colors.line },
+  codeShareText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
+  inviteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.surf2, borderRadius: Radius.md, paddingVertical: Spacing.sm, borderWidth: 1, borderColor: Colors.line },
+  inviteBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
 
   emptyPlayers: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center', padding: Spacing.md },
   playerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
@@ -712,23 +643,23 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   playerDot: { width: 10, height: 10, borderRadius: 5 },
   playerName: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
   guestBadge: { backgroundColor: Colors.gold + '22', borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 2 },
-  guestText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold },
+  guestText: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.gold },
   memberBadge: { backgroundColor: Colors.teal + '22', borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 2 },
-  memberText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.teal },
+  memberText: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.teal },
   removeBtn: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.coral, lineHeight: 20, paddingHorizontal: 4 },
-  adminBadge: { backgroundColor: Colors.gold + '33', borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 2 },
-  adminText: { fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.gold },
+  adminBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.gold + '33', borderRadius: Radius.full, paddingHorizontal: 7, paddingVertical: 2 },
+  adminText: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.gold },
   promoteBtn: { paddingHorizontal: 6, paddingVertical: 2 },
-  promoteBtnText: { fontSize: 14 },
+  promoteBtnText: { fontSize: 15 },
 
   dangerCard: { gap: Spacing.sm },
-  dangerHint: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
-  dangerBtn: { borderWidth: 1, borderColor: Colors.coral + '66', borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
-  dangerBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.coral },
+  dangerHint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
+  dangerBtn: { flexDirection: 'row', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: Colors.coral + '66', borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
+  dangerBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.coral },
   dangerBtnRed: { borderColor: '#e53935', backgroundColor: '#e5393511' },
   dangerBtnTextRed: { color: '#e53935' },
 
   accountEmail: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', marginBottom: Spacing.sm },
   leaveBtn: { borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
-  leaveBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
+  leaveBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.muted },
 });

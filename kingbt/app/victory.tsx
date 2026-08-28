@@ -4,10 +4,10 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useRef, useMemo } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FontFamily, type ThemeColors } from '@/theme';
+import { FontFamily, type ThemeColors, Colors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 
-const CONFETTI_COLORS = ['#F3C544', '#54B981', '#C084FC', '#6B7FD7', '#E5483D', '#FFDD66', '#54B981'];
+const CONFETTI_COLORS = [Colors.gold, Colors.teal, Colors.accentSuper8, Colors.accentGrupos, Colors.coral, Colors.goldBright, Colors.teal];
 
 function Confetti() {
   const items = Array.from({ length: 14 }, (_, i) => {
@@ -141,7 +141,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   content: { alignItems: 'center', gap: 16 },
   resultLabel: {
     fontFamily: FontFamily.numberBold,
-    fontSize: 10,
+    fontSize: 11,
     color: Colors.muted,
     letterSpacing: 2,
   },
@@ -189,7 +189,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   meta: {
     fontFamily: FontFamily.body,
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.muted,
     textAlign: 'center',
   },

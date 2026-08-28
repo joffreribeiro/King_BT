@@ -41,7 +41,7 @@ export function PointsTimeline({ data }: { data: { label: string; pts: number; p
   return (
     <Card style={{ gap: 6, paddingHorizontal: 0, paddingTop: Spacing.sm }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md }}>
-        <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.muted, letterSpacing: 1.5 }}>
+        <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted, letterSpacing: 1.5 }}>
           EVOLUÇÃO DE PONTOS
         </Text>
         <View style={{ backgroundColor: trendColor + '22', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>

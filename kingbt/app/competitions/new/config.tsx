@@ -52,9 +52,9 @@ const makeSegStyles = (Colors: ThemeColors) => StyleSheet.create({
   bar: { flexDirection: 'row', backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: 3 },
   btn: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: Radius.sm - 2 },
   btnActive: { backgroundColor: Colors.gold },
-  text: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
+  text: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.muted },
   textActive: { color: Colors.bg },
-  desc: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, paddingLeft: 2 },
+  desc: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, paddingLeft: 2 },
 });
 
 function Stepper({ label, value, min, max, onChange }: {
@@ -79,7 +79,7 @@ function Stepper({ label, value, min, max, onChange }: {
 }
 const makeStpStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  label: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.text },
+  label: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.text },
   controls: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   btn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
   btnText: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.text, lineHeight: 26 },
@@ -223,7 +223,7 @@ export default function ConfigStep() {
             </View>
             <View style={styles.field}>
               <Stepper label="Melhores 3ºs que avançam" value={bestThirds} min={0} max={groups} onChange={setBestThirds} />
-              <Text style={{ fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted }}>
+              <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted }}>
                 {bestThirds === 0 ? 'Nenhum 3º colocado avança.' : `Os ${bestThirds} melhores 3ºs de todos os grupos avançam.`}
               </Text>
             </View>
@@ -234,7 +234,7 @@ export default function ConfigStep() {
         {format === 'avulso' && (
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>Formato de disputa</Text>
-            <Text style={[styles.fieldLabel, { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: -4 }]}>
+            <Text style={[styles.fieldLabel, { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: -4 }]}>
               No Avulso o placar é livre: você digita o resultado de cada jogo na hora de registrar, sem regra fixa de games.
             </Text>
           </View>
@@ -245,7 +245,7 @@ export default function ConfigStep() {
         <>
         <View style={styles.field}>
           <Text style={styles.fieldLabel}>Formato de disputa</Text>
-          <Text style={[styles.fieldLabel, { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: -4 }]}>
+          <Text style={[styles.fieldLabel, { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: -4 }]}>
             Escolha um preset ou configure manualmente abaixo
           </Text>
           <View style={preset.grid}>
@@ -387,8 +387,8 @@ const makePresetStyles = (Colors: ThemeColors) => StyleSheet.create({
 
 const makeTogStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.xs },
-  label: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
-  desc: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  label: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
+  desc: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   track: { width: 46, height: 26, borderRadius: 13, backgroundColor: Colors.surf2, borderWidth: 1, borderColor: Colors.line, justifyContent: 'center', paddingHorizontal: 3 },
   trackOn: { backgroundColor: Colors.teal + '44', borderColor: Colors.teal },
   thumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: Colors.muted },
@@ -405,7 +405,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   stepItem: { flex: 1, alignItems: 'center', gap: 4 },
   stepLine: { height: 3, width: '100%', borderRadius: 2, backgroundColor: Colors.surf2 },
   stepLineActive: { backgroundColor: Colors.gold },
-  stepLabel: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint },
+  stepLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   stepLabelActive: { color: Colors.gold, fontFamily: FontFamily.bodyMed },
   scroll: { padding: Spacing.md, gap: Spacing.lg },
   field: { gap: Spacing.sm },
@@ -415,5 +415,5 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   textArea: { minHeight: 80, textAlignVertical: 'top' },
   footer: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: Spacing.md, paddingBottom: Spacing.lg, backgroundColor: Colors.bg, borderTopWidth: 1, borderTopColor: Colors.line },
   btnContinue: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' },
-  btnText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.bg },
+  btnText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg },
 });

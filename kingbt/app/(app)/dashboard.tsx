@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { goToPlayer } from '@/logic/nav';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Card } from '@/components';
+import { Avatar, Card, Icon } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
@@ -14,6 +14,30 @@ import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 import { computeGroupRivalries } from '@/logic/rivalries';
 import type { Match } from '@/logic/types';
+
+/**
+ * Sequência de vitórias atual do jogador. Antes esta conta existia duas vezes
+ * — uma aqui em cima e outra embutida no JSX do card de stats — e percorria os
+ * jogos na ordem em que aparecem no array das competições, então "5 vitórias
+ * seguidas" podia não ser as 5 últimas partidas de verdade. Agora é uma função
+ * só, ordenada por `playedAt` (jogo sem data conta como mais antigo).
+ */
+function currentStreak(playerId: string, matches: Match[]): number {
+  const mine = matches
+    .filter(m =>
+      m.teamA?.includes(playerId) || m.teamB?.includes(playerId) ||
+      m.aId === playerId || m.bId === playerId
+    )
+    .sort((a, b) => (a.playedAt ?? '').localeCompare(b.playedAt ?? ''));
+  let streak = 0;
+  for (let i = mine.length - 1; i >= 0; i--) {
+    const m = mine[i];
+    const inA = m.teamA?.includes(playerId) || m.aId === playerId;
+    const won = inA ? m.scoreA! > m.scoreB! : m.scoreB! > m.scoreA!;
+    if (won) streak++; else break;
+  }
+  return streak;
+}
 
 export default function DashboardScreen() {
   const { colors: Colors } = useTheme();
@@ -26,7 +50,6 @@ export default function DashboardScreen() {
   // Saudação por hora
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
-  const greetingEmoji = hour < 12 ? '☀️' : hour < 18 ? '👊' : '🌙';
 
   const allMatches = state.competitions.flatMap(c => c.matches);
   const playedMatches = allMatches.filter(m => m.scoreA != null && m.scoreB != null);
@@ -43,35 +66,10 @@ export default function DashboardScreen() {
   // Sequência de vitórias ativa por jogador
   let longestStreak = { id: '', streak: 0 };
   groupPlayers.forEach(player => {
-    const playerMatches = playedMatches
-      .filter(m =>
-        m.teamA?.includes(player.id) || m.teamB?.includes(player.id) ||
-        m.aId === player.id || m.bId === player.id
-      );
-    let streak = 0;
-    for (let i = playerMatches.length - 1; i >= 0; i--) {
-      const m = playerMatches[i];
-      const inA = m.teamA?.includes(player.id) || m.aId === player.id;
-      const won = inA ? m.scoreA! > m.scoreB! : m.scoreB! > m.scoreA!;
-      if (won) streak++; else break;
-    }
+    const streak = currentStreak(player.id, playedMatches);
     if (streak > longestStreak.streak) longestStreak = { id: player.id, streak };
   });
   const streakPlayer = longestStreak.id ? findPlayer(longestStreak.id) : null;
-
-  // Maior rivalidade (par com mais confrontos diretos)
-  const h2hMap: Record<string, number> = {};
-  playedMatches.forEach(m => {
-    const idA = m.aId ?? m.teamA?.[0];
-    const idB = m.bId ?? m.teamB?.[0];
-    if (!idA || !idB) return;
-    const key = [idA, idB].sort().join('|');
-    h2hMap[key] = (h2hMap[key] ?? 0) + 1;
-  });
-  const topRivalry = Object.entries(h2hMap).sort((a, b) => b[1] - a[1])[0];
-  const rivalIds = topRivalry?.[0].split('|') ?? [];
-  const rival0 = rivalIds[0] ? findPlayer(rivalIds[0]) : null;
-  const rival1 = rivalIds[1] ? findPlayer(rivalIds[1]) : null;
 
   // Jogo mais disputado (menor diferença de games)
   const gamesOf = (m: Match) => ({
@@ -113,9 +111,9 @@ export default function DashboardScreen() {
       >
         {/* Saudação */}
         <View>
-          <Text style={ds.greetingLine}>{greeting} {greetingEmoji}</Text>
+          <Text style={ds.greetingLine}>{greeting}</Text>
           <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 24, color: Colors.text }}>
-            Nosso grupo 👑
+            Nosso grupo
           </Text>
         </View>
 
@@ -128,31 +126,15 @@ export default function DashboardScreen() {
               <Text style={[ds.statSub, { color: Colors.gold }]}>pts King BT</Text>
             </View>
             <View style={ds.statCard}>
-              <Text style={ds.statValue}>
-                {(() => {
-                  let streak = 0;
-                  const pm = state.competitions.flatMap(c => c.matches)
-                    .filter(m => m.scoreA != null && (
-                      m.teamA?.includes(myPlayerId!) || m.teamB?.includes(myPlayerId!) ||
-                      m.aId === myPlayerId || m.bId === myPlayerId
-                    ));
-                  for (let i = pm.length - 1; i >= 0; i--) {
-                    const m = pm[i];
-                    const inA = m.teamA?.includes(myPlayerId!) || m.aId === myPlayerId;
-                    const won = inA ? m.scoreA! > m.scoreB! : m.scoreB! > m.scoreA!;
-                    if (won) streak++; else break;
-                  }
-                  return streak;
-                })()}
-              </Text>
+              <Text style={ds.statValue}>{currentStreak(myPlayerId!, playedMatches)}</Text>
               <Text style={ds.statLabel}>SEQUÊNCIA</Text>
-              <Text style={[ds.statSub, { color: Colors.teal }]}>🔥 vitórias</Text>
+              <Text style={[ds.statSub, { color: Colors.teal }]}>vitórias</Text>
             </View>
             <View style={ds.statCard}>
               <Text style={ds.statValue}>{myPos > 0 ? `${myPos}°` : '—'}</Text>
               <Text style={ds.statLabel}>POSIÇÃO</Text>
               <Text style={[ds.statSub, { color: myPos <= 3 ? Colors.gold : Colors.muted }]}>
-                {myPos === 1 ? '👑 líder' : myPos <= 3 ? '🏅 top 3' : `de ${ranking.length}`}
+                {myPos === 1 ? 'líder' : myPos <= 3 ? 'top 3' : `de ${ranking.length}`}
               </Text>
             </View>
           </View>
@@ -188,7 +170,7 @@ export default function DashboardScreen() {
               <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.teal }}>
                 {myStats.wins}V
               </Text>
-              <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted }}>
+              <Text style={{ fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted }}>
                 {Math.round((myStats.wins / myStats.played) * 100)}% aproveit.
               </Text>
               <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.coral }}>
@@ -222,7 +204,7 @@ export default function DashboardScreen() {
         {/* Jogador mais ativo */}
         {mostActivePlayer && mostActive.played > 0 && (
           <Card>
-            <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted,
+            <Text style={{ fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted,
               marginBottom: Spacing.sm, letterSpacing: 1.5 }}>MAIS ATIVO DO GRUPO</Text>
             <TouchableOpacity
               style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}
@@ -238,7 +220,6 @@ export default function DashboardScreen() {
                   {mostActive.played} partidas disputadas
                 </Text>
               </View>
-              <Text style={{ fontSize: 24 }}>🏃</Text>
             </TouchableOpacity>
           </Card>
         )}
@@ -246,8 +227,8 @@ export default function DashboardScreen() {
         {/* Sequência ativa */}
         {streakPlayer && longestStreak.streak >= 2 && (
           <Card style={{ borderColor: Colors.gold + '44', borderWidth: 1 }}>
-            <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted,
-              marginBottom: Spacing.sm, letterSpacing: 1.5 }}>SEQUÊNCIA ATIVA 🔥</Text>
+            <Text style={{ fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted,
+              marginBottom: Spacing.sm, letterSpacing: 1.5 }}>SEQUÊNCIA ATIVA</Text>
             <TouchableOpacity
               style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}
               onPress={() => goToPlayer(longestStreak.id)}
@@ -263,52 +244,24 @@ export default function DashboardScreen() {
                 </Text>
               </View>
               <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 28, color: Colors.gold }}>
-                {longestStreak.streak}🏆
+                {longestStreak.streak}
               </Text>
             </TouchableOpacity>
-          </Card>
-        )}
-
-        {/* Maior rivalidade */}
-        {rival0 && rival1 && topRivalry && (
-          <Card>
-            <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted,
-              marginBottom: Spacing.sm, letterSpacing: 1.5 }}>MAIOR RIVALIDADE ⚔️</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
-              <View style={{ flex: 1, alignItems: 'center', gap: 4 }}>
-                <Avatar name={rival0.name} color={rival0.color} size={40} />
-                <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text }}>
-                  {rival0.name.split(' ')[0]}
-                </Text>
-              </View>
-              <View style={{ alignItems: 'center', gap: 2 }}>
-                <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.faint }}>vs</Text>
-                <Text style={{ fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted }}>
-                  {topRivalry[1]} confrontos
-                </Text>
-              </View>
-              <View style={{ flex: 1, alignItems: 'center', gap: 4 }}>
-                <Avatar name={rival1.name} color={rival1.color} size={40} />
-                <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text }}>
-                  {rival1.name.split(' ')[0]}
-                </Text>
-              </View>
-            </View>
           </Card>
         )}
 
         {/* Jogo mais disputado */}
         {closest && closestComp && closestGames && (
           <Card>
-            <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted,
-              marginBottom: Spacing.sm, letterSpacing: 1.5 }}>JOGO MAIS DISPUTADO 🎯</Text>
+            <Text style={{ fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted,
+              marginBottom: Spacing.sm, letterSpacing: 1.5 }}>JOGO MAIS DISPUTADO</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
               <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 28, color: Colors.text }}>
                 <Text style={{ color: Colors.teal }}>{closestGames.a}</Text>
                 <Text style={{ color: Colors.faint }}> – </Text>
                 <Text style={{ color: Colors.coral }}>{closestGames.b}</Text>
               </Text>
-              <Text style={{ fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, flex: 1 }}>
+              <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, flex: 1 }}>
                 em {closestComp.name}
               </Text>
             </View>
@@ -318,8 +271,8 @@ export default function DashboardScreen() {
         {/* Rivalidades do grupo */}
         {groupRivalries.length > 0 && (
           <Card>
-            <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted,
-              marginBottom: Spacing.sm, letterSpacing: 1.5 }}>RIVALIDADES DO GRUPO ⚔️</Text>
+            <Text style={{ fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted,
+              marginBottom: Spacing.sm, letterSpacing: 1.5 }}>RIVALIDADES DO GRUPO</Text>
             {groupRivalries.map((rv, i) => {
               const pA = findPlayer(rv.idA);
               const pB = findPlayer(rv.idB);
@@ -341,18 +294,18 @@ export default function DashboardScreen() {
                       activeOpacity={0.75}
                     >
                       <Avatar name={pA.name} color={pA.color} size={28} />
-                      <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text }} numberOfLines={1}>
+                      <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text }} numberOfLines={1}>
                         {pA.name.split(' ')[0]}
                       </Text>
                     </TouchableOpacity>
 
                     <View style={{ alignItems: 'center', gap: 1 }}>
-                      <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 16, color: Colors.text }}>
+                      <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 17, color: Colors.text }}>
                         <Text style={{ color: rv.winsA >= rv.winsB ? Colors.teal : Colors.muted }}>{rv.winsA}</Text>
                         <Text style={{ color: Colors.faint }}> × </Text>
                         <Text style={{ color: rv.winsB > rv.winsA ? Colors.teal : Colors.muted }}>{rv.winsB}</Text>
                       </Text>
-                      <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.faint }}>
+                      <Text style={{ fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint }}>
                         {rv.played} confrontos
                       </Text>
                     </View>
@@ -362,7 +315,7 @@ export default function DashboardScreen() {
                       onPress={() => goToPlayer(rv.idB)}
                       activeOpacity={0.75}
                     >
-                      <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text }} numberOfLines={1}>
+                      <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text }} numberOfLines={1}>
                         {pB.name.split(' ')[0]}
                       </Text>
                       <Avatar name={pB.name} color={pB.color} size={28} />
@@ -387,11 +340,11 @@ export default function DashboardScreen() {
         {/* Ranking resumido */}
         {ranking.length > 0 && (
           <Card>
-            <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted,
+            <Text style={{ fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted,
               marginBottom: Spacing.sm, letterSpacing: 1.5 }}>TOP 3 RANKING</Text>
             {ranking.slice(0, 3).map((r, i) => {
               const pl = findPlayer(r.id);
-              const medals = ['🥇', '🥈', '🥉'];
+              const podium = [Colors.gold, '#C0C6D0', '#C08A5A'];
               return (
                 <TouchableOpacity
                   key={r.id}
@@ -400,12 +353,14 @@ export default function DashboardScreen() {
                   onPress={() => goToPlayer(r.id)}
                   activeOpacity={0.75}
                 >
-                  <Text style={{ fontSize: 20, width: 28 }}>{medals[i]}</Text>
+                  <View style={ds.podiumPos}>
+                    <Text style={[ds.podiumNum, { color: podium[i] }]}>{i + 1}</Text>
+                  </View>
                   <Avatar name={pl?.name ?? '?'} color={pl?.color ?? '#888'} size={32} />
-                  <Text style={{ flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text }}>
+                  <Text style={{ flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text }}>
                     {pl?.name ?? r.id}
                   </Text>
-                  <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 14, color: Colors.gold }}>
+                  <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 15, color: Colors.gold }}>
                     {r.points.toFixed(2)}
                   </Text>
                 </TouchableOpacity>
@@ -420,20 +375,20 @@ export default function DashboardScreen() {
           activeOpacity={0.8}
           style={{
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-            backgroundColor: 'rgba(243,197,68,0.08)', borderWidth: 1,
-            borderColor: 'rgba(243,197,68,0.22)', borderRadius: 12, padding: 14,
+            backgroundColor: Colors.gold + '14', borderWidth: 1,
+            borderColor: Colors.gold + '38', borderRadius: 12, padding: 14,
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Text style={{ fontSize: 22 }}>👑</Text>
+            <Icon name="crown" size={20} color={Colors.gold} />
             <View>
-              <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: Colors.gold }}>Hall dos Campeões</Text>
+              <Text style={{ fontFamily: FontFamily.title, fontSize: 15, color: Colors.gold }}>Hall dos Campeões</Text>
               <Text style={{ fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted }}>
                 {state.competitions.filter(c => c.status === 'done').length} competições encerradas
               </Text>
             </View>
           </View>
-          <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.gold }}>›</Text>
+          <Icon name="chevronRight" size={18} color={Colors.gold} />
         </TouchableOpacity>
 
         <View style={{ height: Spacing.xl }} />
@@ -464,13 +419,13 @@ const makeDsStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   statValue: {
     fontFamily: FontFamily.titleBold,
-    fontSize: 16,
+    fontSize: 17,
     color: Colors.gold,
     fontWeight: '700',
   },
   statLabel: {
     fontFamily: FontFamily.numberBold,
-    fontSize: 8,
+    fontSize: 9,
     color: Colors.faint,
     marginTop: 2,
     letterSpacing: 0.5,
@@ -484,16 +439,16 @@ const makeDsStyles = (Colors: ThemeColors) => StyleSheet.create({
   nextCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(107,127,215,0.14)',
+    backgroundColor: Colors.accentGrupos + '24',
     borderWidth: 1,
-    borderColor: 'rgba(107,127,215,0.25)',
+    borderColor: Colors.accentGrupos + '40',
     borderRadius: 12,
     padding: 12,
   },
   nextLabel: {
     fontFamily: FontFamily.numberBold,
-    fontSize: 8,
-    color: '#6B7FD7',
+    fontSize: 9,
+    color: Colors.accentGrupos,
     letterSpacing: 1.5,
     marginBottom: 3,
   },
@@ -510,20 +465,22 @@ const makeDsStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 2,
   },
   nextBadge: {
-    backgroundColor: 'rgba(107,127,215,0.2)',
+    backgroundColor: Colors.accentGrupos + '33',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: 'rgba(107,127,215,0.35)',
+    borderColor: Colors.accentGrupos + '59',
     marginLeft: 12,
   },
   nextBadgeText: {
     fontFamily: FontFamily.numberBold,
     fontSize: 13,
-    color: '#6B7FD7',
+    color: Colors.accentGrupos,
     fontWeight: '700',
   },
+  podiumPos: { width: 28, height: 22, alignItems: 'center', justifyContent: 'center' },
+  podiumNum: { fontFamily: FontFamily.numberBold, fontSize: 15 },
   wlWrap: {
     gap: 6,
   },

@@ -10,6 +10,7 @@ import { useCompetitions } from '@/store/CompetitionsContext';
 import { buildCompetition } from '@/logic/formats';
 import type { Match, Unit } from '@/logic/types';
 import { WIN_RULE_PRESETS } from '@/constants/winRulePresets';
+import { ScreenHeader } from '@/components/ScreenHeader';
 
 const DEFAULT_PRESET = 6; // MD3 · 4 games, com tie e super tiebreak
 
@@ -114,12 +115,7 @@ export default function AmistosoScreen() {
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={s.back}>←</Text>
-        </TouchableOpacity>
-        <Text style={s.title}>Jogo Amistoso</Text>
-      </View>
+      <ScreenHeader title="Jogo Amistoso" />
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         <Text style={s.hint}>
@@ -179,11 +175,6 @@ export default function AmistosoScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line,
-  },
-  back:  { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
   title: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text, flex: 1 },
   scroll: { padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xl },
 
@@ -198,7 +189,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     backgroundColor: Colors.surf2, borderWidth: 1, borderColor: Colors.line,
   },
   segmentBtnActive: { backgroundColor: Colors.gold, borderColor: Colors.gold },
-  segmentTxt: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  segmentTxt: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
   segmentTxtActive: { color: Colors.bg },
 
   chipRow: { flexDirection: 'row', gap: Spacing.xs },

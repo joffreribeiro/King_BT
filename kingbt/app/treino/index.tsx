@@ -6,7 +6,7 @@ import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
-import { Avatar } from '@/components';
+import { Avatar, ScreenHeader } from '@/components';
 import {
   listarTreinos, novoTreino, salvarTreino, calcularAnaliseTreino, type BtTreino,
 } from '@/logic/btTreino';
@@ -95,12 +95,7 @@ export default function TreinoListScreen() {
     <SafeAreaView style={s.safe} edges={['top']}>
       <StatusBar barStyle="light-content" />
 
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={s.back}>←</Text>
-        </TouchableOpacity>
-        <Text style={s.title}>Análise Individual</Text>
-      </View>
+      <ScreenHeader title="Análise Individual" />
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         <TouchableOpacity style={s.novoBtn} onPress={() => setShowNovo(v => !v)} activeOpacity={0.85}>
@@ -168,23 +163,22 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line,
   },
-  back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
-  title: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
+  title: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
   scroll: { padding: Spacing.md, gap: Spacing.sm },
   novoBtn: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
-  novoBtnTxt: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.bg },
+  novoBtnTxt: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg },
   novoForm: { backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, padding: Spacing.md, gap: Spacing.sm },
-  novoLabel: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted },
+  novoLabel: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
   input: { backgroundColor: Colors.bg, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, paddingHorizontal: Spacing.md, paddingVertical: 10, fontFamily: FontFamily.body, fontSize: 15, color: Colors.text },
   playerGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
   playerChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: Radius.full, backgroundColor: Colors.surf2, borderWidth: 1, borderColor: Colors.line },
   playerChipActive: { backgroundColor: Colors.teal + '22', borderColor: Colors.teal },
-  playerChipTxt: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted },
+  playerChipTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
   playerChipTxtActive: { color: Colors.teal },
   criarBtn: { backgroundColor: Colors.teal, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
   criarBtnDisabled: { opacity: 0.4 },
-  criarBtnTxt: { fontFamily: FontFamily.title, fontSize: 14, color: Colors.bg },
+  criarBtnTxt: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg },
   center: { alignItems: 'center', justifyContent: 'center', padding: Spacing.xl, gap: Spacing.sm },
-  emptyTitle: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text, textAlign: 'center' },
+  emptyTitle: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text, textAlign: 'center' },
   hint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
 });

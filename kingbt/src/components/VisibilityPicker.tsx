@@ -39,6 +39,6 @@ export function VisibilityPicker({ value, onChange }: Props) {
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   visRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   visLabel: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
-  visDesc: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: 2 },
+  visDesc: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 2 },
   visCheck: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.teal },
 });

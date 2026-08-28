@@ -2,12 +2,23 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMemo } from 'react';
 import { router } from 'expo-router';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { goToPlayer } from '@/logic/nav';
+import { FontFamily, Spacing, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Card } from '@/components';
+import { Avatar, Card, Icon, ScreenHeader } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { competitionChampion } from '@/logic/formats';
+
+const FORMAT_LABEL: Record<string, string> = {
+  liga: 'Liga', grupos: 'Grupos + KO', mata: 'Mata-mata', avulso: 'Avulso', super8: 'Super 8',
+};
+
+function formatDate(iso: string): string {
+  const d = new Date(iso + 'T12:00:00');
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' });
+}
 
 export default function HallScreen() {
   const { colors: Colors } = useTheme();
@@ -15,20 +26,27 @@ export default function HallScreen() {
   const { state } = useCompetitions();
   const { findPlayer } = useGroupPlayers();
 
-  const champions = state.competitions
+  const champions = useMemo(() => state.competitions
     .filter(c => c.status === 'done' && !c.isFriendly)
     .map(c => {
       const champ = competitionChampion(c, id => findPlayer(id)?.name ?? id);
       if (!champ) return null;
-      const player = findPlayer(champ.members[0]);
-      const champName = (champ as any).name ?? player?.name ?? champ.members[0];
+      // O campeão pode ser uma dupla. Antes só `members[0]` era considerado, o
+      // que apagava o parceiro do card e da contagem de títulos. `members` fica
+      // vazio quando o competidor não tem jogadores vinculados — nesse caso o
+      // próprio id do competidor é a melhor referência que existe.
+      const memberIds = champ.members.length ? champ.members : [champ.id];
+      const players = memberIds.map(id => findPlayer(id));
+      const champName = players.every(Boolean)
+        ? players.map(p => p!.name.split(' ')[0]).join(' / ')
+        : ((champ as { name?: string }).name ?? memberIds.join(' / '));
       return {
         compId: c.id,
         compName: c.name,
         compDate: c.date,
         format: c.format,
         champName,
-        player,
+        memberIds,
       };
     })
     .filter(Boolean)
@@ -38,36 +56,33 @@ export default function HallScreen() {
       compDate: string;
       format: string;
       champName: string;
-      player: { name: string; color: string } | undefined;
-    }>;
+      memberIds: string[];
+    }>, [state.competitions, findPlayer]);
 
-  const formatLabel: Record<string, string> = {
-    liga: 'Liga', grupos: 'Grupos + KO', mata: 'Mata-mata', avulso: 'Avulso', super8: 'Super 8',
-  };
+  // Títulos por jogador. A contagem era feita pelo nome exibido, então dois
+  // homônimos viravam uma linha só e renomear um jogador criava duas — agora a
+  // chave é o id, e cada membro da dupla campeã soma o próprio título.
+  const topWinners = useMemo(() => {
+    const trophies: Record<string, number> = {};
+    champions.forEach(c => c.memberIds.forEach(id => {
+      trophies[id] = (trophies[id] ?? 0) + 1;
+    }));
+    return Object.entries(trophies)
+      .map(([id, count]) => ({ id, count, player: findPlayer(id) }))
+      .sort((a, b) => b.count - a.count || (a.player?.name ?? '').localeCompare(b.player?.name ?? ''))
+      .slice(0, 3);
+  }, [champions, findPlayer]);
 
-  // Contar conquistas por jogador
-  const trophies: Record<string, number> = {};
-  champions.forEach(c => {
-    const key = c.champName;
-    trophies[key] = (trophies[key] ?? 0) + 1;
-  });
-  const topWinners = Object.entries(trophies)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3);
+  const podium = [Colors.gold, '#C0C6D0', '#C08A5A'];
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={s.back}>←</Text>
-        </TouchableOpacity>
-        <Text style={s.title}>Hall dos Campeões</Text>
-      </View>
+      <ScreenHeader title="Hall dos Campeões" />
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         {champions.length === 0 && (
           <Card style={{ alignItems: 'center', padding: Spacing.xl }}>
-            <Text style={{ fontSize: 40 }}>🏆</Text>
+            <Icon name="crown" size={40} color={Colors.gold} />
             <Text style={s.emptyTitle}>Sem campeões ainda</Text>
             <Text style={s.emptySub}>Conclua uma competição para ver o campeão aqui.</Text>
           </Card>
@@ -76,16 +91,21 @@ export default function HallScreen() {
         {topWinners.length > 0 && (
           <Card style={s.rankCard}>
             <Text style={s.sectionLabel}>MAIS TÍTULOS</Text>
-            {topWinners.map(([name, count], i) => {
-              const medals = ['🥇', '🥈', '🥉'];
-              return (
-                <View key={name} style={s.topRow}>
-                  <Text style={s.medal}>{medals[i] ?? '🏅'}</Text>
-                  <Text style={s.topName}>{name}</Text>
-                  <Text style={s.topCount}>{count} {count === 1 ? 'título' : 'títulos'}</Text>
+            {topWinners.map((w, i) => (
+              <TouchableOpacity
+                key={w.id}
+                style={s.topRow}
+                onPress={() => { if (w.player) goToPlayer(w.id); }}
+                activeOpacity={w.player ? 0.75 : 1}
+              >
+                <View style={[s.medal, { borderColor: podium[i] ?? Colors.line }]}>
+                  <Text style={[s.medalNum, { color: podium[i] ?? Colors.muted }]}>{i + 1}</Text>
                 </View>
-              );
-            })}
+                <Avatar name={w.player?.name ?? w.id} color={w.player?.color ?? Colors.gold} size={28} />
+                <Text style={s.topName} numberOfLines={1}>{w.player?.name ?? w.id}</Text>
+                <Text style={s.topCount}>{w.count} {w.count === 1 ? 'título' : 'títulos'}</Text>
+              </TouchableOpacity>
+            ))}
           </Card>
         )}
 
@@ -99,14 +119,23 @@ export default function HallScreen() {
           >
             <Card style={s.champCard}>
               <View style={s.champLeft}>
-                <Text style={s.crown}>👑</Text>
-                <View>
-                  <Text style={s.champCompName}>{c.compName}</Text>
-                  <Text style={s.champMeta}>{formatLabel[c.format] ?? c.format} · {c.compDate}</Text>
+                <Icon name="crown" size={20} color={Colors.gold} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.champCompName} numberOfLines={1}>{c.compName}</Text>
+                  <Text style={s.champMeta}>
+                    {FORMAT_LABEL[c.format] ?? c.format} · {formatDate(c.compDate)}
+                  </Text>
                 </View>
               </View>
               <View style={s.champRight}>
-                <Avatar name={c.player?.name ?? c.champName} color={c.player?.color ?? Colors.gold} size={36} />
+                <View style={s.champAvatars}>
+                  {c.memberIds.map(id => {
+                    const pl = findPlayer(id);
+                    return (
+                      <Avatar key={id} name={pl?.name ?? id} color={pl?.color ?? Colors.gold} size={30} />
+                    );
+                  })}
+                </View>
                 <Text style={s.champWinner} numberOfLines={1}>{c.champName}</Text>
               </View>
             </Card>
@@ -121,23 +150,22 @@ export default function HallScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
   title: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.gold, flex: 1 },
   scroll: { padding: Spacing.md, gap: Spacing.sm },
-  sectionLabel: { fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted, letterSpacing: 2, marginTop: Spacing.sm },
+  sectionLabel: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted, letterSpacing: 2, marginTop: Spacing.sm },
   emptyTitle: { fontFamily: FontFamily.title, fontSize: 18, color: Colors.text, marginTop: Spacing.sm },
   emptySub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', marginTop: 4 },
   rankCard: { gap: Spacing.sm },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 4 },
-  medal: { fontSize: 22, width: 30 },
-  topName: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  medal: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  medalNum: { fontFamily: FontFamily.numberBold, fontSize: 11 },
+  topName: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
   topCount: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.gold },
-  champCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  champCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.sm },
   champLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
-  crown: { fontSize: 24 },
   champCompName: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
   champMeta: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
-  champRight: { alignItems: 'center', gap: 4, maxWidth: 80 },
+  champRight: { alignItems: 'center', gap: 4, maxWidth: 96 },
+  champAvatars: { flexDirection: 'row', gap: 3 },
   champWinner: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.gold, textAlign: 'center' },
 });

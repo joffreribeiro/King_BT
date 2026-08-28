@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { FontFamily } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 
 type Props = {
   name: string;
@@ -14,17 +15,16 @@ function initials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function darken(hex: string): string {
-  const n = parseInt(hex.replace('#', ''), 16);
-  const r = Math.max(0, (n >> 16) - 70);
-  const g = Math.max(0, ((n >> 8) & 0xff) - 70);
-  const b = Math.max(0, (n & 0xff) - 70);
-  return `rgb(${r},${g},${b})`;
-}
-
+/**
+ * Círculo de cor cheia com as iniciais em cor de fundo — o mesmo desenho das
+ * bolhas de jogador da aba Competições. Antes era um quadrado arredondado com
+ * fundo escurecido e iniciais coloridas, o que fazia o mesmo jogador aparecer
+ * de dois jeitos diferentes conforme a tela.
+ */
 export default function Avatar({ name, color, size = 44, showCrown = false }: Props) {
-  const fontSize = size * 0.35;
-  const borderRadius = size * 0.34;
+  const { colors: Colors } = useTheme();
+  const fontSize = size * 0.4;
+  const borderRadius = size / 2;
   return (
     <View style={{ alignItems: 'center' }}>
       <View
@@ -34,12 +34,12 @@ export default function Avatar({ name, color, size = 44, showCrown = false }: Pr
             width: size,
             height: size,
             borderRadius,
-            backgroundColor: darken(color),
-            borderColor: color + 'AA',
+            backgroundColor: color,
+            borderColor: 'rgba(0,0,0,0.3)',
           },
         ]}
       >
-        <Text style={[styles.initials, { fontSize, color }]}>
+        <Text style={[styles.initials, { fontSize, color: Colors.bg }]}>
           {initials(name)}
         </Text>
       </View>
