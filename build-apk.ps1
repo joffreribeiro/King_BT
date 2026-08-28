@@ -1,19 +1,20 @@
-# build-apk.ps1 — Limpa, sincroniza e gera APK
+# build-apk.ps1 -- Limpa, sincroniza e gera APK
 
 Write-Host "=====================================================" -ForegroundColor Cyan
 Write-Host "  KING BT -- Build APK" -ForegroundColor Cyan
 Write-Host "=====================================================" -ForegroundColor Cyan
 
+$src = "C:\Users\JoffreRibeiro\OneDrive\Documentos\Sistemas\King_BT\kingbt"
+$dst = "C:\KINGBT"
+
 # 1. Matar processos que travam arquivos
 Write-Host "`n1/4  Encerrando processos..." -ForegroundColor Yellow
-Get-Process -Name "java","gradle","node","metro" -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process -Name "java","gradle" -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep 2
 Write-Host "     OK" -ForegroundColor Green
 
-# 2. Sincronizar E: -> D:\KINGBT (codigo fonte)
+# 2. Sincronizar OneDrive -> C:\KINGBT (codigo fonte)
 Write-Host "`n2/4  Sincronizando codigo..." -ForegroundColor Yellow
-$src = "e:\MEUS DOCUMENTOS\OneDrive\Documentos\Sistemas\King_BT\kingbt"
-$dst = "D:\KINGBT"
 $excludeDirs  = @("node_modules", ".expo", "ios", "dist", ".git", "android\build", "android\.gradle")
 $excludeFiles = @("*.keystore", "*.log")
 
@@ -22,7 +23,7 @@ $count = 0
 foreach ($srcFile in $allFiles) {
     $skip = $false
     foreach ($ex in $excludeDirs) {
-        if ($srcFile.Contains("\$ex\") -or $srcFile.Contains("\$ex")) { $skip = $true; break }
+        if ($srcFile.Contains("\$ex\") -or $srcFile.EndsWith("\$ex")) { $skip = $true; break }
     }
     if ($skip) { continue }
     $fname = [System.IO.Path]::GetFileName($srcFile)
@@ -41,22 +42,20 @@ foreach ($srcFile in $allFiles) {
 }
 Write-Host "     $count arquivos sincronizados" -ForegroundColor Green
 
-# 3. Limpar pasta build
+# 3. Limpar pasta build (inclui o cache de autolinking, que guarda caminhos absolutos)
 Write-Host "`n3/4  Limpando build anterior..." -ForegroundColor Yellow
-Remove-Item -Recurse -Force "D:\KINGBT\android\app\build" -ErrorAction SilentlyContinue
-Remove-Item -Recurse -Force "D:\KINGBT\android\.gradle" -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "$dst\android\app\build" -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "$dst\android\build" -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "$dst\android\.gradle" -ErrorAction SilentlyContinue
 Write-Host "     OK" -ForegroundColor Green
 
 # 4. Gerar APK
 Write-Host "`n4/4  Gerando APK..." -ForegroundColor Yellow
-Set-Location "D:\KINGBT\android"
+Set-Location "$dst\android"
 & .\gradlew assembleRelease
 
 if ($LASTEXITCODE -eq 0) {
-    $apk = "D:\KINGBT\android\release\app-release.apk"
-    if (-not (Test-Path $apk)) {
-        $apk = "D:\KINGBT\android\app\build\outputs\apk\release\app-release.apk"
-    }
+    $apk = "$dst\android\app\build\outputs\apk\release\app-release.apk"
     Write-Host "`n=====================================================" -ForegroundColor Green
     Write-Host "  APK GERADO COM SUCESSO!" -ForegroundColor Green
     Write-Host "  $apk" -ForegroundColor Green
