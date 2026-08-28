@@ -484,7 +484,7 @@ export default function CompetitionDetail() {
                   <View key={pid} style={upcoming.playerRow}>
                     {pl && <Avatar name={pl.name} color={pl.color} size={30} />}
                     <Text style={upcoming.playerName}>{pl?.name ?? pid}</Text>
-                    <Text style={{ color: Colors.teal, fontSize: 16 }}>✓</Text>
+                    <Icon name="check" size={15} color={Colors.teal} />
                   </View>
                 );
               })

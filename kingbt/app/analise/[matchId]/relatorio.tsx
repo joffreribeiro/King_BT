@@ -223,12 +223,12 @@ function AbaStats({ analise, stats }: { analise: BtAnalise; stats: BtEstatistica
       <Section title="Por atleta">
         {/* Cabeçalho */}
         <View style={[sr.row, { backgroundColor: Colors.surf2 }]}>
-          <Text style={[sr.val, { color: Colors.muted, fontSize: 10 }]}>Pts</Text>
-          <Text style={[sr.label, { color: Colors.muted, fontSize: 10 }]}>Atleta</Text>
-          <Text style={[sr.val, { color: Colors.muted, fontSize: 10 }]}>W</Text>
-          <Text style={[sr.val, { color: Colors.muted, fontSize: 10 }]}>Ace</Text>
-          <Text style={[sr.val, { color: Colors.muted, fontSize: 10 }]}>ENF</Text>
-          <Text style={[sr.val, { color: Colors.muted, fontSize: 10 }]}>Nota</Text>
+          <Text style={[sr.val, { color: Colors.muted, fontSize: 11 }]}>Pts</Text>
+          <Text style={[sr.label, { color: Colors.muted, fontSize: 11 }]}>Atleta</Text>
+          <Text style={[sr.val, { color: Colors.muted, fontSize: 11 }]}>W</Text>
+          <Text style={[sr.val, { color: Colors.muted, fontSize: 11 }]}>Ace</Text>
+          <Text style={[sr.val, { color: Colors.muted, fontSize: 11 }]}>ENF</Text>
+          <Text style={[sr.val, { color: Colors.muted, fontSize: 11 }]}>Nota</Text>
         </View>
         {ids.map(id => {
           const e = stats.jogadores[id];
@@ -242,7 +242,7 @@ function AbaStats({ analise, stats }: { analise: BtAnalise; stats: BtEstatistica
               <Text style={[sr.label, { color: Colors.text }]} numberOfLines={1}>
                 {analise.nomes[id]?.split(' ')[0] ?? id}
               </Text>
-              <Text style={[sr.val, { color: Colors.text, fontSize: 12 }]}>{e.winners}</Text>
+              <Text style={[sr.val, { color: Colors.text, fontSize: 13 }]}>{e.winners}</Text>
               <Text style={[sr.val, { color: Colors.text, fontSize: 13 }]}>{e.aces}</Text>
               <Text style={[sr.val, { color: Colors.coral, fontSize: 13 }]}>{e.errosNaoForcados}</Text>
               <Text style={[sr.val, { color: notaCor, fontSize: 13, fontFamily: FontFamily.numberBold }]}>{e.nota.toFixed(1)}</Text>

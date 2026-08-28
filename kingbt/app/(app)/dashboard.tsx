@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { goToPlayer } from '@/logic/nav';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors, PODIUM_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card, Icon } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -95,14 +95,6 @@ export default function DashboardScreen() {
   const myPos = myPlayerId ? ranking.findIndex(r => r.id === myPlayerId) + 1 : 0;
   const myPlayer = myPlayerId ? findPlayer(myPlayerId) : null;
 
-  // Próxima competição (status active com jogos pendentes)
-  const nextComp = state.competitions.find(c =>
-    c.status === 'active' && c.matches.some(m => m.scoreA == null)
-  ) ?? state.competitions.find(c => c.status === 'upcoming');
-  const nextCompDaysLeft = nextComp
-    ? Math.max(0, Math.ceil((new Date(nextComp.date + 'T12:00:00').getTime() - Date.now()) / 86400000))
-    : null;
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={['top']}>
       <ScrollView
@@ -140,28 +132,6 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        {/* Card próxima partida */}
-        {nextComp && (
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => router.push({ pathname: '/competitions/[id]', params: { id: nextComp.id } })}
-            style={ds.nextCard}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={ds.nextLabel}>PRÓXIMA PARTIDA</Text>
-              <Text style={ds.nextName} numberOfLines={1}>{nextComp.name}</Text>
-              <Text style={ds.nextMeta}>
-                {new Date(nextComp.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}
-                {' · '}{nextComp.status === 'active' ? 'Em andamento' : 'Agendada'}
-              </Text>
-            </View>
-            <View style={ds.nextBadge}>
-              <Text style={ds.nextBadgeText}>
-                {nextCompDaysLeft === 0 ? 'hoje' : `${nextCompDaysLeft}d`}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        )}
 
         {/* Barra W/L pessoal */}
         {myStats && myStats.played > 0 && (
@@ -344,7 +314,7 @@ export default function DashboardScreen() {
               marginBottom: Spacing.sm, letterSpacing: 1.5 }}>TOP 3 RANKING</Text>
             {ranking.slice(0, 3).map((r, i) => {
               const pl = findPlayer(r.id);
-              const podium = [Colors.gold, '#C0C6D0', '#C08A5A'];
+              const podium = PODIUM_COLORS;
               return (
                 <TouchableOpacity
                   key={r.id}
@@ -435,49 +405,6 @@ const makeDsStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 9,
     fontWeight: '700',
     marginTop: 3,
-  },
-  nextCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.accentGrupos + '24',
-    borderWidth: 1,
-    borderColor: Colors.accentGrupos + '40',
-    borderRadius: 12,
-    padding: 12,
-  },
-  nextLabel: {
-    fontFamily: FontFamily.numberBold,
-    fontSize: 9,
-    color: Colors.accentGrupos,
-    letterSpacing: 1.5,
-    marginBottom: 3,
-  },
-  nextName: {
-    fontFamily: FontFamily.title,
-    fontSize: 13,
-    color: Colors.text,
-    fontWeight: '700',
-  },
-  nextMeta: {
-    fontFamily: FontFamily.body,
-    fontSize: 11,
-    color: Colors.muted,
-    marginTop: 2,
-  },
-  nextBadge: {
-    backgroundColor: Colors.accentGrupos + '33',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: Colors.accentGrupos + '59',
-    marginLeft: 12,
-  },
-  nextBadgeText: {
-    fontFamily: FontFamily.numberBold,
-    fontSize: 13,
-    color: Colors.accentGrupos,
-    fontWeight: '700',
   },
   podiumPos: { width: 28, height: 22, alignItems: 'center', justifyContent: 'center' },
   podiumNum: { fontFamily: FontFamily.numberBold, fontSize: 15 },

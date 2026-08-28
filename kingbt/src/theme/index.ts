@@ -115,3 +115,12 @@ export const PLAYER_COLORS = [
   '#FFD166', '#2DD4BF', '#A78BFA', '#34D399',
   '#F472B6', '#94A3B8', '#FB923C', '#60A5FA',
 ];
+
+/**
+ * Ouro, prata e bronze do pódio (posições 1, 2 e 3). Como PLAYER_COLORS, NÃO é
+ * tema: medalha tem cor própria e não muda no claro/escuro. Estava espalhada em
+ * quatro arquivos com valores divergentes — três pratas (#A8B8C8, #C7D4E0,
+ * #C0C6D0) e três bronzes (#CD7F32, #D89A6A, #C08A5A) —, então a mesma posição
+ * aparecia de cor diferente conforme a tela.
+ */
+export const PODIUM_COLORS = [darkColors.gold, '#C0C6D0', '#C08A5A'];

@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { FontFamily } from '@/theme';
+import { FontFamily, PODIUM_COLORS } from '@/theme';
 
 interface BadgeStats {
   currentStreak: number;
@@ -20,7 +20,7 @@ const BADGE_RULES: {
   { id: 'king',    icon: '👑', label: 'Rei da Quadra', color: '#F3C544', condition: s => s.rankPosition === 1 },
   { id: 'mvp',     icon: '🏆', label: 'Super 8 MVP',   color: '#C084FC', condition: s => s.hasWonSuper8 },
   { id: 'streak5', icon: '⚡', label: '5× Seguidas',  color: '#F3C544', condition: s => s.currentStreak >= 5 },
-  { id: 'top3',    icon: '🥉', label: 'Top 3',         color: '#CD7F32', condition: s => s.rankPosition <= 3 },
+  { id: 'top3',    icon: '🥉', label: 'Top 3',         color: PODIUM_COLORS[2], condition: s => s.rankPosition <= 3 },
 ];
 
 interface Props {

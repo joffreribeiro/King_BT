@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, Platform } from 'react-native';
+import { Icon } from '@/components/icons';
 import { router } from 'expo-router';
 import { useState, useEffect, useMemo } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
@@ -127,22 +128,22 @@ export function FreeScoreModal({ match, comp, onClose, onSave, onClear, isAdmin 
                 <View style={sc.inputBlock}>
                   <View style={sc.stepper}>
                     <TouchableOpacity style={sc.btn} onPress={() => updateSet(i, 'a', a - 1)} disabled={!canEdit}>
-                      <Text style={sc.btnText}>−</Text>
+                      <Icon name="minus" size={20} color={Colors.gold} />
                     </TouchableOpacity>
                     <Text style={sc.input}>{s.a || '0'}</Text>
                     <TouchableOpacity style={sc.btn} onPress={() => updateSet(i, 'a', a + 1)} disabled={!canEdit}>
-                      <Text style={sc.btnText}>+</Text>
+                      <Icon name="plus" size={20} color={Colors.gold} />
                     </TouchableOpacity>
                   </View>
                 </View>
                 <View style={sc.inputBlock}>
                   <View style={sc.stepper}>
                     <TouchableOpacity style={sc.btn} onPress={() => updateSet(i, 'b', b - 1)} disabled={!canEdit}>
-                      <Text style={sc.btnText}>−</Text>
+                      <Icon name="minus" size={20} color={Colors.gold} />
                     </TouchableOpacity>
                     <Text style={sc.input}>{s.b || '0'}</Text>
                     <TouchableOpacity style={sc.btn} onPress={() => updateSet(i, 'b', b + 1)} disabled={!canEdit}>
-                      <Text style={sc.btnText}>+</Text>
+                      <Icon name="plus" size={20} color={Colors.gold} />
                     </TouchableOpacity>
                   </View>
                 </View>

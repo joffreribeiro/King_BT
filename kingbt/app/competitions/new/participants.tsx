@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState, useMemo } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors, PLAYER_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar } from '@/components';
+import { Avatar, Icon } from '@/components';
 import type { Format } from '@/logic/types';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -177,7 +177,7 @@ export default function ParticipantsStep() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/competitions/new/config')} style={styles.backBtn}>
-          <Text style={styles.backIcon}>‹</Text>
+          <Icon name="chevronLeft" size={18} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nova competição</Text>
       </View>
@@ -316,7 +316,7 @@ export default function ParticipantsStep() {
                 </Text>
               </View>
               <View style={[styles.balanceCheck, balanced && styles.balanceCheckActive]}>
-                {balanced && <Text style={{ fontSize: 12, color: Colors.bg }}>✓</Text>}
+                {balanced && <Icon name="check" size={11} color={Colors.bg} />}
               </View>
             </TouchableOpacity>
 
@@ -517,7 +517,6 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.line },
   backBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text, lineHeight: 24 },
   headerTitle: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
   stepBar: { flexDirection: 'row', paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.xs, gap: Spacing.xs },
   stepItem: { flex: 1, alignItems: 'center', gap: 4 },

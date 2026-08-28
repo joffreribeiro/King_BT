@@ -6,7 +6,7 @@ import { extractPlayerGames } from '@/logic/formats';
 import { useMemo, useState } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Card, OptionModal } from '@/components';
+import { Avatar, Card, OptionModal, Icon } from '@/components';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useSettings } from '@/store/SettingsContext';
 import type { Match, Competition } from '@/logic/types';
@@ -228,7 +228,7 @@ export function KOView({ comp, onScore, onClear, preview = false }: { comp: Comp
             if (result === 'copied') notifyCopied('Chaveamento');
           }}
         >
-          <Text style={[tabs.text, { fontSize: 16 }]}>↑</Text>
+          <Icon name="arrowUp" size={14} color={Colors.gold} />
         </TouchableOpacity>
       </View>
 

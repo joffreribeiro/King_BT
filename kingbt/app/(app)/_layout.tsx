@@ -78,7 +78,7 @@ function DrawerMenu({ visible, onClose }: { visible: boolean; onClose: () => voi
           {group && (
             <TouchableOpacity style={[dr.groupBtn, dr.groupBtnActive]}>
               <Text style={dr.groupBtnTxtActive}>{group.name}</Text>
-              <Text style={{ color: Colors.gold, fontSize: 14 }}>✓</Text>
+              <Icon name="check" size={13} color={Colors.gold} />
             </TouchableOpacity>
           )}
           <TouchableOpacity style={dr.groupBtnNew} onPress={() => { onClose(); router.push('/(auth)/groups'); }}>

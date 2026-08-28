@@ -443,14 +443,14 @@ export default function SettingsScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                       <TouchableOpacity onPress={() => updatePlayerHandicap(group.id, p.id, Math.max(-3, h - 1))} hitSlop={6}
                         style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.line }}>
-                        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 15, color: Colors.text, lineHeight: 18 }}>−</Text>
+                        <Icon name="minus" size={14} color={Colors.text} />
                       </TouchableOpacity>
                       <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 13, width: 24, textAlign: 'center', color: h > 0 ? Colors.teal : h < 0 ? Colors.coral : Colors.faint }}>
                         {h > 0 ? `+${h}` : h === 0 ? '0' : h}
                       </Text>
                       <TouchableOpacity onPress={() => updatePlayerHandicap(group.id, p.id, Math.min(3, h + 1))} hitSlop={6}
                         style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.line }}>
-                        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 15, color: Colors.text, lineHeight: 18 }}>+</Text>
+                        <Icon name="plus" size={14} color={Colors.text} />
                       </TouchableOpacity>
                     </View>
                     {isPlayerAdmin && <View style={s.adminBadge}><Icon name="crown" size={10} color={Colors.gold} /><Text style={s.adminText}>admin</Text></View>}

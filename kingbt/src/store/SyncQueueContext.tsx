@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 import { getQueue, removeFromQueue, getQueueSize } from './syncQueue';
 import { updateCompetition } from '@/firebase/competitions';
+import { saveAnaliseFs } from '@/firebase/analises';
+import type { BtAnalise } from '@/logic/btTracker';
 import type { Competition } from '@/logic/types';
 import { useAuth } from './AuthContext';
 
@@ -43,6 +45,16 @@ export function SyncQueueProvider({ children }: { children: React.ReactNode }) {
             item.payload.groupId as string,
             item.payload.data as Competition
           );
+          await removeFromQueue(item.id);
+        } else if (item.type === 'SAVE_ANALISE') {
+          await saveAnaliseFs(
+            item.payload.groupId as string,
+            item.payload.analise as BtAnalise
+          );
+          await removeFromQueue(item.id);
+        } else {
+          // Tipo desconhecido (versão antiga do app): descarta, senão fica
+          // preso para sempre inflando o contador de pendências.
           await removeFromQueue(item.id);
         }
       } catch {

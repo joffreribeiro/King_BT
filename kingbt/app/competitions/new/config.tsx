@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
+import { Icon } from '@/components/icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState, useMemo } from 'react';
@@ -67,11 +68,11 @@ function Stepper({ label, value, min, max, onChange }: {
       <Text style={stp.label}>{label}</Text>
       <View style={stp.controls}>
         <TouchableOpacity style={stp.btn} onPress={() => onChange(Math.max(min, value - 1))}>
-          <Text style={stp.btnText}>−</Text>
+          <Icon name="minus" size={20} color={Colors.text} />
         </TouchableOpacity>
         <Text style={stp.val}>{value}</Text>
         <TouchableOpacity style={stp.btn} onPress={() => onChange(Math.min(max, value + 1))}>
-          <Text style={stp.btnText}>+</Text>
+          <Icon name="plus" size={20} color={Colors.text} />
         </TouchableOpacity>
       </View>
     </View>
@@ -131,7 +132,7 @@ export default function ConfigStep() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/competitions/new/format')} style={styles.backBtn}>
-          <Text style={styles.backIcon}>‹</Text>
+          <Icon name="chevronLeft" size={18} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nova competição</Text>
       </View>

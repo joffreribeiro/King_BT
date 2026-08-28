@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform } from 'react-native';
+import { Icon } from '@/components/icons';
 import { router } from 'expo-router';
 import { useState, useEffect, useMemo } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
@@ -290,26 +291,26 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
                   {/* Games lado A */}
                   <View style={sc.gameStepperWrap}>
                     <TouchableOpacity style={[sc.gameBtn, gA === 0 && { opacity: 0.3 }]} onPress={() => updateGame(i, 'a', gA - 1)} disabled={gA === 0}>
-                      <Text style={sc.gameBtnTxt}>−</Text>
+                      <Icon name="minus" size={16} color={Colors.gold} />
                     </TouchableOpacity>
                     <View style={[sc.gameVal, aWon && filled && { borderColor: Colors.teal }]}>
                       <Text style={[sc.gameValTxt, aWon && filled && { color: Colors.teal }]}>{s.a || '0'}</Text>
                     </View>
                     <TouchableOpacity style={[sc.gameBtn, !canIncA && { opacity: 0.3 }]} onPress={() => updateGame(i, 'a', gA + 1)} disabled={!canIncA}>
-                      <Text style={sc.gameBtnTxt}>+</Text>
+                      <Icon name="plus" size={16} color={Colors.gold} />
                     </TouchableOpacity>
                   </View>
                   <Text style={sc.setDash}>–</Text>
                   {/* Games lado B */}
                   <View style={sc.gameStepperWrap}>
                     <TouchableOpacity style={[sc.gameBtn, gB === 0 && { opacity: 0.3 }]} onPress={() => updateGame(i, 'b', gB - 1)} disabled={gB === 0}>
-                      <Text style={sc.gameBtnTxt}>−</Text>
+                      <Icon name="minus" size={16} color={Colors.gold} />
                     </TouchableOpacity>
                     <View style={[sc.gameVal, bWon && filled && { borderColor: Colors.teal }]}>
                       <Text style={[sc.gameValTxt, bWon && filled && { color: Colors.teal }]}>{s.b || '0'}</Text>
                     </View>
                     <TouchableOpacity style={[sc.gameBtn, !canIncB && { opacity: 0.3 }]} onPress={() => updateGame(i, 'b', gB + 1)} disabled={!canIncB}>
-                      <Text style={sc.gameBtnTxt}>+</Text>
+                      <Icon name="plus" size={16} color={Colors.gold} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -487,7 +488,6 @@ const makeSc = (Colors: ThemeColors) => StyleSheet.create({
   setDash: { fontFamily: FontFamily.body, fontSize: 17, color: Colors.faint },
   gameStepperWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 },
   gameBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
-  gameBtnTxt: { fontFamily: FontFamily.titleBold, fontSize: 17, color: Colors.gold, lineHeight: 20 },
   gameVal: { flex: 1, height: 36, borderRadius: Radius.sm, borderWidth: 1.5, borderColor: Colors.line, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center' },
   gameValTxt: { fontFamily: FontFamily.numberBold, fontSize: 18, color: Colors.text },
   addSetBtn: { flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.sm, paddingVertical: 6, alignItems: 'center' },

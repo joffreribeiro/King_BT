@@ -39,3 +39,26 @@ export async function removeFromQueue(id: string): Promise<void> {
 export async function getQueueSize(): Promise<number> {
   return (await getQueue()).length;
 }
+
+/**
+ * Enfileira substituindo o item pendente com a mesma chave, em vez de empilhar.
+ * O King Scout grava a análise inteira a cada ponto marcado — sem isto, uma
+ * partida offline deixaria dezenas de cópias da mesma análise na fila, e o
+ * contador de pendências viraria ruído.
+ */
+export async function enqueueLatest(
+  action: Omit<QueuedAction, 'id' | 'timestamp' | 'retries'>,
+  dedupeKey: (a: QueuedAction) => string,
+): Promise<void> {
+  const queue = await getQueue();
+  const incoming: QueuedAction = {
+    ...action,
+    id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+    timestamp: Date.now(),
+    retries: 0,
+  };
+  const key = dedupeKey(incoming);
+  const kept = queue.filter(q => dedupeKey(q) !== key);
+  kept.push(incoming);
+  await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(kept));
+}

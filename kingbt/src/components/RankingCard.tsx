@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, type ThemeColors, PODIUM_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useSettings } from '@/store/SettingsContext';
 import { Avatar } from '@/components';
@@ -26,9 +26,9 @@ type Props = {
 };
 
 const MEDAL_COLOR: Record<number, string> = {
-  1: '#F3C544',
-  2: '#C7D4E0',
-  3: '#D89A6A',
+  1: PODIUM_COLORS[0],
+  2: PODIUM_COLORS[1],
+  3: PODIUM_COLORS[2],
 };
 
 export default function RankingCard({ ranking, players, groupName, season, roundsDone, location, date }: Props) {
@@ -101,9 +101,9 @@ export default function RankingCard({ ranking, players, groupName, season, round
         <View style={[card.podCol, { paddingTop: 0 }]}>
           {first && (
             <>
-              <Text style={[card.podPos, { color: MEDAL_COLOR[1], fontSize: 16 }]}>1°</Text>
+              <Text style={[card.podPos, { color: MEDAL_COLOR[1], fontSize: 17 }]}>1°</Text>
               <Avatar name={getPlayer(first.id)?.name ?? ''} color={getPlayer(first.id)?.color ?? '#ccc'} size={72} showCrown />
-              <Text style={[card.podName, { color: MEDAL_COLOR[1], fontSize: 16 }]}>{getPlayer(first.id)?.name?.toUpperCase()}</Text>
+              <Text style={[card.podName, { color: MEDAL_COLOR[1], fontSize: 17 }]}>{getPlayer(first.id)?.name?.toUpperCase()}</Text>
               <Text style={[card.podPts, { color: MEDAL_COLOR[1], fontSize: 22 }]}>{first.points.toFixed(2)}</Text>
               <View style={[card.podBlock, { height: 120, backgroundColor: MEDAL_COLOR[1] + '22', borderTopColor: MEDAL_COLOR[1] }]}>
                 <Text style={[card.podBlockNum, { color: MEDAL_COLOR[1], fontSize: 32 }]}>1</Text>

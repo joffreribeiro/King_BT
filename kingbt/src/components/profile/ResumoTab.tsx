@@ -167,7 +167,7 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
             </Text>
           </View>
         </View>
-        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.accentGrupos }}>›</Text>
+        <Icon name="chevronRight" size={17} color={Colors.accentGrupos} />
       </TouchableOpacity>
 
       {/* Próxima conquista */}

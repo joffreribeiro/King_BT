@@ -19,7 +19,7 @@ import {
   type BtLado, type BtDuracaoPonto, type BtSituacao,
   type BtTipoPrimeiraBola, type BtDirecaoPrimeiraBola, type BtQualidadePrimeiraBola,
 } from '@/logic/btTracker';
-import { saveAnaliseFs, loadAnaliseFs } from '@/firebase/analises';
+import { saveAnaliseSynced, loadAnaliseFs } from '@/firebase/analises';
 import { updateLiveScore } from '@/firebase/competitions';
 import { useAuth } from '@/store/AuthContext';
 import { Chip } from '@/components/analise/Chip';
@@ -378,7 +378,7 @@ export default function PontoScreen() {
     const analiseAtualizada = { ...baseAnalise, pontos: novosPontos };
 
     await salvarAnalise(analiseAtualizada);
-    if (group?.id) saveAnaliseFs(group.id, analiseAtualizada).catch(() => {});
+    if (group?.id) saveAnaliseSynced(group.id, analiseAtualizada);
 
     // Detecta mudança de game ou set ANTES de atualizar o ref
     const snapAntes  = snapState(placardAtual);
@@ -458,7 +458,7 @@ export default function PontoScreen() {
     const atualizada = { ...base, pontos: novosPontos };
     atualizarPlacard(pl); atualizarPontos(novosPontos); atualizarAnalise(atualizada);
     salvarAnalise(atualizada);
-    if (group?.id) saveAnaliseFs(group.id, atualizada).catch(() => {});
+    if (group?.id) saveAnaliseSynced(group.id, atualizada);
     commit();
   }
 
@@ -469,7 +469,7 @@ export default function PontoScreen() {
       placarFinal: { setsA: pl.setsA, setsB: pl.setsB, gamesA: pl.historicGamesA, gamesB: pl.historicGamesB },
     };
     await salvarAnalise(analiseComPlacar);
-    if (group?.id) saveAnaliseFs(group.id, analiseComPlacar).catch(() => {});
+    if (group?.id) saveAnaliseSynced(group.id, analiseComPlacar);
     const sets = pl.historicGamesA.map((gA, i) => ({ a: gA, b: pl.historicGamesB[i] ?? 0 }));
     dispatch({ type: 'SAVE_SCORE', compId, matchId, scoreA: pl.setsA, scoreB: pl.setsB, sets });
     router.replace({ pathname: '/analise/[matchId]/relatorio', params: { matchId, compId } });
@@ -490,7 +490,7 @@ export default function PontoScreen() {
     atualizarPontos(novosPontos);
     atualizarAnalise(atualizada);
     await salvarAnalise(atualizada);
-    if (group?.id) saveAnaliseFs(group.id, atualizada).catch(() => {});
+    if (group?.id) saveAnaliseSynced(group.id, atualizada);
     setEditPonto(null);
     commit();
   }

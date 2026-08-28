@@ -10,8 +10,8 @@ import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
-import { buildRanking } from '@/logic/scoring';
-import { extractPlayerGames } from '@/logic/formats';
+import { statPoints } from '@/logic/scoring';
+import { useSettings } from '@/store/SettingsContext';
 import { ScreenHeader } from '@/components/ScreenHeader';
 
 const PAGE_SIZE = 10;
@@ -120,8 +120,10 @@ function MatchCard({ entry, index }: { entry: MatchEntry; index: number }) {
             <Text style={[mc.insight, { color: entry.isWin ? Colors.teal : Colors.muted }]}>
               {entry.isWin ? '✓ ' : ''}{entry.insight}
             </Text>
-            <Text style={[mc.delta, { color: entry.ratingDelta > 0 ? Colors.teal : Colors.coral }]}>
-              {entry.ratingDelta > 0 ? '▲' : '▼'} {entry.ratingDelta > 0 ? '+' : ''}{entry.ratingDelta.toFixed(1)}
+            <Text style={[mc.delta, {
+              color: entry.ratingDelta > 0 ? Colors.teal : entry.ratingDelta < 0 ? Colors.coral : Colors.muted,
+            }]}>
+              {entry.ratingDelta > 0 ? '+' : ''}{entry.ratingDelta.toFixed(2)} pts
             </Text>
           </View>
         </View>
@@ -202,31 +204,48 @@ export default function HistoryScreen() {
   const { state } = useCompetitions();
   const { myPlayerId } = useAuth();
   const { groupPlayers, findPlayer } = useGroupPlayers();
+  const { scoringConfig } = useSettings();
   const MY_ID = myPlayerId ?? '';
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   const entries = useMemo<MatchEntry[]>(() => {
     if (!MY_ID) return [];
 
-    const allGames = state.competitions.flatMap(extractPlayerGames);
-    const ranking  = buildRanking(
-      groupPlayers.map(p => ({ id: p.id, name: p.name, short: '', color: p.color, handicap: p.handicap })),
-      allGames
-    );
-    const myRank = ranking.find(r => r.id === MY_ID);
-
-    const result: MatchEntry[] = [];
-
+    // Todas as minhas partidas com placar, em ordem cronológica. A ordem
+    // importa: o delta de pontos de cada partida é a diferença da pontuação
+    // acumulada antes e depois dela, e o termo de Game Average é uma razão
+    // (games pró / games contra), não uma parcela que se possa somar isolada.
+    // Jogo sem `playedAt` conta como mais antigo.
+    const mine: { comp: typeof state.competitions[number]; m: typeof state.competitions[number]['matches'][number] }[] = [];
     state.competitions.forEach(comp => {
       comp.matches.forEach(m => {
-        if (m.scoreA == null || m.scoreB == null) return;
+        // Mesmo filtro do ranking (extractPlayerGames): sem placar ou empate
+        // não conta, senão a soma dos deltas não fecha com a pontuação exibida.
+        if (m.scoreA == null || m.scoreB == null || m.scoreA === m.scoreB) return;
         const inA = m.aId === MY_ID || m.teamA?.includes(MY_ID);
         const inB = m.bId === MY_ID || m.teamB?.includes(MY_ID);
         if (!inA && !inB) return;
+        mine.push({ comp, m });
+      });
+    });
+    // Muita partida não tem `playedAt` gravado; sem o fallback para a data da
+    // competição a ordenação vira no-op e o acumulado soma na ordem errada.
+    const when = (x: { comp: { date: string }; m: { playedAt?: string | null } }) =>
+      x.m.playedAt ?? x.comp.date ?? '';
+    mine.sort((a, b) => when(a).localeCompare(when(b)));
 
-        const isWin    = inA ? m.scoreA > m.scoreB : m.scoreB > m.scoreA;
-        const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA;
-        const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB;
+    // Acumuladores da minha pontuação, avançando partida a partida.
+    const acc = { played: 0, wins: 0, gamesPro: 0, gamesCon: 0 };
+    const seenComps = new Set<string>();
+    let prevPoints = 0;
+
+    const result: MatchEntry[] = [];
+
+    mine.forEach(({ comp, m }) => {
+        const inA = m.aId === MY_ID || m.teamA?.includes(MY_ID);
+        const isWin    = inA ? m.scoreA! > m.scoreB! : m.scoreB! > m.scoreA!;
+        const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA!;
+        const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB!;
         const myScore  = inA ? gA : gB;
         const oppScore = inA ? gB : gA;
 
@@ -242,12 +261,20 @@ export default function HistoryScreen() {
           }
         }
 
-        const ptsDelta = isWin
-          ? +(1.0 + Math.random() * 1.8).toFixed(1)
-          : -(0.5 + Math.random() * 1.2).toFixed(1);
+        // Quanto ESTA partida moveu minha pontuação, pela fórmula do grupo.
+        acc.played++;
+        if (isWin) acc.wins++;
+        acc.gamesPro += myScore;
+        acc.gamesCon += oppScore;
+        seenComps.add(comp.id);
+        const points  = statPoints({ ...acc, events: seenComps.size }, scoringConfig);
+        const ptsDelta = points - prevPoints;
+        prevPoints = points;
 
         result.push({
-          id:              m.id,
+          // `m1`, `m2`… reiniciam a cada competição, então o id da partida
+          // sozinho colide entre torneios diferentes nesta lista achatada.
+          id:              `${comp.id}:${m.id}`,
           opponentName,
           competitionName: comp.name,
           format:          comp.format,
@@ -259,11 +286,10 @@ export default function HistoryScreen() {
           insight:         getInsight(isWin, myScore, oppScore),
           accentColor:     formatAccent(Colors, comp.format),
         });
-      });
     });
 
     return result.reverse();
-  }, [state.competitions, MY_ID, groupPlayers]);
+  }, [state.competitions, MY_ID, groupPlayers, scoringConfig]);
 
   const visible  = entries.slice(0, visibleCount);
   const hasMore  = visibleCount < entries.length;

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar } from '@/components';
+import { Avatar, ScreenHeader, Icon } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
@@ -355,11 +355,13 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
       <StatusBar hidden />
 
       <TouchableOpacity style={live.backBtn} onPress={onBack}>
-        <Text style={live.backTxt}>← Sair</Text>
+        <Icon name="chevronLeft" size={14} color={Colors.muted} />
+        <Text style={live.backTxt}>Sair</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={live.pointsBtn} onPress={() => setShowPointLog(true)}>
-        <Text style={live.pointsBtnTxt}>📋 Pontos</Text>
+        <Icon name="menu" size={14} color={Colors.muted} />
+        <Text style={live.pointsBtnTxt}>Pontos</Text>
       </TouchableOpacity>
 
       {/* Header */}
@@ -458,21 +460,21 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
       <View style={live.btnsArea}>
         <View style={live.playerBtns}>
           <TouchableOpacity style={live.minusBtnA} onPress={() => removePoint()}>
-            <Text style={live.minusTxtA}>−</Text>
+            <Icon name="minus" size={22} color={Colors.muted} />
           </TouchableOpacity>
           <Text style={live.playerBtnLabel} numberOfLines={1}>{nameA}</Text>
           <TouchableOpacity style={live.plusBtnA} onPress={() => addPoint('A')}>
-            <Text style={live.plusTxtA}>+</Text>
+            <Icon name="plus" size={30} color={Colors.gold} />
           </TouchableOpacity>
         </View>
 
         <View style={live.playerBtns}>
           <TouchableOpacity style={live.minusBtnB} onPress={() => removePoint()}>
-            <Text style={live.minusTxtB}>−</Text>
+            <Icon name="minus" size={22} color={Colors.muted} />
           </TouchableOpacity>
           <Text style={live.playerBtnLabel} numberOfLines={1}>{nameB}</Text>
           <TouchableOpacity style={live.plusBtnB} onPress={() => addPoint('B')}>
-            <Text style={live.plusTxtB}>+</Text>
+            <Icon name="plus" size={30} color={Colors.gold} />
           </TouchableOpacity>
         </View>
 
@@ -783,18 +785,14 @@ export default function CourtScreen() {
 
     return (
       <SafeAreaView style={s.container} edges={['top']}>
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => {
+        <ScreenHeader
+          title={selectedComp.name}
+          subtitle="Modo espectador"
+          onBack={() => {
             setSpectMatchId(null);
             if (params.compId) { if (router.canGoBack()) router.back(); else router.replace('/(app)'); }
-          }}>
-            <Text style={s.back}>←</Text>
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={s.title} numberOfLines={1}>{selectedComp.name}</Text>
-            <Text style={s.meta}>Modo espectador</Text>
-          </View>
-        </View>
+          }}
+        />
 
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
           {/* Aviso de trava */}
@@ -887,18 +885,14 @@ export default function CourtScreen() {
     return (
       <>
         <SafeAreaView style={s.container} edges={['top']}>
-          <View style={s.header}>
-            <TouchableOpacity onPress={() => {
+          <ScreenHeader
+            title={selectedComp.name}
+            subtitle={`${compViewDone}/${compViewTotal} jogos registrados`}
+            onBack={() => {
               if (params.compId) { if (router.canGoBack()) router.back(); else router.replace('/(app)'); }
               else { setSelectedCompId(null); setLiveMatch(null); }
-            }}>
-              <Text style={s.back}>←</Text>
-            </TouchableOpacity>
-            <View style={{ flex: 1 }}>
-              <Text style={s.title} numberOfLines={1}>{selectedComp.name}</Text>
-              <Text style={s.meta}>{compViewDone}/{compViewTotal} jogos registrados</Text>
-            </View>
-          </View>
+            }}
+          />
 
           <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
             {compViewNext ? (
@@ -947,12 +941,7 @@ export default function CourtScreen() {
   return (
     <>
       <SafeAreaView style={s.container} edges={['top']}>
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={s.back}>←</Text>
-          </TouchableOpacity>
-          <Text style={s.title}>Modo Quadra ao Vivo</Text>
-        </View>
+        <ScreenHeader title="Modo Quadra ao Vivo" />
 
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
           {activeComps.length === 0 && (
@@ -1003,8 +992,6 @@ export default function CourtScreen() {
 
 const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  back: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.teal, width: 32 },
   title: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text, flex: 1 },
   meta: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   scroll: { padding: Spacing.md, gap: Spacing.sm },
@@ -1050,9 +1037,9 @@ const makeLiveStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center', alignItems: 'stretch',
     paddingHorizontal: Spacing.md,
   },
-  backBtn: { position: 'absolute', top: 20, left: 20, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: Colors.surf2, borderRadius: Radius.full, zIndex: 10 },
+  backBtn: { position: 'absolute', top: 20, left: 20, flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: Colors.surf2, borderRadius: Radius.full, zIndex: 10 },
   backTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
-  pointsBtn: { position: 'absolute', top: 20, right: 20, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: Colors.surf2, borderRadius: Radius.full, zIndex: 10 },
+  pointsBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, position: 'absolute', top: 20, right: 20, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: Colors.surf2, borderRadius: Radius.full, zIndex: 10 },
   pointsBtnTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
   registrarBtn: { marginTop: Spacing.sm, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' },
   registrarBtnOff: { opacity: 0.35 },

@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { FontFamily, Spacing, Radius, formatAccent, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar } from '@/components';
+import { Avatar, Icon } from '@/components';
 import { buildCompetition } from '@/logic/formats';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
@@ -149,7 +149,7 @@ export default function ReviewStep() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/competitions/new/participants')} style={styles.backBtn}>
-          <Text style={styles.backIcon}>‹</Text>
+          <Icon name="chevronLeft" size={18} color={Colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Nova competição</Text>
       </View>

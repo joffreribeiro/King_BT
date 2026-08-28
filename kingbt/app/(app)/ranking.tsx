@@ -4,7 +4,7 @@ import { useState, useRef, useMemo, useCallback } from 'react';
 import ViewShot from 'react-native-view-shot';
 import { router } from 'expo-router';
 import { goToPlayer } from '@/logic/nav';
-import { FontFamily, Spacing, Radius, Type, type ThemeColors, Colors } from '@/theme';
+import { FontFamily, Spacing, Radius, Type, type ThemeColors, Colors, PODIUM_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, Card, Icon } from '@/components';
@@ -558,14 +558,14 @@ export default function RankingScreen() {
 // Coroas SVG-like via emoji diferenciadas por posição
 const CROWN: Record<number, { emoji: string; color: string; glow: string }> = {
   1: { emoji: '👑', color: Colors.gold, glow: Colors.gold },
-  2: { emoji: '👑', color: '#A8B8C8', glow: '#A8B8C8' },
-  3: { emoji: '👑', color: '#CD7F32', glow: '#CD7F32' },
+  2: { emoji: '👑', color: PODIUM_COLORS[1], glow: PODIUM_COLORS[1] },
+  3: { emoji: '👑', color: PODIUM_COLORS[2], glow: PODIUM_COLORS[2] },
 };
 
 const PILLAR: Record<number, { h: number; topBorder: string; bg: string }> = {
   1: { h: 160, topBorder: Colors.gold, bg: '#1E1A10' },
-  2: { h: 110, topBorder: '#A8B8C8', bg: '#161820' },
-  3: { h: 80,  topBorder: '#CD7F32', bg: '#1E1208' },
+  2: { h: 110, topBorder: PODIUM_COLORS[1], bg: '#161820' },
+  3: { h: 80,  topBorder: PODIUM_COLORS[2], bg: '#1E1208' },
 };
 
 function PodiumSlot({ player, pos, isMe, findPlayer }: {

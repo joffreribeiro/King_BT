@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { goToPlayer } from '@/logic/nav';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar } from '@/components';
+import { Avatar, Icon } from '@/components';
 import { makeTab } from './profileStyles';
 
 // ─── Aba Rivalidades ──────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ export function RivalidadesTab({ rivalries, partnerships, findPlayer }: any) {
             <Text style={rv.name} numberOfLines={1}>{pl.name}</Text>
             <Text style={rv.sub}>{item.label} · {item.sub}</Text>
           </View>
-          <Text style={rv.arrow}>›</Text>
+          <Icon name="chevronRight" size={16} color={Colors.faint} />
         </View>
         <View style={rv.stats}>
           <View style={rv.statCell}>

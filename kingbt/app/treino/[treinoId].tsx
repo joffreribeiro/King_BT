@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Alert } from 'react-native';
+import { Icon } from '@/components/icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { gerarRelatorioTreinoHtml } from '@/logic/exportRelatorio';
@@ -36,14 +37,14 @@ function GolpeRow({ treino, golpeKey, label, onChange }: {
         <Text style={g.pct}>{total > 0 ? `${pct}% · ${total}` : '—'}</Text>
       </View>
       <View style={g.counter}>
-        <TouchableOpacity style={[g.btn, g.btnBom]} onPress={() => onChange('bom', -1)} hitSlop={6}><Text style={g.btnTxt}>−</Text></TouchableOpacity>
+        <TouchableOpacity style={[g.btn, g.btnBom]} onPress={() => onChange('bom', -1)} hitSlop={6}><Icon name="minus" size={13} color={Colors.text} /></TouchableOpacity>
         <Text style={[g.val, { color: Colors.teal }]}>{c.bom}</Text>
-        <TouchableOpacity style={[g.btn, g.btnBom]} onPress={() => onChange('bom', 1)} hitSlop={6}><Text style={g.btnTxt}>+</Text></TouchableOpacity>
+        <TouchableOpacity style={[g.btn, g.btnBom]} onPress={() => onChange('bom', 1)} hitSlop={6}><Icon name="plus" size={13} color={Colors.text} /></TouchableOpacity>
       </View>
       <View style={g.counter}>
-        <TouchableOpacity style={[g.btn, g.btnRuim]} onPress={() => onChange('ruim', -1)} hitSlop={6}><Text style={g.btnTxt}>−</Text></TouchableOpacity>
+        <TouchableOpacity style={[g.btn, g.btnRuim]} onPress={() => onChange('ruim', -1)} hitSlop={6}><Icon name="minus" size={13} color={Colors.text} /></TouchableOpacity>
         <Text style={[g.val, { color: Colors.coral }]}>{c.ruim}</Text>
-        <TouchableOpacity style={[g.btn, g.btnRuim]} onPress={() => onChange('ruim', 1)} hitSlop={6}><Text style={g.btnTxt}>+</Text></TouchableOpacity>
+        <TouchableOpacity style={[g.btn, g.btnRuim]} onPress={() => onChange('ruim', 1)} hitSlop={6}><Icon name="plus" size={13} color={Colors.text} /></TouchableOpacity>
       </View>
     </View>
   );
@@ -57,7 +58,6 @@ const makeGolpeStyles = (Colors: ThemeColors) => StyleSheet.create({
   btn: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   btnBom: { borderColor: Colors.teal + '66', backgroundColor: Colors.teal + '11' },
   btnRuim: { borderColor: Colors.coral + '66', backgroundColor: Colors.coral + '11' },
-  btnTxt: { fontFamily: FontFamily.titleBold, fontSize: 13, color: Colors.text, lineHeight: 16 },
   val: { fontFamily: FontFamily.numberBold, fontSize: 13, width: 18, textAlign: 'center' },
 });
 

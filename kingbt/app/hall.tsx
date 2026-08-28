@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMemo } from 'react';
 import { router } from 'expo-router';
 import { goToPlayer } from '@/logic/nav';
-import { FontFamily, Spacing, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, type ThemeColors, PODIUM_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card, Icon, ScreenHeader } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -73,7 +73,7 @@ export default function HallScreen() {
       .slice(0, 3);
   }, [champions, findPlayer]);
 
-  const podium = [Colors.gold, '#C0C6D0', '#C08A5A'];
+  const podium = PODIUM_COLORS;
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
