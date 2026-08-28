@@ -1,11 +1,12 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Platform, TextInput, Animated, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Platform, TextInput, Animated, RefreshControl, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { LinearGradient } from 'expo-linear-gradient';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, Type, formatAccent, type ThemeColors } from '@/theme';
+import { makeShadows } from '@/theme/shadows';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Badge, Card, EmptyState, SkeletonRanking } from '@/components';
+import { Avatar, Badge, Card, EmptyState, Skeleton, Icon, OptionModal, BottomSheet, NextMatchCard } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -20,19 +21,6 @@ const FORMAT_LABEL: Record<string, string> = {
   avulso: 'Avulso', liga: 'Liga', grupos: 'Grupos + Eliminatórias',
   mata: 'Mata-Mata', super8: 'Super 8',
 };
-const FORMAT_ICON: Record<string, string> = {
-  liga: '≡', grupos: '⊞', mata: '⇌', avulso: '✕', super8: '◈',
-};
-const FORMAT_ICON_BG: Record<string, string> = {
-  liga: '#1a2e1a', grupos: '#1a1a2e', mata: '#2e1a1a', avulso: '#1a2a2e', super8: '#2a1a2e',
-};
-const FORMAT_ICON_COLOR: Record<string, string> = {
-  liga: '#54B981', grupos: '#6B7FD7', mata: '#E5483D', avulso: '#2DD4BF', super8: '#C084FC',
-};
-const FORMAT_ACCENT: Record<string, string> = {
-  avulso: '#38BDF8', liga: '#6B7FD7', grupos: '#6B7FD7', mata: '#E5483D', super8: '#C084FC',
-};
-
 const STATUS_FILTERS = [
   { key: 'all',    label: 'Todas' },
   { key: 'active', label: 'Em andamento' },
@@ -63,91 +51,96 @@ function SectionHeader({ label, color }: { label: string; color: string }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14, marginTop: 10 }}>
       <View style={{ width: 5, height: 20, borderRadius: 2, backgroundColor: color }} />
-      <Text style={{ fontFamily: FontFamily.number, fontSize: 12, color, letterSpacing: 1.5, fontWeight: '700' }}>
+      <Text style={{ ...Type.label, color }}>
         {label.toUpperCase()}
       </Text>
     </View>
   );
 }
 
-// Avatar com fade-in animado
-function AvatarBubble({ color, short, delay }: { color: string; short: string; delay: number }) {
+const BUBBLE: ViewStyle = {
+  width: 28, height: 28, borderRadius: 14,
+  alignItems: 'center', justifyContent: 'center',
+  borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.3)',
+};
+
+/**
+ * Bolha de inicial do jogador. Só anima no card em destaque: numa lista de 20
+ * competições, 8 bolhas por card viravam 160 springs simultâneos — e o
+ * FlatList remonta o card a cada reciclagem de scroll, refazendo tudo.
+ */
+function AvatarBubble({ color, short, delay, animate }: {
+  color: string; short: string; delay: number; animate: boolean;
+}) {
   const { colors: Colors } = useTheme();
-  const opacity = useRef(new Animated.Value(0)).current;
-  const scale   = useRef(new Animated.Value(0.6)).current;
+  const reduced = useReducedMotion();
+  const shouldAnimate = animate && !reduced;
+  const opacity = useRef(new Animated.Value(shouldAnimate ? 0 : 1)).current;
+  const scale   = useRef(new Animated.Value(shouldAnimate ? 0.6 : 1)).current;
+
   useEffect(() => {
-    Animated.parallel([
+    if (!shouldAnimate) return;
+    const anim = Animated.parallel([
       Animated.timing(opacity, { toValue: 1, duration: 300, delay, useNativeDriver: true }),
       Animated.spring(scale,   { toValue: 1, delay, useNativeDriver: true, tension: 80, friction: 6 }),
-    ]).start();
-  }, []);
+    ]);
+    anim.start();
+    return () => anim.stop();
+  }, [shouldAnimate]);
+
+  const label = <Text style={{ ...Type.caption, fontFamily: FontFamily.numberBold, color: Colors.bg }}>{short}</Text>;
+
+  if (!shouldAnimate) {
+    return <View style={[BUBBLE, { backgroundColor: color }]}>{label}</View>;
+  }
   return (
-    <Animated.View style={{ opacity, transform: [{ scale }], width: 28, height: 28, borderRadius: 14, backgroundColor: color, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.3)' }}>
-      <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 10, color: Colors.bg }}>{short}</Text>
+    <Animated.View style={[BUBBLE, { backgroundColor: color, opacity, transform: [{ scale }] }]}>
+      {label}
     </Animated.View>
   );
 }
 
-// Skeleton para competições
-function CompSkeleton() {
-  const { colors: Colors } = useTheme();
-  const opacity = useRef(new Animated.Value(0.4)).current;
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.9, duration: 700, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.4, duration: 700, useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
-  return (
-    <Animated.View style={{ opacity, backgroundColor: Colors.surf, borderRadius: Radius.lg, marginBottom: Spacing.sm, height: 130, borderWidth: 1, borderColor: Colors.line }} />
-  );
-}
-
-function CompCard({ comp, onDelete, onClone, isAdmin }: {
-  comp: Competition; onDelete: (id: string) => void; onClone: (id: string) => void; isAdmin: boolean;
+function CompCard({ comp, onDelete, onClone, isAdmin, highlight = false }: {
+  comp: Competition; onDelete: (id: string) => void; onClone: (id: string) => void;
+  isAdmin: boolean;
+  /** Só o card ativo mais recente pulsa/anima — ver comentário em `badgePulse`. */
+  highlight?: boolean;
 }) {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
+  const shadows = useMemo(() => makeShadows(Colors), [Colors]);
   const { findPlayer } = useGroupPlayers();
   const done  = comp.matches.filter(m => m.scoreA != null).length;
   const total = comp.matches.length;
   const pct   = total > 0 ? done / total : 0;
   const isActive = comp.status === 'active';
   const isDone = comp.status === 'done';
-  const accent = isDone ? '#6E6452' : (FORMAT_ACCENT[comp.format] ?? Colors.gold);
+  const accent = isDone ? Colors.faint : formatAccent(Colors, comp.format);
   const champRaw = !isActive ? getChampion(comp, id => findPlayer(id)?.name ?? id) : null;
   const champ = champRaw
     ? { name: (champRaw as any).name ?? findPlayer(champRaw.members[0])?.name ?? champRaw.members[0] }
     : null;
 
-  function handleLongPress() {
-    const doDelete = () => onDelete(comp.id);
-    const doClone  = () => onClone(comp.id);
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Apagar "${comp.name}"?`)) doDelete();
-    } else {
-      Alert.alert(comp.name, 'O que deseja fazer?', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: '🔁 Criar igual', onPress: doClone },
-        { text: '🗑 Apagar', style: 'destructive', onPress: doDelete },
-      ]);
-    }
-  }
+  // Ações do card: mesmo OptionModal nas duas plataformas — o antigo caminho
+  // web caía num window.confirm() nativo, que quebrava a identidade visual e
+  // não oferecia "criar igual". A confirmação de exclusão é um segundo modal.
+  const [showActions, setShowActions] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const reduced = useReducedMotion();
+  // Só o card em destaque (o ativo mais recente) pulsa. Antes TODO card montava
+  // um loop de badge + um de sombra + um spring por bolha de avatar: numa lista
+  // de 20 competições eram 40+ loops permanentes, e com tudo pulsando nada
+  // chamava atenção de fato.
+  const animate = highlight && !reduced;
   const pulseAnim = usePulseAnim(2000);
-  const shadowOpacity = isActive
+  const shadowOpacity = animate
     ? pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.1, 0.45] })
-    : new Animated.Value(0);
+    : undefined;
 
-  // Badge pulse — só para competições em andamento; "encerrada" fica parado
-  // (antes todos os cards pulsavam pra sempre, mesmo os já finalizados, o
-  // que além de gastar bateria com loops eternos tirava o destaque de quem
-  // realmente está em andamento).
   const badgePulse = useRef(new Animated.Value(1)).current;
   useEffect(() => {
-    if (!isActive) return;
+    if (!animate) return;
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(badgePulse, { toValue: 0.6, duration: 1200, useNativeDriver: true }),
@@ -156,7 +149,7 @@ function CompCard({ comp, onDelete, onClone, isAdmin }: {
     );
     loop.start();
     return () => loop.stop();
-  }, [isActive]);
+  }, [animate]);
 
   // Player bubbles
   // Quando a competição usa competidores nomeados (duplas/times), aId/bId dos
@@ -181,67 +174,47 @@ function CompCard({ comp, onDelete, onClone, isAdmin }: {
     <TouchableOpacity
       activeOpacity={0.75}
       onPress={() => router.push({ pathname: '/competitions/[id]', params: { id: comp.id } })}
-      onLongPress={isAdmin ? handleLongPress : undefined}
+      onLongPress={isAdmin ? () => setShowActions(true) : undefined}
       delayLongPress={600}
     >
       <Animated.View style={[
         styles.compCard,
-        {
-          borderColor: isDone ? `${Colors.teal}33` : isActive ? `${Colors.gold}55` : `${accent}33`,
-          borderWidth: isActive ? 1.5 : 1,
-        },
-        {
-          shadowColor: isActive ? Colors.gold : isDone ? Colors.teal : accent,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity,
-          shadowRadius: 16,
-          elevation: isActive ? 8 : isDone ? 3 : 0,
-        },
+        animate
+          ? { shadowColor: Colors.gold, shadowOffset: { width: 0, height: 4 }, shadowOpacity, shadowRadius: 16, elevation: 8 }
+          : shadows.md,
       ]}>
-        {/* Gradiente de fundo por status */}
-        <LinearGradient
-          colors={
-            isActive
-              ? [`${Colors.gold}12`, `${Colors.bg}00`]
-              : isDone
-                ? [`${Colors.teal}08`, `${Colors.bg}00`]
-                : ['transparent', 'transparent']
-          }
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{ ...StyleSheet.absoluteFillObject, borderRadius: Radius.lg }}
-          pointerEvents="none"
-        />
-        {/* Header strip with gradient */}
-        <LinearGradient
-          colors={[`${accent}30`, `${accent}10`]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[styles.cardHeader, { borderBottomColor: `${accent}1F` }]}
-        >
-          <View style={[styles.fmtIconContainer, { backgroundColor: `${accent}2E` }]}>
-            <Text style={[styles.fmtIconText, { color: accent }]}>{FORMAT_ICON[comp.format]}</Text>
-          </View>
-          <Text style={[styles.formatLabel, { color: accent }]}>{FORMAT_LABEL[comp.format]?.toUpperCase()}</Text>
-          <Animated.View style={{ opacity: badgePulse }}>
-            <Badge label={isActive ? 'EM ANDAMENTO' : 'ENCERRADA'} variant={isActive ? 'gold' : 'teal'} small />
-          </Animated.View>
-        </LinearGradient>
+        {/* Faixa de formato — substitui os dois LinearGradient + borda dourada.
+            Um card = surf + borda line; a cor identifica o formato. */}
+        <View style={[styles.accentStrip, { backgroundColor: accent }]} />
 
-        {/* Card body */}
         <View style={styles.cardBody}>
+          <View style={styles.cardTopRow}>
+            <Text style={[styles.formatLabel, { color: accent }]}>{FORMAT_LABEL[comp.format]?.toUpperCase()}</Text>
+            {isActive && (
+              <Animated.View style={animate ? { opacity: badgePulse } : undefined}>
+                <Badge label="ATIVA" variant="gold" small />
+              </Animated.View>
+            )}
+            {/* Ações do card — antes só existiam via long-press de 600ms,
+                invisível para quem não sabia que existia. */}
+            {isAdmin && (
+              <TouchableOpacity onPress={() => setShowActions(true)} hitSlop={10} style={{ padding: 2 }}>
+                <Icon name="more" size={16} color={Colors.muted} />
+              </TouchableOpacity>
+            )}
+          </View>
+
           <Text style={styles.cardName}>{comp.name}</Text>
           <Text style={styles.cardMetaText}>{formatDate(comp.date)} · {allPlayerIds.length} jogadores</Text>
 
-          {/* Player bubbles com fade-in */}
           {players.length > 0 && (
             <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap', marginTop: 6, alignItems: 'center' }}>
               {players.map((p, idx) => (
-                <AvatarBubble key={p.id} color={p.color} short={p.short} delay={idx * 50} />
+                <AvatarBubble key={p.id} color={p.color} short={p.short} delay={idx * 50} animate={animate} />
               ))}
               {extraPlayers > 0 && (
-                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: Colors.line }}>
-                  <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.muted }}>+{extraPlayers}</Text>
+                <View style={[BUBBLE, { backgroundColor: Colors.surf2, borderColor: Colors.line }]}>
+                  <Text style={{ ...Type.caption, fontFamily: FontFamily.numberBold, color: Colors.muted }}>+{extraPlayers}</Text>
                 </View>
               )}
             </View>
@@ -249,24 +222,52 @@ function CompCard({ comp, onDelete, onClone, isAdmin }: {
 
           {champ ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
-              <Text style={{ fontSize: 14 }}>👑</Text>
-              <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: Colors.gold, flex: 1 }}>{champ.name}</Text>
+              <Icon name="crown" size={16} color={Colors.gold} />
+              <Text style={{ ...Type.title, color: Colors.gold, flex: 1 }}>{champ.name}</Text>
               <Text style={styles.dateText}>{formatDate(comp.date)}</Text>
               <TouchableOpacity onPress={() => onClone(comp.id)} hitSlop={8} style={{ padding: 4 }}>
-                <Text style={{ fontSize: 15 }}>🔁</Text>
+                <Icon name="clone" size={16} color={Colors.muted} />
               </TouchableOpacity>
             </View>
           ) : (
+            /* Progresso: barra + contador. O percentual saiu — dizia a mesma
+               coisa que "6/12 jogos", duas vezes na mesma linha. */
             <View style={styles.progressRow}>
               <View style={styles.progressTrack}>
                 <View style={[styles.progressFill, { width: `${pct * 100}%`, backgroundColor: accent }]} />
               </View>
-              <Text style={[styles.progressLabel, { color: accent }]}>{Math.round(pct * 100)}%</Text>
               <Text style={styles.dateText}>{done}/{total} jogos</Text>
             </View>
           )}
         </View>
       </Animated.View>
+
+      {showActions && (
+        <OptionModal
+          title={comp.name}
+          message="O que deseja fazer?"
+          options={[
+            { key: 'clone',  label: 'Criar igual', icon: 'clone' },
+            { key: 'delete', label: 'Apagar',      icon: 'trash', color: Colors.coral },
+          ]}
+          onSelect={(k) => {
+            setShowActions(false);
+            if (k === 'clone') onClone(comp.id);
+            else setConfirmDelete(true);
+          }}
+          onClose={() => setShowActions(false)}
+        />
+      )}
+
+      {confirmDelete && (
+        <OptionModal
+          title="Apagar competição"
+          message={`"${comp.name}" e todos os seus jogos serão apagados. Não dá para desfazer.`}
+          options={[{ key: 'confirm', label: 'Apagar definitivamente', icon: 'trash', color: Colors.coral }]}
+          onSelect={() => { setConfirmDelete(false); onDelete(comp.id); }}
+          onClose={() => setConfirmDelete(false)}
+        />
+      )}
     </TouchableOpacity>
   );
 }
@@ -292,6 +293,7 @@ export default function HubScreen() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [formatFilter, setFormatFilter] = useState<Format | 'all'>('all');
   const [showSearch, setShowSearch]   = useState(false);
+  const [showFormatSheet, setShowFormatSheet] = useState(false);
 
   const filtered = state.competitions.filter(c => {
     if (c.isFriendly) return false;
@@ -304,6 +306,9 @@ export default function HubScreen() {
   const active = filtered.filter(c => c.status === 'active');
   const done   = filtered.filter(c => c.status === 'done');
   const listData = [...active, ...done];
+  // Um único card pulsa: o ativo mais recente. `filtered` já vem ordenado por
+  // data desc do CompetitionsContext, então é o primeiro de `active`.
+  const highlightId = active[0]?.id;
 
   const hasFilter = statusFilter !== 'all' || formatFilter !== 'all' || search.trim().length > 0;
 
@@ -315,13 +320,15 @@ export default function HubScreen() {
         keyExtractor={c => c.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        removeClippedSubviews
+        windowSize={7}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />}
         ListHeaderComponent={
           <View>
             {/* Skeleton loading */}
             {!state.synced && (
               <View style={{ paddingHorizontal: Spacing.md, paddingTop: Spacing.sm }}>
-                {[1,2,3].map(i => <CompSkeleton key={i} />)}
+                {[1,2,3].map(i => <Skeleton key={i} variant="comp" />)}
               </View>
             )}
 
@@ -331,78 +338,59 @@ export default function HubScreen() {
               onPress={() => router.push('/(app)/ranking')}
             />
 
-            {/* Filter chips — status + lupa */}
-            <Text style={styles.filterLabel}>STATUS</Text>
-            <View style={[styles.filterRow, { justifyContent: 'space-between', marginBottom: Spacing.sm }]}>
-              <View style={{ flexDirection: 'row', gap: Spacing.xs, flexWrap: 'wrap', flex: 1 }}>
-                {STATUS_FILTERS.map(f => (
+            {/* Atalho para a ação mais frequente: marcar o próximo placar. */}
+            <NextMatchCard />
+
+            {/* Uma linha de controles em vez das duas fileiras de chips + 2
+                botões que ocupavam a tela antes da primeira competição.
+                A busca substitui o segmented ao abrir, em vez de empilhar. */}
+            <View style={styles.controlRow}>
+              {showSearch ? (
+                <View style={[styles.searchBar, { flex: 1, marginBottom: 0 }]}>
+                  <TextInput
+                    style={styles.searchInput}
+                    value={search}
+                    onChangeText={setSearch}
+                    placeholder="Buscar competição..."
+                    placeholderTextColor={Colors.faint}
+                    autoFocus
+                    returnKeyType="search"
+                  />
                   <TouchableOpacity
-                    key={f.key}
-                    style={[styles.chip, statusFilter === f.key && styles.chipActive]}
-                    onPress={() => setStatusFilter(f.key)}
+                    onPress={() => { setSearch(''); setShowSearch(false); }}
+                    style={styles.searchClear}
                   >
-                    <Text style={[styles.chipText, statusFilter === f.key && styles.chipTextActive]}>{f.label}</Text>
+                    <Icon name="close" size={14} color={Colors.coral} />
                   </TouchableOpacity>
-                ))}
-              </View>
-              {/* Lupa */}
-              <TouchableOpacity
-                onPress={() => { setShowSearch(v => !v); if (showSearch) setSearch(''); }}
-                style={[styles.iconBtn, showSearch && styles.iconBtnActive]}
-              >
-                <Text style={styles.iconBtnText}>⌕</Text>
-              </TouchableOpacity>
-            </View>
+                </View>
+              ) : (
+                <View style={styles.segmented}>
+                  {STATUS_FILTERS.map(f => (
+                    <TouchableOpacity
+                      key={f.key}
+                      style={[styles.segment, statusFilter === f.key && styles.segmentActive]}
+                      onPress={() => setStatusFilter(f.key)}
+                    >
+                      <Text style={[styles.segmentText, statusFilter === f.key && styles.segmentTextActive]} numberOfLines={1}>
+                        {f.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
 
-            {/* Search bar expandida */}
-            {showSearch && (
-              <View style={styles.searchBar}>
-                <TextInput
-                  style={styles.searchInput}
-                  value={search}
-                  onChangeText={setSearch}
-                  placeholder="Buscar competição..."
-                  placeholderTextColor={Colors.faint}
-                  autoFocus
-                  returnKeyType="search"
-                />
-                {search.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearch('')} style={styles.searchClear}>
-                    <Text style={styles.searchClearText}>✕</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-
-            {/* Filter chips — format */}
-            <Text style={styles.filterLabel}>FORMATO</Text>
-            <View style={[styles.filterRow, { marginBottom: Spacing.md }]}>
-              {FORMAT_FILTERS.map(f => (
-                <TouchableOpacity
-                  key={f.key}
-                  style={[styles.chip, formatFilter === f.key && styles.chipActive]}
-                  onPress={() => setFormatFilter(f.key)}
-                >
-                  <Text style={[styles.chipText, formatFilter === f.key && styles.chipTextActive]}>{f.label}</Text>
+              {!showSearch && (
+                <TouchableOpacity onPress={() => setShowSearch(true)} style={styles.iconBtn}>
+                  <Icon name="search" size={18} color={Colors.muted} />
                 </TouchableOpacity>
-              ))}
-            </View>
+              )}
 
-            {/* Botão criar */}
-            <View style={styles.createRow}>
               <TouchableOpacity
-                style={[styles.createBtn, { flex: 1 }]}
-                onPress={() => router.push('/competitions/new/format')}
-                activeOpacity={0.85}
+                onPress={() => setShowFormatSheet(true)}
+                style={[styles.iconBtn, formatFilter !== 'all' && styles.iconBtnActive]}
               >
-                <Text style={styles.createBtnText}>+ Criar competição</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.createBtnSecondary}
-                onPress={() => router.push('/amistoso')}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.createBtnSecondaryText}>Amistoso</Text>
+                <Icon name="filter" size={18} color={formatFilter !== 'all' ? Colors.gold : Colors.muted} />
+                {formatFilter !== 'all' && <View style={styles.filterDot} />}
               </TouchableOpacity>
             </View>
 
@@ -419,6 +407,7 @@ export default function HubScreen() {
                 onDelete={isAdmin ? (id) => dispatch({ type: 'DELETE', compId: id }) : () => {}}
                 onClone={isAdmin ? (id) => dispatch({ type: 'CLONE', compId: id }) : () => {}}
                 isAdmin={isAdmin}
+                highlight={item.id === highlightId}
               />
             </View>
           );
@@ -441,14 +430,42 @@ export default function HubScreen() {
               <EmptyState
                 icon="racket"
                 title="Sem competições ativas"
-                subtitle="Crie a primeira e comece a disputar o ranking!"
-                ctaLabel="+ Nova Competição"
-                onCta={() => router.push('/competitions/new/format')}
+                // Sem competição ativa, o histórico é o que ainda tem conteúdo —
+                // e é uma tela que só existia no menu lateral.
+                subtitle={state.competitions.length > 0
+                  ? 'Nenhuma em andamento. Veja o que já rolou ou crie a próxima.'
+                  : 'Crie a primeira e comece a disputar o ranking!'}
+                ctaLabel={state.competitions.length > 0 ? 'Ver histórico' : '+ Nova Competição'}
+                onCta={() => router.push(state.competitions.length > 0
+                  ? '/(app)/history'
+                  : '/competitions/new/format')}
               />
             )
           )
         }
       />
+
+      {/* Formato saiu da tela: 6 chips permanentes viraram um sheet sob demanda. */}
+      <BottomSheet visible={showFormatSheet} onClose={() => setShowFormatSheet(false)} height={380}>
+        <View style={{ paddingHorizontal: Spacing.md, gap: Spacing.xs }}>
+          <Text style={styles.sheetTitle}>Formato</Text>
+          {FORMAT_FILTERS.map(f => {
+            const selected = formatFilter === f.key;
+            return (
+              <TouchableOpacity
+                key={f.key}
+                style={[styles.sheetOption, selected && styles.sheetOptionActive]}
+                onPress={() => { setFormatFilter(f.key); setShowFormatSheet(false); }}
+              >
+                {f.key !== 'all' && (
+                  <View style={[styles.sheetSwatch, { backgroundColor: formatAccent(Colors, f.key) }]} />
+                )}
+                <Text style={[styles.sheetOptionText, selected && { color: Colors.gold }]}>{f.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </BottomSheet>
     </SafeAreaView>
     </FadeScreen>
   );
@@ -506,7 +523,6 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1, borderColor: 'transparent',
   },
   iconBtnActive: { borderColor: Colors.gold },
-  iconBtnText: { fontSize: 20, color: Colors.muted },
 
   searchBar: {
     flexDirection: 'row', alignItems: 'center',
@@ -518,10 +534,10 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   searchInput: {
     flex: 1,
     paddingVertical: Spacing.sm,
-    fontFamily: FontFamily.body, fontSize: 15, color: Colors.text,
+    ...Type.title, fontFamily: FontFamily.body, color: Colors.text,
   },
   searchClear: { padding: Spacing.xs },
-  searchClearText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.coral },
+  searchClearText: { ...Type.body, color: Colors.coral },
 
   filterRow: {
     flexDirection: 'row', flexWrap: 'wrap',
@@ -534,8 +550,37 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1, borderColor: Colors.line,
   },
   chipActive: { backgroundColor: Colors.gold + '22', borderColor: Colors.gold },
-  chipText: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted },
+  chipText: { ...Type.bodyMed, color: Colors.muted },
   chipTextActive: { color: Colors.gold },
+
+  // Linha única de controles: segmented (ou busca) + lupa + filtro.
+  controlRow: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.xs,
+    marginBottom: Spacing.md, marginTop: Spacing.xs,
+  },
+  segmented: {
+    flex: 1, flexDirection: 'row',
+    backgroundColor: Colors.surf, borderRadius: Radius.full,
+    borderWidth: 1, borderColor: Colors.line, padding: 3,
+  },
+  segment: { flex: 1, paddingVertical: 6, borderRadius: Radius.full, alignItems: 'center' },
+  segmentActive: { backgroundColor: Colors.gold + '22' },
+  segmentText: { ...Type.caption, color: Colors.muted },
+  segmentTextActive: { color: Colors.gold, fontFamily: FontFamily.bodyMed },
+  filterDot: {
+    position: 'absolute', top: 6, right: 6,
+    width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.gold,
+  },
+
+  sheetTitle: { ...Type.h2, color: Colors.text, marginBottom: Spacing.xs },
+  sheetOption: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    paddingVertical: Spacing.sm + 2, paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.md,
+  },
+  sheetOptionActive: { backgroundColor: Colors.gold + '18' },
+  sheetOptionText: { ...Type.title, color: Colors.text },
+  sheetSwatch: { width: 4, height: 20, borderRadius: 2 },
 
   createRow: {
     flexDirection: 'row',
@@ -549,8 +594,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
   },
   createBtnText: {
-    fontFamily: FontFamily.title,
-    fontSize: 16,
+    ...Type.h2,
     color: Colors.bg,
   },
   createBtnSecondary: {
@@ -563,16 +607,13 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   createBtnSecondaryText: {
-    fontFamily: FontFamily.title,
-    fontSize: 16,
+    ...Type.h2,
     color: Colors.gold,
   },
 
   filterLabel: {
-    fontFamily: FontFamily.numberBold,
-    fontSize: 10,
+    ...Type.label,
     color: Colors.text,
-    letterSpacing: 1.5,
     marginBottom: 6,
     marginTop: 4,
     opacity: 0.45,
@@ -585,35 +626,27 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.line,
     marginBottom: 0,
-  },
-  cardHeader: {
-    paddingHorizontal: 12,
-    paddingVertical: 11,
+    // Faixa de acento à esquerda ocupando a altura toda do card.
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderBottomWidth: 1,
   },
-  fmtIconContainer: {
-    width: 28, height: 28, borderRadius: 8,
-    alignItems: 'center', justifyContent: 'center',
+  accentStrip: { width: 3, alignSelf: 'stretch' },
+  cardTopRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginBottom: 6,
   },
-  fmtIconText: { fontSize: 15 },
   formatLabel: {
-    fontSize: 10, fontWeight: '700',
-    fontFamily: FontFamily.numberBold,
-    letterSpacing: 1, flex: 1,
+    ...Type.label, flex: 1,
   },
   cardBody: {
+    flex: 1,
     padding: 12, paddingHorizontal: 14,
   },
-  cardName: { fontFamily: FontFamily.titleBold, fontSize: 17, color: Colors.text },
-  cardMetaText: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, marginTop: 4 },
+  cardName: { ...Type.h2, color: Colors.text },
+  cardMetaText: { ...Type.caption, color: Colors.muted, marginTop: 4 },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: 8 },
   progressTrack: { flex: 1, height: 6, borderRadius: 4, backgroundColor: Colors.surf2, overflow: 'hidden' },
   progressFill: { height: 6, borderRadius: 4 },
-  progressLabel: { fontSize: 11, fontWeight: '700', fontFamily: FontFamily.numberBold },
-  dateText: { fontFamily: FontFamily.number, fontSize: 12, color: Colors.faint },
+  dateText: { ...Type.caption, fontFamily: FontFamily.number, color: Colors.faint },
 
   empty: { alignItems: 'center', padding: Spacing.xl, gap: Spacing.sm, marginTop: Spacing.lg },
   emptyText: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.muted },

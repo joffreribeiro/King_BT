@@ -2,9 +2,18 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
+import { useSettings } from '@/store/SettingsContext';
 import { Avatar } from '@/components';
 import type { RankedPlayer } from '@/logic/scoring';
 import type { MockPlayer } from '@/mocks/data';
+
+/** Formata a fórmula de pontuação real do grupo (inclui eventos só se usado). */
+function formatFormula(cfg: { winCoef: number; playedCoef: number; gaCoef: number; eventCoef?: number }): string {
+  const fmt = (n: number) => n.toString().replace('.', ',');
+  let f = `PONTUAÇÃO: (V×${fmt(cfg.winCoef)}) + (J×${fmt(cfg.playedCoef)}) + (GA×${fmt(cfg.gaCoef)})`;
+  if (cfg.eventCoef) f += ` + (Eventos×${fmt(cfg.eventCoef)})`;
+  return f + '  ·  GA = GP÷GC';
+}
 
 type Props = {
   ranking: RankedPlayer[];
@@ -24,6 +33,7 @@ const MEDAL_COLOR: Record<number, string> = {
 
 export default function RankingCard({ ranking, players, groupName, season, roundsDone, location, date }: Props) {
   const { colors: Colors } = useTheme();
+  const { scoringConfig } = useSettings();
   const card = useMemo(() => makeCardStyles(Colors), [Colors]);
   const getPlayer = (id: string) => players.find(p => p.id === id);
 
@@ -161,7 +171,7 @@ export default function RankingCard({ ranking, players, groupName, season, round
       {/* Rodapé */}
       <View style={card.footer}>
         <Text style={card.footerFormula}>
-          {'PONTUAÇÃO: (V×3) + (J×0,5) + (GA×2)  ·  GA = GP÷GC'}
+          {formatFormula(scoringConfig)}
         </Text>
         <Text style={card.footerBrand}>KING BT · {groupName} · {season}</Text>
       </View>

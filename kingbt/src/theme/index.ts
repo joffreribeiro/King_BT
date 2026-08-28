@@ -11,7 +11,16 @@ export const darkColors = {
   coral:      '#E5483D',
   text:       '#F6EFDD',
   muted:      '#A99B7C',
-  faint:      '#6E6452',
+  // Antes '#6E6452' (~3,4:1 sobre bg) — abaixo de AA, e o token carrega datas,
+  // placares secundários e labels de tabela.
+  faint:      '#8A7E66',
+  // Acento por formato de competição — antes eram hex crus espalhados pelas
+  // telas, fora do ThemeContext (logo, errados no tema claro).
+  accentAvulso: '#38BDF8',
+  accentLiga:   '#6B7FD7',
+  accentGrupos: '#6B7FD7',
+  accentMata:   '#E5483D',
+  accentSuper8: '#C084FC',
 } as const;
 
 export type ThemeColors = { [K in keyof typeof darkColors]: string };
@@ -33,7 +42,23 @@ export const lightColors: ThemeColors = {
   text:       '#241F16',
   muted:      '#6B5D45',
   faint:      '#8D816A',
+  // Mesma família de cor do tema escuro, escurecida para contraste em fundo claro.
+  accentAvulso: '#0B7FA8',
+  accentLiga:   '#3F52A8',
+  accentGrupos: '#3F52A8',
+  accentMata:   '#C23328',
+  accentSuper8: '#8B44C4',
 } as const;
+
+/** Cor de acento da competição pelo formato. Cai no gold para formato desconhecido. */
+export function formatAccent(colors: ThemeColors, format: string): string {
+  const map: Record<string, string> = {
+    avulso: colors.accentAvulso, liga: colors.accentLiga,
+    grupos: colors.accentGrupos, mata: colors.accentMata,
+    super8: colors.accentSuper8,
+  };
+  return map[format] ?? colors.gold;
+}
 
 // Alias de compatibilidade: cor estática (não reativa) para os poucos usos fora de
 // StyleSheet/useTheme(). Componentes de tela devem usar useTheme().colors.

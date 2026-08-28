@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, formatAccent, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar } from '@/components';
 import { buildCompetition } from '@/logic/formats';
@@ -16,15 +16,6 @@ const STEPS = ['Formato', 'Ajustes', 'Quem joga', 'Revisar'];
 const FORMAT_LABEL: Record<Format, string> = {
   avulso: 'Avulso', liga: 'Liga', grupos: 'Grupos + Eliminatórias',
   mata: 'Mata-mata', super8: 'Super 8',
-};
-const FORMAT_ICON: Record<Format, string> = {
-  liga: '≡', grupos: '⊞', mata: '⇌', avulso: '✕', super8: '◈',
-};
-const FORMAT_ICON_BG: Record<Format, string> = {
-  liga: '#1a2e1a', grupos: '#1a1a2e', mata: '#2e1a1a', avulso: '#1a2a2e', super8: '#2a1a2e',
-};
-const FORMAT_ICON_COLOR: Record<Format, string> = {
-  liga: '#54B981', grupos: '#6B7FD7', mata: '#E5483D', avulso: '#2DD4BF', super8: '#C084FC',
 };
 
 type Params = {
@@ -175,13 +166,10 @@ export default function ReviewStep() {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-        {/* Cabeçalho do formato */}
+        {/* Cabeçalho do formato — identificado por faixa de cor + rótulo,
+            não mais por um glifo (o '✕' do Avulso lia como "fechar"). */}
         <View style={styles.fmtHeader}>
-          <View style={[styles.fmtIcon, { backgroundColor: FORMAT_ICON_BG[p.format] }]}>
-            <Text style={[styles.fmtIconText, { color: FORMAT_ICON_COLOR[p.format] }]}>
-              {FORMAT_ICON[p.format]}
-            </Text>
-          </View>
+          <View style={[styles.fmtStrip, { backgroundColor: formatAccent(Colors, p.format) }]} />
           <View>
             <Text style={styles.fmtName}>{p.name}</Text>
             <Text style={styles.fmtSub}>
@@ -282,8 +270,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   scroll: { padding: Spacing.md, gap: Spacing.md },
 
   fmtHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  fmtIcon: { width: 52, height: 52, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center' },
-  fmtIconText: { fontSize: 24, fontWeight: '700' },
+  fmtStrip: { width: 4, height: 44, borderRadius: 2 },
   fmtName: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text },
   fmtSub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 2 },
 

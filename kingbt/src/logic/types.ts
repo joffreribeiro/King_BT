@@ -167,6 +167,8 @@ export interface PlayerStat {
   losses: number;
   gamesPro: number;
   gamesCon: number;
+  /** Nº de competições distintas em que o jogador teve pelo menos 1 jogo válido. */
+  events?: number;
 }
 
 export interface RankedPlayer extends Player, PlayerStat {

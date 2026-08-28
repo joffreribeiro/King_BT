@@ -9,7 +9,7 @@ import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Badge, Card, ShareStatsCard } from '@/components';
+import { Avatar, Badge, Card, ShareStatsCard, Icon } from '@/components';
 import type { ShareStatsData } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
@@ -360,6 +360,21 @@ export default function ProfileScreen() {
           <RivalidadesTab rivalries={rivalries} partnerships={partnerships} findPlayer={findPlayer} />
         )}
 
+        {/* Conquistas e Estatísticas só existiam no menu lateral — aqui é o
+            lugar natural, logo depois do resumo do próprio jogador. */}
+        {activeTab === 'resumo' && (
+          <View style={styles.shortcutRow}>
+            <TouchableOpacity style={styles.shortcut} onPress={() => router.push('/(app)/achievements')} activeOpacity={0.8}>
+              <Icon name="crown" size={20} color={Colors.gold} />
+              <Text style={styles.shortcutLabel}>Conquistas</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.shortcut} onPress={() => router.push('/(app)/stats')} activeOpacity={0.8}>
+              <Icon name="chart" size={20} color={Colors.teal} />
+              <Text style={styles.shortcutLabel}>Estatísticas</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <Card style={styles.accountCard}>
           <Text style={styles.accountEmail}>{user?.email ?? user?.displayName}</Text>
           {group && (
@@ -449,6 +464,15 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   tabLabel: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.faint },
   tabLabelActive: { color: Colors.gold, fontWeight: '700' },
   tabIndicator: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 2.5, backgroundColor: Colors.gold, borderRadius: 1 },
+
+  shortcutRow: { flexDirection: 'row', gap: Spacing.sm },
+  shortcut: {
+    flex: 1, alignItems: 'center', gap: 6,
+    backgroundColor: Colors.surf, borderRadius: Radius.md,
+    borderWidth: 1, borderColor: Colors.line,
+    paddingVertical: Spacing.md,
+  },
+  shortcutLabel: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
 
   accountCard: { gap: Spacing.sm, alignItems: 'center' },
   accountEmail: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },

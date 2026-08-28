@@ -35,7 +35,12 @@ describe('statPoints — fórmula V×3 + J×0,5 + GA×2', () => {
 describe('validateScoringConfig — saneamento de entrada', () => {
   it('aceita config válido', () => {
     expect(validateScoringConfig({ winCoef: 4, playedCoef: 1, gaCoef: 2 }))
-      .toEqual({ winCoef: 4, playedCoef: 1, gaCoef: 2 });
+      .toEqual({ winCoef: 4, playedCoef: 1, gaCoef: 2, eventCoef: 0 });
+  });
+
+  it('aceita eventCoef explícito', () => {
+    expect(validateScoringConfig({ winCoef: 4, playedCoef: 1, gaCoef: 2, eventCoef: 5 }))
+      .toEqual({ winCoef: 4, playedCoef: 1, gaCoef: 2, eventCoef: 5 });
   });
 
   it('rejeita negativo, NaN, string e fora do intervalo → fallback', () => {
@@ -59,6 +64,22 @@ describe('buildRanking — respeita cfg custom', () => {
     const a = rk.find(r => r.id === 'a')!;
     // Só vitórias contam (×10): 1 vitória → 10 pontos.
     expect(a.points).toBe(10);
+  });
+
+  it('bônus de eventos conta competições distintas, não jogos', () => {
+    const players: Player[] = ['a', 'b', 'c'].map(id => ({ id, name: id, short: id, color: '#000' }));
+    // 'a' joga 2 partidas na MESMA competição (c1) + 1 em outra (c2) → 2 eventos.
+    // 'b' joga só em c1 (2 partidas) → 1 evento (prova que conta competição, não jogo).
+    const games = [
+      { teamA: ['a'], teamB: ['b'], scoreA: 6, scoreB: 1, compId: 'c1' },
+      { teamA: ['a'], teamB: ['b'], scoreA: 6, scoreB: 1, compId: 'c1' },
+      { teamA: ['a'], teamB: ['c'], scoreA: 6, scoreB: 1, compId: 'c2' },
+    ];
+    const cfg = { winCoef: 0, playedCoef: 0, gaCoef: 0, eventCoef: 10 };
+    const rk = buildRanking(players, games, cfg);
+    expect(rk.find(r => r.id === 'a')!.points).toBe(20); // 2 eventos × 10
+    expect(rk.find(r => r.id === 'b')!.points).toBe(10); // 1 evento × 10 (jogou 2x no mesmo)
+    expect(rk.find(r => r.id === 'c')!.points).toBe(10); // 1 evento × 10
   });
 });
 

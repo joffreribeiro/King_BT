@@ -4,10 +4,10 @@ import { useState, useRef, useMemo, useCallback } from 'react';
 import ViewShot from 'react-native-view-shot';
 import { router } from 'expo-router';
 import { goToPlayer } from '@/logic/nav';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, Type, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Avatar, Card } from '@/components';
+import { Avatar, Card, Icon } from '@/components';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
 import { SkeletonRanking } from '@/components/SkeletonLoader';
 import { TrendBadge } from '@/components/TrendBadge';
@@ -59,6 +59,24 @@ function h2hBetween(
     });
   });
   return { wA, wB };
+}
+
+/** Últimos 5 resultados do jogador, do mais antigo (esq.) ao mais recente (dir.). */
+function FormBars({ form, Colors }: { form: boolean[]; Colors: ThemeColors }) {
+  if (form.length === 0) return <View style={{ width: 77 }} />;
+  return (
+    <View style={{ flexDirection: 'row', gap: 3, width: 77, justifyContent: 'flex-end' }}>
+      {form.map((won, i) => (
+        <View
+          key={i}
+          style={{
+            width: 13, height: 4, borderRadius: 2,
+            backgroundColor: won ? Colors.teal : Colors.coral,
+          }}
+        />
+      ))}
+    </View>
+  );
 }
 
 export default function RankingScreen() {
@@ -161,6 +179,32 @@ export default function RankingScreen() {
     [filteredComps, groupPlayers, scoringConfig]
   );
 
+  // Forma: últimos 5 resultados de cada jogador, em ordem cronológica.
+  // Percorre as competições por data e, dentro delas, os jogos na ordem em
+  // que foram registrados.
+  const formByPlayer = useMemo(() => {
+    const acc: Record<string, boolean[]> = {};
+    [...filteredComps]
+      .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
+      .forEach(comp => {
+        comp.matches.forEach(m => {
+          if (m.scoreA == null || m.scoreB == null || m.scoreA === m.scoreB) return;
+          const aWon = m.scoreA > m.scoreB;
+          const sideA = m.teamA ?? (m.aId ? [m.aId] : []);
+          const sideB = m.teamB ?? (m.bId ? [m.bId] : []);
+          const push = (ids: string[], won: boolean) => ids.forEach(id => {
+            (acc[id] ??= []).push(won);
+          });
+          push(sideA, aWon);
+          push(sideB, !aWon);
+        });
+      });
+    Object.keys(acc).forEach(id => { acc[id] = acc[id].slice(-5); });
+    return acc;
+  }, [filteredComps]);
+
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
   const first  = ranking[0];
   const second = ranking[1];
   const third  = ranking[2];
@@ -242,23 +286,11 @@ export default function RankingScreen() {
         {/* Skeleton enquanto carrega */}
         {!state.synced && <SkeletonRanking />}
 
-        {/* Tabela */}
+        {/* Lista — linha primária com 4 elementos (posição · jogador+tendência ·
+            forma · pontos). A tabela de 10 colunas a 28px e fonte 12 vive no
+            RankingCard, que alimenta o export/compartilhamento, onde ela faz
+            sentido; em 390px ela não era legível. */}
         {state.synced && <View style={styles.table}>
-          <View style={[styles.row, styles.rowHeader]}>
-            <Text style={[styles.c0, styles.th]}>#</Text>
-            <Text style={[styles.cName, styles.th]}>JOGADOR</Text>
-            <Text style={[styles.cStat, styles.th]}>V</Text>
-            <Text style={[styles.cStat, styles.th]}>D</Text>
-            {!compact && <>
-              <Text style={[styles.cStat, styles.th]}>J</Text>
-              <Text style={[styles.cStat, styles.th]}>GP</Text>
-              <Text style={[styles.cStat, styles.th]}>GC</Text>
-            </>}
-            <Text style={[styles.cStatWide, styles.th]}>SG</Text>
-            <Text style={[styles.cStat, styles.th]}>GA</Text>
-            <Text style={[styles.cPts, styles.th]}>PTS</Text>
-          </View>
-
           {ranking.map((s, i) => {
             const pl = findPlayer(s.id);
             const isMe = s.id === MY_ID;
@@ -268,66 +300,34 @@ export default function RankingScreen() {
             const isUp = trendDir === 'up';
             const isDown = trendDir === 'down';
             const aproveitamento = s.played > 0 ? Math.round((s.wins / s.played) * 100) : 0;
+            const expanded = expandedId === s.id;
 
             return (
-              <TouchableOpacity
-                key={s.id}
-                style={[
-                  styles.row,
-                  i < ranking.length - 1 && styles.rowBorder,
-                  isMe && styles.rowMe,
-                  isUp && styles.rowUp,
-                  isDown && styles.rowDown,
-                ]}
-                onPress={() => pl && goToPlayer(s.id)}
-                disabled={!pl}
-                activeOpacity={0.7}
-              >
-                {/* Trend border strip */}
-                {(isUp || isDown) && (
-                  <View style={[styles.trendBorder, { backgroundColor: isUp ? Colors.teal : Colors.coral }]} />
-                )}
+              <View key={s.id} style={[styles.rowWrap, isMe && styles.rowMe, expanded && styles.rowWrapExpanded]}>
+                <TouchableOpacity
+                  style={styles.row}
+                  onPress={() => setExpandedId(expanded ? null : s.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.posText, isMe && { color: Colors.gold }]}>{i + 1}</Text>
 
-                <Text style={[styles.c0, styles.posText, isMe && { color: Colors.gold }]}>{i + 1}</Text>
+                  <Avatar name={pl?.name ?? '?'} color={pl?.color ?? '#888'} size={30} />
 
-                <View style={[styles.cName, styles.rowPlayer]}>
-                  <Avatar name={pl?.name ?? '?'} color={pl?.color ?? '#888'} size={22} />
                   <View style={styles.nameBlock}>
                     <View style={styles.nameRow}>
-                      <Text style={[styles.playerName, isMe && { color: Colors.gold }, { flexShrink: 1 }]} numberOfLines={1}>
+                      <Text style={[styles.playerName, isMe && { color: Colors.gold }]} numberOfLines={1}>
                         {pl?.name ?? s.id}
                       </Text>
-                      {!isMe && MY_ID && (
-                        <TouchableOpacity
-                          onPress={(e) => {
-                            e.stopPropagation();
-                            router.push({ pathname: '/(app)/h2h', params: { playerId1: MY_ID, playerId2: s.id } });
-                          }}
-                          style={{ flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: Colors.gold + '18', borderRadius: Radius.full, paddingHorizontal: 5, paddingVertical: 1 }}
-                          activeOpacity={0.7}
-                          hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                        >
-                          <Text style={{ fontSize: 9 }}>⚔️</Text>
-                          <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.gold }}>vs</Text>
-                        </TouchableOpacity>
-                      )}
+                      {(isUp || isDown)
+                        ? <TrendBadge direction={isUp ? 'up' : 'down'} diff={trendDiff} />
+                        : <Text style={styles.trendSmall}>—</Text>
+                      }
                     </View>
                     <Text style={styles.playerMeta}>{s.played}J · {aproveitamento}% aprov.</Text>
                   </View>
-                </View>
 
-                <Text style={[styles.cStat, styles.statText]}>{s.wins}</Text>
-                <Text style={[styles.cStat, styles.statText]}>{s.losses}</Text>
-                {!compact && <>
-                  <Text style={[styles.cStat, styles.statText]}>{s.played}</Text>
-                  <Text style={[styles.cStat, styles.statText]}>{s.gamesPro}</Text>
-                  <Text style={[styles.cStat, styles.statText]}>{s.gamesCon}</Text>
-                </>}
-                <Text style={[styles.cStatWide, styles.statText, { color: sgColor(s.sg, Colors) }]}>
-                  {s.sg > 0 ? '+' : ''}{s.sg}
-                </Text>
-                <Text style={[styles.cStat, styles.statText]}>{s.ga >= 10 ? s.ga.toFixed(1) : s.ga.toFixed(2)}</Text>
-                <View style={[styles.cPts, { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 3 }]}>
+                  <FormBars form={formByPlayer[s.id] ?? []} Colors={Colors} />
+
                   <AnimatedNumber
                     value={s.points}
                     decimals={2}
@@ -335,12 +335,47 @@ export default function RankingScreen() {
                     style={styles.ptsText}
                     color={Colors.gold}
                   />
-                  {(isUp || isDown)
-                    ? <TrendBadge direction={isUp ? 'up' : 'down'} diff={trendDiff} />
-                    : <Text style={[styles.trendSmall, { width: 16, textAlign: 'right', color: Colors.faint }]}>—</Text>
-                  }
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+
+                {expanded && (
+                  <View style={styles.expandPanel}>
+                    <View style={styles.statGrid}>
+                      {([
+                        { label: 'VITÓRIAS', value: String(s.wins) },
+                        { label: 'DERROTAS', value: String(s.losses) },
+                        { label: 'SALDO',    value: `${s.sg > 0 ? '+' : ''}${s.sg}`, color: sgColor(s.sg, Colors) },
+                        { label: 'GA',       value: s.ga >= 10 ? s.ga.toFixed(1) : s.ga.toFixed(2) },
+                      ] as const).map(st => (
+                        <View key={st.label} style={styles.statCell}>
+                          <Text style={styles.statCellLabel}>{st.label}</Text>
+                          <Text style={[styles.statCellValue, (st as any).color ? { color: (st as any).color } : null]}>
+                            {st.value}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                    <View style={styles.expandActions}>
+                      {!isMe && MY_ID && (
+                        <TouchableOpacity
+                          style={styles.expandBtn}
+                          onPress={() => router.push({ pathname: '/(app)/h2h', params: { playerId1: MY_ID, playerId2: s.id } })}
+                        >
+                          <Icon name="compare" size={15} color={Colors.gold} />
+                          <Text style={styles.expandBtnText}>Comparar (H2H)</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity
+                        style={styles.expandBtn}
+                        onPress={() => pl && goToPlayer(s.id)}
+                        disabled={!pl}
+                      >
+                        <Icon name="profile" size={15} color={Colors.gold} />
+                        <Text style={styles.expandBtnText}>Ver perfil</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </View>
             );
           })}
         </View>}
@@ -348,7 +383,7 @@ export default function RankingScreen() {
         {/* Legenda */}
         {state.synced && <View style={styles.legend}>
           <Text style={styles.legendText}>
-            V: Vitórias · D: Derrotas{!compact ? ' · J: Partidas · GP: Games Pró · GC: Games Contra' : ''} · SG: Saldo de Games · GA: Game Average (GP ÷ GC) · PTS: Pontuação
+            Toque num jogador para ver V/D/Saldo/GA e comparar. As barrinhas são os últimos 5 jogos — verde é vitória.
           </Text>
         </View>}
 
@@ -653,13 +688,13 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   headerCompact: { flexDirection: 'column', alignItems: 'stretch', gap: Spacing.sm },
   headerActionsCompact: { flexWrap: 'wrap' },
   title: { fontFamily: FontFamily.titleBold, fontSize: 28, color: Colors.text },
-  subtitle: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: 2 },
+  subtitle: { ...Type.body, color: Colors.muted, marginTop: 2 },
   formulaBtn: {
     backgroundColor: Colors.surf2, borderRadius: Radius.full,
     paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs,
     borderWidth: 1, borderColor: Colors.line,
   },
-  formulaBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal },
+  formulaBtnText: { ...Type.bodyMed, color: Colors.teal },
 
   podiumWrap: {
     marginHorizontal: Spacing.md,
@@ -688,56 +723,57 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
 
   legend: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
-  legendText: { fontFamily: FontFamily.body, fontSize: 10, color: Colors.faint, textAlign: 'center', lineHeight: 16 },
+  legendText: { ...Type.caption, color: Colors.faint, textAlign: 'center', lineHeight: 16 },
 
-  table: { marginTop: Spacing.md },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.md, paddingVertical: 7 },
-  rowHeader: { paddingVertical: 5 },
-  rowBorder: { borderBottomWidth: 1, borderBottomColor: Colors.line },
-  rowMe: { backgroundColor: Colors.gold + '14', borderLeftWidth: 3, borderLeftColor: Colors.gold },
-  rowUp: { borderColor: Colors.teal + '33' },
-  rowDown: { borderColor: Colors.coral + '26' },
-
-  trendBorder: {
-    position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,
+  table: { marginTop: Spacing.md, paddingHorizontal: Spacing.md, gap: Spacing.xs },
+  rowWrap: {
+    backgroundColor: Colors.surf, borderRadius: Radius.md,
+    borderWidth: 1, borderColor: Colors.line, overflow: 'hidden',
+  },
+  rowWrapExpanded: { borderColor: Colors.gold + '55' },
+  rowMe: { borderColor: Colors.gold, borderWidth: 1.5 },
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    paddingHorizontal: Spacing.sm + 2, paddingVertical: Spacing.sm,
   },
 
-  c0: { width: 22 },
-  cName: { flex: 1 },
-  cStat: { width: 30, textAlign: 'center' },
-  cStatWide: { width: 36, textAlign: 'center' },
-  // width igual ao View de PTS na linha de dados (número + selo de tendência);
-  // alignItems não funciona em Text, por isso o cabeçalho ficava desalinhado
-  cPts: { width: 80, textAlign: 'right' },
-
-  th: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 0.3 },
-  posText: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted },
-  rowPlayer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  posText: { ...Type.bodyMed, fontFamily: FontFamily.numberBold, color: Colors.muted, width: 18, textAlign: 'center' },
   nameBlock: { flex: 1, overflow: 'hidden' },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 3, overflow: 'hidden' },
-  playerName: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.text, flexShrink: 1 },
-  playerMeta: { fontSize: 9, color: Colors.faint, fontFamily: FontFamily.body, marginTop: 1 },
-  youBadge: {
-    backgroundColor: Colors.gold + '33', borderRadius: Radius.full,
-    paddingHorizontal: 5, paddingVertical: 1,
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4, overflow: 'hidden' },
+  playerName: { ...Type.bodyMed, color: Colors.text, flexShrink: 1 },
+  playerMeta: { ...Type.caption, fontSize: 10, color: Colors.faint, marginTop: 1 },
+  ptsText: { ...Type.title, fontFamily: FontFamily.numberBold, color: Colors.gold, textAlign: 'right', minWidth: 52 },
+  trendSmall: { ...Type.caption, fontSize: 9, fontFamily: FontFamily.numberBold, color: Colors.faint },
+
+  expandPanel: {
+    borderTopWidth: 1, borderTopColor: Colors.line,
+    padding: Spacing.sm + 2, gap: Spacing.sm,
+    backgroundColor: Colors.surf2,
   },
-  youText: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.gold },
-  statText: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.text, textAlign: 'center' },
-  ptsText: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.gold, textAlign: 'right' },
-  trendSmall: { fontFamily: FontFamily.numberBold, fontSize: 9, fontWeight: '700', textAlign: 'right' },
+  statGrid: { flexDirection: 'row' },
+  statCell: { flex: 1, alignItems: 'center', gap: 2 },
+  statCellLabel: { ...Type.label, color: Colors.faint },
+  statCellValue: { ...Type.title, fontFamily: FontFamily.numberBold, color: Colors.text },
+  expandActions: { flexDirection: 'row', gap: Spacing.sm },
+  expandBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderWidth: 1, borderColor: Colors.gold + '55', borderRadius: Radius.md,
+    paddingVertical: Spacing.sm,
+  },
+  expandBtnText: { ...Type.bodyMed, color: Colors.gold },
 });
 
 const makeCmpStyles = (Colors: ThemeColors) => StyleSheet.create({
   playerOpt: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 5, paddingHorizontal: Spacing.xs, borderRadius: Radius.sm },
   playerOptActive: { backgroundColor: Colors.gold + '22' },
-  playerOptText: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, flex: 1 },
+  playerOptText: { ...Type.bodyMed, color: Colors.text, flex: 1 },
   compareCard: { backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm, marginTop: Spacing.sm },
   compareHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xs },
-  compareName: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.text, marginTop: 4 },
+  compareName: { ...Type.bodyMed, color: Colors.text, marginTop: 4 },
   compareVs: { fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.faint },
   statRow: { flexDirection: 'row', alignItems: 'center' },
   statVal: { flex: 1, fontFamily: FontFamily.numberBold, fontSize: 14, color: Colors.text },
-  statLabel: { width: 64, textAlign: 'center', fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
+  statLabel: { width: 64, textAlign: 'center', ...Type.caption, color: Colors.faint },
 });
 
 const makeModalStyles = (Colors: ThemeColors) => StyleSheet.create({
@@ -748,16 +784,16 @@ const makeModalStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   title: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text, textAlign: 'center', marginBottom: Spacing.xs },
   formula: { fontFamily: FontFamily.numberBold, fontSize: 18, color: Colors.text, textAlign: 'center' },
-  note: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, textAlign: 'center' },
+  note: { ...Type.body, color: Colors.muted, textAlign: 'center' },
   divider: { height: 1, backgroundColor: Colors.line, marginVertical: Spacing.xs },
   example: { gap: 3 },
   exTitle: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.muted },
   exText: { fontFamily: FontFamily.number, fontSize: 14, color: Colors.text },
   desempateTitle: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.muted },
-  desempateItem: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.text },
+  desempateItem: { ...Type.body, color: Colors.text },
   closeBtn: {
     backgroundColor: Colors.gold, borderRadius: Radius.md,
     paddingVertical: Spacing.md, alignItems: 'center', marginTop: Spacing.sm,
   },
-  closeBtnText: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg },
+  closeBtnText: { ...Type.title, color: Colors.bg },
 });

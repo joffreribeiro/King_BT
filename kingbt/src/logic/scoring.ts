@@ -24,7 +24,7 @@ export interface RankRow {
 }
 
 export function blankStat(): PlayerStat {
-  return { id: '', played: 0, wins: 0, losses: 0, gamesPro: 0, gamesCon: 0 };
+  return { id: '', played: 0, wins: 0, losses: 0, gamesPro: 0, gamesCon: 0, events: 0 };
 }
 
 /** GA = GamesPró ÷ GamesContra (nunca divide por 0, máximo 9.99) */
@@ -34,11 +34,14 @@ export function gameAverage(s: Pick<ScoreStats, 'gamesPro' | 'gamesCon'>): numbe
 }
 
 /**
- * Pts = (V×winCoef) + (J×playedCoef) + (GA×gaCoef).
- * Coeficientes vêm do cfg (padrão: V×3 + J×0,5 + GA×2).
+ * Pts = (V×winCoef) + (J×playedCoef) + (GA×gaCoef) + (Eventos×eventCoef).
+ * Coeficientes vêm do cfg (padrão: V×3 + J×0,5 + GA×2, sem bônus de eventos).
+ * `events` é opcional pra não quebrar chamadas que só têm ScoreStats (sem
+ * contagem de competições distintas) — nesse caso o termo de eventos é 0.
  */
-export function statPoints(s: ScoreStats, cfg: ScoringConfig = DEFAULT_SCORING): number {
-  return s.wins * cfg.winCoef + s.played * cfg.playedCoef + gameAverage(s) * cfg.gaCoef;
+export function statPoints(s: ScoreStats & { events?: number }, cfg: ScoringConfig = DEFAULT_SCORING): number {
+  return s.wins * cfg.winCoef + s.played * cfg.playedCoef + gameAverage(s) * cfg.gaCoef
+    + (s.events ?? 0) * (cfg.eventCoef ?? 0);
 }
 
 /**
@@ -83,12 +86,27 @@ export function applyGame(
 
 export function buildRanking(
   players: Player[],
-  games: Array<{ teamA: string[]; teamB: string[]; scoreA: number; scoreB: number }>,
+  games: Array<{ teamA: string[]; teamB: string[]; scoreA: number; scoreB: number; compId?: string }>,
   cfg: ScoringConfig = DEFAULT_SCORING,
 ): RankedPlayer[] {
   const map: Record<string, PlayerStat> = {};
   players.forEach(p => { map[p.id] = { ...blankStat(), id: p.id }; });
   games.forEach(g => applyGame(map, g));
+
+  // Eventos = nº de competições distintas em que o jogador teve pelo menos
+  // 1 jogo válido (mesma base de dados de V/J/GA — sem campo novo). Jogos
+  // sem compId (chamadores antigos) simplesmente não contam pra isso.
+  const eventsByPlayer = new Map<string, Set<string>>();
+  games.forEach(g => {
+    if (!g.compId) return;
+    [...g.teamA, ...g.teamB].forEach(id => {
+      if (!eventsByPlayer.has(id)) eventsByPlayer.set(id, new Set());
+      eventsByPlayer.get(id)!.add(g.compId!);
+    });
+  });
+  eventsByPlayer.forEach((comps, id) => {
+    if (map[id]) map[id].events = comps.size;
+  });
 
   function h2h(idA: string, idB: string): number {
     let wA = 0, wB = 0;

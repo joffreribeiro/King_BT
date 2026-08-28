@@ -12,49 +12,14 @@ import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useUpdate } from '@/store/UpdateContext';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { Avatar } from '@/components';
+import { Avatar, Icon, type IconName } from '@/components';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import Svg, { Path, Rect, Circle, Polyline } from 'react-native-svg';
-import type { ReactElement } from 'react';
 
-// ── SVG Icons ─────────────────────────────────────────────────────────────────
-function IconFeed({ color, size }: { color: string; size: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 12h3l3-7 3 14 3-10 3 5h3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-function IconCompetitions({ color, size }: { color: string; size: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M8 2h8v8a4 4 0 01-8 0V2z" stroke={color} strokeWidth="2" fill="none" strokeLinejoin="round" />
-      <Path d="M5 3H3v4a4 4 0 004 4M19 3h2v4a4 4 0 01-4 4M12 14v4M9 21h6" stroke={color} strokeWidth="2" strokeLinecap="round" fill="none" />
-    </Svg>
-  );
-}
-function IconRanking({ color, size }: { color: string; size: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M7 3h10v9c0 2.76-2.24 5-5 5s-5-2.24-5-5V3z" stroke={color} strokeWidth="2" fill="none" strokeLinejoin="round" />
-      <Path d="M7 7H4v3a3 3 0 003 3M17 7h3v3a3 3 0 01-3 3M12 17v2M9 21h6" stroke={color} strokeWidth="2" strokeLinecap="round" fill="none" />
-    </Svg>
-  );
-}
-function IconProfile({ color, size }: { color: string; size: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="8" r="4" stroke={color} strokeWidth="2" fill="none" />
-      <Path d="M4 21c0-3.87 3.58-7 8-7s8 3.13 8 7" stroke={color} strokeWidth="2" strokeLinecap="round" fill="none" />
-    </Svg>
-  );
-}
-
-const TAB_CONFIG: Record<string, { icon: (p: { color: string; size: number }) => ReactElement; label: string }> = {
-  feed:    { icon: IconFeed,         label: 'Atividade'    },
-  index:   { icon: IconCompetitions, label: 'Competições'  },
-  ranking: { icon: IconRanking,      label: 'Ranking'      },
-  profile: { icon: IconProfile,      label: 'Eu'           },
+const TAB_CONFIG: Record<string, { icon: IconName; label: string }> = {
+  feed:    { icon: 'feed',         label: 'Atividade'    },
+  index:   { icon: 'competitions', label: 'Competições'  },
+  ranking: { icon: 'ranking',      label: 'Ranking'      },
+  profile: { icon: 'profile',      label: 'Eu'           },
 };
 
 // ── Drawer ────────────────────────────────────────────────────────────────────
@@ -101,7 +66,7 @@ function DrawerMenu({ visible, onClose }: { visible: boolean; onClose: () => voi
             {group && <Text style={dr.headerSub}>{group.name}</Text>}
           </View>
           <TouchableOpacity onPress={onClose} style={dr.closeBtn}>
-            <Text style={dr.closeBtnTxt}>✕</Text>
+            <Icon name="close" size={14} color={Colors.muted} />
           </TouchableOpacity>
         </View>
 
@@ -124,7 +89,7 @@ function DrawerMenu({ visible, onClose }: { visible: boolean; onClose: () => voi
           {/* Calendário */}
           <Text style={dr.sectionLabel}>CALENDÁRIO</Text>
           <TouchableOpacity style={dr.menuBtn} onPress={() => { onClose(); router.push('/(app)/calendar'); }}>
-            <Text style={dr.menuBtnIcon}>📅</Text>
+            <View style={dr.menuBtnIcon}><Icon name="calendar" size={18} color={Colors.muted} /></View>
             <Text style={dr.menuBtnTxt}>Calendário</Text>
           </TouchableOpacity>
 
@@ -133,15 +98,15 @@ function DrawerMenu({ visible, onClose }: { visible: boolean; onClose: () => voi
           {/* Dashboard do Grupo */}
           <Text style={dr.sectionLabel}>GRUPO</Text>
           <TouchableOpacity style={dr.menuBtn} onPress={() => { onClose(); router.push('/(app)/dashboard'); }}>
-            <Text style={dr.menuBtnIcon}>👥</Text>
+            <View style={dr.menuBtnIcon}><Icon name="users" size={18} color={Colors.muted} /></View>
             <Text style={dr.menuBtnTxt}>Dashboard do Grupo</Text>
           </TouchableOpacity>
           <TouchableOpacity style={dr.menuBtn} onPress={() => { onClose(); router.push('/hall'); }}>
-            <Text style={dr.menuBtnIcon}>👑</Text>
+            <View style={dr.menuBtnIcon}><Icon name="crown" size={18} color={Colors.muted} /></View>
             <Text style={dr.menuBtnTxt}>Hall dos Campeões</Text>
           </TouchableOpacity>
           <TouchableOpacity style={dr.menuBtn} onPress={() => { onClose(); router.push('/treino'); }}>
-            <Text style={dr.menuBtnIcon}>📈</Text>
+            <View style={dr.menuBtnIcon}><Icon name="chart" size={18} color={Colors.muted} /></View>
             <Text style={dr.menuBtnTxt}>Análise Individual</Text>
           </TouchableOpacity>
 
@@ -150,7 +115,7 @@ function DrawerMenu({ visible, onClose }: { visible: boolean; onClose: () => voi
           {/* Configurações */}
           <Text style={dr.sectionLabel}>CONFIGURAÇÕES</Text>
           <TouchableOpacity style={dr.menuBtn} onPress={() => { onClose(); router.push('/(app)/settings'); }}>
-            <Text style={dr.menuBtnIcon}>⚙️</Text>
+            <View style={dr.menuBtnIcon}><Icon name="settings" size={18} color={Colors.muted} /></View>
             <Text style={dr.menuBtnTxt}>Configurações</Text>
           </TouchableOpacity>
 
@@ -201,10 +166,10 @@ function FABMenu({ insetBottom }: { insetBottom: number }) {
 
   const fabBottom = Math.max(insetBottom, 8) + 68;
 
-  const FAB_ITEMS = [
-    { icon: '➕', label: 'Nova Competição', path: '/competitions/new/format' },
-    { icon: '🤝', label: 'Jogo Amistoso',   path: '/amistoso' },
-    { icon: '🏓', label: 'Quadra ao Vivo',  path: '/court' },
+  const FAB_ITEMS: { icon: IconName; label: string; path: string }[] = [
+    { icon: 'competitions', label: 'Nova Competição', path: '/competitions/new/format' },
+    { icon: 'compare',      label: 'Jogo Amistoso',   path: '/amistoso' },
+    { icon: 'ranking',      label: 'Quadra ao Vivo',  path: '/court' },
   ];
 
   return (
@@ -225,7 +190,7 @@ function FABMenu({ insetBottom }: { insetBottom: number }) {
           ),
         ]}>
           <TouchableOpacity style={fab.itemBtn} onPress={() => action(item.path)} activeOpacity={0.85}>
-            <Text style={fab.itemIcon}>{item.icon}</Text>
+            <Icon name={item.icon} size={18} color={Colors.text} />
             <Text style={fab.itemLabel}>{item.label}</Text>
           </TouchableOpacity>
         </Animated.View>
@@ -261,7 +226,7 @@ function TabItem({ route, isFocused, onPress }: {
       accessibilityRole="button" accessibilityState={{ selected: isFocused }}>
       {/* Indicador topo */}
       <Animated.View style={[tb.indicator, { opacity: anim, backgroundColor: Colors.gold }]} />
-      <config.icon color={color} size={22} />
+      <Icon name={config.icon} color={color} size={22} />
       <Text style={[tb.label, { color }]}>{config.label}</Text>
     </TouchableOpacity>
   );
@@ -387,7 +352,7 @@ function AppHeader({ onMenuPress }: { onMenuPress: () => void }) {
             style={hd.bellBtn}
             activeOpacity={0.75}
           >
-            <Text style={hd.bellIcon}>🔔</Text>
+            <Icon name="bell" size={18} color={Colors.muted} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/(app)/profile')} activeOpacity={0.8}>
             <Avatar
@@ -397,7 +362,7 @@ function AppHeader({ onMenuPress }: { onMenuPress: () => void }) {
             />
           </TouchableOpacity>
           <TouchableOpacity style={hd.menuBtn} onPress={onMenuPress} activeOpacity={0.75}>
-            <Text style={hd.menuIcon}>≡</Text>
+            <Icon name="menu" size={20} color={Colors.muted} />
           </TouchableOpacity>
         </View>
       </View>
@@ -455,9 +420,7 @@ const makeHdStyles = (Colors: ThemeColors) => StyleSheet.create({
   groupLabel: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted, letterSpacing: 1 },
   groupName: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text },
   bellBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
-  bellIcon: { fontSize: 16 },
   menuBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
-  menuIcon: { fontSize: 20, color: Colors.muted },
 });
 
 const makeTbStyles = (Colors: ThemeColors) => StyleSheet.create({
@@ -481,7 +444,6 @@ const makeDrStyles = (Colors: ThemeColors) => StyleSheet.create({
   headerTitle: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
   headerSub: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: 2 },
   closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
-  closeBtnTxt: { fontSize: 14, color: Colors.muted },
   content: { flex: 1, padding: 16 },
   sectionLabel: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.gold, letterSpacing: 1, marginBottom: 10, marginTop: 4 },
   groupBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1 },
@@ -491,7 +453,7 @@ const makeDrStyles = (Colors: ThemeColors) => StyleSheet.create({
   groupBtnNewTxt: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
   divider: { height: 1, backgroundColor: Colors.line, marginVertical: 16 },
   menuBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 10, marginBottom: 8 },
-  menuBtnIcon: { fontSize: 18, width: 28 },
+  menuBtnIcon: { width: 28, alignItems: 'flex-start' },
   menuBtnTxt: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
   footer: { padding: 16, borderTopWidth: 1, borderTopColor: Colors.line },
   logoutBtn: { padding: 12, borderRadius: 10, backgroundColor: 'rgba(229,72,61,0.12)', borderWidth: 1, borderColor: 'rgba(229,72,61,0.3)', alignItems: 'center' },
@@ -517,7 +479,6 @@ const makeFabStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
   },
-  itemIcon: { fontSize: 18 },
   itemLabel: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
 });
 

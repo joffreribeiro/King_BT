@@ -4,7 +4,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, formatAccent, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card } from '@/components';
 import { useFeed } from '@/store/FeedContext';
@@ -15,14 +15,6 @@ import { toggleReaction, addComment, deleteComment, type FeedItem } from '@/fire
 import { goToPlayer } from '@/logic/nav';
 
 const EMOJIS = ['👑', '🔥', '💪'] as const;
-
-const makeFormatColor = (Colors: ThemeColors): Record<string, string> => ({
-  liga:   Colors.teal,
-  grupos: '#6B7FD7',
-  mata:   Colors.coral,
-  avulso: '#38BDF8',
-  super8: '#F472B6',
-});
 
 function timeAgo(ts: any): string {
   const ms = Date.now() - (ts?.toDate?.()?.getTime?.() ?? Date.now());
@@ -253,14 +245,13 @@ const makeCmStyles = (Colors: ThemeColors) => StyleSheet.create({
 function MatchResultCard({ item }: { item: FeedItem }) {
   const { colors: Colors } = useTheme();
   const mc = useMemo(() => makeMcStyles(Colors), [Colors]);
-  const FORMAT_COLOR = useMemo(() => makeFormatColor(Colors), [Colors]);
   const { user, group } = useAuth();
   const { findPlayer } = useGroupPlayers();
   const [showComments, setShowComments] = useState(false);
   const gameSets = useMatchGames(item);
 
   const aWon = (item.sideA?.score ?? 0) > (item.sideB?.score ?? 0);
-  const accent = FORMAT_COLOR[item.format ?? ''] ?? Colors.gold;
+  const accent = formatAccent(Colors, item.format ?? '');
 
   // Score glow animado
   const scoreGlow = useRef(new Animated.Value(0)).current;
@@ -562,8 +553,7 @@ function FeedSkeleton() {
 function CompGroupCard({ compName, matches }: { compName: string; matches: FeedItem[] }) {
   const { colors: Colors } = useTheme();
   const mc = useMemo(() => makeMcStyles(Colors), [Colors]);
-  const FORMAT_COLOR = useMemo(() => makeFormatColor(Colors), [Colors]);
-  const accent = FORMAT_COLOR[matches[0]?.format ?? ''] ?? Colors.gold;
+  const accent = formatAccent(Colors, matches[0]?.format ?? '');
   const time = timeAgo(matches[0]?.timestamp);
 
   const cardOpacity = useRef(new Animated.Value(0)).current;

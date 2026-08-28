@@ -4,6 +4,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { DEFAULT_SCORING, validateScoringConfig, type ScoringConfig } from '@/logic/scoringConfig';
 import type { Format } from '@/logic/types';
+import { useAuth } from './AuthContext';
 
 type CtxType = {
   defaultMaxScore: number;
@@ -15,8 +16,9 @@ type CtxType = {
   // aberto ao salvar ponto" do BT Tracker, adaptado à tela contínua do King BT).
   keepSacadorAfterSave: boolean;
   setKeepSacadorAfterSave: (v: boolean) => void;
-  // Fórmula de pontuação global (editável só pelo Super Admin). Carregada em
-  // tempo real de /config/scoring; cai no DEFAULT_SCORING se ausente/erro.
+  // Fórmula de pontuação do grupo ativo (editável pelo admin do grupo).
+  // Carregada em tempo real de /groups/{groupId}/config/scoring; cai no
+  // DEFAULT_SCORING se ausente/erro/sem grupo.
   scoringConfig: ScoringConfig;
 };
 
@@ -33,6 +35,7 @@ const Ctx = createContext<CtxType>({
 const KEEP_SACADOR_KEY = 'settings:keepSacadorAfterSave';
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
+  const { group } = useAuth();
   const [defaultMaxScore, setDefaultMaxScore] = useState(6);
   const [defaultFormat, setDefaultFormat] = useState<Format | ''>('');
   const [keepSacadorAfterSave, setKeepSacadorAfterSaveState] = useState(false);
@@ -44,16 +47,23 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Fórmula de pontuação em tempo real: qualquer edição do Super Admin
-  // se propaga a todos os dispositivos sem precisar reabrir o app.
+  // Fórmula de pontuação em tempo real: qualquer edição do admin do grupo
+  // se propaga a todos os dispositivos sem precisar reabrir o app. Re-assina
+  // sempre que o grupo ativo mudar (troca de grupo, login/logout).
+  // Fica num campo do próprio doc do grupo (não numa subcoleção) pra
+  // reaproveitar a regra de escrita já existente, restrita ao admin.
   useEffect(() => {
+    if (!group) {
+      setScoringConfig(DEFAULT_SCORING);
+      return;
+    }
     const unsub = onSnapshot(
-      doc(db, 'config', 'scoring'),
-      snap => setScoringConfig(snap.exists() ? validateScoringConfig(snap.data()) : DEFAULT_SCORING),
+      doc(db, 'groups', group.id),
+      snap => setScoringConfig(snap.exists() ? validateScoringConfig(snap.data()?.scoringConfig) : DEFAULT_SCORING),
       () => setScoringConfig(DEFAULT_SCORING),
     );
     return unsub;
-  }, []);
+  }, [group?.id]);
 
   function setKeepSacadorAfterSave(v: boolean) {
     setKeepSacadorAfterSaveState(v);

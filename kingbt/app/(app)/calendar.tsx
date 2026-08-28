@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useMemo } from 'react';
 import { Calendar } from 'react-native-calendars';
 import { router } from 'expo-router';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, formatAccent, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Card } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -12,10 +12,6 @@ import type { Competition } from '@/logic/types';
 const FORMAT_LABEL: Record<string, string> = {
   avulso: 'Avulso', liga: 'Liga', grupos: 'Grupos',
   mata: 'Mata-Mata', super8: 'Super 8',
-};
-const FORMAT_COLOR: Record<string, string> = {
-  avulso: '#38BDF8', liga: '#54B981', grupos: '#6B7FD7',
-  mata: '#E5483D',   super8: '#F472B6',
 };
 
 export default function CalendarScreen() {
@@ -181,7 +177,7 @@ export default function CalendarScreen() {
               </Card>
             ) : (
               selectedComps.map(comp => {
-                const accent = FORMAT_COLOR[comp.format] ?? Colors.gold;
+                const accent = formatAccent(Colors, comp.format);
                 const played = comp.matches.filter(m => m.scoreA != null).length;
                 return (
                   <TouchableOpacity

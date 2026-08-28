@@ -70,25 +70,37 @@ export default function CompetitionDetail() {
     return allGroupsComplete ? 'partidas' : 'classificacao';
   });
 
-  function triggerChampion() {
+  /**
+   * @param celebrate confete só quando a competição ACABOU de ser encerrada
+   *   nesta sessão. Ao apenas abrir uma competição já encerrada, o banner do
+   *   campeão aparece sem confete — a celebração é do momento da conquista,
+   *   não de toda visita ao histórico.
+   */
+  function triggerChampion(celebrate: boolean) {
     if (confettiFired.current) return;
     confettiFired.current = true;
-    setShowConfetti(true);
     setShowChampion(true);
     champAnim.setValue(0);
     Animated.spring(champAnim, { toValue: 1, useNativeDriver: true, tension: 60, friction: 7 }).start();
-    setTimeout(() => setShowConfetti(false), 4000);
+    if (celebrate) {
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 4000);
+    }
   }
 
-  // Dispara quando o status muda para 'done' em tempo real
+  // Status anterior, para distinguir "acabou de encerrar" de "já estava
+  // encerrada quando abri" — antes os dois casos caíam no mesmo caminho e a
+  // competição encerrada soltava confete a cada abertura.
+  const prevStatus = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (comp?.status === 'done' && competitionChampion(comp, id => findPlayer(id)?.name ?? id)) triggerChampion();
-  }, [comp?.status]);
-
-  // Dispara ao entrar numa competição já concluída (comp carrega após montagem)
-  useEffect(() => {
-    if (comp?.status === 'done' && competitionChampion(comp, id => findPlayer(id)?.name ?? id)) triggerChampion();
-  }, [!!comp]);
+    const was = prevStatus.current;
+    prevStatus.current = comp?.status;
+    if (comp?.status !== 'done') return;
+    if (!competitionChampion(comp, id => findPlayer(id)?.name ?? id)) return;
+    // `was === undefined` = primeira leitura (abri a tela); qualquer outro
+    // valor diferente de 'done' = encerrou agora, com o app aberto.
+    triggerChampion(was !== undefined && was !== 'done');
+  }, [comp?.status, !!comp]);
 
   // Para competição tipo "Grupo", ajusta a aba quando a fase muda (grupos completos → mata-mata)
   useEffect(() => {

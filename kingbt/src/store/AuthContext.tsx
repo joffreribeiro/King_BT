@@ -16,6 +16,7 @@ import { auth, db } from '@/firebase/config';
 import { Logger } from '@/services/Logger';
 import * as Device from 'expo-device';
 import * as Localization from 'expo-localization';
+import { validateScoringConfig, type ScoringConfig } from '@/logic/scoringConfig';
 
 // Super Admins: acesso total em qualquer grupo + recursos exclusivos (King Scout).
 // Identificados pelo e-mail da conta logada.
@@ -46,6 +47,8 @@ export type Group = {
   members?: string[];
   /** Grupo público pode ser visitado (somente leitura) por qualquer usuário logado. Ausente = privado. */
   visibility?: 'privado' | 'publico';
+  /** Fórmula de pontuação do grupo. Ausente = DEFAULT_SCORING (grupos antigos). */
+  scoringConfig?: ScoringConfig;
 };
 
 type AuthState = {
@@ -78,7 +81,7 @@ type AuthContextType = AuthState & {
   resetPassword: (email: string) => Promise<boolean>;
   joinGroup: (code: string) => Promise<{ unlinkedPlayers: UnlinkedPlayer[]; needsLink?: boolean }>;
   linkToPlayer: (playerId: string) => Promise<void>;
-  createGroup: (name: string, visibility?: 'privado' | 'publico') => Promise<void>;
+  createGroup: (name: string, visibility?: 'privado' | 'publico', scoringConfig?: ScoringConfig) => Promise<void>;
   leaveGroup: () => Promise<void>;
   switchGroup: (groupId: string) => Promise<void>;
   getMyGroups: () => Promise<Group[]>;
@@ -472,7 +475,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function createGroup(name: string, visibility: 'privado' | 'publico' = 'privado') {
+  async function createGroup(name: string, visibility: 'privado' | 'publico' = 'privado', scoringConfig?: ScoringConfig) {
     if (!user) { setError('Faça login primeiro.'); return; }
     try {
       setError(null);
@@ -493,6 +496,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         admins: [user.uid],
         members: [user.uid],
         visibility,
+        // Fórmula de pontuação inicial — gravada junto na criação (mesma
+        // escrita, sem request extra). Se o criador não mexeu no formulário,
+        // vem undefined e o grupo simplesmente usa o DEFAULT_SCORING.
+        ...(scoringConfig ? { scoringConfig: validateScoringConfig(scoringConfig) } : {}),
       });
       // Cria player no grupo
       await setDoc(doc(db, 'groups', groupRef.id, 'players', user.uid), {

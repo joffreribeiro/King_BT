@@ -5,7 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { router } from 'expo-router';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, formatAccent, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
@@ -28,14 +28,6 @@ interface MatchEntry {
   insight: string;
   accentColor: string;
 }
-
-const FORMAT_COLOR: Record<string, string> = {
-  liga:   '#54B981',
-  grupos: '#6B7FD7',
-  mata:   '#E5483D',
-  avulso: '#38BDF8',
-  super8: '#C084FC',
-};
 
 const FORMAT_LABEL: Record<string, string> = {
   liga: 'Liga', grupos: 'Grupos', mata: 'Mata-mata', avulso: 'Avulso', super8: 'Super 8',
@@ -264,7 +256,7 @@ export default function HistoryScreen() {
           isWin,
           ratingDelta:     ptsDelta,
           insight:         getInsight(isWin, myScore, oppScore),
-          accentColor:     FORMAT_COLOR[comp.format] ?? Colors.gold,
+          accentColor:     formatAccent(Colors, comp.format),
         });
       });
     });

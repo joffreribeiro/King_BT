@@ -11,6 +11,8 @@ import { useAuth } from '@/store/AuthContext';
 import type { Group, UnlinkedPlayer } from '@/store/AuthContext';
 import { LinkPlayerModal } from '@/components/LinkPlayerModal';
 import { VisibilityPicker, type GroupVisibility } from '@/components';
+import { DEFAULT_SCORING, isScoringConfigValid, type ScoringConfig } from '@/logic/scoringConfig';
+import { statPoints } from '@/logic/scoring';
 
 type Mode = 'list' | 'join' | 'create';
 
@@ -26,6 +28,27 @@ export default function GroupsScreen() {
   const [name, setName]         = useState('');
   const [visibility, setVisibility] = useState<GroupVisibility>('privado');
   const [busy, setBusy]         = useState(false);
+
+  // Fórmula de pontuação (opcional) — mesmo padrão de app/(app)/settings.tsx.
+  const [showScoring, setShowScoring] = useState(false);
+  const [scoreForm, setScoreForm] = useState({
+    winCoef:    String(DEFAULT_SCORING.winCoef),
+    playedCoef: String(DEFAULT_SCORING.playedCoef),
+    gaCoef:     String(DEFAULT_SCORING.gaCoef),
+    eventCoef:  String(DEFAULT_SCORING.eventCoef ?? 0),
+  });
+  const parseCoef = (v: string) => Number(v.replace(',', '.').trim());
+  const parsedScoring: ScoringConfig = {
+    winCoef:    parseCoef(scoreForm.winCoef),
+    playedCoef: parseCoef(scoreForm.playedCoef),
+    gaCoef:     parseCoef(scoreForm.gaCoef),
+    eventCoef:  parseCoef(scoreForm.eventCoef),
+  };
+  const scoringValid = isScoringConfigValid(parsedScoring);
+  // Preview em tempo real: exemplo fixo (5V, 8J, GA 1.5, 3 eventos).
+  const previewPts = scoringValid
+    ? statPoints({ played: 8, wins: 5, gamesPro: 3, gamesCon: 2, events: 3 }, parsedScoring)
+    : null;
 
   // Modal de vínculo de perfil — só aparece ao entrar num grupo novo por código
   const [unlinked, setUnlinked] = useState<UnlinkedPlayer[]>([]);
@@ -100,9 +123,10 @@ export default function GroupsScreen() {
 
   async function handleCreate() {
     if (!name.trim()) return;
+    if (showScoring && !scoringValid) return;
     setBusy(true);
     clearError();
-    await createGroup(name.trim(), visibility);
+    await createGroup(name.trim(), visibility, showScoring ? parsedScoring : undefined);
     setBusy(false);
     router.replace('/(app)');
   }
@@ -112,6 +136,13 @@ export default function GroupsScreen() {
     setCode('');
     setName('');
     setVisibility('privado');
+    setShowScoring(false);
+    setScoreForm({
+      winCoef:    String(DEFAULT_SCORING.winCoef),
+      playedCoef: String(DEFAULT_SCORING.playedCoef),
+      gaCoef:     String(DEFAULT_SCORING.gaCoef),
+      eventCoef:  String(DEFAULT_SCORING.eventCoef ?? 0),
+    });
     setMode(m);
   }
 
@@ -271,10 +302,55 @@ export default function GroupsScreen() {
                 </View>
               )}
               <VisibilityPicker value={visibility} onChange={setVisibility} />
+
+              {/* Fórmula de pontuação — opcional, pré-preenchida com o padrão */}
+              <TouchableOpacity onPress={() => setShowScoring(v => !v)} style={styles.scoreToggle} activeOpacity={0.7}>
+                <Text style={styles.scoreToggleText}>
+                  {showScoring ? '▾' : '▸'} Fórmula de pontuação (opcional)
+                </Text>
+              </TouchableOpacity>
+              {showScoring && (
+                <View style={styles.scoreCard}>
+                  <Text style={styles.scoreHint}>
+                    Pts = (Vitórias×A) + (Jogos×B) + (Game Average×C) + (Eventos×D). Dá pra ajustar depois em Configurações.
+                  </Text>
+                  <View style={styles.scoreRow}>
+                    {([
+                      { key: 'winCoef',    label: 'Vitórias (A)' },
+                      { key: 'playedCoef', label: 'Jogos (B)' },
+                      { key: 'gaCoef',     label: 'GA (C)' },
+                      { key: 'eventCoef',  label: 'Eventos (D)' },
+                    ] as const).map(f => (
+                      <View key={f.key} style={styles.scoreField}>
+                        <Text style={styles.scoreLabel}>{f.label}</Text>
+                        <TextInput
+                          style={styles.scoreInput}
+                          value={scoreForm[f.key]}
+                          onChangeText={t => setScoreForm(prev => ({ ...prev, [f.key]: t }))}
+                          keyboardType="decimal-pad"
+                          placeholder="0"
+                          placeholderTextColor={Colors.faint}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                  <View style={styles.scorePreviewBox}>
+                    {scoringValid ? (
+                      <Text style={styles.scorePreviewText}>
+                        Ex.: 5V + 8J + GA 1.5 + 3 eventos ={' '}
+                        <Text style={styles.scorePreviewPts}>{previewPts} pontos</Text>
+                      </Text>
+                    ) : (
+                      <Text style={styles.scorePreviewError}>Valores inválidos — use números entre 0 e 100.</Text>
+                    )}
+                  </View>
+                </View>
+              )}
+
               <TouchableOpacity
-                style={[styles.btnPrimary, (!name.trim() || busy) && styles.btnDisabled]}
+                style={[styles.btnPrimary, (!name.trim() || busy || (showScoring && !scoringValid)) && styles.btnDisabled]}
                 onPress={handleCreate}
-                disabled={!name.trim() || busy}
+                disabled={!name.trim() || busy || (showScoring && !scoringValid)}
                 activeOpacity={0.85}
               >
                 {busy ? <ActivityIndicator color={Colors.bg} /> : <Text style={styles.btnText}>Criar grupo</Text>}
@@ -335,6 +411,19 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   codePreview: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, backgroundColor: Colors.surf2, borderRadius: Radius.sm, padding: Spacing.sm },
   codePreviewLabel: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   codePreviewValue: { fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.gold, letterSpacing: 2 },
+
+  scoreToggle: { paddingVertical: Spacing.xs },
+  scoreToggleText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.teal },
+  scoreCard: { gap: Spacing.sm, backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, padding: Spacing.md },
+  scoreHint: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  scoreRow: { flexDirection: 'row', gap: Spacing.xs, flexWrap: 'wrap' },
+  scoreField: { flexGrow: 1, minWidth: 70, gap: 4 },
+  scoreLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+  scoreInput: { backgroundColor: Colors.surf2, borderRadius: Radius.sm, borderWidth: 1, borderColor: Colors.line, paddingHorizontal: Spacing.sm, paddingVertical: Spacing.sm, fontFamily: FontFamily.numberBold, fontSize: 14, color: Colors.text, textAlign: 'center' },
+  scorePreviewBox: { backgroundColor: Colors.surf2, borderRadius: Radius.sm, padding: Spacing.sm },
+  scorePreviewText: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
+  scorePreviewPts: { fontFamily: FontFamily.numberBold, color: Colors.gold },
+  scorePreviewError: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.coral },
 
   btnPrimary: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md + 2, alignItems: 'center', justifyContent: 'center' },
   btnDisabled: { backgroundColor: Colors.surf2 },

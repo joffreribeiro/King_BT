@@ -3,12 +3,14 @@ import { useMemo } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import Avatar from './Avatar';
+import { Icon, type IconName } from './icons';
 
 export interface OptionItem {
   key: string;
   label: string;
   color?: string;      // cor do texto (opcional)
   avatarColor?: string; // mostra Avatar com essa cor (opcional)
+  icon?: IconName;     // ícone à esquerda (opcional)
 }
 
 /**
@@ -39,6 +41,7 @@ export function OptionModal({ title, message, options, onSelect, onClose }: {
                 activeOpacity={0.7}
               >
                 {o.avatarColor && <Avatar name={o.label} color={o.avatarColor} size={26} />}
+                {o.icon && <Icon name={o.icon} size={18} color={o.color ?? Colors.text} />}
                 <Text style={[om.optionText, o.color ? { color: o.color } : null]} numberOfLines={1}>
                   {o.label}
                 </Text>

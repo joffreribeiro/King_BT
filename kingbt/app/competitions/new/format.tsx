@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useState, useMemo } from 'react';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, formatAccent, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import type { Format } from '@/logic/types';
 
@@ -12,49 +12,31 @@ const FORMATS: {
   id: Format;
   label: string;
   desc: string;
-  icon: string;
-  iconBg: string;
-  iconColor: string;
 }[] = [
   {
     id: 'liga',
     label: 'Liga',
     desc: 'Todos jogam contra todos. Gera um ranking por pontos.',
-    icon: '≡',
-    iconBg: '#1a2e1a',
-    iconColor: '#54B981',
   },
   {
     id: 'grupos',
     label: 'Grupos + Eliminatórias',
     desc: 'Divide em grupos; os melhores avançam para o chaveamento.',
-    icon: '⊞',
-    iconBg: '#1a1a2e',
-    iconColor: '#6B7FD7',
   },
   {
     id: 'mata',
     label: 'Mata-mata',
     desc: 'Quem perde está fora. Direto à final.',
-    icon: '⇌',
-    iconBg: '#2e1a1a',
-    iconColor: '#E5483D',
   },
   {
     id: 'avulso',
     label: 'Avulso',
     desc: 'Sessão livre: você registra manualmente cada jogo que aconteceu. Sem calendário fixo.',
-    icon: '✕',
-    iconBg: '#1a2a2e',
-    iconColor: '#2DD4BF',
   },
   {
     id: 'super8',
     label: 'Super 8',
     desc: 'Parceiros rotativos gerados automaticamente. Todos jogam com todos em duplas.',
-    icon: '◈',
-    iconBg: '#2a1a2e',
-    iconColor: '#C084FC',
   },
 ];
 
@@ -102,10 +84,9 @@ export default function FormatStep() {
                 onPress={() => setSelected(f.id)}
                 activeOpacity={0.8}
               >
-                {/* Ícone */}
-                <View style={[styles.icon, { backgroundColor: f.iconBg }]}>
-                  <Text style={[styles.iconText, { color: f.iconColor }]}>{f.icon}</Text>
-                </View>
+                {/* Faixa de cor do formato (substitui o glifo, que não
+                    comunicava nada — o '✕' do Avulso lia como "fechar"). */}
+                <View style={[styles.accentStrip, { backgroundColor: formatAccent(Colors, f.id) }]} />
 
                 {/* Texto */}
                 <View style={styles.cardInfo}>
@@ -209,14 +190,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderColor: Colors.gold + '88',
     backgroundColor: Colors.surf2,
   },
-  icon: {
-    width: 48,
-    height: 48,
-    borderRadius: Radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconText: { fontSize: 26, fontWeight: '700' },
+  accentStrip: { width: 4, height: 44, borderRadius: 2 },
   cardInfo: { flex: 1, gap: 3 },
   cardLabel: {
     fontFamily: FontFamily.title,

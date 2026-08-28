@@ -359,8 +359,8 @@ function membersOf(comp: Competition, id: string): string[] {
 
 export function extractPlayerGames(
   comp: Competition
-): Array<{ teamA: string[]; teamB: string[]; scoreA: number; scoreB: number }> {
-  const out: Array<{ teamA: string[]; teamB: string[]; scoreA: number; scoreB: number }> = [];
+): Array<{ teamA: string[]; teamB: string[]; scoreA: number; scoreB: number; compId: string }> {
+  const out: Array<{ teamA: string[]; teamB: string[]; scoreA: number; scoreB: number; compId: string }> = [];
   comp.matches.forEach(m => {
     if (m.scoreA == null || m.scoreB == null || m.scoreA === m.scoreB) return;
 
@@ -373,11 +373,11 @@ export function extractPlayerGames(
     }
 
     if (m.teamA && m.teamB) {
-      out.push({ teamA: m.teamA, teamB: m.teamB, scoreA: gA, scoreB: gB });
+      out.push({ teamA: m.teamA, teamB: m.teamB, scoreA: gA, scoreB: gB, compId: comp.id });
       return;
     }
     if (!m.aId || !m.bId) return;
-    out.push({ teamA: membersOf(comp, m.aId), teamB: membersOf(comp, m.bId), scoreA: gA, scoreB: gB });
+    out.push({ teamA: membersOf(comp, m.aId), teamB: membersOf(comp, m.bId), scoreA: gA, scoreB: gB, compId: comp.id });
   });
   return out;
 }

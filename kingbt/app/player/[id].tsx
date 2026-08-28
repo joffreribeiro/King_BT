@@ -5,7 +5,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { goToPlayer, goToTrilha } from '@/logic/nav';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Badge, Card } from '@/components';
+import { Avatar, Badge, Card, Icon } from '@/components';
+import { useAuth } from '@/store/AuthContext';
 import { MatchDetailModal, type MatchDetail } from '@/components/MatchDetailModal';
 import { PointsTimeline } from '@/components/profile/PointsTimeline';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -30,6 +31,7 @@ export default function PlayerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { state } = useCompetitions();
   const { groupPlayers, findPlayer } = useGroupPlayers();
+  const { myPlayerId } = useAuth();
   const [selectedMatch, setSelectedMatch] = useState<MatchDetail | null>(null);
 
   const player = groupPlayers.find(p => p.id === id);
@@ -173,9 +175,21 @@ export default function PlayerDetailScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
-        <TouchableOpacity style={styles.backRow} onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/ranking')}>
-          <Text style={styles.backText}>← Ranking</Text>
-        </TouchableOpacity>
+        <View style={styles.topBar}>
+          <TouchableOpacity style={styles.backRow} onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/ranking')}>
+            <Text style={styles.backText}>← Ranking</Text>
+          </TouchableOpacity>
+          {/* H2H só existia no menu lateral — aqui é onde faz sentido pedir. */}
+          {myPlayerId && myPlayerId !== id && (
+            <TouchableOpacity
+              style={styles.compareBtn}
+              onPress={() => router.push({ pathname: '/(app)/h2h', params: { playerId1: myPlayerId, playerId2: id! } })}
+            >
+              <Icon name="compare" size={14} color={Colors.gold} />
+              <Text style={styles.compareBtnText}>Comparar comigo</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {/* Hero */}
         <View style={styles.heroBanner}>
@@ -532,8 +546,15 @@ const makeHistStyles = (Colors: ThemeColors) => StyleSheet.create({
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   scroll: { padding: Spacing.md, gap: Spacing.md },
-  backRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.xs },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xs },
+  backRow: { flexDirection: 'row', alignItems: 'center' },
   backText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.teal },
+  compareBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderWidth: 1, borderColor: Colors.gold + '55', borderRadius: Radius.full,
+    paddingHorizontal: Spacing.sm + 2, paddingVertical: 5,
+  },
+  compareBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.gold },
   heroBanner: { position: 'relative', overflow: 'hidden', borderRadius: Radius.lg, marginBottom: Spacing.sm },
   heroBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 120 },
   heroInner: { alignItems: 'center', paddingTop: Spacing.xl, paddingBottom: Spacing.lg, gap: Spacing.sm },

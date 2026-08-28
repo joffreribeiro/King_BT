@@ -35,7 +35,7 @@ const FORMAT_OPTIONS: { key: Format | ''; label: string }[] = [
 const version = Constants.expoConfig?.version ?? '1.0.0';
 
 export default function SettingsScreen() {
-  const { group, isAdmin, isSuperAdmin, leaveGroup, user, removeFromGroup, promoteToAdmin, addExistingUserToGroup, setGroupVisibility, updateGroupName } = useAuth();
+  const { group, isAdmin, leaveGroup, user, removeFromGroup, promoteToAdmin, addExistingUserToGroup, setGroupVisibility, updateGroupName } = useAuth();
   const { mode, colors: Colors, setMode } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { groupPlayers } = useGroupPlayers();
@@ -82,13 +82,14 @@ export default function SettingsScreen() {
     keepSacadorAfterSave, setKeepSacadorAfterSave, scoringConfig,
   } = useSettings();
 
-  // ── Fórmula de pontuação (Super Admin) ──────────────────────────────
+  // ── Fórmula de pontuação (admin do grupo) ──────────────────────────────
   // Guarda os coeficientes como texto para permitir edição livre (incl. vírgula
   // decimal); a validação/parse acontece no preview e no salvar.
   const [scoreForm, setScoreForm] = useState({
     winCoef:    String(scoringConfig.winCoef),
     playedCoef: String(scoringConfig.playedCoef),
     gaCoef:     String(scoringConfig.gaCoef),
+    eventCoef:  String(scoringConfig.eventCoef ?? 0),
   });
   const [savingScore, setSavingScore] = useState(false);
 
@@ -100,9 +101,10 @@ export default function SettingsScreen() {
       winCoef:    String(scoringConfig.winCoef),
       playedCoef: String(scoringConfig.playedCoef),
       gaCoef:     String(scoringConfig.gaCoef),
+      eventCoef:  String(scoringConfig.eventCoef ?? 0),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scoringConfig.winCoef, scoringConfig.playedCoef, scoringConfig.gaCoef]);
+  }, [scoringConfig.winCoef, scoringConfig.playedCoef, scoringConfig.gaCoef, scoringConfig.eventCoef]);
 
   // Aceita vírgula decimal; string vazia/invalida → NaN (rejeitado na validação).
   const parseCoef = (v: string) => Number(v.replace(',', '.').trim());
@@ -110,12 +112,13 @@ export default function SettingsScreen() {
     winCoef:    parseCoef(scoreForm.winCoef),
     playedCoef: parseCoef(scoreForm.playedCoef),
     gaCoef:     parseCoef(scoreForm.gaCoef),
+    eventCoef:  parseCoef(scoreForm.eventCoef),
   };
   const scoringValid = isScoringConfigValid(parsedScoring);
-  // Preview em tempo real: exemplo fixo (5V, 8J, GA 1.5) recalculado com os
-  // coeficientes digitados. GA 1.5 = 3 games pró / 2 contra.
+  // Preview em tempo real: exemplo fixo (5V, 8J, GA 1.5, 3 eventos) recalculado
+  // com os coeficientes digitados. GA 1.5 = 3 games pró / 2 contra.
   const previewPts = scoringValid
-    ? statPoints({ played: 8, wins: 5, gamesPro: 3, gamesCon: 2 }, parsedScoring)
+    ? statPoints({ played: 8, wins: 5, gamesPro: 3, gamesCon: 2, events: 3 }, parsedScoring)
     : null;
 
   function notify(title: string, msg: string) {
@@ -124,16 +127,26 @@ export default function SettingsScreen() {
   }
 
   async function handleSaveScoring() {
+    if (!group) return;
     if (!scoringValid) {
-      notify('Fórmula inválida', 'Use apenas números ≥ 0 e ≤ 100 nos três campos.');
+      notify('Fórmula inválida', 'Use apenas números ≥ 0 e ≤ 100 nos campos.');
       return;
     }
     setSavingScore(true);
     try {
-      await setScoringConfig(parsedScoring);
-      notify('Fórmula salva', 'A nova pontuação já vale para todos os grupos.');
-    } catch {
-      notify('Erro ao salvar', 'Não foi possível salvar a fórmula. Tente novamente.');
+      await setScoringConfig(group.id, parsedScoring);
+      notify('Fórmula salva', 'A nova pontuação já vale para este grupo.');
+    } catch (e: any) {
+      // Loga a causa real (ex.: permission-denied das regras do Firestore) —
+      // sem isso o erro fica invisível e vira "não salva e ninguém sabe por quê".
+      console.error('[KingBT] Falha ao salvar fórmula de pontuação:', e?.code, e?.message, e);
+      const isPerm = e?.code === 'permission-denied';
+      notify(
+        'Erro ao salvar',
+        isPerm
+          ? 'Sem permissão para alterar a fórmula deste grupo. Só um admin do grupo pode fazer isso.'
+          : 'Não foi possível salvar a fórmula. Tente novamente.',
+      );
     } finally {
       setSavingScore(false);
     }
@@ -144,6 +157,7 @@ export default function SettingsScreen() {
       winCoef:    String(DEFAULT_SCORING.winCoef),
       playedCoef: String(DEFAULT_SCORING.playedCoef),
       gaCoef:     String(DEFAULT_SCORING.gaCoef),
+      eventCoef:  String(DEFAULT_SCORING.eventCoef ?? 0),
     });
   }
 
@@ -360,12 +374,12 @@ export default function SettingsScreen() {
           </Card>
         </View>
 
-        {/* Fórmula de pontuação — exclusivo Super Admin */}
-        {isSuperAdmin && (
+        {/* Fórmula de pontuação — admin do grupo */}
+        {isAdmin && (
           <View>
             <Text style={s.sectionTitle}>Fórmula de pontuação</Text>
             <Text style={s.sectionHint}>
-              Pts = (Vitórias × A) + (Jogos × B) + (Game Average × C). Vale para todos os grupos.
+              Pts = (Vitórias × A) + (Jogos × B) + (Game Average × C) + (Eventos × D). Vale só para este grupo.
             </Text>
             <Card style={{ gap: Spacing.sm }}>
               <View style={s.scoreRow}>
@@ -373,6 +387,7 @@ export default function SettingsScreen() {
                   { key: 'winCoef',    label: 'Vitórias (A)' },
                   { key: 'playedCoef', label: 'Jogos (B)' },
                   { key: 'gaCoef',     label: 'GA (C)' },
+                  { key: 'eventCoef',  label: 'Eventos (D)' },
                 ] as const).map(f => (
                   <View key={f.key} style={s.scoreField}>
                     <Text style={s.scoreLabel}>{f.label}</Text>
@@ -391,7 +406,7 @@ export default function SettingsScreen() {
               <View style={s.previewBox}>
                 {scoringValid ? (
                   <Text style={s.previewText}>
-                    Ex.: 5 vitórias + 8 jogos + GA 1.5 ={' '}
+                    Ex.: 5 vitórias + 8 jogos + GA 1.5 + 3 eventos ={' '}
                     <Text style={s.previewPts}>{previewPts} pontos</Text>
                   </Text>
                 ) : (
