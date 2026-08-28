@@ -6,7 +6,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontFamily, Spacing, Radius, formatAccent, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Card } from '@/components';
+import { Avatar, Card, Icon } from '@/components';
 import { useFeed } from '@/store/FeedContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -101,6 +101,18 @@ function FeedScoreboard({ item, sets }: { item: FeedItem; sets: { a: number; b: 
 
   return (
     <View style={fsb.box}>
+      {/* Cabeçalho dos sets — sem ele, "6 0 10" numa linha não dizia se eram
+          sets, games ou pontos. Só aparece quando há games por set. */}
+      {sets && sets.length > 0 && (
+        <View style={fsb.headerRow}>
+          <View style={fsb.headerSpacer} />
+          <View style={fsb.scoreZoneHeader}>
+            {sets.map((_, i) => (
+              <Text key={i} style={fsb.headerCol}>{`SET ${i + 1}`}</Text>
+            ))}
+          </View>
+        </View>
+      )}
       <Row side="a" />
       <View style={fsb.div} />
       <Row side="b" />
@@ -124,6 +136,20 @@ const makeFsbStyles = (Colors: ThemeColors) => StyleSheet.create({
   colWin: { color: Colors.teal },
   trophy: { fontSize: 14, paddingLeft: 4 },
   div: { height: 1, backgroundColor: Colors.line, marginHorizontal: Spacing.sm },
+
+  headerRow: { flexDirection: 'row', alignItems: 'center', height: 18 },
+  headerSpacer: { flex: 1 },
+  scoreZoneHeader: {
+    width: 100, alignSelf: 'stretch',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start',
+    borderLeftWidth: 1, borderLeftColor: Colors.line,
+    paddingLeft: 6, backgroundColor: Colors.surf2,
+  },
+  headerCol: {
+    width: 30, textAlign: 'center',
+    fontFamily: FontFamily.numberBold, fontSize: 7,
+    color: Colors.faint, letterSpacing: 0.3,
+  },
 });
 
 // ─── Card de resultado de partida ────────────────────────────────────────────
@@ -331,9 +357,10 @@ function MatchResultCard({ item }: { item: FeedItem }) {
             style={mc.commentToggle}
             onPress={() => setShowComments(true)}
           >
-            <Text style={mc.commentToggleTxt}>
-              {item.comments.length > 0 ? `💬 ${item.comments.length}` : '💬'}
-            </Text>
+            <Icon name="comment" size={15} color={Colors.faint} />
+            {item.comments.length > 0 && (
+              <Text style={mc.commentToggleTxt}>{item.comments.length}</Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -372,7 +399,7 @@ const makeMcStyles = (Colors: ThemeColors) => StyleSheet.create({
   reactEmoji:      { fontSize: 14 },
   reactCount:      { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted },
   reactCountActive:{ color: Colors.gold },
-  commentToggle:    { marginLeft: 'auto' as any },
+  commentToggle:    { marginLeft: 'auto' as any, flexDirection: 'row', alignItems: 'center', gap: 4 },
   commentToggleTxt: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.faint },
 });
 
@@ -624,7 +651,10 @@ function MatchRow({ item, last }: { item: FeedItem; last: boolean }) {
           );
         })}
         <TouchableOpacity style={mc.commentToggle} onPress={() => setShowComments(true)}>
-          <Text style={mc.commentToggleTxt}>{item.comments.length > 0 ? `💬 ${item.comments.length}` : '💬'}</Text>
+          <Icon name="comment" size={15} color={Colors.faint} />
+          {item.comments.length > 0 && (
+            <Text style={mc.commentToggleTxt}>{item.comments.length}</Text>
+          )}
         </TouchableOpacity>
       </View>
       <CommentsModal item={item} visible={showComments} onClose={() => setShowComments(false)} />

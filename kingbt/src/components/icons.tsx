@@ -10,7 +10,8 @@ export type IconName =
   | 'feed' | 'competitions' | 'ranking' | 'profile'
   | 'crown' | 'search' | 'filter' | 'bell' | 'share' | 'clone'
   | 'trash' | 'compare' | 'clock' | 'chevronLeft' | 'close' | 'more' | 'plus'
-  | 'users' | 'chart' | 'calendar' | 'settings' | 'menu';
+  | 'users' | 'chart' | 'calendar' | 'settings' | 'menu'
+  | 'edit' | 'qr' | 'logout' | 'swap' | 'check' | 'x' | 'comment';
 
 type Props = { name: IconName; size?: number; color: string };
 
@@ -107,5 +108,22 @@ function paths(name: IconName, s: any) {
       </>;
     case 'menu':
       return <Path d="M4 7h16M4 12h16M4 17h16" {...s} />;
+    case 'edit':
+      return <Path d="M4 20h4L20 8a2.8 2.8 0 00-4-4L4 16v4zM14 6l4 4" {...s} />;
+    case 'qr':
+      return <>
+        <Path d="M4 4h6v6H4V4zM14 4h6v6h-6V4zM4 14h6v6H4v-6z" {...s} />
+        <Path d="M14 14h2v2h-2v-2zM18 14h2v2h-2v-2zM14 18h2v2h-2v-2zM18 18h2v2h-2v-2z" {...s} />
+      </>;
+    case 'logout':
+      return <Path d="M9 20H6a2 2 0 01-2-2V6a2 2 0 012-2h3M16 16l4-4-4-4M20 12H9" {...s} />;
+    case 'swap':
+      return <Path d="M4 8h13l-3-3M20 16H7l3 3" {...s} />;
+    case 'check':
+      return <Path d="M4 12.5l5 5L20 6.5" {...s} />;
+    case 'x':
+      return <Path d="M6 6l12 12M18 6L6 18" {...s} />;
+    case 'comment':
+      return <Path d="M20 12a7.5 7.5 0 01-10.9 6.7L4 20l1.3-4.1A7.5 7.5 0 1120 12z" {...s} />;
   }
 }

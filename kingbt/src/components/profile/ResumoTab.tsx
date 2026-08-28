@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Card, RatingChart } from '@/components';
+import { Card, RatingChart, Icon } from '@/components';
 import { MatchDetailModal, type MatchDetail } from '@/components/MatchDetailModal';
 import { PointsTimeline } from './PointsTimeline';
 import { makeTab } from './profileStyles';
@@ -35,14 +35,31 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
 
   return (
     <View style={tab.content}>
-      {/* Pontuação */}
-      <Card elevated style={{ alignItems: 'center', gap: 4 }}>
-        <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted, letterSpacing: 2 }}>
-          PONTUAÇÃO KING BT
-        </Text>
-        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 48, color: Colors.gold, lineHeight: 56 }}>
-          {me.points.toFixed(2)}
-        </Text>
+      {/* Pontuação + stats no mesmo card: antes eram dois blocos separados
+          dizendo a mesma coisa, e o de cima gastava ~90px só com um número. */}
+      <Card elevated style={{ gap: Spacing.sm }}>
+        <View style={{ alignItems: 'center', gap: 2 }}>
+          <Text style={{ fontFamily: FontFamily.number, fontSize: 10, color: Colors.muted, letterSpacing: 2 }}>
+            PONTUAÇÃO KING BT
+          </Text>
+          <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 40, color: Colors.gold, lineHeight: 46 }}>
+            {me.points.toFixed(2)}
+          </Text>
+        </View>
+        <View style={statRow.row}>
+          {[
+            { l: 'GP',   v: me.gamesPro,                      c: Colors.teal },
+            { l: 'GC',   v: me.gamesCon,                      c: Colors.coral },
+            { l: 'SG',   v: (me.sg >= 0 ? '+' : '') + me.sg, c: me.sg >= 0 ? Colors.teal : Colors.coral },
+            { l: 'GA',   v: me.ga.toFixed(2),                 c: Colors.gold },
+            { l: 'WIN%', v: `${winRate}%`,                    c: Colors.goldBright },
+          ].map((item, i, arr) => (
+            <View key={item.l} style={[statRow.cell, i < arr.length - 1 && statRow.divider]}>
+              <Text style={[statRow.val, { color: item.c }]}>{item.v}</Text>
+              <Text style={statRow.lbl}>{item.l}</Text>
+            </View>
+          ))}
+        </View>
       </Card>
 
       {/* Últimos 20 jogos — logo abaixo da pontuação */}
@@ -67,17 +84,17 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
 
           <View style={{ flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.md }}>
             <View style={l20.resultBox}>
-              <Text style={l20.resultIcon}>✅</Text>
+              <Icon name="check" size={16} color={Colors.teal} />
               <Text style={[l20.resultNum, { color: Colors.teal }]}>{last20Wins}</Text>
               <Text style={l20.resultLbl}>Vitórias</Text>
             </View>
             <View style={l20.resultBox}>
-              <Text style={l20.resultIcon}>❌</Text>
+              <Icon name="x" size={16} color={Colors.coral} />
               <Text style={[l20.resultNum, { color: Colors.coral }]}>{last20Losses}</Text>
               <Text style={l20.resultLbl}>Derrotas</Text>
             </View>
             <View style={l20.resultBox}>
-              <Text style={l20.resultIcon}>📊</Text>
+              <Icon name="chart" size={16} color={Colors.gold} />
               <Text style={[l20.resultNum, { color: Colors.gold }]}>
                 {last20.length > 0 ? Math.round((last20Wins / last20.length) * 100) : 0}%
               </Text>
@@ -86,24 +103,6 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
           </View>
         </Card>
       )}
-
-      {/* Stats completo */}
-      <Card style={{ paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xs }}>
-        <View style={statRow.row}>
-          {[
-            { l: 'GP',   v: me.gamesPro,                      c: Colors.teal },
-            { l: 'GC',   v: me.gamesCon,                      c: Colors.coral },
-            { l: 'SG',   v: (me.sg >= 0 ? '+' : '') + me.sg, c: me.sg >= 0 ? Colors.teal : Colors.coral },
-            { l: 'GA',   v: me.ga.toFixed(2),                 c: Colors.gold },
-            { l: 'WIN%', v: `${winRate}%`,                    c: Colors.goldBright },
-          ].map((item, i, arr) => (
-            <View key={item.l} style={[statRow.cell, i < arr.length - 1 && statRow.divider]}>
-              <Text style={[statRow.val, { color: item.c }]}>{item.v}</Text>
-              <Text style={statRow.lbl}>{item.l}</Text>
-            </View>
-          ))}
-        </View>
-      </Card>
 
       {/* Sequência de Resultados */}
       {recentSeq.length > 0 && (
@@ -153,14 +152,14 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
         activeOpacity={0.8}
         style={{
           flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-          backgroundColor: 'rgba(107,127,215,0.10)', borderWidth: 1,
-          borderColor: 'rgba(107,127,215,0.25)', borderRadius: 12, padding: 14,
+          backgroundColor: Colors.accentGrupos + '1A', borderWidth: 1,
+          borderColor: Colors.accentGrupos + '40', borderRadius: 12, padding: 14,
         }}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Text style={{ fontSize: 20 }}>📊</Text>
+          <Icon name="chart" size={20} color={Colors.accentGrupos} />
           <View>
-            <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: '#6B7FD7' }}>
+            <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: Colors.accentGrupos }}>
               Análise por Formato
             </Text>
             <Text style={{ fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted }}>
@@ -168,7 +167,7 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
             </Text>
           </View>
         </View>
-        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 18, color: '#6B7FD7' }}>›</Text>
+        <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.accentGrupos }}>›</Text>
       </TouchableOpacity>
 
       {/* Próxima conquista */}
@@ -244,7 +243,6 @@ const makeL20Styles = (Colors: ThemeColors) => StyleSheet.create({
   barLoss:        { backgroundColor: Colors.coral + 'CC', alignItems: 'center', justifyContent: 'center' },
   barNum:         { fontFamily: FontFamily.numberBold, fontSize: 12, color: '#fff', paddingHorizontal: 6 },
   resultBox: { flex: 1, alignItems: 'center', backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.sm, gap: 2 },
-  resultIcon: { fontSize: 18 },
   resultNum:  { fontFamily: FontFamily.titleBold, fontSize: 22 },
   resultLbl:  { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
 });

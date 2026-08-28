@@ -309,21 +309,26 @@ export default function ProfileScreen() {
         <View style={[styles.heroBg, { backgroundColor: (player?.color ?? '#FFD166') + '22' }]} />
         <View style={styles.heroInner}>
           <Avatar name={player?.name ?? '?'} color={player?.color ?? '#FFD166'} size={64} showCrown={myPos === 1} />
+          {/* O e-mail saiu daqui: ninguém abre o próprio perfil pra ver o
+              próprio e-mail — ele continua no card de conta, abaixo. O lugar
+              de destaque fica com a informação que o jogador vem buscar. */}
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={styles.name} numberOfLines={1}>{player?.name ?? user?.displayName ?? 'Jogador'}</Text>
               <TouchableOpacity onPress={() => setShowEditName(true)} hitSlop={8}>
-                <Text style={{ fontSize: 14 }}>✏️</Text>
+                <Icon name="edit" size={14} color={Colors.muted} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.titleText} numberOfLines={1}>{user?.email ?? ''}</Text>
-            <View style={styles.badges}>
-              <Badge label={`${myPos}° lugar`} variant="gold" />
-              <Badge label={`${winRate}% aproveit.`} variant="teal" />
+            <View style={styles.heroStats}>
+              <Text style={styles.heroPos}>{myPos}º</Text>
+              <Text style={styles.heroPosLabel}>no ranking</Text>
+              <View style={styles.heroDivider} />
+              <Text style={styles.heroRate}>{winRate}%</Text>
+              <Text style={styles.heroPosLabel}>aproveit.</Text>
             </View>
           </View>
           <TouchableOpacity style={[styles.shareBtn, sharingInProgress && { opacity: 0.5 }]} onPress={handleShare} activeOpacity={0.75} disabled={sharingInProgress}>
-            <Text style={styles.shareBtnText}>{sharingInProgress ? '...' : '↑'}</Text>
+            <Icon name="share" size={16} color={Colors.gold} />
           </TouchableOpacity>
         </View>
       </View>
@@ -380,22 +385,33 @@ export default function ProfileScreen() {
           {group && (
             <TouchableOpacity onPress={() => setShowQR(true)} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={styles.groupInfo}>Grupo: {group.name} · {group.code}</Text>
-              <Text style={{ fontSize: 14 }}>⊞</Text>
+              <Icon name="qr" size={14} color={Colors.gold} />
             </TouchableOpacity>
           )}
 
+          {/* Navegação e ações de conta separadas: antes os quatro botões
+              tinham o mesmo peso, e "Sair" competia visualmente com o resto. */}
           <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/(app)/settings')} activeOpacity={0.8}>
-            <Text style={styles.settingsBtnText}>⚙️  Configurações</Text>
+            <Icon name="settings" size={16} color={Colors.text} />
+            <Text style={styles.settingsBtnText}>Configurações</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/desempenho-geral')} activeOpacity={0.8}>
-            <Text style={styles.settingsBtnText}>📊  Desempenho em todos os grupos</Text>
+            <Icon name="chart" size={16} color={Colors.text} />
+            <Text style={styles.settingsBtnText}>Desempenho em todos os grupos</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.leaveGroupBtn} onPress={() => router.push('/(auth)/groups')} activeOpacity={0.8}>
-            <Text style={styles.leaveGroupText}>Trocar de grupo</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-            <Text style={styles.logoutText}>Sair da conta</Text>
-          </TouchableOpacity>
+
+          <View style={styles.accountDivider} />
+
+          <View style={styles.accountActions}>
+            <TouchableOpacity style={styles.leaveGroupBtn} onPress={() => router.push('/(auth)/groups')} activeOpacity={0.8}>
+              <Icon name="swap" size={15} color={Colors.muted} />
+              <Text style={styles.leaveGroupText}>Trocar de grupo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
+              <Icon name="logout" size={15} color={Colors.coral} />
+              <Text style={styles.logoutText}>Sair</Text>
+            </TouchableOpacity>
+          </View>
         </Card>
 
         <View style={{ height: 140 }} />
@@ -454,10 +470,16 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   heroBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   heroInner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
   name: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
-  titleText: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
-  badges: { flexDirection: 'row', gap: Spacing.xs, marginTop: 3, flexWrap: 'wrap' },
-  shareBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: Colors.gold + '55', backgroundColor: Colors.gold + '11' },
-  shareBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.gold },
+  heroStats: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 4 },
+  heroPos: { fontFamily: FontFamily.numberBold, fontSize: 20, color: Colors.gold },
+  heroRate: { fontFamily: FontFamily.numberBold, fontSize: 20, color: Colors.teal },
+  heroPosLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+  heroDivider: { width: 1, height: 12, backgroundColor: Colors.line, marginHorizontal: Spacing.xs },
+  shareBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: Colors.gold + '55', backgroundColor: Colors.gold + '11',
+  },
 
   tabBar: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.line, backgroundColor: Colors.bg, paddingHorizontal: Spacing.md },
   tabItem: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', position: 'relative' },
@@ -477,10 +499,24 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   accountCard: { gap: Spacing.sm, alignItems: 'center' },
   accountEmail: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   groupInfo: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.gold },
-  settingsBtn: { borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xl, alignItems: 'center', width: '100%' },
+  settingsBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm,
+    borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md,
+    paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, width: '100%',
+  },
   settingsBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
-  leaveGroupBtn: { borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xl, alignItems: 'center', width: '100%' },
-  leaveGroupText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
-  logoutBtn: { borderWidth: 1, borderColor: Colors.coral + '66', borderRadius: Radius.md, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xl, alignItems: 'center', width: '100%' },
-  logoutText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.coral },
+
+  accountDivider: { height: 1, backgroundColor: Colors.line, width: '100%', marginVertical: Spacing.xs },
+  accountActions: { flexDirection: 'row', gap: Spacing.sm, width: '100%' },
+  leaveGroupBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm,
+  },
+  leaveGroupText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
+  logoutBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    borderWidth: 1, borderColor: Colors.coral + '66', borderRadius: Radius.md,
+    paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
+  },
+  logoutText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.coral },
 });
