@@ -1,0 +1,35 @@
+name: Publicar web (Firebase Hosting)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "kingbt/**"
+      - ".github/workflows/deploy-web.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kingbt
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: kingbt/package-lock.json
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Exportar build web
+        run: npx expo export --platform web
+
+      - name: Publicar no Firebase Hosting
+        run: npx firebase-tools deploy --only hosting --project king-bt-7f559 --token "$FIREBASE_TOKEN"
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
