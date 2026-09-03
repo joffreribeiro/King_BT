@@ -64,6 +64,9 @@ jobs:
       # divergente (o Android exige mesma assinatura para update-install).
       # Aqui usamos uma keystore de release FIXA (guardada como secret), a
       # mesma em todo build, para que atualizações instalem por cima normalmente.
+      # É a mesma keystore (alias key0) usada nos builds manuais feitos pelo
+      # Android Studio antes deste workflow existir — assim quem já tinha o
+      # app instalado por esse caminho também consegue atualizar por cima.
       - name: Decodificar keystore de release
         run: echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
         env:
@@ -79,7 +82,7 @@ jobs:
 
             content = content.replace(
               "signingConfigs {\n        debug {",
-              "signingConfigs {\n        release {\n            storeFile file(\"release.keystore\")\n            storePassword System.getenv(\"KINGBT_KEYSTORE_PASSWORD\")\n            keyAlias \"kingbt\"\n            keyPassword System.getenv(\"KINGBT_KEYSTORE_PASSWORD\")\n        }\n        debug {"
+              "signingConfigs {\n        release {\n            storeFile file(\"release.keystore\")\n            storePassword System.getenv(\"KINGBT_KEYSTORE_PASSWORD\")\n            keyAlias \"key0\"\n            keyPassword System.getenv(\"KINGBT_KEYSTORE_PASSWORD\")\n        }\n        debug {"
             );
             content = content.replace(
               "release {\n            // Caution! In production, you need to generate your own keystore file.\n            // see https://reactnative.dev/docs/signed-apk-android.\n            signingConfig signingConfigs.debug",
