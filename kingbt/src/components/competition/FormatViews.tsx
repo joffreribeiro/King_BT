@@ -17,7 +17,7 @@ import { StandingsTable, makeStRow } from './StandingsTable';
 import { BracketView } from './BracketView';
 import { makeVw, makeTabs } from './viewStyles';
 
-export function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void; onSubstitute?: (match: Match, originalId: string, substituteId: string) => void }) {
+export function RotatingView({ comp, onScore, onMatchActions, onSubstitute }: { comp: Competition; onScore: (m: Match) => void; onMatchActions: (matchId: string) => void; onSubstitute?: (match: Match, originalId: string, substituteId: string) => void }) {
   const { findPlayer, groupPlayers } = useGroupPlayers();
   const { colors: Colors } = useTheme();
   const vw = useMemo(() => makeVw(Colors), [Colors]);
@@ -48,7 +48,7 @@ export function RotatingView({ comp, onScore, onClear, onSubstitute }: { comp: C
             onPress={() => onScore(m)}
             onLongPress={() => {
               if (m.scoreA != null) {
-                onClear(m.id);
+                onMatchActions(m.id);
               } else if (onSubstitute) {
                 setSub({ match: m });
               }
@@ -164,7 +164,7 @@ export function PlayerRankingTable({ comp }: { comp: Competition }) {
   );
 }
 
-export function LeagueView({ comp, onScore, onClear, onSubstitute }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void; onSubstitute?: (match: Match, originalId: string, substituteId: string) => void }) {
+export function LeagueView({ comp, onScore, onMatchActions, onSubstitute }: { comp: Competition; onScore: (m: Match) => void; onMatchActions: (matchId: string) => void; onSubstitute?: (match: Match, originalId: string, substituteId: string) => void }) {
   const { colors: Colors } = useTheme();
   const vw = useMemo(() => makeVw(Colors), [Colors]);
   const rounds = [...new Set(comp.matches.map(m => m.round))].sort((a, b) => (a ?? 0) - (b ?? 0));
@@ -178,7 +178,7 @@ export function LeagueView({ comp, onScore, onClear, onSubstitute }: { comp: Com
           <Text style={vw.section}>Rodada {r}</Text>
           {comp.matches.filter(m => m.round === r).map(m => (
             <MatchRow key={m.id} match={m} comp={comp} isNext={m.id === nextId}
-              onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
+              onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onMatchActions(m.id) : undefined} />
           ))}
         </View>
       ))}
@@ -188,7 +188,7 @@ export function LeagueView({ comp, onScore, onClear, onSubstitute }: { comp: Com
 }
 
 // Fase de Grupos: classificação + jogos de cada grupo numa única aba
-export function GroupsPhaseView({ comp, onScore, onClear }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void }) {
+export function GroupsPhaseView({ comp, onScore, onMatchActions }: { comp: Competition; onScore: (m: Match) => void; onMatchActions: (matchId: string) => void }) {
   const { colors: Colors } = useTheme();
   const vw = useMemo(() => makeVw(Colors), [Colors]);
   const groupMatches = (gi: number) => comp.matches.filter(m => m.stage === 'group' && m.groupIdx === gi);
@@ -202,7 +202,7 @@ export function GroupsPhaseView({ comp, onScore, onClear }: { comp: Competition;
           <StandingsTable comp={comp} ids={gd.ids} matches={groupMatches(gi)} />
           {groupMatches(gi).map(m => (
             <MatchRow key={m.id} match={m} comp={comp} isNext={m.id === nextId}
-              onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onClear(m.id) : undefined} />
+              onPress={() => onScore(m)} onLongPress={m.scoreA != null ? () => onMatchActions(m.id) : undefined} />
           ))}
         </View>
       ))}
@@ -211,7 +211,7 @@ export function GroupsPhaseView({ comp, onScore, onClear }: { comp: Competition;
   );
 }
 
-export function KOView({ comp, onScore, onClear, preview = false }: { comp: Competition; onScore: (m: Match) => void; onClear: (matchId: string) => void; preview?: boolean }) {
+export function KOView({ comp, onScore, onMatchActions, preview = false }: { comp: Competition; onScore: (m: Match) => void; onMatchActions: (matchId: string) => void; preview?: boolean }) {
   const { colors: Colors } = useTheme();
   const tabs = useMemo(() => makeTabs(Colors), [Colors]);
   return (
@@ -241,7 +241,7 @@ export function KOView({ comp, onScore, onClear, preview = false }: { comp: Comp
         </View>
       )}
 
-      <BracketView comp={comp} onScore={onScore} onClear={onClear} />
+      <BracketView comp={comp} onScore={onScore} onMatchActions={onMatchActions} />
     </View>
   );
 }

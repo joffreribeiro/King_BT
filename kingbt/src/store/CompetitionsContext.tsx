@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
-import type { Competition, Substitution } from '@/logic/types';
+import type { Competition, Match, Substitution } from '@/logic/types';
 import { applySubstitution } from '@/logic/substitution';
 import { resolveCompetition, extractPlayerGames, buildCompetition } from '@/logic/formats';
 import { computeRivalries } from '@/logic/rivalries';
 import { MOCK_COMPETITIONS } from '@/mocks/competitions';
 import { subscribeCompetitions, createCompetition, updateCompetition as fsUpdateComp, deleteCompetition as fsDeleteComp, updateLiveScore, fetchCompetitionsOnce } from '@/firebase/competitions';
-import { createFeedItem } from '@/firebase/feed';
+import { createFeedItem, deleteFeedItemsByMatch } from '@/firebase/feed';
 import { Timestamp } from 'firebase/firestore';
 import { buildRanking } from '@/logic/scoring';
 import { enqueue } from './syncQueue';
@@ -29,6 +29,8 @@ type Action =
   | { type: 'SAVE_DRAFT'; compId: string; matchId: string; draftSets: { a: number; b: number }[] }
   | { type: 'CLEAR_DRAFT'; compId: string; matchId: string }
   | { type: 'DELETE'; compId: string }
+  | { type: 'DELETE_MATCH'; compId: string; matchId: string }
+  | { type: 'EDIT_MATCH_PLAYERS'; compId: string; matchId: string; teamA: string[]; teamB: string[] }
   | { type: 'RENAME'; compId: string; name: string }
   | { type: 'SUBSTITUTE_PLAYER'; compId: string; sub: Substitution }
   | { type: 'UPDATE'; comp: Competition };
@@ -43,6 +45,24 @@ function applyScore(comp: Competition, matchId: string, scoreA: number, scoreB: 
   resolveCompetition(updated);
   // Avulso é uma sessão livre: não fecha sozinha ao "esgotar" os jogos registrados
   // até agora — só o usuário encerra manualmente.
+  if (comp.format === 'avulso') return updated;
+  const scoreable = updated.matches.filter(
+    m => (m.aId != null && m.bId != null) || (m.teamA && m.teamB)
+  );
+  updated.status = scoreable.length > 0 && scoreable.every(m => m.scoreA != null)
+    ? 'done' : 'active';
+  return updated;
+}
+
+/**
+ * Troca a lista de jogos de uma competição e reavalia chaveamento e status.
+ * Excluir um jogo ou trocar quem jogou muda quem está classificado e se a
+ * competição ainda tem jogo pendente, então não dá pra só mexer no array —
+ * é a mesma reavaliação que `applyScore` faz ao registrar um placar.
+ */
+function withMatches(comp: Competition, matches: Match[]): Competition {
+  const updated = { ...comp, matches };
+  resolveCompetition(updated);
   if (comp.format === 'avulso') return updated;
   const scoreable = updated.matches.filter(
     m => (m.aId != null && m.bId != null) || (m.teamA && m.teamB)
@@ -73,6 +93,22 @@ function reducer(state: State, action: Action): State {
     }
     case 'DELETE':
       return { ...state, competitions: state.competitions.filter(c => c.id !== action.compId) };
+    case 'DELETE_MATCH':
+      return {
+        ...state,
+        competitions: state.competitions.map(c =>
+          c.id !== action.compId ? c : withMatches(c, c.matches.filter(m => m.id !== action.matchId))
+        ),
+      };
+    case 'EDIT_MATCH_PLAYERS':
+      return {
+        ...state,
+        competitions: state.competitions.map(c =>
+          c.id !== action.compId ? c : withMatches(c, c.matches.map(m =>
+            m.id !== action.matchId ? m : { ...m, teamA: action.teamA, teamB: action.teamB }
+          ))
+        ),
+      };
     case 'RENAME':
       return {
         ...state,
@@ -198,10 +234,17 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
     return unsub;
   }, [user, group]);
 
+  // Ações destrutivas ou que reescrevem um resultado já registrado só passam
+  // para admin do grupo (`isAdmin` do AuthContext já inclui o super admin).
+  // CLEAR_SCORE entrou aqui depois: apagar o placar de um jogo registrado é
+  // tão destrutivo quanto corrigi-lo, e estava aberto a qualquer membro.
+  const ADMIN_ONLY: Action['type'][] = [
+    'DELETE', 'DELETE_MATCH', 'EDIT_MATCH_PLAYERS',
+    'CORRECT_SCORE', 'CLEAR_SCORE', 'RENAME',
+  ];
+
   const wrappedDispatch: React.Dispatch<Action> = async (action) => {
-    if (action.type === 'DELETE' && !isAdmin) return;
-    if (action.type === 'CORRECT_SCORE' && !isAdmin) return;
-    if (action.type === 'RENAME' && !isAdmin) return;
+    if (ADMIN_ONLY.includes(action.type) && !isAdmin) return;
 
     dispatch(action);
 
@@ -528,6 +571,28 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
     if (action.type === 'UPDATE') {
       try { await fsUpdateComp(group.id, action.comp); }
       catch { console.error('[KingBT] Sync error: UPDATE'); }
+    }
+
+    if (action.type === 'DELETE_MATCH' || action.type === 'EDIT_MATCH_PLAYERS') {
+      const comp = state.competitions.find(c => c.id === action.compId);
+      if (comp) {
+        const updated = action.type === 'DELETE_MATCH'
+          ? withMatches(comp, comp.matches.filter(m => m.id !== action.matchId))
+          : withMatches(comp, comp.matches.map(m =>
+              m.id !== action.matchId ? m : { ...m, teamA: action.teamA, teamB: action.teamB }
+            ));
+        try { await fsUpdateComp(group.id, updated); }
+        catch {
+          await enqueue({ type: 'UPDATE_COMP', payload: { groupId: group.id, data: updated } });
+        }
+        // O post do resultado sai junto com o jogo — senão o feed segue
+        // anunciando um placar que não existe mais na competição. Falha aqui
+        // não desfaz a exclusão do jogo: o post vira só um resto a limpar.
+        if (action.type === 'DELETE_MATCH') {
+          try { await deleteFeedItemsByMatch(group.id, action.compId, action.matchId); }
+          catch { console.error('[KingBT] Sync error: DELETE_MATCH feed'); }
+        }
+      }
     }
 
     if (action.type === 'DELETE') {

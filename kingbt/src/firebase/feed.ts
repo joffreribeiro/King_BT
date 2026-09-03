@@ -93,6 +93,31 @@ export async function deleteFeedItemsByComp(
   await batch.commit();
 }
 
+/**
+ * Apaga os posts de um jogo específico — usado ao excluir o jogo da competição,
+ * para o feed não ficar anunciando um resultado que não existe mais.
+ *
+ * Só apaga o post do próprio resultado (`match_result`). Os de `rank_change` e
+ * `rivalry_milestone` gerados na mesma hora não carregam `matchId` e descrevem
+ * um fato do ranking, não do jogo — ficam onde estão.
+ */
+export async function deleteFeedItemsByMatch(
+  groupId: string,
+  compId: string,
+  matchId: string
+): Promise<void> {
+  const q = query(
+    feedCol(groupId),
+    where('compId', '==', compId),
+    where('matchId', '==', matchId)
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) return;
+  const batch = writeBatch(db);
+  snap.docs.forEach(d => batch.delete(d.ref));
+  await batch.commit();
+}
+
 export async function addComment(
   groupId: string,
   feedId: string,

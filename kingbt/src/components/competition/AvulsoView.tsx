@@ -6,11 +6,13 @@ import type { Match, Competition } from '@/logic/types';
 import { PlayerRankingTable } from './FormatViews';
 import { GameRow } from './GameRow';
 
-export function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
+export function AvulsoView({ comp, onScore, onMatchActions, onAddMatch, canEdit = false }: {
   comp: Competition;
   onScore: (m: Match) => void;
-  onClear: (matchId: string) => void;
+  onMatchActions: (matchId: string) => void;
   onAddMatch: () => void;
+  /** Admin do grupo: pode corrigir, trocar jogadores e excluir um jogo. */
+  canEdit?: boolean;
 }) {
   const { colors: Colors } = useTheme();
   const avulsoS = useMemo(() => makeAvulsoStyles(Colors), [Colors]);
@@ -36,9 +38,11 @@ export function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
       {pending.length > 0 && (
         <View style={{ gap: Spacing.xs }}>
           <Text style={avulsoS.sectionTitle}>AGUARDANDO PLACAR ({pending.length})</Text>
+          {/* Toque longo também aqui: montar a dupla errada e perceber antes de
+              marcar o placar é o caso mais comum de precisar editar o jogo. */}
           {pending.map(m => (
             <GameRow key={m.id} match={m} comp={comp} isNext={false}
-              onPress={() => onScore(m)} />
+              onPress={() => onScore(m)} onLongPress={() => onMatchActions(m.id)} canEdit={canEdit} />
           ))}
         </View>
       )}
@@ -49,7 +53,7 @@ export function AvulsoView({ comp, onScore, onClear, onAddMatch }: {
           <Text style={avulsoS.sectionTitle}>JOGOS REGISTRADOS ({scored.length})</Text>
           {scored.map(m => (
             <GameRow key={m.id} match={m} comp={comp} isNext={false}
-              onPress={() => onScore(m)} onLongPress={() => onClear(m.id)} />
+              onPress={() => onScore(m)} onLongPress={() => onMatchActions(m.id)} canEdit={canEdit} />
           ))}
         </View>
       )}

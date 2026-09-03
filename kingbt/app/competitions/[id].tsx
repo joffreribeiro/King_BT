@@ -7,7 +7,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors, Type, PLAYER_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Badge, Card, ScreenHeader, Icon } from '@/components';
+import { Avatar, Badge, Card, ScreenHeader, Icon, OptionModal } from '@/components';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { competitionChampion, groupComplete } from '@/logic/formats';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -57,6 +57,11 @@ export default function CompetitionDetail() {
   const [showAddGuest, setShowAddGuest]   = useState(false);
   const [guestName, setGuestName]         = useState('');
   const [guestBusy, setGuestBusy]         = useState(false);
+  // Edição de um jogo já registrado — só admin (ver handleMatchLongPress).
+  const [matchMenu, setMatchMenu]         = useState<Match | null>(null);
+  const [editingMatch, setEditingMatch]   = useState<Match | null>(null);
+  const [editTeamA, setEditTeamA]         = useState<string[]>([]);
+  const [editTeamB, setEditTeamB]         = useState<string[]>([]);
   const champAnim  = useRef(new Animated.Value(0)).current;
   const screenW = Dimensions.get('window').width;
   const confettiFired = useRef(false);
@@ -149,8 +154,94 @@ export default function CompetitionDetail() {
   }
 
   function handleClear(matchId: string) {
-    if (!isMember) return; // visitante: somente leitura
+    if (!isAdmin) return;
     dispatch({ type: 'CLEAR_SCORE', compId: id!, matchId });
+  }
+
+  /**
+   * Toque longo num jogo. Antes apagava o placar na hora, sem confirmação e
+   * sem checar permissão — qualquer membro podia zerar um resultado sem querer.
+   * Agora abre o menu de edição, e só para admin.
+   */
+  function handleMatchActionsById(matchId: string) {
+    if (!isAdmin || !comp) return;
+    const m = comp.matches.find(x => x.id === matchId);
+    if (m) setMatchMenu(m);
+  }
+
+  /**
+   * Trocar quem jogou e excluir o jogo só valem onde o confronto foi montado à
+   * mão (Avulso / rodízio). Em liga, grupos e mata-mata quem joga contra quem
+   * vem da estrutura da competição — mexer num jogo isolado deixaria a chave
+   * inconsistente. Nesses formatos o menu oferece só corrigir/limpar placar.
+   */
+  function isFreeFormMatch(m: Match) {
+    return !!(m.teamA && m.teamB) && (comp?.format === 'avulso' || m.stage === 'rotating');
+  }
+
+  /** "Joffre / Marcelão vs Roberto / Tiago — 5 a 7", pro cabeçalho do menu. */
+  function matchDescription(m: Match) {
+    const nameOf = (pid: string) => findPlayer(pid)?.name.split(' ')[0] ?? pid;
+    const sideA = (m.teamA ?? (m.aId ? [m.aId] : [])).map(nameOf).join(' / ') || 'A definir';
+    const sideB = (m.teamB ?? (m.bId ? [m.bId] : [])).map(nameOf).join(' / ') || 'A definir';
+    const score = m.scoreA != null ? ` — ${m.scoreA} a ${m.scoreB}` : ' — sem placar';
+    return `${sideA} vs ${sideB}${score}`;
+  }
+
+  function openEditPlayers(m: Match) {
+    setEditTeamA(m.teamA ?? (m.aId ? [m.aId] : []));
+    setEditTeamB(m.teamB ?? (m.bId ? [m.bId] : []));
+    setEditingMatch(m);
+  }
+
+  function handleConfirmEditPlayers() {
+    if (!editingMatch || editTeamA.length === 0 || editTeamB.length === 0) return;
+    dispatch({
+      type: 'EDIT_MATCH_PLAYERS',
+      compId: id!,
+      matchId: editingMatch.id,
+      teamA: editTeamA,
+      teamB: editTeamB,
+    });
+    setEditingMatch(null);
+    setEditTeamA([]);
+    setEditTeamB([]);
+  }
+
+  function confirmDestructive(title: string, message: string, confirmLabel: string, onConfirm: () => void) {
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title}\n\n${message}`)) onConfirm();
+    } else {
+      Alert.alert(title, message, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: confirmLabel, style: 'destructive', onPress: onConfirm },
+      ]);
+    }
+  }
+
+  function handleMatchMenuSelect(key: string) {
+    const m = matchMenu;
+    setMatchMenu(null);
+    if (!m) return;
+    if (key === 'score')   { setScoring(m); return; }
+    if (key === 'players') { openEditPlayers(m); return; }
+    if (key === 'clear') {
+      confirmDestructive(
+        'Limpar placar',
+        'O jogo continua na competição, mas sem resultado — e sai do ranking até ser marcado de novo.',
+        'Limpar',
+        () => handleClear(m.id),
+      );
+      return;
+    }
+    if (key === 'delete') {
+      confirmDestructive(
+        'Excluir jogo',
+        'O jogo sai da competição e do ranking, e o post dele no feed é apagado — junto com as reações e os comentários. Não dá para desfazer.',
+        'Excluir',
+        () => dispatch({ type: 'DELETE_MATCH', compId: id!, matchId: m.id }),
+      );
+    }
   }
 
   // Visitante de grupo público não pode abrir o registro de placar
@@ -507,22 +598,24 @@ export default function CompetitionDetail() {
       {comp.status !== 'upcoming' && (
         <View style={{ flex: 1 }}>
           <View style={main.tabBar}>
+            {/* Rótulos sem emoji — o app tem set de ícones próprio, e aqui
+                📋🏆⚔️🎾 conviviam com ícones SVG na mesma tela. */}
             {(comp.format === 'grupos'
               ? [
-                  { key: 'regras',        label: '📋 Regras' },
-                  { key: 'classificacao', label: '🏆 Fase de Grupos' },
-                  { key: 'partidas',      label: '⚔️ Mata-mata' },
+                  { key: 'regras',        label: 'Regras' },
+                  { key: 'classificacao', label: 'Fase de Grupos' },
+                  { key: 'partidas',      label: 'Mata-mata' },
                 ] as const
               : comp.format === 'liga' || comp.format === 'avulso' || comp.format === 'super8'
                 ? [
                     // Classificação + jogos numa aba só (sem duplicar o ranking)
-                    { key: 'regras',   label: '📋 Regras' },
-                    { key: 'partidas', label: '🎾 Partidas' },
+                    { key: 'regras',   label: 'Regras' },
+                    { key: 'partidas', label: 'Partidas' },
                   ] as const
                 : [
-                    { key: 'regras',        label: '📋 Regras' },
-                    { key: 'classificacao', label: '🏆 Classificação' },
-                    { key: 'partidas',      label: '🎾 Partidas' },
+                    { key: 'regras',        label: 'Regras' },
+                    { key: 'classificacao', label: 'Classificação' },
+                    { key: 'partidas',      label: 'Partidas' },
                   ] as const
             ).map(t => (
               <TouchableOpacity
@@ -540,27 +633,45 @@ export default function CompetitionDetail() {
 
           {activeTab === 'classificacao' && (
             comp.format === 'grupos'
-              ? <GroupsPhaseView comp={comp} onScore={handleScore} onClear={handleClear} />
-              : <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-                  <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', marginTop: 32 }}>
-                    Formato mata-mata não possui classificação.
+              ? <GroupsPhaseView comp={comp} onScore={handleScore} onMatchActions={handleMatchActionsById} />
+              /* Mata-mata não tem tabela de classificação — mas tem chave.
+                 Aqui era um beco sem saída ("não possui classificação"); o
+                 chaveamento existia em app/bracket.tsx sem nenhuma entrada. */
+              : <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 12 }}>
+                  <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', marginTop: 24 }}>
+                    Mata-mata não tem tabela de classificação — a posição de cada
+                    dupla é a fase até onde ela chegou.
                   </Text>
+                  <TouchableOpacity
+                    onPress={() => router.push({ pathname: '/bracket', params: { competitionId: comp.id } })}
+                    activeOpacity={0.85}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      height: 48, borderRadius: Radius.full,
+                      backgroundColor: Colors.gold,
+                    }}
+                  >
+                    <Icon name="ranking" size={17} color={Colors.bg} />
+                    <Text style={{ fontFamily: FontFamily.title, fontSize: 14, color: Colors.bg }}>
+                      Ver chaveamento
+                    </Text>
+                  </TouchableOpacity>
                 </ScrollView>
           )}
 
           {activeTab === 'partidas' && (
             comp.format === 'grupos'
-              ? <KOView comp={comp} onScore={handleScore} onClear={handleClear}
+              ? <KOView comp={comp} onScore={handleScore} onMatchActions={handleMatchActionsById}
                   preview={comp.status !== 'done' && !(comp.groupDefs?.every((_, gi) => groupComplete(comp.matches, gi)) ?? false)} />
               : comp.format === 'liga'
-                ? <LeagueView comp={comp} onScore={handleScore} onClear={handleClear}
+                ? <LeagueView comp={comp} onScore={handleScore} onMatchActions={handleMatchActionsById}
                     onSubstitute={isAdmin ? handleSubstitute : undefined} />
                 : comp.format === 'mata'
-                  ? <KOView comp={comp} onScore={handleScore} onClear={handleClear} />
+                  ? <KOView comp={comp} onScore={handleScore} onMatchActions={handleMatchActionsById} />
                   : comp.format === 'avulso'
-                    ? <AvulsoView comp={comp} onScore={handleScore} onClear={handleClear}
-                        onAddMatch={() => setShowAddAvulso(true)} />
-                    : <RotatingView comp={comp} onScore={handleScore} onClear={handleClear}
+                    ? <AvulsoView comp={comp} onScore={handleScore} onMatchActions={handleMatchActionsById}
+                        onAddMatch={() => setShowAddAvulso(true)} canEdit={isAdmin} />
+                    : <RotatingView comp={comp} onScore={handleScore} onMatchActions={handleMatchActionsById}
                         onSubstitute={isAdmin ? handleSubstitute : undefined} />
           )}
         </View>
@@ -641,6 +752,101 @@ export default function CompetitionDetail() {
         </View>
       </Modal>
 
+      {/* Menu de edição de um jogo — só admin (handleMatchActionsById) */}
+      {matchMenu && (
+        <OptionModal
+          title="Editar jogo"
+          message={matchDescription(matchMenu)}
+          options={[
+            { key: 'score',   label: matchMenu.scoreA != null ? 'Corrigir placar' : 'Marcar placar', icon: 'edit' },
+            ...(isFreeFormMatch(matchMenu)
+              ? [{ key: 'players', label: 'Trocar jogadores', icon: 'swap' as const }]
+              : []),
+            ...(matchMenu.scoreA != null
+              ? [{ key: 'clear', label: 'Limpar placar', icon: 'minus' as const, color: Colors.muted }]
+              : []),
+            ...(isFreeFormMatch(matchMenu)
+              ? [{ key: 'delete', label: 'Excluir jogo', icon: 'trash' as const, color: Colors.coral }]
+              : []),
+          ]}
+          onSelect={handleMatchMenuSelect}
+          onClose={() => setMatchMenu(null)}
+        />
+      )}
+
+      {/* Modal: trocar os jogadores de um jogo já criado */}
+      <Modal visible={!!editingMatch} transparent animationType="slide" onRequestClose={() => setEditingMatch(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md, maxHeight: '85%' }}>
+            <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text }}>Trocar jogadores</Text>
+            {editingMatch?.scoreA != null && (
+              <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted }}>
+                O placar registrado continua o mesmo — muda só quem jogou. O ranking é recalculado.
+              </Text>
+            )}
+
+            {(['A', 'B'] as const).map(side => {
+              const team = side === 'A' ? editTeamA : editTeamB;
+              const setTeam = side === 'A' ? setEditTeamA : setEditTeamB;
+              const otherTeam = side === 'A' ? editTeamB : editTeamA;
+              return (
+                <View key={side} style={{ gap: Spacing.xs }}>
+                  <Text style={{ fontFamily: FontFamily.title, fontSize: 13, color: Colors.muted, letterSpacing: 1 }}>
+                    DUPLA {side} {team.length > 0 ? `— ${team.map(pid => findPlayer(pid)?.name ?? pid).join(' / ')}` : ''}
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+                      {groupPlayers.filter(p => !otherTeam.includes(p.id)).map(p => {
+                        const selected = team.includes(p.id);
+                        return (
+                          <TouchableOpacity
+                            key={p.id}
+                            onPress={() => {
+                              if (selected) setTeam(team.filter(pid => pid !== p.id));
+                              else if (team.length < 2) setTeam([...team, p.id]);
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${p.name}, dupla ${side}${selected ? ', selecionado' : ''}`}
+                            style={{
+                              paddingHorizontal: Spacing.sm, paddingVertical: 11,
+                              borderRadius: Radius.full,
+                              backgroundColor: selected ? Colors.gold : Colors.surf2,
+                              borderWidth: 1,
+                              borderColor: selected ? Colors.gold : Colors.line,
+                            }}
+                          >
+                            <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 13, color: selected ? Colors.bg : Colors.text }}>
+                              {p.name.split(' ')[0]}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                </View>
+              );
+            })}
+
+            <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm }}>
+              <TouchableOpacity
+                style={{ flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' }}
+                onPress={() => { setEditingMatch(null); setEditTeamA([]); setEditTeamB([]); }}
+              >
+                <Text style={{ fontFamily: FontFamily.body, fontSize: 15, color: Colors.muted }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[{ flex: 2, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm + 2, alignItems: 'center' },
+                  (editTeamA.length === 0 || editTeamB.length === 0) && { opacity: 0.4 }]}
+                onPress={handleConfirmEditPlayers}
+                disabled={editTeamA.length === 0 || editTeamB.length === 0}
+              >
+                <Text style={{ fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg }}>Salvar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modal: novo convidado (jogador sem cadastro) */}
       <Modal visible={showAddGuest} transparent animationType="slide" onRequestClose={() => setShowAddGuest(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
@@ -714,7 +920,7 @@ export default function CompetitionDetail() {
 
 const makeMainStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  iconBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
+  iconBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
   iconBtnText: { fontSize: 18, color: Colors.muted },
   adminMenu: { backgroundColor: Colors.surf2, borderBottomWidth: 1, borderBottomColor: Colors.line, padding: Spacing.sm, gap: Spacing.xs },
   adminMenuItem: { alignSelf: 'flex-end' },

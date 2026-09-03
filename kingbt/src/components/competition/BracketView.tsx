@@ -84,8 +84,8 @@ const makeBkCardStyles = (Colors: ThemeColors) => StyleSheet.create({
   winScore: { color: Colors.teal },
 });
 
-export function BracketView({ comp, onScore, onClear }: {
-  comp: Competition; onScore: (m: Match) => void; onClear: (id: string) => void;
+export function BracketView({ comp, onScore, onMatchActions }: {
+  comp: Competition; onScore: (m: Match) => void; onMatchActions: (id: string) => void;
 }) {
   const { colors: Colors } = useTheme();
   const vw = useMemo(() => makeVw(Colors), [Colors]);
@@ -187,7 +187,7 @@ export function BracketView({ comp, onScore, onClear }: {
           <Text style={vw.section}>Disputa de 3º Lugar</Text>
           <MatchRow match={thirdMatch} comp={comp} isNext={thirdMatch.id === nextId}
             onPress={() => onScore(thirdMatch)}
-            onLongPress={thirdMatch.scoreA != null ? () => onClear(thirdMatch.id) : undefined} />
+            onLongPress={thirdMatch.scoreA != null ? () => onMatchActions(thirdMatch.id) : undefined} />
           <View style={{ height: Spacing.xl }} />
         </View>
       )}

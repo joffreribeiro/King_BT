@@ -25,6 +25,21 @@ service cloud.firestore {
       return signedIn() && request.auth.uid in groupData(gid).admins;
     }
 
+    // Mesmo e-mail tratado como super admin no cliente (SUPER_ADMIN_EMAILS em
+    // AuthContext) e na regra de /config abaixo — super admin não precisa
+    // estar na lista `admins` de um grupo específico para gerenciá-lo.
+    function isSuperAdmin() {
+      return signedIn() && request.auth.token.email == 'joffre.ribeiro@gmail.com';
+    }
+
+    // Admin do grupo OU super admin — o portão para excluir/corrigir/editar
+    // jogo já registrado. Espelha o ADMIN_ONLY de wrappedDispatch no cliente
+    // (CompetitionsContext.tsx); aqui é a versão que vale mesmo se alguém
+    // escrever direto no Firestore, ignorando o app.
+    function canManageComp(gid) {
+      return isGroupAdmin(gid) || isSuperAdmin();
+    }
+
     // Grupo público: qualquer usuário logado pode visitar em modo leitura
     function isPublic(gid) {
       return groupData(gid).visibility == 'publico';
@@ -81,15 +96,50 @@ service cloud.firestore {
 
       match /competitions/{compId} {
         allow read: if isMember(gid) || (signedIn() && isPublic(gid));
-        allow write: if isMember(gid);
+
+        // Criar uma competição continua liberado a qualquer membro.
+        allow create: if isMember(gid);
+
+        // Editar: qualquer membro registra placar e adiciona jogo (Avulso/
+        // rodízio) sem precisar de admin — é o uso do dia a dia. Duas coisas
+        // exigem canManageComp: encolher `matches` (excluir um jogo — o
+        // array só aumenta fora daqui) e trocar `name` (renomear).
+        //
+        // O que a regra NÃO cobre: trocar os jogadores de um jogo já
+        // existente, e corrigir/limpar o placar de um jogo já registrado —
+        // ambos ficam do mesmo tamanho de array, então não dá pra distinguir
+        // "registrar placar pela primeira vez" de "sobrescrever um resultado"
+        // sem comparar cada jogo por índice, o que a linguagem de regras não
+        // faz bem para um array de tamanho variável. Hoje esses dois só são
+        // barrados no cliente (ADMIN_ONLY em CompetitionsContext.tsx) — quem
+        // escrever direto no Firestore, ignorando o app, ainda consegue.
+        // Fechar isso de verdade pede validação no servidor (Cloud Function).
+        allow update: if isMember(gid) && (
+          canManageComp(gid)
+          || (
+            request.resource.data.matches.size() >= resource.data.matches.size()
+            && request.resource.data.name == resource.data.name
+          )
+        );
+
         // Visitante de grupo público pode solicitar/cancelar inscrição
         // (Fase 3) sem virar membro — só o campo joinRequests é alterável.
         allow update: if signedIn() && isPublic(gid) && onlyChangesJoinRequests();
+
+        allow delete: if canManageComp(gid);
       }
 
       match /feed/{feedId} {
         allow read: if isMember(gid) || (signedIn() && isPublic(gid));
-        allow write: if isMember(gid);
+        // Criar o post, reagir e comentar (tudo update — reações/comentários
+        // são arrayUnion/arrayRemove num documento existente) continua aberto
+        // a qualquer membro.
+        allow create: if isMember(gid);
+        allow update: if isMember(gid);
+        // Apagar o post — hoje só acontece junto da exclusão do jogo que o
+        // gerou (deleteFeedItemsByMatch, chamado por DELETE_MATCH) — exige
+        // o mesmo admin do jogo.
+        allow delete: if canManageComp(gid);
       }
 
       match /analises/{matchId} {

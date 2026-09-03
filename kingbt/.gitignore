@@ -43,3 +43,6 @@ serviceAccount*.json
 # generated native folders
 /ios
 /android
+
+# log do emulador do Firestore rodando localmente (npm run test:rules)
+firestore-debug.log
