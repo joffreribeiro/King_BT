@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Animated, ScrollView } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Animated, ScrollView } from 'react-native';
 import { shareText, notifyCopied } from '@/services/share';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useRef, useMemo } from 'react';
@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontFamily, type ThemeColors, Colors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
+import { Icon } from '@/components';
 
 const CONFETTI_COLORS = [Colors.gold, Colors.teal, Colors.accentSuper8, Colors.accentGrupos, Colors.coral, Colors.goldBright, Colors.teal];
 
@@ -80,6 +81,19 @@ export default function VictoryScreen() {
 
   return (
     <SafeAreaView style={v.container} edges={['top', 'bottom']}>
+      {/* Mascote King BT no topo — sangra até a borda e dissolve no fundo da tela */}
+      <View style={v.banner} pointerEvents="none">
+        <Image
+          source={require('../assets/kingbt-mascote.jpg')}
+          style={v.bannerImg}
+          resizeMode="cover"
+        />
+        <LinearGradient
+          colors={['transparent', Colors.bg]}
+          style={v.bannerFade}
+        />
+      </View>
+
       <Confetti />
 
       <ScrollView
@@ -89,7 +103,7 @@ export default function VictoryScreen() {
         <Animated.View style={[v.content, { opacity: opacityAnim, transform: [{ scale: scaleAnim }] }]}>
 
           <Text style={v.resultLabel}>RESULTADO FINAL</Text>
-          <Text style={v.crown}>👑</Text>
+          <Icon name="crown" size={40} color={Colors.gold} />
           <Text style={v.title}>VITÓRIA!</Text>
 
           {/* Score card */}
@@ -121,6 +135,16 @@ export default function VictoryScreen() {
           </Text>
 
           {/* Botões */}
+          <TouchableOpacity onPress={handleShare} activeOpacity={0.85} style={v.shareBtn}>
+            <LinearGradient
+              colors={[Colors.gold, Colors.goldDeep]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              style={v.shareBtnInner}
+            >
+              <Text style={v.shareBtnText}>Compartilhar resultado</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
           <TouchableOpacity
             onPress={() => router.replace('/(app)')}
             activeOpacity={0.8}
@@ -137,7 +161,10 @@ export default function VictoryScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
+  banner: { position: 'absolute', top: 0, left: 0, right: 0, height: 220 },
+  bannerImg: { width: '100%', height: '100%' },
+  bannerFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 130 },
+  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24, paddingTop: 150 },
   content: { alignItems: 'center', gap: 16 },
   resultLabel: {
     fontFamily: FontFamily.numberBold,
@@ -145,7 +172,6 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.muted,
     letterSpacing: 2,
   },
-  crown: { fontSize: 48 },
   title: {
     fontFamily: FontFamily.titleBold,
     fontSize: 42,
@@ -206,7 +232,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   shareBtnText: {
     fontFamily: FontFamily.title,
     fontSize: 15,
-    color: '#fff',
+    color: Colors.bg,
   },
   continueBtn: {
     width: '100%',

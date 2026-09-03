@@ -9,16 +9,15 @@ import { useRouter } from 'expo-router';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
+import { Icon } from '@/components';
 
 const { width: SW, height: SH } = Dimensions.get('window');
-// Centro aproximado do ícone (topo da tela + padding)
 const ICON_CX = SW / 2;
-const ICON_CY = 140;
 
 type Mode = 'options' | 'signin' | 'signup' | 'forgot';
 
 // ── Anéis pulsantes ───────────────────────────────────────────────────────────
-function PulseRing({ size, delay, borderColor }: { size: number; delay: number; borderColor: string }) {
+function PulseRing({ size, delay, borderColor, centerY }: { size: number; delay: number; borderColor: string; centerY: number }) {
   const scale = useRef(new Animated.Value(0.93)).current;
   const alpha = useRef(new Animated.Value(0.2)).current;
 
@@ -45,7 +44,7 @@ function PulseRing({ size, delay, borderColor }: { size: number; delay: number; 
       width: size, height: size, borderRadius: size / 2,
       borderWidth: 1.5, borderColor,
       left: SW / 2 - size / 2,
-      top: ICON_CY - size / 2,
+      top: centerY - size / 2,
       opacity: alpha,
       transform: [{ scale }],
     }} />
@@ -55,7 +54,7 @@ function PulseRing({ size, delay, borderColor }: { size: number; delay: number; 
 // ── Partículas ────────────────────────────────────────────────────────────────
 type Particle = { x: Animated.Value; y: Animated.Value; alpha: Animated.Value; size: number; key: number };
 
-function useLoginParticles(count: number) {
+function useLoginParticles(count: number, centerYRef: { current: number }) {
   const particles = useRef<Particle[]>([]);
   if (particles.current.length === 0) {
     for (let i = 0; i < count; i++) {
@@ -69,7 +68,7 @@ function useLoginParticles(count: number) {
     const angle = Math.random() * Math.PI * 2;
     const dist  = 40 + Math.random() * 80;
     const sx = ICON_CX + Math.cos(angle) * dist;
-    const sy = ICON_CY + Math.sin(angle) * dist;
+    const sy = centerYRef.current + Math.sin(angle) * dist;
     const vx = (Math.random() - 0.5) * 50;
     const vy = -(Math.random() * 60 + 20);
     const dur = 1000 + Math.random() * 800;
@@ -101,6 +100,17 @@ export default function LoginScreen() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('options');
 
+  // Centro do logo: a tela agora centraliza o conteúdo verticalmente, então a
+  // posição real do logo varia com a altura do formulário — os anéis, raios,
+  // glow e partículas seguem essa medida em vez de um Y fixo.
+  const [centerY, setCenterY] = useState(SH * 0.32);
+  const centerYRef = useRef(centerY);
+  const onLogoLayout = useCallback((e: { nativeEvent: { layout: { y: number; height: number } } }) => {
+    const y = e.nativeEvent.layout.y + e.nativeEvent.layout.height / 2;
+    centerYRef.current = y;
+    setCenterY(y);
+  }, []);
+
   // Raios rotativos
   const raysRotate  = useRef(new Animated.Value(0)).current;
   const raysOpacity = useRef(new Animated.Value(0)).current;
@@ -111,7 +121,7 @@ export default function LoginScreen() {
   // Shimmer em loop
   const shimmerX = useRef(new Animated.Value(-200)).current;
 
-  const particles = useLoginParticles(30);
+  const particles = useLoginParticles(30, centerYRef);
 
   useEffect(() => {
     // Raios aparecem e giram
@@ -183,16 +193,16 @@ export default function LoginScreen() {
 
           {/* ── Anéis pulsantes (fora do ScrollView para cobrir a tela) ── */}
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            <PulseRing size={230} delay={0}    borderColor="rgba(243,197,68,0.35)" />
-            <PulseRing size={290} delay={500}  borderColor="rgba(243,197,68,0.18)" />
-            <PulseRing size={360} delay={1000} borderColor="rgba(243,197,68,0.09)" />
+            <PulseRing size={230} delay={0}    borderColor="rgba(243,197,68,0.35)" centerY={centerY} />
+            <PulseRing size={290} delay={500}  borderColor="rgba(243,197,68,0.18)" centerY={centerY} />
+            <PulseRing size={360} delay={1000} borderColor="rgba(243,197,68,0.09)" centerY={centerY} />
           </View>
 
           {/* ── Camada de animação (atrás de tudo) ── */}
           <View pointerEvents="none" style={StyleSheet.absoluteFill}>
 
             {/* Raios rotativos */}
-            <Animated.View style={[deco.raysWrap, { opacity: raysOpacity, transform: [{ rotate: raysRotateDeg }] }]}>
+            <Animated.View style={[deco.raysWrap, { top: centerY - SW * 1.25, opacity: raysOpacity, transform: [{ rotate: raysRotateDeg }] }]}>
               {[0, 52, 105, 160, 215, 270, 325].map((angle, i) => (
                 <View key={i} style={[deco.rayLine, { transform: [{ rotate: `${angle}deg` }] }]}>
                   <View style={{ width: SW * 2.5, height: 1.5, backgroundColor: `rgba(243,197,68,${0.04 + (i % 3) * 0.012})` }} />
@@ -201,7 +211,7 @@ export default function LoginScreen() {
             </Animated.View>
 
             {/* Glow dourado atrás do ícone */}
-            <Animated.View style={[deco.glow, { opacity: glowOpacity }]} />
+            <Animated.View style={[deco.glow, { top: centerY - 120, opacity: glowOpacity }]} />
 
             {/* Partículas */}
             {particles.map(p => (
@@ -215,7 +225,7 @@ export default function LoginScreen() {
           </View>
 
           {/* Logo com shimmer */}
-          <View style={styles.logoWrap}>
+          <View style={styles.logoWrap} onLayout={onLogoLayout}>
             <View style={styles.logoGlow}>
               <View style={{ overflow: 'hidden', borderRadius: 100, width: 200, height: 200 }}>
                 <Image source={require('../../assets/kingbt-icon.png')} style={styles.logo} resizeMode="contain" />
@@ -264,7 +274,7 @@ export default function LoginScreen() {
                   placeholder="Senha" placeholderTextColor={Colors.faint}
                   secureTextEntry={!showPassword} />
                 <TouchableOpacity onPress={() => setShowPassword(p => !p)} style={styles.eyeBtn}>
-                  <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
+                  <Icon name={showPassword ? 'eyeOff' : 'eye'} size={19} color={Colors.faint} />
                 </TouchableOpacity>
               </View>
 
@@ -339,7 +349,7 @@ export default function LoginScreen() {
                   placeholder="Senha (mín. 6 caracteres)" placeholderTextColor={Colors.faint}
                   secureTextEntry={!showPassword} />
                 <TouchableOpacity onPress={() => setShowPassword(p => !p)} style={styles.eyeBtn}>
-                  <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
+                  <Icon name={showPassword ? 'eyeOff' : 'eye'} size={19} color={Colors.faint} />
                 </TouchableOpacity>
               </View>
 
@@ -365,7 +375,7 @@ const deco = StyleSheet.create({
   raysWrap: {
     position: 'absolute',
     width: SW * 2.5, height: SW * 2.5,
-    left: -(SW * 0.75), top: ICON_CY - SW * 1.25,
+    left: -(SW * 0.75),
   },
   rayLine: {
     position: 'absolute',
@@ -375,7 +385,7 @@ const deco = StyleSheet.create({
   },
   glow: {
     position: 'absolute',
-    top: ICON_CY - 120, left: SW / 2 - 120,
+    left: SW / 2 - 120,
     width: 240, height: 240, borderRadius: 120,
     backgroundColor: 'rgba(243,197,68,0.08)',
   },
@@ -388,8 +398,8 @@ const deco = StyleSheet.create({
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000000' },
-  scroll: { flexGrow: 1, paddingHorizontal: Spacing.lg, paddingBottom: Spacing.xl },
-  logoWrap: { alignItems: 'center', paddingTop: Spacing.lg, paddingBottom: Spacing.sm },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xl },
+  logoWrap: { alignItems: 'center', paddingBottom: Spacing.sm },
   logoGlow: {
     width: 200, height: 200, borderRadius: 100,
   },
@@ -404,7 +414,6 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   passwordWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line },
   passwordInput: { flex: 1, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, fontFamily: FontFamily.body, fontSize: 15, color: Colors.text },
   eyeBtn: { paddingHorizontal: Spacing.md },
-  eyeText: { fontSize: 18 },
   btnGoogle: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md + 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 54, shadowColor: Colors.gold, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 10 },
   btnEmail: { borderWidth: 1.5, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', backgroundColor: Colors.surf, minHeight: 52 },
   btnEmailText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },

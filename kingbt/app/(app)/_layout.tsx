@@ -325,11 +325,13 @@ function AppHeader({ onMenuPress }: { onMenuPress: () => void }) {
   const { group } = useAuth();
   const { colors: Colors } = useTheme();
   const hd = useMemo(() => makeHdStyles(Colors), [Colors]);
-  const insets = useSafeAreaInsets();
+  // O padding pra área segura do topo agora é aplicado uma vez só, no
+  // wrapper que envolve os banners + este cabeçalho (ver AppLayout) — assim
+  // não dobra quando um banner aparece acima.
   const { unread } = useNotifications();
 
   return (
-    <View style={[hd.bar, { paddingTop: insets.top }]}>
+    <View style={hd.bar}>
       <View style={hd.inner}>
         {/* Logo + grupo — cabeçalho único, sem o avatar duplicando a aba "Eu" */}
         <View style={hd.logoGroup}>
@@ -383,10 +385,17 @@ export default function AppLayout() {
 
   return (
     <ErrorBoundary label="AppLayout">
-      <OfflineBanner />
-      <UpdateBanner />
-      {!isMember && <VisitorBanner />}
-      <AppHeader onMenuPress={() => setDrawerOpen(true)} />
+      {/* Um padding só pro grupo inteiro (banners + cabeçalho) respeitar a
+          barra de status — antes só o AppHeader tinha isso, então quando um
+          banner aparecia ACIMA dele (atualização, offline, visitante), o
+          banner ficava colado no topo, embaixo da barra de status do
+          Android, com o botão inacessível. */}
+      <View style={{ paddingTop: insets.top }}>
+        <OfflineBanner />
+        <UpdateBanner />
+        {!isMember && <VisitorBanner />}
+        <AppHeader onMenuPress={() => setDrawerOpen(true)} />
+      </View>
 
       <Tabs
         tabBar={props => <CustomTabBar {...props} />}

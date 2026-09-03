@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, Image, StyleSheet, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { FontFamily, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 
@@ -64,9 +65,22 @@ export function ShareStatsCard({ data }: { data: ShareStatsData }) {
         ))}
       </View>
 
-      {/* Footer */}
+      {/* Footer — faixa de marca com o mascote */}
       <View style={s.footer}>
-        <Text style={s.footerText}>👑 King BT</Text>
+        <Image
+          source={require('../../assets/kingbt-mascote.jpg')}
+          style={s.footerImg}
+          resizeMode="cover"
+        />
+        <LinearGradient
+          colors={['#0B0B0D', 'rgba(11,11,13,0)']}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+          style={s.footerFade}
+        />
+        <View style={s.footerTextWrap}>
+          <Text style={s.footerBrand}>KING BT</Text>
+          <Text style={s.footerTagline}>PLAY COM RESPEITO</Text>
+        </View>
       </View>
     </View>
   );
@@ -159,15 +173,43 @@ const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: 'rgba(255,255,255,0.35)',
   },
   footer: {
+    height: 64,
     borderTopWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
-    padding: 10,
-    alignItems: 'center',
+    backgroundColor: '#0B0B0D',
+    overflow: 'hidden',
   },
-  footerText: {
-    fontFamily: FontFamily.bodyMed,
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.25)',
-    letterSpacing: 1,
+  footerImg: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    width: 150,
+    height: 64,
+  },
+  footerFade: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 150,
+  },
+  footerTextWrap: {
+    position: 'absolute',
+    left: 16,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    gap: 2,
+  },
+  footerBrand: {
+    fontFamily: FontFamily.titleBold,
+    fontSize: 14,
+    color: '#F3C544',
+  },
+  footerTagline: {
+    fontFamily: FontFamily.numberBold,
+    fontSize: 9,
+    letterSpacing: 1.5,
+    color: 'rgba(255,255,255,0.35)',
   },
 });

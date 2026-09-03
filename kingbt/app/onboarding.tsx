@@ -7,6 +7,7 @@ import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontFamily } from '@/theme';
+import { Icon, type IconName } from '@/components';
 
 const { width } = Dimensions.get('window');
 const ONBOARDING_KEY = '@kingbt:onboarding_done';
@@ -63,10 +64,10 @@ function SlideWelcome() {
 }
 
 // ── Slide 2: Features ─────────────────────────────────────────────────────────
-const FEATURES = [
-  { icon: '🏆', label: 'Competições',      desc: 'Crie e gerencie torneios e ligas de Beach Tennis', color: '#F3C544' },
-  { icon: '📊', label: 'Quadra ao vivo',   desc: 'Registre o placar em tempo real direto da quadra',  color: '#54B981' },
-  { icon: '👑', label: 'Ranking e Badges', desc: 'Histórico, evolução de rating e conquistas',        color: '#C084FC' },
+const FEATURES: { icon: IconName; label: string; desc: string; color: string }[] = [
+  { icon: 'competitions', label: 'Competições',      desc: 'Crie e gerencie torneios e ligas de Beach Tennis', color: '#F3C544' },
+  { icon: 'chart',        label: 'Quadra ao vivo',   desc: 'Registre o placar em tempo real direto da quadra',  color: '#54B981' },
+  { icon: 'crown',        label: 'Ranking e Badges', desc: 'Histórico, evolução de rating e conquistas',        color: '#C084FC' },
 ];
 
 function SlideFeatures() {
@@ -81,7 +82,7 @@ function SlideFeatures() {
       {FEATURES.map(f => (
         <View key={f.label} style={[ob.featureCard, { borderColor: `${f.color}33` }]}>
           <View style={[ob.featureIcon, { backgroundColor: `${f.color}22`, width: 48, height: 48, borderRadius: 12 }]}>
-            <Text style={{ fontSize: 22 }}>{f.icon}</Text>
+            <Icon name={f.icon} size={22} color={f.color} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={ob.featureLabel}>{f.label}</Text>

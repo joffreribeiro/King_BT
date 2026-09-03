@@ -12,7 +12,7 @@ export type IconName =
   | 'trash' | 'compare' | 'clock' | 'chevronLeft' | 'close' | 'more' | 'plus'
   | 'users' | 'chart' | 'calendar' | 'settings' | 'menu'
   | 'edit' | 'qr' | 'logout' | 'swap' | 'check' | 'x' | 'comment'
-  | 'chevronRight' | 'minus' | 'arrowUp';
+  | 'chevronRight' | 'minus' | 'arrowUp' | 'eye' | 'eyeOff';
 
 type Props = { name: IconName; size?: number; color: string };
 
@@ -132,5 +132,15 @@ function paths(name: IconName, s: any) {
       return <Path d="M6 6l12 12M18 6L6 18" {...s} />;
     case 'comment':
       return <Path d="M20 12a7.5 7.5 0 01-10.9 6.7L4 20l1.3-4.1A7.5 7.5 0 1120 12z" {...s} />;
+    case 'eye':
+      return <>
+        <Path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" {...s} />
+        <Circle cx="12" cy="12" r="3" {...s} strokeLinecap={undefined} strokeLinejoin={undefined} />
+      </>;
+    case 'eyeOff':
+      return <>
+        <Path d="M9.9 4.24A9.1 9.1 0 0112 4c6 0 10 7 10 7a13.2 13.2 0 01-2.66 3.43M6.6 6.6C3.7 8.4 2 11 2 11s4 7 10 7a9.6 9.6 0 004.24-.98M9.5 14.5a3 3 0 004.24-4.24" {...s} />
+        <Line x1="2" y1="2" x2="22" y2="22" {...s} />
+      </>;
   }
 }
