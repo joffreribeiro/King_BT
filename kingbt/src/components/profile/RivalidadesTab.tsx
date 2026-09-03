@@ -12,16 +12,18 @@ export function RivalidadesTab({ rivalries, partnerships, findPlayer }: any) {
   const tab = useMemo(() => makeTab(Colors), [Colors]);
   const rv = useMemo(() => makeRvStyles(Colors), [Colors]);
 
+  // Ícones do set SVG em vez de emoji (⚔️👹😅🎾🤝): a cor é o que separa
+  // "quem te venceu" de "quem você venceu", não um rosto de desenho.
   const rivalItems = [
-    rivalries.biggestRival  && { ...rivalries.biggestRival,  icon: '⚔️', label: 'Maior Rival',   sub: 'Quem você mais enfrentou' },
-    rivalries.carrasco      && { ...rivalries.carrasco,      icon: '👹', label: 'Carrasco',        sub: 'Quem mais te venceu' },
-    rivalries.fregues       && { ...rivalries.fregues,       icon: '😅', label: 'Freguês',         sub: 'Quem você mais venceu' },
+    rivalries.biggestRival  && { ...rivalries.biggestRival,  icon: 'compare', tint: Colors.muted, label: 'Maior Rival', sub: 'Quem você mais enfrentou' },
+    rivalries.carrasco      && { ...rivalries.carrasco,      icon: 'crown',   tint: Colors.coral, label: 'Carrasco',    sub: 'Quem mais te venceu' },
+    rivalries.fregues       && { ...rivalries.fregues,       icon: 'crown',   tint: Colors.teal,  label: 'Freguês',     sub: 'Quem você mais venceu' },
   ].filter(Boolean) as any[];
 
   const partnerItems = [
-    rivalries.biggestPartner && { ...rivalries.biggestPartner, icon: '🎾', label: 'Maior Parceiro',        sub: 'Com quem você mais jogou' },
-    rivalries.bestPartner    && { ...rivalries.bestPartner,    icon: '🤝', label: 'Parceiro Mais Eficiente', sub: 'Com quem você mais venceu' },
-    ...partnerships.map((p: any) => ({ ...p, id: p.partnerId, icon: '🎾', label: 'Parceria', sub: `${p.wins}V / ${p.losses}D` })),
+    rivalries.biggestPartner && { ...rivalries.biggestPartner, icon: 'users', tint: Colors.muted, label: 'Maior Parceiro',        sub: 'Com quem você mais jogou' },
+    rivalries.bestPartner    && { ...rivalries.bestPartner,    icon: 'users', tint: Colors.teal,  label: 'Parceiro Mais Eficiente', sub: 'Com quem você mais venceu' },
+    ...partnerships.map((p: any) => ({ ...p, id: p.partnerId, icon: 'users', tint: Colors.faint, label: 'Parceria', sub: `${p.wins}V / ${p.losses}D` })),
   ].filter(Boolean).slice(0, 5) as any[];
 
   function H2HCard({ item, type }: { item: any; type: 'rival' | 'partner' }) {
@@ -42,7 +44,7 @@ export function RivalidadesTab({ rivalries, partnerships, findPlayer }: any) {
         activeOpacity={0.8}
       >
         <View style={rv.cardTop}>
-          <Text style={rv.icon}>{item.icon}</Text>
+          <View style={rv.icon}><Icon name={item.icon} size={18} color={item.tint} /></View>
           <Avatar name={pl.name} color={pl.color} size={36} />
           <View style={{ flex: 1 }}>
             <Text style={rv.name} numberOfLines={1}>{pl.name}</Text>
@@ -90,7 +92,7 @@ export function RivalidadesTab({ rivalries, partnerships, findPlayer }: any) {
 
       {rivalItems.length === 0 && partnerItems.length === 0 && (
         <View style={{ alignItems: 'center', paddingVertical: Spacing.xl, gap: Spacing.sm }}>
-          <Text style={{ fontSize: 36 }}>⚔️</Text>
+          <Icon name="compare" size={32} color={Colors.faint} />
           <Text style={{ fontFamily: FontFamily.title, fontSize: 17, color: Colors.text }}>Sem rivalidades ainda</Text>
           <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' }}>
             Dispute partidas para ver seus rivais e parceiros aqui.
@@ -104,7 +106,7 @@ export function RivalidadesTab({ rivalries, partnerships, findPlayer }: any) {
 const makeRvStyles = (Colors: ThemeColors) => StyleSheet.create({
   card:      { backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, overflow: 'hidden', marginBottom: 4 },
   cardTop:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.sm },
-  icon:      { fontSize: 20, width: 26 },
+  icon:      { width: 26, alignItems: 'flex-start' },
   name:      { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
   sub:       { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   arrow:     { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.faint },

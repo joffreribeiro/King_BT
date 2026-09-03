@@ -332,14 +332,19 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Tab bar sticky */}
+      {/* Tab bar — segmented de pílula, igual ao filtro de período do
+          Ranking. Era sublinhado em ouro com o mesmo indicador da tab bar
+          do app, o que sugeria que trocar de aba trocava de tela. */}
       <View style={styles.tabBar}>
         {TABS.map(t => (
-          <TouchableOpacity key={t.key} style={styles.tabItem} onPress={() => setActiveTab(t.key)}>
+          <TouchableOpacity
+            key={t.key}
+            style={[styles.tabItem, activeTab === t.key && styles.tabItemActive]}
+            onPress={() => setActiveTab(t.key)}
+          >
             <Text style={[styles.tabLabel, activeTab === t.key && styles.tabLabelActive]}>
               {t.label}
             </Text>
-            {activeTab === t.key && <View style={styles.tabIndicator} />}
           </TouchableOpacity>
         ))}
       </View>
@@ -480,11 +485,14 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1, borderColor: Colors.gold + '55', backgroundColor: Colors.gold + '11',
   },
 
-  tabBar: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.line, backgroundColor: Colors.bg, paddingHorizontal: Spacing.md },
-  tabItem: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', position: 'relative' },
-  tabLabel: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.faint },
-  tabLabelActive: { color: Colors.gold, fontWeight: '700' },
-  tabIndicator: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 2.5, backgroundColor: Colors.gold, borderRadius: 1 },
+  tabBar: {
+    flexDirection: 'row', backgroundColor: Colors.surf2, borderRadius: Radius.full,
+    marginHorizontal: Spacing.md, marginBottom: Spacing.sm, padding: 4,
+  },
+  tabItem: { flex: 1, paddingVertical: 14, borderRadius: Radius.full, alignItems: 'center' },
+  tabItemActive: { backgroundColor: Colors.gold },
+  tabLabel: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.faint },
+  tabLabelActive: { color: Colors.bg, fontWeight: '700' },
 
   shortcutRow: { flexDirection: 'row', gap: Spacing.sm },
   shortcut: {

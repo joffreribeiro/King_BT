@@ -55,7 +55,9 @@ const makeGolpeStyles = (Colors: ThemeColors) => StyleSheet.create({
   label: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
   pct: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   counter: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  btn: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  // Contador de golpes bom/ruim — marcado durante o treino, em pé. Era 22px
+  // (34 com o hitSlop), abaixo do mínimo mesmo somando a folga de toque.
+  btn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   btnBom: { borderColor: Colors.teal + '66', backgroundColor: Colors.teal + '11' },
   btnRuim: { borderColor: Colors.coral + '66', backgroundColor: Colors.coral + '11' },
   val: { fontFamily: FontFamily.numberBold, fontSize: 13, width: 18, textAlign: 'center' },

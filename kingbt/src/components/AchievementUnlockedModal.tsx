@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated } from 'react-native';
-import { useEffect, useRef } from 'react';
-import { FontFamily } from '@/theme';
+import { useEffect, useRef, useMemo } from 'react';
+import { FontFamily, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import type { Achievement } from '@/constants/achievements';
 
 interface Props {
@@ -10,6 +11,8 @@ interface Props {
 }
 
 export function AchievementUnlockedModal({ achievement, visible, onClose }: Props) {
+  const { colors: Colors } = useTheme();
+  const m = useMemo(() => makeStyles(Colors), [Colors]);
   const scaleAnim   = useRef(new Animated.Value(0.6)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -57,13 +60,13 @@ export function AchievementUnlockedModal({ achievement, visible, onClose }: Prop
   );
 }
 
-const m = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   overlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.75)',
     justifyContent: 'center', alignItems: 'center',
   },
   modal: {
-    backgroundColor: '#16140F',
+    backgroundColor: Colors.surf,
     borderWidth: 1,
     borderRadius: 20,
     padding: 28,
@@ -78,12 +81,12 @@ const m = StyleSheet.create({
   },
   icon:         { fontSize: 64, lineHeight: 72, marginBottom: 4 },
   badgeUnlocked:{ fontFamily: FontFamily.titleBold, fontSize: 18, fontWeight: '800' },
-  badgeTitle:   { fontFamily: FontFamily.title, fontSize: 15, color: '#F6EFDD', fontWeight: '700' },
-  badgeDesc:    { fontFamily: FontFamily.body, fontSize: 13, color: '#A99B7C', textAlign: 'center', lineHeight: 18 },
+  badgeTitle:   { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text, fontWeight: '700' },
+  badgeDesc:    { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', lineHeight: 18 },
   btn: {
     marginTop: 12,
     paddingHorizontal: 40, paddingVertical: 13,
     borderRadius: 12,
   },
-  btnText: { fontFamily: FontFamily.title, color: '#000', fontWeight: '700', fontSize: 15 },
+  btnText: { fontFamily: FontFamily.title, color: Colors.bg, fontWeight: '700', fontSize: 15 },
 });

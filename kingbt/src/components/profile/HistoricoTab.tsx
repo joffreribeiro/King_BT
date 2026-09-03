@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useState, useMemo } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
+import { Icon } from '@/components';
 import { makeTab } from './profileStyles';
 
 // ─── Aba Histórico ────────────────────────────────────────────────────────────
@@ -23,9 +24,6 @@ function HistoricoMatchCard({ h, index }: { h: any; index: number }) {
   const { colors: Colors } = useTheme();
   const hc = useMemo(() => makeHcStyles(Colors), [Colors]);
   const insight = getInsightH(h.won, h.myScore, h.oppScore);
-  const delta = h.won
-    ? +(1.0 + Math.random() * 1.8).toFixed(1)
-    : -(0.5 + Math.random() * 1.2).toFixed(1);
 
   return (
     <View style={hc.card}>
@@ -45,12 +43,13 @@ function HistoricoMatchCard({ h, index }: { h: any; index: number }) {
             {h.myScore} - {h.oppScore}
           </Text>
         </View>
+        {/* A variação de pontos que ficava aqui era Math.random() — um número
+            inventado, diferente a cada render, exibido como se fosse a
+            pontuação real do jogo. Saiu; o insight é derivado do placar. */}
         <View style={hc.footer}>
+          {h.won && <Icon name="check" size={12} color={Colors.teal} />}
           <Text style={[hc.insight, { color: h.won ? Colors.teal : Colors.muted }]}>
-            {h.won ? '✓ ' : ''}{insight}
-          </Text>
-          <Text style={[hc.delta, { color: delta > 0 ? Colors.teal : Colors.coral }]}>
-            {delta > 0 ? '▲' : '▼'} {delta > 0 ? '+' : ''}{Math.abs(delta).toFixed(1)}
+            {insight}
           </Text>
         </View>
       </View>
@@ -101,11 +100,10 @@ const makeHcStyles = (Colors: ThemeColors) => StyleSheet.create({
   meta:  { fontFamily: FontFamily.body,  fontSize: 11, color: Colors.muted },
   score: { fontFamily: FontFamily.titleBold, fontSize: 20, fontWeight: '700', letterSpacing: -0.5, flexShrink: 0 },
   footer: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: 'row', alignItems: 'center', gap: 5,
     paddingHorizontal: 10, paddingBottom: 8, paddingTop: 2,
   },
   insight: { fontFamily: FontFamily.bodyMed, fontSize: 11, flex: 1 },
-  delta:   { fontFamily: FontFamily.numberBold, fontSize: 11 },
 });
 
 export function HistoricoTab({ matchHistory }: any) {

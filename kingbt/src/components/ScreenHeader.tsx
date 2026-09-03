@@ -31,7 +31,13 @@ export function ScreenHeader({ title, subtitle, below, onBack, right, onTitleLon
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   return (
     <View style={s.header}>
-      <TouchableOpacity onPress={onBack ?? (() => router.back())} hitSlop={8} style={s.backBtn}>
+      <TouchableOpacity
+        onPress={onBack ?? (() => router.back())}
+        hitSlop={8}
+        style={s.backBtn}
+        accessibilityRole="button"
+        accessibilityLabel="Voltar"
+      >
         <Icon name="chevronLeft" size={22} color={Colors.teal} />
       </TouchableOpacity>
       <View style={s.titleWrap}>
@@ -55,7 +61,8 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line,
   },
-  backBtn:   { width: 32, alignItems: 'flex-start', justifyContent: 'center' },
+  // 44px de alvo — é o botão voltar de 16 telas, e era 32 de largura.
+  backBtn:   { width: 44, height: 44, marginLeft: -10, alignItems: 'flex-start', justifyContent: 'center' },
   titleWrap: { flex: 1 },
   title:     { ...Type.h1, color: Colors.text },
   subtitle:  { ...Type.caption, color: Colors.muted, marginTop: 1 },

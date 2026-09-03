@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform, useWindowDimensions, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useRef, useMemo, useCallback } from 'react';
 import ViewShot from 'react-native-view-shot';
@@ -6,7 +6,6 @@ import { router } from 'expo-router';
 import { goToPlayer } from '@/logic/nav';
 import { FontFamily, Spacing, Radius, Type, type ThemeColors, Colors, PODIUM_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Avatar, Card, Icon } from '@/components';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
 import { SkeletonRanking } from '@/components/SkeletonLoader';
@@ -101,10 +100,6 @@ export default function RankingScreen() {
   const season = String(new Date().getFullYear());
   const roundsDone = state.competitions.filter(c => c.status === 'done').length;
   const groupLocation = '';
-  // Tela estreita (celular): esconde V/D/J/GP/GC — o subtítulo do jogador já
-  // resume J e % de aproveitamento, então nada de essencial se perde.
-  const { width: screenWidth } = useWindowDimensions();
-  const compact = screenWidth < 480;
   const [showFormula, setShowFormula] = useState(false);
   const [compareA, setCompareA] = useState<string | null>(null);
   const [compareB, setCompareB] = useState<string | null>(null);
@@ -216,52 +211,24 @@ export default function RankingScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />}
       >
 
-        {/* Header com gradiente */}
-        <LinearGradient
-          colors={[Colors.surf2, Colors.bg]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerGradient}
-        >
-        <View style={[styles.header, compact && styles.headerCompact]}>
-          <View>
-            <Text style={styles.title}>Ranking</Text>
-            <Text style={styles.subtitle}>Temporada {season}</Text>
-          </View>
-          <View style={[{ flexDirection: 'row', gap: Spacing.xs }, compact && styles.headerActionsCompact]}>
-            <TouchableOpacity style={styles.formulaBtn} onPress={() => setShowCompare(true)}>
-              <Text style={styles.formulaBtnText}>Comparar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.formulaBtn} onPress={() => setShowFormula(true)}>
-              <Text style={styles.formulaBtnText}>Como pontua?</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.formulaBtn, { borderColor: Colors.gold + '66' }]} onPress={() => setShowExport(true)}>
-              <Text style={[styles.formulaBtnText, { color: Colors.gold }]}>PDF</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.formulaBtn, { borderColor: Colors.teal + '66' }]}
-              onPress={handleShareImage}
-              disabled={sharingImg}
-            >
-              <Text style={[styles.formulaBtnText, { color: Colors.teal }]}>
-                {sharingImg ? '⏳' : '📤'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+        {/* Header — título + contexto numa linha só, sem o pódio gigante
+            acima disto empurrando a tabela para fora da primeira dobra. */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Ranking</Text>
+          <Text style={styles.subtitle}>KING BT · TEMPORADA {season}</Text>
         </View>
-        </LinearGradient>
 
-        {/* Filtro de período */}
-        <View style={{ flexDirection: 'row', backgroundColor: Colors.surf2, borderRadius: Radius.md, margin: Spacing.md, marginTop: 0, padding: 3 }}>
+        {/* Filtro de período — alvo de 44px */}
+        <View style={{ flexDirection: 'row', backgroundColor: Colors.surf2, borderRadius: Radius.md, marginHorizontal: Spacing.md, padding: 4 }}>
           {(['mes', 'ano', 'geral'] as const).map(p => (
             <TouchableOpacity
               key={p}
-              style={{ flex: 1, paddingVertical: 7, borderRadius: Radius.sm, alignItems: 'center',
-                backgroundColor: period === p ? Colors.surf : 'transparent' }}
+              style={{ flex: 1, paddingVertical: 12, borderRadius: Radius.sm, alignItems: 'center',
+                backgroundColor: period === p ? Colors.gold : 'transparent' }}
               onPress={() => setPeriod(p)}
             >
               <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 13,
-                color: period === p ? Colors.gold : Colors.faint }}>
+                color: period === p ? Colors.bg : Colors.faint }}>
                 {{ mes: 'Este mês', ano: 'Este ano', geral: 'Geral' }[p]}
               </Text>
             </TouchableOpacity>
@@ -324,6 +291,14 @@ export default function RankingScreen() {
                       }
                     </View>
                     <Text style={styles.playerMeta}>{s.played}J · {aproveitamento}% aprov.</Text>
+                    {/* Distância proporcional ao líder — a pontuação sozinha
+                        exigia fazer a conta de cabeça para saber quanto falta. */}
+                    <View style={styles.gapTrack}>
+                      <View style={[styles.gapFill, {
+                        width: `${first.points > 0 ? Math.max(4, Math.round((s.points / first.points) * 100)) : 100}%`,
+                        backgroundColor: isMe ? Colors.gold : Colors.goldDeep,
+                      }]} />
+                    </View>
                   </View>
 
                   <FormBars form={formByPlayer[s.id] ?? []} Colors={Colors} />
@@ -386,6 +361,36 @@ export default function RankingScreen() {
             Toque num jogador para ver V/D/Saldo/GA e comparar. As barrinhas são os últimos 5 jogos — verde é vitória.
           </Text>
         </View>}
+
+        {/* Utilitários — exportar/explicar, não ler; ficam depois do
+            conteúdo em vez de disputar a faixa que é do ranking. */}
+        <View style={styles.utilRow}>
+          <TouchableOpacity style={styles.utilBtn} onPress={() => setShowCompare(true)}>
+            <Icon name="compare" size={15} color={Colors.muted} />
+            <Text style={styles.utilBtnText}>Comparar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.utilBtn} onPress={() => setShowFormula(true)}>
+            <Icon name="chart" size={15} color={Colors.muted} />
+            <Text style={styles.utilBtnText}>Como pontua?</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.utilBtnSquare}
+            onPress={() => setShowExport(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Exportar ranking em PDF"
+          >
+            <Icon name="clone" size={16} color={Colors.muted} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.utilBtnSquare}
+            onPress={handleShareImage}
+            disabled={sharingImg}
+            accessibilityRole="button"
+            accessibilityLabel={sharingImg ? 'Gerando imagem do ranking' : 'Compartilhar ranking como imagem'}
+          >
+            <Icon name="share" size={16} color={Colors.muted} />
+          </TouchableOpacity>
+        </View>
 
         <View style={{ height: 140 }} />
       </ScrollView>
@@ -495,12 +500,13 @@ export default function RankingScreen() {
               <Text style={{ fontFamily: FontFamily.body, color: Colors.muted }}>Fechar</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={{ flex: 2, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center' }}
+              style={{ flex: 2, flexDirection: 'row', gap: 7, backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center' }}
               onPress={shareAsPDF}
               disabled={exporting}
             >
+              {!exporting && <Icon name="clone" size={15} color={Colors.bg} />}
               <Text style={{ fontFamily: FontFamily.title, color: Colors.bg }}>
-                {exporting ? '⏳ Gerando...' : '📄 Gerar e Compartilhar'}
+                {exporting ? 'Gerando...' : 'Gerar e Compartilhar'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -555,171 +561,25 @@ export default function RankingScreen() {
   );
 }
 
-// Coroas SVG-like via emoji diferenciadas por posição
-const CROWN: Record<number, { emoji: string; color: string; glow: string }> = {
-  1: { emoji: '👑', color: Colors.gold, glow: Colors.gold },
-  2: { emoji: '👑', color: PODIUM_COLORS[1], glow: PODIUM_COLORS[1] },
-  3: { emoji: '👑', color: PODIUM_COLORS[2], glow: PODIUM_COLORS[2] },
-};
-
-const PILLAR: Record<number, { h: number; topBorder: string; bg: string }> = {
-  1: { h: 160, topBorder: Colors.gold, bg: '#1E1A10' },
-  2: { h: 110, topBorder: PODIUM_COLORS[1], bg: '#161820' },
-  3: { h: 80,  topBorder: PODIUM_COLORS[2], bg: '#1E1208' },
-};
-
-function PodiumSlot({ player, pos, isMe, findPlayer }: {
-  player: ReturnType<typeof buildRanking>[0];
-  pos: number; isMe: boolean; center?: boolean;
-  findPlayer: (id: string) => PlayerInfo | undefined;
-}) {
-  const { colors: Colors } = useTheme();
-  const pod = useMemo(() => makePodStyles(Colors), [Colors]);
-  const pl = findPlayer(player.id);
-  const firstName = (pl?.name ?? '?').split(' ')[0].toUpperCase();
-  const crown = CROWN[pos];
-  const pillar = PILLAR[pos];
-  const isFirst = pos === 1;
-
-  return (
-    <TouchableOpacity
-      style={[pod.col, isFirst && { zIndex: 2 }]}
-      onPress={() => pl && goToPlayer(player.id)}
-      disabled={!pl}
-      activeOpacity={0.8}
-    >
-      {/* Coroa */}
-      <Text style={[pod.crown, {
-        fontSize: isFirst ? 30 : 22,
-        color: crown.color,
-        textShadowColor: crown.glow,
-        textShadowRadius: isFirst ? 12 : 6,
-        textShadowOffset: { width: 0, height: 0 },
-      }]}>{crown.emoji}</Text>
-
-      {/* Pilar — conteúdo dentro */}
-      <View style={[pod.pillar, {
-        height: pillar.h,
-        borderTopColor: pillar.topBorder,
-        backgroundColor: pillar.bg,
-        shadowColor: pillar.topBorder,
-        elevation: isFirst ? 14 : 6,
-      }]}>
-        {/* Glow dourado no topo (brilho atrás) */}
-        <View style={[pod.topGlow, { backgroundColor: pillar.topBorder + '30' }]} />
-
-        {/* Posição */}
-        <Text style={[pod.posNum, {
-          color: crown.color,
-          fontSize: isFirst ? 30 : 22,
-          textShadowColor: crown.glow + 'AA',
-          textShadowRadius: 8,
-          textShadowOffset: { width: 0, height: 0 },
-        }]}>{pos}º</Text>
-
-        {/* Nome — branco */}
-        <Text style={[pod.name, { fontSize: isFirst ? 14 : 11 }]} numberOfLines={1}>
-          {firstName}
-        </Text>
-
-        {/* Pontuação — dourado */}
-        <Text style={[pod.pts, {
-          color: crown.color,
-          fontSize: isFirst ? 26 : 19,
-          textShadowColor: crown.glow + '88',
-          textShadowRadius: 6,
-          textShadowOffset: { width: 0, height: 0 },
-        }]}>{player.points.toFixed(2)}</Text>
-
-        {isMe && <View style={pod.youDot} />}
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-const makePodStyles = (Colors: ThemeColors) => StyleSheet.create({
-  col: { alignItems: 'center', justifyContent: 'flex-end', flex: 1 },
-  crown: { marginBottom: -4 },
-  pillar: {
-    width: '100%',
-    borderTopWidth: 3,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    paddingTop: 10,
-    paddingBottom: 14,
-    paddingHorizontal: 4,
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-    overflow: 'hidden',
-  },
-  topGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 32,
-  },
-  posNum: { fontFamily: FontFamily.titleBold, letterSpacing: 0.5 },
-  name: {
-    fontFamily: FontFamily.titleBold,
-    color: '#FFFFFF',
-    textAlign: 'center',
-    letterSpacing: 0.8,
-    maxWidth: 110,
-  },
-  pts: { fontFamily: FontFamily.numberBold, textAlign: 'center' },
-  youDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: Colors.gold, marginTop: 2 },
-});
-
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
 
-  headerGradient: { borderRadius: 0 },
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm,
+  // Título em Type.h1 (era 28px, próprio desta tela) + contexto de grupo
+  // numa segunda linha só — o resto do cromo saiu daqui.
+  header: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm },
+  title: { ...Type.h1, color: Colors.text },
+  subtitle: { fontFamily: FontFamily.numberBold, fontSize: 10, letterSpacing: 1, color: Colors.faint, marginTop: 2 },
+  utilRow: { flexDirection: 'row', gap: Spacing.xs, paddingHorizontal: Spacing.md, marginTop: Spacing.md },
+  utilBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    height: 44, borderRadius: Radius.full,
+    backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line,
   },
-  // Tela estreita: título e botões não cabem numa linha só — empilha o
-  // título em cima e deixa a linha de ações quebrar em duas linhas.
-  headerCompact: { flexDirection: 'column', alignItems: 'stretch', gap: Spacing.sm },
-  headerActionsCompact: { flexWrap: 'wrap' },
-  title: { fontFamily: FontFamily.titleBold, fontSize: 28, color: Colors.text },
-  subtitle: { ...Type.body, color: Colors.muted, marginTop: 2 },
-  formulaBtn: {
-    backgroundColor: Colors.surf2, borderRadius: Radius.full,
-    paddingHorizontal: Spacing.md, paddingVertical: Spacing.xs,
-    borderWidth: 1, borderColor: Colors.line,
-  },
-  formulaBtnText: { ...Type.bodyMed, color: Colors.teal },
-
-  podiumWrap: {
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.md,
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
-    backgroundColor: '#08070A',
-    borderWidth: 1,
-    borderColor: '#2A2010',
-  },
-  podiumGlow: {
-    position: 'absolute',
-    top: 10,
-    left: '25%',
-    right: '25%',
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: Colors.gold + '20',
-  },
-  podium: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-    height: 290,
-    gap: 2,
+  utilBtnText: { ...Type.body, color: Colors.muted },
+  utilBtnSquare: {
+    width: 44, height: 44, borderRadius: Radius.full,
+    backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line,
+    alignItems: 'center', justifyContent: 'center',
   },
 
   legend: { paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
@@ -742,6 +602,8 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4, overflow: 'hidden' },
   playerName: { ...Type.bodyMed, color: Colors.text, flexShrink: 1 },
   playerMeta: { ...Type.caption, fontSize: 11, color: Colors.faint, marginTop: 1 },
+  gapTrack: { height: 3, borderRadius: 2, backgroundColor: Colors.line, marginTop: 5, overflow: 'hidden' },
+  gapFill: { height: '100%', borderRadius: 2 },
   ptsText: { ...Type.title, fontFamily: FontFamily.numberBold, color: Colors.gold, textAlign: 'right', minWidth: 52 },
   trendSmall: { ...Type.caption, fontSize: 9, fontFamily: FontFamily.numberBold, color: Colors.faint },
 

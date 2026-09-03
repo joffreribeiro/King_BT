@@ -1,5 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { FontFamily, PODIUM_COLORS } from '@/theme';
+import { useMemo } from 'react';
+import { FontFamily, PODIUM_COLORS, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 
 interface BadgeStats {
   currentStreak: number;
@@ -28,6 +30,8 @@ interface Props {
 }
 
 export function BadgeGrid({ stats }: Props) {
+  const { colors: Colors } = useTheme();
+  const bg = useMemo(() => makeStyles(Colors), [Colors]);
   return (
     <View style={bg.grid}>
       {BADGE_RULES.map(rule => {
@@ -35,7 +39,7 @@ export function BadgeGrid({ stats }: Props) {
         return (
           <View key={rule.id} style={[bg.item, !unlocked && bg.locked]}>
             <Text style={[bg.emoji, !unlocked && bg.emojiLocked]}>{rule.icon}</Text>
-            <Text style={[bg.label, { color: unlocked ? rule.color : '#6E6452' }]} numberOfLines={2}>
+            <Text style={[bg.label, { color: unlocked ? rule.color : Colors.faint }]} numberOfLines={2}>
               {rule.label}
             </Text>
           </View>
@@ -45,7 +49,7 @@ export function BadgeGrid({ stats }: Props) {
   );
 }
 
-const bg = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -62,8 +66,8 @@ const bg = StyleSheet.create({
     borderColor: 'rgba(243,197,68,0.2)',
   },
   locked: {
-    backgroundColor: '#16140F',
-    borderColor: 'rgba(214,175,70,0.1)',
+    backgroundColor: Colors.surf,
+    borderColor: Colors.line,
     opacity: 0.5,
   },
   emoji: { fontSize: 22 },

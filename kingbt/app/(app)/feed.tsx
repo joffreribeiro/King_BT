@@ -4,7 +4,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FontFamily, Spacing, Radius, formatAccent, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, Type, formatAccent, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card, Icon } from '@/components';
 import { useFeed } from '@/store/FeedContext';
@@ -15,6 +15,12 @@ import { toggleReaction, addComment, deleteComment, type FeedItem } from '@/fire
 import { goToPlayer } from '@/logic/nav';
 
 const EMOJIS = ['👑', '🔥', '💪'] as const;
+
+/** Aviso curto ao usuário — Alert nativo, window.alert no web. */
+function notify(msg: string) {
+  if (Platform.OS === 'web') window.alert(msg);
+  else Alert.alert('', msg);
+}
 
 function timeAgo(ts: any): string {
   const ms = Date.now() - (ts?.toDate?.()?.getTime?.() ?? Date.now());
@@ -125,6 +131,8 @@ const makeFsbStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: Spacing.sm, height: 42 },
   nameWrap: { flex: 1 },
   name: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
+  // Um sinal só para vitória — nome e placar em ouro. Antes o nome ficava em
+  // ouro e o placar em teal ao mesmo tempo, dois sinais para o mesmo fato.
   nameWin: { color: Colors.gold, fontFamily: FontFamily.title },
   scoreZone: {
     width: 100, alignSelf: 'stretch',
@@ -133,7 +141,7 @@ const makeFsbStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingLeft: 6, backgroundColor: Colors.surf2,
   },
   col: { width: 30, textAlign: 'center', fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.muted },
-  colWin: { color: Colors.teal },
+  colWin: { color: Colors.gold },
   trophy: { fontSize: 15, paddingLeft: 4 },
   div: { height: 1, backgroundColor: Colors.line, marginHorizontal: Spacing.sm },
 
@@ -168,7 +176,11 @@ function CommentsModal({ item, visible, onClose }: { item: FeedItem; visible: bo
     try {
       await addComment(group.id, item.id, user.uid, user.displayName ?? 'Jogador', comment.trim());
       setComment('');
-    } catch { /* ignore */ }
+    } catch {
+      // Falhava em silêncio: o texto ficava no campo, o comentário não subia e
+      // nada dizia por quê — offline na quadra parecia o app travado.
+      notify('Não foi possível enviar o comentário. Verifique a conexão.');
+    }
     finally { setSending(false); }
   }
 
@@ -199,11 +211,15 @@ function CommentsModal({ item, visible, onClose }: { item: FeedItem; visible: bo
             {item.comments.length === 0 && (
               <Text style={cm.empty}>Seja o primeiro a comentar.</Text>
             )}
-            {item.comments.map((c, i) => {
+            {/* Chave por identidade (autor + instante), não por índice: os
+                comentários podem ser apagados, e com key={i} o React reaproveita
+                a linha do comentário seguinte — mostrando autor e texto trocados
+                por um instante depois de apagar um do meio da lista. */}
+            {item.comments.map((c) => {
               const pl = findPlayer(c.uid);
               const isMine = user?.uid === c.uid;
               return (
-                <View key={i} style={cm.commentRow}>
+                <View key={`${c.uid}-${c.ts?.toDate?.()?.getTime?.() ?? c.text}`} style={cm.commentRow}>
                   <Avatar name={pl?.name ?? c.name} color={pl?.color ?? Colors.gold} size={24} />
                   <View style={{ flex: 1 }}>
                     <View style={cm.commentHeader}>
@@ -263,7 +279,7 @@ const makeCmStyles = (Colors: ThemeColors) => StyleSheet.create({
   commentDeleteTxt: { fontSize: 13, color: Colors.coral },
   inputRow:    { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.line, paddingTop: Spacing.sm },
   input:       { flex: 1, backgroundColor: Colors.surf2, borderRadius: Radius.sm, paddingHorizontal: 12, paddingVertical: 8, fontFamily: FontFamily.body, fontSize: 13, color: Colors.text, borderWidth: 1, borderColor: Colors.line },
-  sendBtn:     { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
+  sendBtn:     { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
   sendBtnOff:  { opacity: 0.35 },
   sendTxt:     { fontSize: 18, color: Colors.bg },
 });
@@ -305,7 +321,7 @@ function MatchResultCard({ item }: { item: FeedItem }) {
     if (!user || !group) return;
     const has = (item.reactions[emoji] ?? []).includes(user.uid);
     try { await toggleReaction(group.id, item.id, emoji, user.uid, has); }
-    catch { /* ignore */ }
+    catch { notify('Não foi possível salvar sua reação. Verifique a conexão.'); }
   }
 
   return (
@@ -394,7 +410,8 @@ const makeMcStyles = (Colors: ThemeColors) => StyleSheet.create({
   scoreBox:        { alignItems: 'center', minWidth: 72 },
   scoreText:       { fontFamily: FontFamily.titleBold, fontSize: 24 },
   reactRow:        { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  reactBtn:        { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.surf2, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: Colors.line },
+  // Alvo de 44px — era ~27px (paddingVertical 5 + fonte 15).
+  reactBtn:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: Colors.surf2, borderRadius: 22, paddingHorizontal: 12, height: 44, borderWidth: 1, borderColor: Colors.line },
   reactBtnActive:  { backgroundColor: Colors.gold + '22', borderColor: Colors.gold + '44' },
   reactEmoji:      { fontSize: 15 },
   reactCount:      { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted },
@@ -624,7 +641,7 @@ function MatchRow({ item, last }: { item: FeedItem; last: boolean }) {
     if (!user || !group) return;
     const has = (item.reactions[emoji] ?? []).includes(user.uid);
     try { await toggleReaction(group.id, item.id, emoji, user.uid, has); }
-    catch { /* ignore */ }
+    catch { notify('Não foi possível salvar sua reação. Verifique a conexão.'); }
   }
 
   return (
@@ -677,13 +694,25 @@ const makeMrStyles = (Colors: ThemeColors) => StyleSheet.create({
 
 type FeedRow =
   | { kind: 'group'; compName: string; matches: FeedItem[] }
-  | { kind: 'single'; item: FeedItem };
+  | { kind: 'single'; item: FeedItem }
+  | { kind: 'divider'; label: string };
+
+const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+// O feed já agrupava match_result por competição + dia num card só, mas o dia
+// não aparecia em lugar nenhum — só dava pra saber olhando o "5d" de cada card.
+function dayLabel(date: Date): string {
+  const today = new Date();
+  const yest = new Date(today); yest.setDate(today.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return 'Hoje';
+  if (date.toDateString() === yest.toDateString()) return 'Ontem';
+  return `${date.getDate()} de ${MONTHS[date.getMonth()]}`;
+}
 
 export default function FeedScreen() {
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { items, loaded, error } = useFeed();
-  const { group } = useAuth();
 
   // Agrupa match_result da mesma competição E do mesmo dia num card só.
   // Antes agrupava só por compName ao longo do feed inteiro — uma competição
@@ -691,9 +720,15 @@ export default function FeedScreen() {
   // bem diferentes debaixo do mesmo card, carimbado com a data do primeiro.
   const rows: FeedRow[] = [];
   let lastGroup: { compId?: string; day: string; bucket: FeedItem[] } | null = null;
+  let lastDay: string | null = null;
   for (const item of items) {
     if (item.type === 'match_result') {
-      const day = (item.timestamp?.toDate?.() ?? new Date()).toDateString();
+      const date = item.timestamp?.toDate?.() ?? new Date();
+      const day = date.toDateString();
+      if (day !== lastDay) {
+        rows.push({ kind: 'divider', label: dayLabel(date) });
+        lastDay = day;
+      }
       if (lastGroup && lastGroup.compId === item.compId && lastGroup.day === day) {
         lastGroup.bucket.push(item);
       } else {
@@ -708,6 +743,7 @@ export default function FeedScreen() {
   }
 
   function renderRow({ item }: { item: FeedRow }) {
+    if (item.kind === 'divider') return <Text style={s.dayDivider}>{item.label}</Text>;
     if (item.kind === 'group') return <CompGroupCard compName={item.compName} matches={item.matches} />;
     if (item.item.type === 'rank_change') return <RankChangeCard item={item.item} />;
     if (item.item.type === 'rivalry_milestone') return <MilestoneCard item={item.item} />;
@@ -730,14 +766,13 @@ export default function FeedScreen() {
         // grupos não têm mais chave única garantida por compName (a mesma
         // competição pode virar mais de um card, um por dia) — usa o id do
         // primeiro jogo do grupo, que é sempre único.
-        keyExtractor={(r) => r.kind === 'group' ? r.matches[0].id : r.item.id}
+        keyExtractor={(r, i) => r.kind === 'group' ? r.matches[0].id : r.kind === 'divider' ? `divider-${i}-${r.label}` : r.item.id}
         contentContainerStyle={s.list}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />}
         ListHeaderComponent={
           <View style={s.titleRow}>
-            <Text style={s.title}>Feed do grupo</Text>
-            {group && <Text style={s.groupName}>{group.name}</Text>}
+            <Text style={s.title}>Atividade</Text>
           </View>
         }
         renderItem={renderRow}
@@ -777,8 +812,8 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container:  { flex: 1, backgroundColor: Colors.bg },
   list:       { padding: Spacing.md, paddingBottom: 140 },
   titleRow:   { marginBottom: Spacing.md },
-  title:      { fontFamily: FontFamily.titleBold, fontSize: 24, color: Colors.text },
-  groupName:  { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 2 },
+  title:      { ...Type.h1, color: Colors.text },
+  dayDivider: { fontFamily: FontFamily.numberBold, fontSize: 10, letterSpacing: 1.2, color: Colors.faint, textTransform: 'uppercase', marginBottom: Spacing.xs, marginTop: Spacing.xs },
   empty:      { alignItems: 'center', padding: Spacing.xl, gap: Spacing.sm },
   emptyTitle: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.muted },
   emptySub:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },

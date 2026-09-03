@@ -199,6 +199,10 @@ export default function OnboardingScreen() {
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
+// Tela de marca: roda antes de escolher grupo/tema e é sempre escura, então as
+// cores ficam cruas de propósito, fora do ThemeContext. O texto secundário usava
+// '#6E6452' (~3,4:1 sobre o fundo, abaixo de AA) — mesma cor que o tema já havia
+// abandonado por isso; passou para o '#8A7E66' do token `faint`.
 const ob = StyleSheet.create({
   slide: {
     width,
@@ -221,13 +225,13 @@ const ob = StyleSheet.create({
   },
   logo:      { width: 200, height: 200, borderRadius: 100 },
   logoSmall: { width: 120, height: 120, borderRadius: 60, marginBottom: 8 },
-  greeting:  { fontFamily: FontFamily.body,       fontSize: 15, color: '#6E6452' },
+  greeting:  { fontFamily: FontFamily.body,       fontSize: 15, color: '#8A7E66' },
   brandName: { fontFamily: FontFamily.titleBold,  fontSize: 42, color: '#F3C544', letterSpacing: -1.5, fontWeight: '800' },
-  tagline:   { fontFamily: FontFamily.body,       fontSize: 13, color: '#6E6452', textAlign: 'center', lineHeight: 20 },
+  tagline:   { fontFamily: FontFamily.body,       fontSize: 13, color: '#8A7E66', textAlign: 'center', lineHeight: 20 },
 
   // Features
   slideTitle:    { fontFamily: FontFamily.titleBold, fontSize: 28, color: '#F6EFDD', textAlign: 'center', fontWeight: '800' },
-  slideSubtitle: { fontFamily: FontFamily.body,      fontSize: 13, color: '#6E6452', textAlign: 'center', marginBottom: 8 },
+  slideSubtitle: { fontFamily: FontFamily.body,      fontSize: 13, color: '#8A7E66', textAlign: 'center', marginBottom: 8 },
   featureCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: '#16140F', borderWidth: 1, borderRadius: 12,
@@ -235,13 +239,13 @@ const ob = StyleSheet.create({
   },
   featureIcon:  { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   featureLabel: { fontFamily: FontFamily.title,  fontSize: 13, color: '#F6EFDD', fontWeight: '700', marginBottom: 2 },
-  featureDesc:  { fontFamily: FontFamily.body,   fontSize: 11, color: '#6E6452', lineHeight: 15 },
+  featureDesc:  { fontFamily: FontFamily.body,   fontSize: 11, color: '#8A7E66', lineHeight: 15 },
 
   // CTA
   ctaTitle:    { fontFamily: FontFamily.titleBold, fontSize: 32, color: '#F6EFDD', textAlign: 'center', fontWeight: '800' },
   ctaGreeting: { fontFamily: FontFamily.body, fontSize: 18, color: '#F6EFDD', textAlign: 'center' },
   ctaBig:      { fontFamily: FontFamily.titleBold, fontSize: 48, color: '#F6EFDD', textAlign: 'center', fontWeight: '800', letterSpacing: -2, lineHeight: 52, marginTop: -4 },
-  ctaSubtitle: { fontFamily: FontFamily.body,      fontSize: 13, color: '#6E6452', textAlign: 'center', lineHeight: 20, maxWidth: 260 },
+  ctaSubtitle: { fontFamily: FontFamily.body,      fontSize: 13, color: '#8A7E66', textAlign: 'center', lineHeight: 20, maxWidth: 260 },
   primaryBtnInner: { padding: 16, alignItems: 'center', borderRadius: 14 },
   primaryBtnText:  { fontFamily: FontFamily.title, fontSize: 15, color: '#000', fontWeight: '700' },
   secondaryBtn:     { backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 14, padding: 16, alignItems: 'center' },
@@ -250,12 +254,12 @@ const ob = StyleSheet.create({
 
   // Nav
   skipBtn:  { position: 'absolute', top: 54, right: 24, zIndex: 10, padding: 8 },
-  skipText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: '#6E6452' },
+  skipText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: '#8A7E66' },
   footer:   { paddingHorizontal: 24, paddingBottom: 36, gap: 0 },
   btnRow:   { flexDirection: 'row', gap: 10 },
   backBtn:    { borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center' },
   backBtnCta: { alignItems: 'center', paddingVertical: 8 },
-  backBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: '#6E6452' },
+  backBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: '#8A7E66' },
   nextBtn:  { flex: 1, borderRadius: 14, overflow: 'hidden' },
   nextBtnInner: { padding: 14, alignItems: 'center' },
   nextBtnText:  { fontFamily: FontFamily.title, fontSize: 15, color: '#000', fontWeight: '700' },

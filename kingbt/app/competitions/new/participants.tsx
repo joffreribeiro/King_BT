@@ -516,7 +516,7 @@ export default function ParticipantsStep() {
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  backBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
   stepBar: { flexDirection: 'row', paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.xs, gap: Spacing.xs },
   stepItem: { flex: 1, alignItems: 'center', gap: 4 },
@@ -625,7 +625,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   assignRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 4 },
   assignName: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
   assignBtns: { flexDirection: 'row', gap: 6 },
-  groupBadge: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surf2, borderWidth: 1, borderColor: Colors.line },
+  groupBadge: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surf2, borderWidth: 1, borderColor: Colors.line },
   groupBadgeActive: { backgroundColor: Colors.gold, borderColor: Colors.gold },
   groupBadgeTxt: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted },
   groupBadgeTxtActive: { color: Colors.bg },

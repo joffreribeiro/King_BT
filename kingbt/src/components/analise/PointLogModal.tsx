@@ -94,7 +94,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   box: { backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text },
-  closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
+  closeBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
   closeTxt: { fontSize: 15, color: Colors.muted },
   empty: { padding: Spacing.xl, alignItems: 'center' },
   emptyTxt: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.muted },

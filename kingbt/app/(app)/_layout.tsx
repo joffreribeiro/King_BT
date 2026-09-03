@@ -9,11 +9,10 @@ import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useSyncQueue } from '@/store/SyncQueueContext';
 import { useAuth } from '@/store/AuthContext';
-import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useUpdate } from '@/store/UpdateContext';
 import { useNotifications } from '@/hooks/useNotifications';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { Avatar, Icon, type IconName } from '@/components';
+import { Icon, type IconName } from '@/components';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 const TAB_CONFIG: Record<string, { icon: IconName; label: string }> = {
@@ -323,36 +322,36 @@ function VisitorBanner() {
 
 // ── Header ─────────────────────────────────────────────────────────────────────
 function AppHeader({ onMenuPress }: { onMenuPress: () => void }) {
-  const { group, user, myPlayerId } = useAuth();
+  const { group } = useAuth();
   const { colors: Colors } = useTheme();
   const hd = useMemo(() => makeHdStyles(Colors), [Colors]);
-  const { groupPlayers } = useGroupPlayers();
   const insets = useSafeAreaInsets();
-  const myPlayer = groupPlayers.find(p => p.id === myPlayerId);
   const { unread } = useNotifications();
 
   return (
     <View style={[hd.bar, { paddingTop: insets.top }]}>
       <View style={hd.inner}>
-        {/* Logo + grupo */}
+        {/* Logo + grupo — cabeçalho único, sem o avatar duplicando a aba "Eu" */}
         <View style={hd.logoGroup}>
           <Image
             source={require('../../assets/kingbt-icon.png')}
             style={hd.logoImg}
             resizeMode="contain"
           />
-          <View>
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={hd.groupLabel}>Grupo</Text>
             {group && <Text style={hd.groupName} numberOfLines={1}>{group.name}</Text>}
           </View>
         </View>
 
-        {/* Sino + Lupa + Avatar + Menu */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        {/* Sino + Menu — alvos de 44px */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           <TouchableOpacity
             onPress={() => router.push('/(app)/notifications')}
             style={hd.bellBtn}
             activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel={unread > 0 ? `Notificações, ${unread} não lidas` : 'Notificações'}
           >
             <Icon name="bell" size={18} color={unread > 0 ? Colors.gold : Colors.muted} />
             {unread > 0 && (
@@ -361,14 +360,13 @@ function AppHeader({ onMenuPress }: { onMenuPress: () => void }) {
               </View>
             )}
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/(app)/profile')} activeOpacity={0.8}>
-            <Avatar
-              name={myPlayer?.name ?? user?.displayName ?? '?'}
-              color={myPlayer?.color ?? Colors.gold}
-              size={40}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity style={hd.menuBtn} onPress={onMenuPress} activeOpacity={0.75}>
+          <TouchableOpacity
+            style={hd.menuBtn}
+            onPress={onMenuPress}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir menu"
+          >
             <Icon name="menu" size={20} color={Colors.muted} />
           </TouchableOpacity>
         </View>
@@ -420,21 +418,24 @@ export default function AppLayout() {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const makeHdStyles = (Colors: ThemeColors) => StyleSheet.create({
+  // Cabeçalho compartilhado por todas as abas — era 80px com o avatar do
+  // jogador ao lado do sino, levando à mesma tela da aba "Eu"; agora 56px,
+  // só logo+grupo (que também é o controle de troca de grupo) e ações.
   bar: { backgroundColor: Colors.surf, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  inner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, height: 80 },
-  logoGroup: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  logoImg: { width: 64, height: 64, borderRadius: 14 },
-  groupLabel: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted, letterSpacing: 1 },
-  groupName: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text },
-  bellBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
+  inner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, height: 56 },
+  logoGroup: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, marginRight: Spacing.sm },
+  logoImg: { width: 34, height: 34, borderRadius: 10 },
+  groupLabel: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.muted, letterSpacing: 1 },
+  groupName: { fontFamily: FontFamily.titleBold, fontSize: 16, color: Colors.text },
+  bellBtn: { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   // Badge do sino — contorno na cor do fundo para destacar do ícone atrás.
   bellBadge: {
-    position: 'absolute', top: -3, right: -3, minWidth: 16, height: 16, borderRadius: 8,
+    position: 'absolute', top: 8, right: 8, minWidth: 16, height: 16, borderRadius: 8,
     paddingHorizontal: 3, backgroundColor: Colors.coral, alignItems: 'center', justifyContent: 'center',
     borderWidth: 1.5, borderColor: Colors.bg,
   },
   bellBadgeText: { fontFamily: FontFamily.numberBold, fontSize: 9, color: '#FFF', lineHeight: 12 },
-  menuBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
+  menuBtn: { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 });
 
 const makeTbStyles = (Colors: ThemeColors) => StyleSheet.create({
@@ -457,7 +458,7 @@ const makeDrStyles = (Colors: ThemeColors) => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: Colors.line, paddingTop: 56 },
   headerTitle: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
   headerSub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 2 },
-  closeBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
+  closeBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
   content: { flex: 1, padding: 16 },
   sectionLabel: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.gold, letterSpacing: 1, marginBottom: 10, marginTop: 4 },
   groupBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1 },

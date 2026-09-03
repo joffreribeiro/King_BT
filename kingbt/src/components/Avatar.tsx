@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native';
 import { FontFamily } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
+import { Icon } from './icons';
 
 type Props = {
   name: string;
@@ -44,9 +45,9 @@ export default function Avatar({ name, color, size = 44, showCrown = false }: Pr
         </Text>
       </View>
       {showCrown && (
-        <Text style={[styles.crown, { fontSize: size * 0.28, top: -(size * 0.22) }]}>
-          👑
-        </Text>
+        <View style={[styles.crown, { top: -(size * 0.22) }]}>
+          <Icon name="crown" size={size * 0.34} color="#F3C544" />
+        </View>
       )}
     </View>
   );

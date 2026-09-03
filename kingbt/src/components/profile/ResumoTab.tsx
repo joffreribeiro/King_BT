@@ -47,16 +47,18 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
           </Text>
         </View>
         <View style={statRow.row}>
+          {/* Nome por baixo do valor, não sigla — GP/GC/SG/GA/WIN% exigiam
+              saber de cor o que cada uma significa. */}
           {[
-            { l: 'GP',   v: me.gamesPro,                      c: Colors.teal },
-            { l: 'GC',   v: me.gamesCon,                      c: Colors.coral },
-            { l: 'SG',   v: (me.sg >= 0 ? '+' : '') + me.sg, c: me.sg >= 0 ? Colors.teal : Colors.coral },
-            { l: 'GA',   v: me.ga.toFixed(2),                 c: Colors.gold },
-            { l: 'WIN%', v: `${winRate}%`,                    c: Colors.goldBright },
+            { l: 'A favor', v: me.gamesPro,                      c: Colors.teal },
+            { l: 'Contra',  v: me.gamesCon,                      c: Colors.coral },
+            { l: 'Saldo',   v: (me.sg >= 0 ? '+' : '') + me.sg, c: me.sg >= 0 ? Colors.teal : Colors.coral },
+            { l: 'Média',   v: me.ga.toFixed(2),                 c: Colors.gold },
+            { l: 'Aprov.',  v: `${winRate}%`,                    c: Colors.goldBright },
           ].map((item, i, arr) => (
             <View key={item.l} style={[statRow.cell, i < arr.length - 1 && statRow.divider]}>
               <Text style={[statRow.val, { color: item.c }]}>{item.v}</Text>
-              <Text style={statRow.lbl}>{item.l}</Text>
+              <Text style={statRow.lbl} numberOfLines={1}>{item.l}</Text>
             </View>
           ))}
         </View>
@@ -232,7 +234,7 @@ const makeStatRowStyles = (Colors: ThemeColors) => StyleSheet.create({
   cell:    { flex: 1, alignItems: 'center', gap: 3, paddingVertical: Spacing.sm },
   divider: { borderRightWidth: 1, borderRightColor: Colors.line },
   val:     { fontFamily: FontFamily.numberBold, fontSize: 18 },
-  lbl:     { fontFamily: FontFamily.number, fontSize: 9, color: Colors.faint, letterSpacing: 0.5 },
+  lbl:     { fontFamily: FontFamily.number, fontSize: 8.5, color: Colors.faint, letterSpacing: 0.2 },
 });
 
 const makeL20Styles = (Colors: ThemeColors) => StyleSheet.create({

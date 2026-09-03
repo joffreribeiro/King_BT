@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import React, { useMemo } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
+import { Icon, type IconName } from '@/components/icons';
 import type { Competition } from '@/logic/types';
 
 export function RulesView({ comp }: { comp: Competition }) {
@@ -30,10 +31,13 @@ export function RulesView({ comp }: { comp: Competition }) {
     (m.teamB ?? (m.bId ? [m.bId] : [])).forEach(id => playerIds.add(id));
   });
 
-  function RuleRow({ icon, label, value, valueColor }: { icon: string; label: string; value: string; valueColor?: string }) {
+  // Ícones do set SVG em vez de emoji (🏆👥⚧📍📅🎮🎯🎾⚡🥇🥈📊): a tela de
+  // regras era a maior concentração de emoji do app, cada um com um peso
+  // visual diferente e nenhum acompanhando o tema.
+  function RuleRow({ icon, label, value, valueColor }: { icon: IconName; label: string; value: string; valueColor?: string }) {
     return (
       <View style={rls.row}>
-        <Text style={rls.icon}>{icon}</Text>
+        <View style={rls.icon}><Icon name={icon} size={16} color={Colors.faint} /></View>
         <Text style={rls.label}>{label}</Text>
         <Text style={[rls.value, valueColor ? { color: valueColor } : {}]}>{value}</Text>
       </View>
@@ -54,33 +58,33 @@ export function RulesView({ comp }: { comp: Competition }) {
 
       {/* Informações gerais */}
       <Section title="INFORMAÇÕES GERAIS">
-        <RuleRow icon="🏆" label="Formato" value={formatName[comp.format] ?? comp.format} />
+        <RuleRow icon="competitions" label="Formato" value={formatName[comp.format] ?? comp.format} />
         <View style={rls.divider} />
-        <RuleRow icon="👥" label="Modalidade" value={unitName[comp.unit] ?? comp.unit} />
+        <RuleRow icon="users" label="Modalidade" value={unitName[comp.unit] ?? comp.unit} />
         <View style={rls.divider} />
-        <RuleRow icon="⚧" label="Categoria" value={genderName[comp.gender] ?? comp.gender} />
+        <RuleRow icon="profile" label="Categoria" value={genderName[comp.gender] ?? comp.gender} />
         {comp.location && (
           <>
             <View style={rls.divider} />
-            <RuleRow icon="📍" label="Local" value={comp.location} />
+            <RuleRow icon="ranking" label="Local" value={comp.location} />
           </>
         )}
         <View style={rls.divider} />
-        <RuleRow icon="📅" label="Data" value={new Date(comp.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} />
+        <RuleRow icon="calendar" label="Data" value={new Date(comp.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })} />
         <View style={rls.divider} />
-        <RuleRow icon="🎮" label="Participantes" value={`${playerIds.size} jogadores`} />
+        <RuleRow icon="users" label="Participantes" value={`${playerIds.size} jogadores`} />
       </Section>
 
       {/* Regras do jogo */}
       <Section title="REGRAS DO JOGO">
-        <RuleRow icon="🎯" label="Sets para vencer" value={`Melhor de ${sets} set${sets > 1 ? 's' : ''}`} valueColor={Colors.gold} />
+        <RuleRow icon="crown" label="Sets para vencer" value={`Melhor de ${sets} set${sets > 1 ? 's' : ''}`} valueColor={Colors.gold} />
         <View style={rls.divider} />
-        <RuleRow icon="🎾" label="Games por set" value={`${games} games`} valueColor={Colors.gold} />
+        <RuleRow icon="competitions" label="Games por set" value={`${games} games`} valueColor={Colors.gold} />
         <View style={rls.divider} />
-        <RuleRow icon="⚡" label="Tie-break" value={`Primeiro a ${tb} pontos`} />
+        <RuleRow icon="chart" label="Tie-break" value={`Primeiro a ${tb} pontos`} />
         <View style={rls.divider} />
         <RuleRow
-          icon="🔥"
+          icon="chart"
           label={`Set decisivo (${sets}º set)`}
           value={superTb ? `Super Tie-Break (${superTbPts} pts)` : `Set completo (${games} games)`}
           valueColor={superTb ? Colors.coral : Colors.muted}
@@ -89,11 +93,11 @@ export function RulesView({ comp }: { comp: Competition }) {
 
       {/* Pontuação */}
       <Section title="PONTUAÇÃO">
-        <RuleRow icon="🥇" label="Vitória" value="+3 pontos" valueColor={Colors.teal} />
+        <RuleRow icon="crown" label="Vitória" value="+3 pontos" valueColor={Colors.teal} />
         <View style={rls.divider} />
-        <RuleRow icon="🥈" label="Derrota" value="+0 pontos" valueColor={Colors.muted} />
+        <RuleRow icon="minus" label="Derrota" value="+0 pontos" valueColor={Colors.muted} />
         <View style={rls.divider} />
-        <RuleRow icon="📊" label="Jogo disputado" value="+0.5 pontos" />
+        <RuleRow icon="chart" label="Jogo disputado" value="+0.5 pontos" />
       </Section>
 
       {/* Critérios de desempate */}
@@ -136,7 +140,7 @@ const makeRls = (Colors: ThemeColors) => StyleSheet.create({
   card: { backgroundColor: Colors.surf, borderRadius: Radius.md, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
   divider: { height: 1, backgroundColor: Colors.line, marginHorizontal: Spacing.md },
-  icon: { fontSize: 17, width: 24, textAlign: 'center' },
+  icon: { width: 24, alignItems: 'center' },
   label: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, flex: 1 },
   value: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text, textAlign: 'right', flexShrink: 0, maxWidth: '55%' },
   tiebreakBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.gold + '22', alignItems: 'center', justifyContent: 'center' },

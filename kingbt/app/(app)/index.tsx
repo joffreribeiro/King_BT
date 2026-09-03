@@ -6,7 +6,7 @@ import { FontFamily, Spacing, Radius, Type, formatAccent, type ThemeColors } fro
 import { makeShadows } from '@/theme/shadows';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Badge, Card, EmptyState, Skeleton, Icon, OptionModal, BottomSheet, NextMatchCard } from '@/components';
+import { Avatar, Card, EmptyState, Skeleton, Icon, OptionModal, BottomSheet, NextMatchCard } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -103,7 +103,7 @@ function AvatarBubble({ color, short, delay, animate }: {
 function CompCard({ comp, onDelete, onClone, isAdmin, highlight = false }: {
   comp: Competition; onDelete: (id: string) => void; onClone: (id: string) => void;
   isAdmin: boolean;
-  /** Só o card ativo mais recente pulsa/anima — ver comentário em `badgePulse`. */
+  /** Só o card ativo mais recente pulsa/anima. */
   highlight?: boolean;
 }) {
   const { colors: Colors } = useTheme();
@@ -138,18 +138,6 @@ function CompCard({ comp, onDelete, onClone, isAdmin, highlight = false }: {
     ? pulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.1, 0.45] })
     : undefined;
 
-  const badgePulse = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    if (!animate) return;
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(badgePulse, { toValue: 0.6, duration: 1200, useNativeDriver: true }),
-        Animated.timing(badgePulse, { toValue: 1,   duration: 1200, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [animate]);
 
   // Player bubbles
   // Quando a competição usa competidores nomeados (duplas/times), aId/bId dos
@@ -190,11 +178,9 @@ function CompCard({ comp, onDelete, onClone, isAdmin, highlight = false }: {
         <View style={styles.cardBody}>
           <View style={styles.cardTopRow}>
             <Text style={[styles.formatLabel, { color: accent }]}>{FORMAT_LABEL[comp.format]?.toUpperCase()}</Text>
-            {isActive && (
-              <Animated.View style={animate ? { opacity: badgePulse } : undefined}>
-                <Badge label="ATIVA" variant="gold" small />
-              </Animated.View>
-            )}
+            {/* O selo "ATIVA" saiu do card: toda competição aqui já está
+                dentro da seção "Em andamento" — o selo repetia, em cada
+                card, o que o cabeçalho da seção já diz uma vez. */}
             {/* Ações do card — antes só existiam via long-press de 600ms,
                 invisível para quem não sabia que existia. */}
             {isAdmin && (
@@ -380,7 +366,12 @@ export default function HubScreen() {
               )}
 
               {!showSearch && (
-                <TouchableOpacity onPress={() => setShowSearch(true)} style={styles.iconBtn}>
+                <TouchableOpacity
+                  onPress={() => setShowSearch(true)}
+                  style={styles.iconBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Buscar competição"
+                >
                   <Icon name="search" size={18} color={Colors.muted} />
                 </TouchableOpacity>
               )}
@@ -388,6 +379,8 @@ export default function HubScreen() {
               <TouchableOpacity
                 onPress={() => setShowFormatSheet(true)}
                 style={[styles.iconBtn, formatFilter !== 'all' && styles.iconBtnActive]}
+                accessibilityRole="button"
+                accessibilityLabel={formatFilter !== 'all' ? 'Filtrar por formato (filtro ativo)' : 'Filtrar por formato'}
               >
                 <Icon name="filter" size={18} color={formatFilter !== 'all' ? Colors.gold : Colors.muted} />
                 {formatFilter !== 'all' && <View style={styles.filterDot} />}
@@ -504,7 +497,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   offlineText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
 
   iconBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: Colors.surf2,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: 'transparent',
@@ -550,10 +543,12 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     backgroundColor: Colors.surf, borderRadius: Radius.full,
     borderWidth: 1, borderColor: Colors.line, padding: 3,
   },
-  segment: { flex: 1, paddingVertical: 6, borderRadius: Radius.full, alignItems: 'center' },
-  segmentActive: { backgroundColor: Colors.gold + '22' },
+  // Ativo em ouro sólido — era 13% de tinta (Colors.gold + '22'), o único
+  // controle da tela com esse peso de seleção mais fraco que os vizinhos.
+  segment: { flex: 1, paddingVertical: 11, borderRadius: Radius.full, alignItems: 'center' },
+  segmentActive: { backgroundColor: Colors.gold },
   segmentText: { ...Type.caption, color: Colors.muted },
-  segmentTextActive: { color: Colors.gold, fontFamily: FontFamily.bodyMed },
+  segmentTextActive: { color: Colors.bg, fontFamily: FontFamily.bodyMed },
   filterDot: {
     position: 'absolute', top: 6, right: 6,
     width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.gold,

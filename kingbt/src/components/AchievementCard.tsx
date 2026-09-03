@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, Animated } from 'react-native';
-import { useEffect, useRef } from 'react';
-import { FontFamily } from '@/theme';
+import { useEffect, useRef, useMemo } from 'react';
+import { FontFamily, type ThemeColors } from '@/theme';
+import { useTheme } from '@/store/ThemeContext';
 import type { Achievement, UserAchievementStats } from '@/constants/achievements';
 
 interface Props {
@@ -9,6 +10,8 @@ interface Props {
 }
 
 export function AchievementCard({ achievement, stats }: Props) {
+  const { colors: Colors } = useTheme();
+  const ac = useMemo(() => makeStyles(Colors), [Colors]);
   const prog         = achievement.progress(stats);
   const isUnlocked   = prog >= 1;
   const isClose      = prog > 0.65 && !isUnlocked;
@@ -32,15 +35,15 @@ export function AchievementCard({ achievement, stats }: Props) {
     <View style={[
       ac.card,
       {
-        backgroundColor: isUnlocked ? `${achievement.color}1A` : 'rgba(0,0,0,0.25)',
-        borderColor:      isUnlocked ? `${achievement.color}44` : 'rgba(110,100,82,0.20)',
+        backgroundColor: isUnlocked ? `${achievement.color}1A` : Colors.surf,
+        borderColor:      isUnlocked ? `${achievement.color}44` : Colors.line,
         opacity:          isUnlocked || isClose || prog > 0 ? 1 : 0.55,
       },
     ]}>
       <View style={ac.header}>
         <Text style={ac.icon}>{achievement.icon}</Text>
         <View style={{ flex: 1 }}>
-          <Text style={[ac.title, { color: isUnlocked ? achievement.color : '#F6EFDD' }]}>
+          <Text style={[ac.title, { color: isUnlocked ? achievement.color : Colors.text }]}>
             {achievement.title}
           </Text>
           <Text style={ac.desc}>{achievement.description}</Text>
@@ -60,11 +63,11 @@ export function AchievementCard({ achievement, stats }: Props) {
                 ac.bar,
                 {
                   width: barWidth,
-                  backgroundColor: isClose ? achievement.color : '#6B7FD7',
+                  backgroundColor: isClose ? achievement.color : Colors.accentLiga,
                 },
               ]} />
             </View>
-            <Text style={[ac.pctText, { color: isClose ? achievement.color : '#A99B7C' }]}>
+            <Text style={[ac.pctText, { color: isClose ? achievement.color : Colors.muted }]}>
               {achievement.progressLabel(stats)}
             </Text>
           </View>
@@ -83,7 +86,7 @@ export function AchievementCard({ achievement, stats }: Props) {
   );
 }
 
-const ac = StyleSheet.create({
+const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   card: {
     borderWidth: 1, borderRadius: 12,
     padding: 12, marginBottom: 8,
@@ -94,7 +97,7 @@ const ac = StyleSheet.create({
   },
   icon:  { fontSize: 26, lineHeight: 30 },
   title: { fontFamily: FontFamily.title, fontSize: 13, fontWeight: '700', marginBottom: 2 },
-  desc:  { fontFamily: FontFamily.body, fontSize: 11, color: '#6E6452', lineHeight: 14 },
+  desc:  { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, lineHeight: 14 },
   checkBadge: {
     width: 24, height: 24, borderRadius: 12,
     borderWidth: 1, alignItems: 'center', justifyContent: 'center',
@@ -105,7 +108,7 @@ const ac = StyleSheet.create({
   trackRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   track: {
     flex: 1, height: 5,
-    backgroundColor: '#221C12', borderRadius: 3, overflow: 'hidden',
+    backgroundColor: Colors.surf2, borderRadius: 3, overflow: 'hidden',
   },
   bar: { height: 5, borderRadius: 3 },
   pctText: { fontFamily: FontFamily.numberBold, fontSize: 9, minWidth: 36, textAlign: 'right' },

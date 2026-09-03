@@ -12,6 +12,7 @@ import { useAuth } from '@/store/AuthContext';
 import { koRoundName, competitionChampion } from '@/logic/formats';
 import type { Match, Competition } from '@/logic/types';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { Icon } from '@/components';
 
 const BK_CARD_H  = 62;
 const BK_GAP     = 12;
@@ -139,7 +140,7 @@ export default function BracketScreen() {
       <SafeAreaView style={s.container} edges={['top']}>
         <ScreenHeader title={comp.name} />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl }}>
-          <Text style={{ fontSize: 32 }}>⏳</Text>
+          <Icon name="clock" size={30} color={Colors.faint} />
           <Text style={{ fontFamily: FontFamily.title, fontSize: 17, color: Colors.text, marginTop: 12 }}>
             Chaveamento ainda não definido
           </Text>
@@ -166,6 +167,16 @@ export default function BracketScreen() {
       {/* Header */}
       <ScreenHeader
         title={comp.name}
+        right={myNextComp || myPlayerId ? (
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: '/trilha', params: { competitionId: comp.id, playerId: myPlayerId ?? '' } })}
+            style={s.trilhaBtn}
+            activeOpacity={0.8}
+          >
+            <Icon name="chart" size={15} color={Colors.gold} />
+            <Text style={s.trilhaBtnText}>Minha trilha</Text>
+          </TouchableOpacity>
+        ) : undefined}
         below={
           <View style={s.statusRow}>
             <View style={[s.statusBadge, { backgroundColor: comp.status === 'done' ? Colors.teal + '22' : Colors.gold + '22', borderColor: comp.status === 'done' ? Colors.teal + '55' : Colors.gold + '55' }]}>
@@ -346,6 +357,12 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   title: { fontFamily: FontFamily.titleBold, fontSize: 17, color: Colors.text },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 3 },
+  trilhaBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, height: 44,
+    paddingHorizontal: Spacing.sm, borderRadius: Radius.full,
+    borderWidth: 1, borderColor: Colors.line, backgroundColor: Colors.surf,
+  },
+  trilhaBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.gold },
   statusBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: Radius.full, borderWidth: 1 },
   statusText:  { fontFamily: FontFamily.numberBold, fontSize: 11 },
   phaseName:   { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },

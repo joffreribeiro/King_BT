@@ -82,7 +82,7 @@ const makeStpStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   label: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.text },
   controls: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  btn: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
+  btn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
   btnText: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.text, lineHeight: 26 },
   val: { fontFamily: FontFamily.numberBold, fontSize: 22, color: Colors.text, minWidth: 28, textAlign: 'center' },
 });
@@ -399,7 +399,7 @@ const makeTogStyles = (Colors: ThemeColors) => StyleSheet.create({
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  backBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
   backIcon: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text, lineHeight: 24 },
   headerTitle: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
   stepBar: { flexDirection: 'row', paddingHorizontal: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.xs, gap: Spacing.xs },
