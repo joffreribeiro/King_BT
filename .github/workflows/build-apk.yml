@@ -58,9 +58,46 @@ jobs:
           sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/" android/app/build.gradle
           sed -i "s/versionName \"${APP_VERSION}\"/versionName \"${APP_VERSION}-${{ github.run_number }}\"/" android/app/build.gradle
 
+      # `android/` é gerado do zero a cada run (expo prebuild), então o
+      # debug.keystore embutido no template também é novo a cada build —
+      # instalar um APK "por cima" do anterior sempre falhava por assinatura
+      # divergente (o Android exige mesma assinatura para update-install).
+      # Aqui usamos uma keystore de release FIXA (guardada como secret), a
+      # mesma em todo build, para que atualizações instalem por cima normalmente.
+      - name: Decodificar keystore de release
+        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+      - name: Configurar assinatura de release no build.gradle
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = "android/app/build.gradle";
+            let content = fs.readFileSync(path, "utf8");
+            const before = content;
+
+            content = content.replace(
+              "signingConfigs {\n        debug {",
+              "signingConfigs {\n        release {\n            storeFile file(\"release.keystore\")\n            storePassword System.getenv(\"KINGBT_KEYSTORE_PASSWORD\")\n            keyAlias \"kingbt\"\n            keyPassword System.getenv(\"KINGBT_KEYSTORE_PASSWORD\")\n        }\n        debug {"
+            );
+            content = content.replace(
+              "release {\n            // Caution! In production, you need to generate your own keystore file.\n            // see https://reactnative.dev/docs/signed-apk-android.\n            signingConfig signingConfigs.debug",
+              "release {\n            // Caution! In production, you need to generate your own keystore file.\n            // see https://reactnative.dev/docs/signed-apk-android.\n            signingConfig signingConfigs.release"
+            );
+
+            if (content === before || !content.includes("signingConfigs.release") || !content.includes("release.keystore")) {
+              console.error("Falha ao aplicar o patch de assinatura — o template do build.gradle gerado pelo expo prebuild mudou. Build interrompido para não publicar um APK assinado com chave de debug (efêmera) em silêncio.");
+              process.exit(1);
+            }
+            fs.writeFileSync(path, content);
+          '
+
       - name: Build APK release
         working-directory: kingbt/android
         run: ./gradlew assembleRelease --no-daemon
+        env:
+          KINGBT_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
 
       - name: Renomear APK
         run: cp android/app/build/outputs/apk/release/app-release.apk kingbt.apk
