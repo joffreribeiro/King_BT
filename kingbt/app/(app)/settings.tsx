@@ -18,11 +18,13 @@ import { EditNameModal } from '@/components/competition/EditNameModal';
 import { setScoringConfig } from '@/firebase/scoringConfig';
 import { DEFAULT_SCORING, isScoringConfigValid, type ScoringConfig } from '@/logic/scoringConfig';
 import { statPoints } from '@/logic/scoring';
+import { getMinRequiredBuildTime, setMinRequiredBuildTime } from '@/firebase/appVersion';
+import { CURRENT_BUILD_TIME } from '@/store/UpdateContext';
 
 const version = Constants.expoConfig?.version ?? '1.0.0';
 
 export default function SettingsScreen() {
-  const { group, isAdmin, leaveGroup, user, removeFromGroup, promoteToAdmin, addExistingUserToGroup, setGroupVisibility, updateGroupName } = useAuth();
+  const { group, isAdmin, isSuperAdmin, leaveGroup, user, removeFromGroup, promoteToAdmin, addExistingUserToGroup, setGroupVisibility, updateGroupName } = useAuth();
   const { mode, colors: Colors, setMode } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { groupPlayers } = useGroupPlayers();
@@ -225,6 +227,33 @@ export default function SettingsScreen() {
         ]
       );
     }
+  }
+
+  // ── Atualização obrigatória (Super Admin) ───────────────────────────────
+  const [minRequiredBuildTime, setMinRequiredBuildTimeState] = useState<number | null | undefined>(undefined);
+  const [savingMandatory, setSavingMandatory] = useState(false);
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    getMinRequiredBuildTime().then(setMinRequiredBuildTimeState);
+  }, [isSuperAdmin]);
+
+  async function handleMakeCurrentMandatory() {
+    if (CURRENT_BUILD_TIME == null) {
+      notify('Indisponível', 'Esta build local não tem um identificador de versão (só builds publicados pelo GitHub Actions têm). Publique e abra o app pela versão publicada antes de marcar como obrigatória.');
+      return;
+    }
+    setSavingMandatory(true);
+    await setMinRequiredBuildTime(CURRENT_BUILD_TIME);
+    setMinRequiredBuildTimeState(CURRENT_BUILD_TIME);
+    setSavingMandatory(false);
+  }
+
+  async function handleClearMandatory() {
+    setSavingMandatory(true);
+    await setMinRequiredBuildTime(null);
+    setMinRequiredBuildTimeState(null);
+    setSavingMandatory(false);
   }
 
   function handleLeaveGroup() {
@@ -524,6 +553,39 @@ export default function SettingsScreen() {
                 ))}
               </Card>
             )}
+          </View>
+        )}
+
+        {/* Atualização obrigatória — só Super Admin, afeta o app inteiro (todos os grupos) */}
+        {isSuperAdmin && (
+          <View>
+            <Text style={s.sectionTitle}>Atualização obrigatória</Text>
+            <Text style={s.sectionHint}>
+              Bloqueia o app pra quem estiver numa versão mais antiga que a atual, até atualizar. Vale para todos os grupos.
+            </Text>
+            <Card style={{ gap: Spacing.sm }}>
+              <Text style={s.playerName}>
+                {minRequiredBuildTime === undefined
+                  ? 'Carregando…'
+                  : minRequiredBuildTime == null
+                    ? 'Nenhuma versão obrigatória definida.'
+                    : `Obrigatória desde ${new Date(minRequiredBuildTime).toLocaleString('pt-BR')}.`}
+              </Text>
+              <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+                <TouchableOpacity
+                  style={[s.scoreSaveBtn, savingMandatory && { opacity: 0.4 }]}
+                  onPress={handleMakeCurrentMandatory}
+                  disabled={savingMandatory}
+                >
+                  <Text style={s.scoreSaveText}>Marcar esta versão como obrigatória</Text>
+                </TouchableOpacity>
+                {minRequiredBuildTime != null && (
+                  <TouchableOpacity style={s.scoreResetBtn} onPress={handleClearMandatory} disabled={savingMandatory}>
+                    <Text style={s.scoreResetText}>Remover</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </Card>
           </View>
         )}
 

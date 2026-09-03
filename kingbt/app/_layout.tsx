@@ -24,8 +24,9 @@ import { GroupPlayersProvider } from '@/store/GroupPlayersContext';
 import { SettingsProvider } from '@/store/SettingsContext';
 import { FeedProvider } from '@/store/FeedContext';
 import { SyncQueueProvider } from '@/store/SyncQueueContext';
-import { UpdateProvider } from '@/store/UpdateContext';
+import { UpdateProvider, useUpdate } from '@/store/UpdateContext';
 import { ThemeProvider, useTheme } from '@/store/ThemeContext';
+import { MandatoryUpdateScreen } from '@/components';
 
 SplashScreen.preventAutoHideAsync();
 // Timeout de segurança: esconde a splash em no máximo 5s independente das fontes
@@ -85,19 +86,24 @@ export default function RootLayout() {
 
 function RootStack({ splashDone, onSplashFinish }: { splashDone: boolean; onSplashFinish: () => void }) {
   const { mode, colors } = useTheme();
+  const { updateRequired } = useUpdate();
   return (
     <>
       <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.bg },
-          animation: 'slide_from_right',
-        }}
-      >
-        <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }} />
-        <Stack.Screen name="bracket" options={{ headerShown: false }} />
-      </Stack>
+      {updateRequired ? (
+        <MandatoryUpdateScreen />
+      ) : (
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.bg },
+            animation: 'slide_from_right',
+          }}
+        >
+          <Stack.Screen name="onboarding" options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }} />
+          <Stack.Screen name="bracket" options={{ headerShown: false }} />
+        </Stack>
+      )}
       {!splashDone && (
         <SplashAnimation onFinish={onSplashFinish} />
       )}

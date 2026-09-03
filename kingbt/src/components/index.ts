@@ -29,3 +29,4 @@ export type { GroupVisibility } from './VisibilityPicker';
 export { Icon } from './icons';
 export type { IconName } from './icons';
 export { NextMatchCard } from './NextMatchCard';
+export { MandatoryUpdateScreen } from './MandatoryUpdateScreen';

@@ -26,6 +26,12 @@ jobs:
       - name: Instalar dependências
         run: npm install
 
+      # Timestamp (epoch ms) deste build — usado pela checagem de atualização
+      # obrigatória (ver src/store/UpdateContext.tsx e /config/appVersion no
+      # Firestore). GITHUB_ENV persiste para o passo de export logo abaixo.
+      - name: Definir timestamp do build
+        run: echo "EXPO_PUBLIC_BUILD_TIME=$(date -u +%s%3N)" >> "$GITHUB_ENV"
+
       - name: Exportar build web
         run: npx expo export --platform web
 

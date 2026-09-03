@@ -26,6 +26,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Timestamp (epoch ms) deste build — usado junto com EXPO_PUBLIC_GIT_SHA
+      # para a checagem de atualização obrigatória (ver src/store/UpdateContext.tsx
+      # e /config/appVersion no Firestore). GITHUB_ENV persiste para os passos
+      # seguintes, incluindo o "gradlew assembleRelease" que gera o bundle JS.
+      - name: Definir timestamp do build
+        run: echo "EXPO_PUBLIC_BUILD_TIME=$(date -u +%s%3N)" >> "$GITHUB_ENV"
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
