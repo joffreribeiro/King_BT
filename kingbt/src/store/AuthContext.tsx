@@ -275,19 +275,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) { setError('Faça login primeiro.'); return { unlinkedPlayers: [] }; }
     try {
       setError(null);
-      const q = query(collection(db, 'groups'), where('code', '==', code.toUpperCase()));
-      const snap = await getDocs(q);
-      if (snap.empty) { setError('Código do grupo não encontrado.'); return { unlinkedPlayers: [] }; }
+      // Resolve código → id via /groupCodes (não lê /groups direto — essa
+      // coleção agora exige ser membro, então descobrir o grupo por código
+      // sem já ter o código não é mais possível nem pra quem só "navega" a
+      // coleção /groups inteira).
+      const codeSnap = await getDoc(doc(db, 'groupCodes', code.toUpperCase()));
+      const groupId: string | undefined = codeSnap.data()?.groupId;
+      if (!groupId) { setError('Código do grupo não encontrado.'); return { unlinkedPlayers: [] }; }
 
-      const groupDoc = snap.docs[0];
-      const groupData = groupDoc.data();
-      const groupId = groupDoc.id;
+      // Adiciona usuário ao grupo — arrayUnion não precisa ler members antes.
+      await updateDoc(doc(db, 'groups', groupId), { members: arrayUnion(user.uid) });
 
-      // Adiciona usuário ao grupo
-      const members: string[] = (groupData.members ?? []).filter((m: unknown) => typeof m === 'string' && m !== '');
-      if (!members.includes(user.uid)) {
-        await setDoc(doc(db, 'groups', groupId), { members: [...members, user.uid] }, { merge: true });
-      }
+      // Lê o grupo já como membro, pra popular o estado local.
+      const groupSnap = await getDoc(doc(db, 'groups', groupId));
+      const groupData = groupSnap.data();
+      if (!groupData) { setError('Erro ao entrar no grupo. Tente novamente.'); return { unlinkedPlayers: [] }; }
 
       // Associa grupo ao usuário
       const userSnap = await getDoc(doc(db, 'users', user.uid));
@@ -481,11 +483,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
       // Gera código a partir do nome (sem espaços, maiúsculo, max 8 chars).
       // Se já existir grupo com esse código, adiciona sufixo numérico até ficar único.
+      // Checa colisão via /groupCodes (não /groups — essa coleção não é mais
+      // legível por quem não é membro).
       const base = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'GRUPO' + Math.floor(Math.random() * 1000);
       let code = base;
       for (let attempt = 0; attempt < 5; attempt++) {
-        const clash = await getDocs(query(collection(db, 'groups'), where('code', '==', code), limit(1)));
-        if (clash.empty) break;
+        const clash = await getDoc(doc(db, 'groupCodes', code));
+        if (!clash.exists()) break;
         const suffix = String(Math.floor(Math.random() * 90) + 10); // 2 dígitos
         code = base.slice(0, 8 - suffix.length) + suffix;
       }
@@ -501,6 +505,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // vem undefined e o grupo simplesmente usa o DEFAULT_SCORING.
         ...(scoringConfig ? { scoringConfig: validateScoringConfig(scoringConfig) } : {}),
       });
+      // Mapeia código → id — regra exige que o grupo já exista com o
+      // criador como admin, por isso vem só depois do setDoc acima.
+      await setDoc(doc(db, 'groupCodes', code), { groupId: groupRef.id });
       // Cria player no grupo
       await setDoc(doc(db, 'groups', groupRef.id, 'players', user.uid), {
         name: user.displayName ?? 'Jogador',

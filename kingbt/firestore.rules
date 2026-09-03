@@ -58,26 +58,33 @@ service cloud.firestore {
       // Escrita: só o próprio usuário...
       allow write: if signedIn() && request.auth.uid == uid;
       // ...exceto limpar o groupId de outro usuário (fluxo de remoção do
-      // grupo pelo admin). Só permite alterar o campo groupId para null.
+      // grupo pelo admin). Só permite alterar o campo groupId para null, e só
+      // quem é admin (ou super admin) do grupo de onde a pessoa está saindo —
+      // sem isso, qualquer usuário logado conseguia remover qualquer outro
+      // do grupo dele, bastava chamar o SDK direto ignorando o app.
       allow update: if signedIn()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['groupId'])
-        && request.resource.data.groupId == null;
+        && request.resource.data.groupId == null
+        && resource.data.groupId != null
+        && (isGroupAdmin(resource.data.groupId) || isSuperAdmin());
     }
 
     // ── Grupos ───────────────────────────────────────────────────────────
     match /groups/{gid} {
-      // Leitura autenticada: necessária para o join por código
-      // (query where('code','==',...)). Membros e admins ficam visíveis.
-      allow read: if signedIn();
+      // Leitura: só membro ou visitante de grupo público — não expõe mais
+      // dados de grupo pra quem não tem nada a ver com ele (ver /groupCodes
+      // abaixo, que é o que resolve código→id sem vazar o resto do grupo).
+      allow read: if isMember(gid) || (signedIn() && isPublic(gid));
 
       // Criação: o criador precisa se colocar como admin e membro
       allow create: if signedIn()
         && request.auth.uid in request.resource.data.admins
         && request.auth.uid in request.resource.data.members;
 
-      // Update: admin do grupo pode tudo; não-admin só pode se adicionar
-      // à lista de membros (fluxo de join por código)
-      allow update: if isGroupAdmin(gid)
+      // Update: admin do grupo (ou super admin) pode tudo; não-admin só pode
+      // se adicionar à lista de membros (fluxo de join por código — o
+      // código em si é resolvido via /groupCodes, não por ler /groups).
+      allow update: if (isGroupAdmin(gid) || isSuperAdmin())
         || (
           signedIn()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
@@ -85,13 +92,24 @@ service cloud.firestore {
           && request.resource.data.members.removeAll(resource.data.members) == [request.auth.uid]
         );
 
-      allow delete: if isGroupAdmin(gid);
+      allow delete: if isGroupAdmin(gid) || isSuperAdmin();
 
       // ── Subcoleções: membros leem/escrevem; grupo público permite leitura
       // a qualquer usuário logado (modo visitante, somente leitura) ───────
       match /players/{playerId} {
         allow read: if isMember(gid) || (signedIn() && isPublic(gid));
-        allow write: if isMember(gid);
+        // Criar continua liberado a qualquer membro — é o uso legítimo do
+        // dia a dia (autocadastro ao entrar no grupo, adicionar um
+        // convidado avulso ao montar uma competição).
+        allow create: if isMember(gid);
+        // Editar: o próprio dono do perfil (id do doc == uid de quem
+        // registrou), ou admin/super admin — sem isso, qualquer membro
+        // conseguia alterar o handicap ou os dados de OUTRO jogador.
+        allow update: if isMember(gid) && (playerId == request.auth.uid || canManageComp(gid));
+        // Apagar: qualquer membro pode remover um CONVIDADO (guest == true —
+        // fluxo normal de "desfazer" um convidado adicionado à toa), mas só
+        // admin/super admin apaga o perfil de um jogador de verdade.
+        allow delete: if isMember(gid) && (resource.data.guest == true || canManageComp(gid));
       }
 
       match /competitions/{compId} {
@@ -127,15 +145,51 @@ service cloud.firestore {
         allow update: if signedIn() && isPublic(gid) && onlyChangesJoinRequests();
 
         allow delete: if canManageComp(gid);
+
+        // Placar ao vivo / rascunho (Quadra ao Vivo, King Scout) — campos
+        // efêmeros, apagados quando o placar final é salvo. Fora do array
+        // `matches` de propósito: assim cada ponto marcado grava só este
+        // doc pequeno, em vez de reescrever a competição inteira. Mesma
+        // abertura de sempre (qualquer membro escreve) — não é
+        // endurecimento de segurança, só performance.
+        match /liveMatches/{matchId} {
+          allow read: if isMember(gid) || (signedIn() && isPublic(gid));
+          allow write: if isMember(gid);
+        }
       }
 
       match /feed/{feedId} {
         allow read: if isMember(gid) || (signedIn() && isPublic(gid));
-        // Criar o post, reagir e comentar (tudo update — reações/comentários
-        // são arrayUnion/arrayRemove num documento existente) continua aberto
-        // a qualquer membro.
+        // Criar o post continua aberto a qualquer membro.
         allow create: if isMember(gid);
-        allow update: if isMember(gid);
+
+        // Editar (reagir, comentar, apagar o próprio comentário) — três
+        // formatos de escrita possíveis no mesmo doc, cada um com sua regra:
+        //  1. Admin/super admin: modera livremente (qualquer campo).
+        //  2. Reação: só o campo `reactions` mudou — livre pra qualquer
+        //     membro, sem checar autoria (like é público por natureza).
+        //  3. Comentário novo: só `comments` mudou, cresceu em exatamente 1,
+        //     e o item adicionado tem o uid de quem está mandando — sem
+        //     isso, dava pra postar um comentário assinado com o uid de
+        //     outra pessoa.
+        //  4. Apagar comentário: só `comments` mudou, encolheu em exatamente
+        //     1, e o item que sumiu era meu (ou eu sou admin) — sem isso,
+        //     qualquer membro apagava o comentário de qualquer outro.
+        allow update: if isMember(gid) && (
+          canManageComp(gid)
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+          || (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments'])
+            && request.resource.data.comments.size() == resource.data.comments.size() + 1
+            && request.resource.data.comments[request.resource.data.comments.size() - 1].uid == request.auth.uid
+          )
+          || (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments'])
+            && resource.data.comments.size() == request.resource.data.comments.size() + 1
+            && resource.data.comments.removeAll(request.resource.data.comments).size() == 1
+            && resource.data.comments.removeAll(request.resource.data.comments)[0].uid == request.auth.uid
+          )
+        );
         // Apagar o post — hoje só acontece junto da exclusão do jogo que o
         // gerou (deleteFeedItemsByMatch, chamado por DELETE_MATCH) — exige
         // o mesmo admin do jogo.
@@ -151,6 +205,23 @@ service cloud.firestore {
         allow read: if isMember(gid) || (signedIn() && isPublic(gid));
         allow write: if isMember(gid);
       }
+    }
+
+    // ── Códigos de convite (código → id do grupo) ─────────────────────────
+    // Coleção separada, só com { groupId } — nunca os dados do grupo em si.
+    // Existe pra resolver "entrar por código" sem precisar ler /groups (que
+    // agora exige ser membro/visitante público — ver acima). Sem isso, achar
+    // um grupo pelo código dependia de ler a coleção /groups inteira, o que
+    // também deixava qualquer autenticado descobrir e entrar num grupo
+    // "privado" sem nunca ter recebido o código.
+    match /groupCodes/{code} {
+      allow read: if signedIn();
+      // Só cria quem já é admin do grupo referenciado — na prática, só
+      // createGroup() logo após criar o próprio grupo.
+      allow create: if signedIn()
+        && request.auth.uid in get(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.admins;
+      allow update: if false; // código não muda depois de criado
+      allow delete: if isGroupAdmin(resource.data.groupId) || isSuperAdmin();
     }
 
     // ── Config global (fórmula de pontuação etc.) ────────────────────────

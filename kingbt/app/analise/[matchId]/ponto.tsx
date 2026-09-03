@@ -20,7 +20,6 @@ import {
   type BtTipoPrimeiraBola, type BtDirecaoPrimeiraBola, type BtQualidadePrimeiraBola,
 } from '@/logic/btTracker';
 import { saveAnaliseSynced, loadAnaliseFs } from '@/firebase/analises';
-import { updateLiveScore } from '@/firebase/competitions';
 import { useAuth } from '@/store/AuthContext';
 import { Chip } from '@/components/analise/Chip';
 import { EditPontoModal } from '@/components/analise/EditPontoModal';
@@ -52,12 +51,19 @@ export default function PontoScreen() {
   const { QUALIDADE_SAQUE, QUALIDADE_DEVOLUCAO, FINALIZACAO_RALLY } = useMemo(() => makeScoutOptions(Colors), [Colors]);
 
   const { findPlayer } = useGroupPlayers();
-  const { dispatch, state } = useCompetitions();
+  const { dispatch, state, subscribeLiveMatches } = useCompetitions();
   const { group } = useAuth();
   const { keepSacadorAfterSave } = useSettings();
 
   const matchId = params.matchId;
   const compId  = params.compId;
+
+  // Placar ao vivo não vem mais junto do listener geral de competições —
+  // precisa assinar por competição aberta (ver CompetitionsContext).
+  useEffect(() => {
+    if (!compId) return;
+    return subscribeLiveMatches(compId);
+  }, [compId]);
   const rule: BtWinRule = winRuleFromComp({
     sets:             params.sets             ? parseInt(params.sets)             : undefined,
     games:            params.games            ? parseInt(params.games)            : undefined,

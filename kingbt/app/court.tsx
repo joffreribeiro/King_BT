@@ -8,7 +8,6 @@ import { Avatar, ScreenHeader, Icon } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
-import { updateLiveScore } from '@/firebase/competitions';
 import { saveAnaliseFs, loadAnaliseFs } from '@/firebase/analises';
 import { PointLogModal } from '@/components/analise/PointLogModal';
 import {
@@ -541,11 +540,21 @@ export default function CourtScreen() {
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeSStyles(Colors), [Colors]);
   const md = useMemo(() => makeMdStyles(Colors), [Colors]);
-  const { state, dispatch } = useCompetitions();
+  const { state, dispatch, subscribeLiveMatches } = useCompetitions();
   const { findPlayer } = useGroupPlayers();
   const { group, user, isAdmin, isSuperAdmin, myPlayerId } = useAuth();
   const params = useLocalSearchParams<{ compId?: string; matchId?: string }>();
   const [selectedCompId, setSelectedCompId] = useState<string | null>(params.compId ?? null);
+
+  // Placar ao vivo/rascunho não vem mais junto do listener geral de
+  // competições (ver CompetitionsContext) — precisa assinar por competição
+  // aberta. Pode chegar aqui direto pelo FAB, sem passar pela tela da
+  // competição, então essa assinatura não pode depender de outra tela ter
+  // feito isso antes.
+  useEffect(() => {
+    if (!selectedCompId) return;
+    return subscribeLiveMatches(selectedCompId);
+  }, [selectedCompId]);
   const [liveMatch, setLiveMatch] = useState<Match | null>(null);
   const [spectMatchId, setSpectMatchId] = useState<string | null>(null);
   const [modoModal, setModoModal] = useState(false);

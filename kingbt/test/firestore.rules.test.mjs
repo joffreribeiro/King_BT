@@ -1,10 +1,14 @@
 // Testa firestore.rules contra o emulador do Firestore, ANTES de deployar.
 // Roda uma vez, contra o emulador local (sem tocar produção): `npm run test:rules`
-// (o script sobe o emulador, roda este arquivo, derruba o emulador).
+// (o script sobe o emulador, roda este arquivo, derruba o emulador). Também
+// dá pra rodar direto contra um emulador já em pé em 127.0.0.1:8090:
+// `node test/firestore.rules.test.mjs`.
 //
-// Cobre só o que mudou nesta rodada — o portão de admin para excluir jogo,
-// trocar jogadores, renomear, excluir competição e apagar post do feed.
-// Não é suíte de regressão das regras antigas (isMember, visitante, etc.).
+// Cobre o portão de admin (excluir jogo, trocar jogadores, renomear, excluir
+// competição, apagar post do feed), entrada em grupo por código sem vazar
+// dados de grupos privados (/groupCodes), autoria de comentário no feed, e
+// a subcoleção de placar ao vivo (/liveMatches). Não é suíte de regressão
+// completa de todas as regras antigas.
 
 import {
   initializeTestEnvironment,
@@ -13,17 +17,26 @@ import {
 } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
 import {
-  doc, getDoc, setDoc, updateDoc, deleteDoc,
+  doc, getDoc, setDoc, updateDoc, deleteDoc, arrayUnion, Timestamp,
 } from 'firebase/firestore';
+
+// Docs de teste para /groupCodes que precisam ser recriados do zero por não
+// terem código-base fixo em CODE1/CODE2 (senão o emulador acumula estado
+// entre execuções do script e um doc "create" vira "update" na 2ª rodada).
+const CODE_NEW = 'CODIGONOVO';
 
 const PROJECT_ID = 'kingbt-rules-test';
 const GID = 'grupo1';
+const GID2 = 'grupo2'; // grupo separado, pra testar que código/membro de um não vaza no outro
 
 const MEMBER_UID = 'membro1';
 const ADMIN_UID = 'admin1';
 const SUPER_ADMIN_EMAIL = 'joffre.ribeiro@gmail.com';
 const SUPER_ADMIN_UID = 'superadmin-nao-e-membro-da-lista-admins';
 const OUTSIDER_UID = 'defora1';
+
+const CODE1 = 'KINGBT1';
+const CODE2 = 'KINGBT2';
 
 let testEnv;
 
@@ -34,10 +47,21 @@ async function seed() {
     const db = ctx.firestore();
     await setDoc(doc(db, 'groups', GID), {
       name: 'King BT',
+      code: CODE1,
       members: [MEMBER_UID, ADMIN_UID, SUPER_ADMIN_UID],
       admins: [ADMIN_UID],
       visibility: 'privado',
     });
+    await setDoc(doc(db, 'groupCodes', CODE1), { groupId: GID });
+    await setDoc(doc(db, 'groups', GID2), {
+      name: 'Outro grupo',
+      code: CODE2,
+      members: [],
+      admins: [OUTSIDER_UID], // dono do grupo2, não tem nada a ver com grupo1
+      visibility: 'privado',
+    });
+    await setDoc(doc(db, 'groupCodes', CODE2), { groupId: GID2 });
+    await deleteDoc(doc(db, 'groupCodes', CODE_NEW)).catch(() => {}); // limpa resíduo de execuções anteriores
     await setDoc(doc(db, 'groups', GID, 'competitions', 'comp1'), {
       name: 'Rodada de teste',
       format: 'avulso',
@@ -53,7 +77,9 @@ async function seed() {
       matchId: 'm1',
       compName: 'Rodada de teste',
       reactions: {},
-      comments: [],
+      comments: [
+        { uid: MEMBER_UID, name: 'Membro Um', text: 'Boa partida!', ts: Timestamp.now() },
+      ],
     });
   });
 }
@@ -227,6 +253,181 @@ async function run() {
     'Quem não é membro do grupo não lê a competição',
     getDoc(doc(ctxFor(OUTSIDER_UID).firestore(), 'groups', GID, 'competitions', 'comp1')),
     'fail',
+  );
+
+  // ── 9. Grupo privado não vaza mais pra fora só por estar logado ────────
+  await seed();
+  await check(
+    'Quem não é membro NÃO lê o doc do grupo privado (código, membros, admins)',
+    getDoc(doc(ctxFor(OUTSIDER_UID).firestore(), 'groups', GID)),
+    'fail',
+  );
+  await seed();
+  await check(
+    'MEMBRO lê o doc do próprio grupo normalmente',
+    getDoc(doc(ctxFor(MEMBER_UID).firestore(), 'groups', GID)),
+    'succeed',
+  );
+
+  // ── 10. /groupCodes resolve código→id sem expor o resto do grupo ───────
+  await seed();
+  await check(
+    'Qualquer autenticado lê /groupCodes (só recebe o id, não os dados do grupo)',
+    getDoc(doc(ctxFor(OUTSIDER_UID).firestore(), 'groupCodes', CODE1)),
+    'succeed',
+  );
+  await seed();
+  await check(
+    'Fluxo de entrar por código: resolve o id via /groupCodes, depois se autoadiciona em members',
+    updateDoc(doc(ctxFor(OUTSIDER_UID).firestore(), 'groups', GID), {
+      members: arrayUnion(OUTSIDER_UID),
+    }),
+    'succeed',
+  );
+  await seed();
+  await check(
+    'Não-admin não cria /groupCodes apontando pra um grupo que não é dele',
+    setDoc(doc(ctxFor(MEMBER_UID).firestore(), 'groupCodes', CODE_NEW), { groupId: GID2 }),
+    'fail',
+  );
+  await seed();
+  await check(
+    'Admin do grupo cria /groupCodes apontando pro próprio grupo (fluxo normal de createGroup)',
+    setDoc(doc(ctxFor(ADMIN_UID).firestore(), 'groupCodes', CODE_NEW), { groupId: GID }),
+    'succeed',
+  );
+  await seed();
+  await check(
+    '/groupCodes não pode ser editado depois de criado',
+    updateDoc(doc(ctxFor(ADMIN_UID).firestore(), 'groupCodes', CODE1), { groupId: GID2 }),
+    'fail',
+  );
+
+  // ── 11. Comentário do feed: autoria checada de verdade ──────────────────
+  await seed();
+  await check(
+    'MEMBRO adiciona comentário com o próprio uid',
+    updateDoc(doc(ctxFor(MEMBER_UID).firestore(), 'groups', GID, 'feed', 'post1'), {
+      comments: [
+        { uid: MEMBER_UID, name: 'Membro Um', text: 'Boa partida!', ts: Timestamp.now() },
+        { uid: MEMBER_UID, name: 'Membro Um', text: 'De novo!', ts: Timestamp.now() },
+      ],
+    }),
+    'succeed',
+  );
+  await seed();
+  await check(
+    'MEMBRO NÃO consegue adicionar comentário assinado com uid de outra pessoa',
+    updateDoc(doc(ctxFor(MEMBER_UID).firestore(), 'groups', GID, 'feed', 'post1'), {
+      comments: [
+        { uid: MEMBER_UID, name: 'Membro Um', text: 'Boa partida!', ts: Timestamp.now() },
+        { uid: ADMIN_UID, name: 'Admin', text: 'Forjado!', ts: Timestamp.now() },
+      ],
+    }),
+    'fail',
+  );
+  await seed();
+  await check(
+    'MEMBRO apaga o PRÓPRIO comentário',
+    updateDoc(doc(ctxFor(MEMBER_UID).firestore(), 'groups', GID, 'feed', 'post1'), {
+      comments: [],
+    }),
+    'succeed',
+  );
+  await seed();
+  {
+    // Comentário de outra pessoa (admin) além do já existente do membro
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'groups', GID, 'feed', 'post1'), {
+        comments: [
+          { uid: MEMBER_UID, name: 'Membro Um', text: 'Boa partida!', ts: Timestamp.now() },
+          { uid: ADMIN_UID, name: 'Admin', text: 'Comentário do admin', ts: Timestamp.now() },
+        ],
+      });
+    });
+    const snap = await getDoc(doc(ctxFor(MEMBER_UID).firestore(), 'groups', GID, 'feed', 'post1'));
+    const comments = snap.data().comments; // uma única leitura — filter() e o array final precisam vir da MESMA referência
+    await check(
+      'MEMBRO NÃO consegue apagar comentário de OUTRO membro',
+      updateDoc(doc(ctxFor(MEMBER_UID).firestore(), 'groups', GID, 'feed', 'post1'), {
+        comments: comments.filter(c => c.uid !== ADMIN_UID),
+      }),
+      'fail',
+    );
+  }
+  await seed();
+  {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await updateDoc(doc(ctx.firestore(), 'groups', GID, 'feed', 'post1'), {
+        comments: [
+          { uid: MEMBER_UID, name: 'Membro Um', text: 'Boa partida!', ts: Timestamp.now() },
+        ],
+      });
+    });
+    await check(
+      'ADMIN pode apagar comentário de outro membro (moderação)',
+      updateDoc(doc(ctxFor(ADMIN_UID).firestore(), 'groups', GID, 'feed', 'post1'), {
+        comments: [],
+      }),
+      'succeed',
+    );
+  }
+
+  // ── 12. Placar ao vivo (/liveMatches) ───────────────────────────────────
+  await seed();
+  await check(
+    'MEMBRO grava placar ao vivo de um jogo da própria competição',
+    setDoc(doc(ctxFor(MEMBER_UID).firestore(), 'groups', GID, 'competitions', 'comp1', 'liveMatches', 'm2'), {
+      liveScore: { gamesA: 3, gamesB: 2, setsA: 0, setsB: 0, updatedAt: new Date().toISOString(), scorerUid: MEMBER_UID, scorerName: 'Membro Um' },
+    }, { merge: true }),
+    'succeed',
+  );
+  await seed();
+  await check(
+    'MEMBRO lê o placar ao vivo de um jogo da própria competição',
+    (async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'groups', GID, 'competitions', 'comp1', 'liveMatches', 'm2'), {
+          liveScore: { gamesA: 1, gamesB: 0, setsA: 0, setsB: 0, updatedAt: new Date().toISOString(), scorerUid: ADMIN_UID, scorerName: 'Admin' },
+        });
+      });
+      await getDoc(doc(ctxFor(MEMBER_UID).firestore(), 'groups', GID, 'competitions', 'comp1', 'liveMatches', 'm2'));
+    })(),
+    'succeed',
+  );
+  await seed();
+  await check(
+    'Quem não é membro NÃO grava placar ao vivo',
+    setDoc(doc(ctxFor(OUTSIDER_UID).firestore(), 'groups', GID, 'competitions', 'comp1', 'liveMatches', 'm2'), {
+      liveScore: { gamesA: 1, gamesB: 0, setsA: 0, setsB: 0, updatedAt: new Date().toISOString() },
+    }, { merge: true }),
+    'fail',
+  );
+  await seed();
+  await check(
+    'Quem não é membro NÃO lê o placar ao vivo',
+    (async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'groups', GID, 'competitions', 'comp1', 'liveMatches', 'm2'), {
+          liveScore: { gamesA: 1, gamesB: 0, setsA: 0, setsB: 0, updatedAt: new Date().toISOString() },
+        });
+      });
+      await getDoc(doc(ctxFor(OUTSIDER_UID).firestore(), 'groups', GID, 'competitions', 'comp1', 'liveMatches', 'm2'));
+    })(),
+    'fail',
+  );
+  await seed();
+  await check(
+    'MEMBRO apaga o doc de placar ao vivo (fim de partida)',
+    (async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'groups', GID, 'competitions', 'comp1', 'liveMatches', 'm2'), {
+          liveScore: { gamesA: 6, gamesB: 4, setsA: 1, setsB: 0, updatedAt: new Date().toISOString() },
+        });
+      });
+      await deleteDoc(doc(ctxFor(MEMBER_UID).firestore(), 'groups', GID, 'competitions', 'comp1', 'liveMatches', 'm2'));
+    })(),
+    'succeed',
   );
 
   await testEnv.cleanup();

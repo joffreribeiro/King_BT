@@ -1,10 +1,15 @@
 import React, { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
-import type { Competition, Match, Substitution } from '@/logic/types';
+import type { Competition, Match, Substitution, LiveScore, SetScore } from '@/logic/types';
+import type { Unsubscribe } from 'firebase/firestore';
 import { applySubstitution } from '@/logic/substitution';
 import { resolveCompetition, extractPlayerGames, buildCompetition } from '@/logic/formats';
 import { computeRivalries } from '@/logic/rivalries';
 import { MOCK_COMPETITIONS } from '@/mocks/competitions';
-import { subscribeCompetitions, createCompetition, updateCompetition as fsUpdateComp, deleteCompetition as fsDeleteComp, updateLiveScore, fetchCompetitionsOnce } from '@/firebase/competitions';
+import {
+  subscribeCompetitions, createCompetition, updateCompetition as fsUpdateComp, deleteCompetition as fsDeleteComp,
+  setLiveScore, clearLiveScore, setDraftSets, clearDraftSets, deleteLiveMatch, subscribeLiveMatches as fsSubscribeLiveMatches,
+  fetchCompetitionsOnce,
+} from '@/firebase/competitions';
 import { createFeedItem, deleteFeedItemsByMatch } from '@/firebase/feed';
 import { Timestamp } from 'firebase/firestore';
 import { buildRanking } from '@/logic/scoring';
@@ -28,6 +33,11 @@ type Action =
   | { type: 'CLEAR_LIVE_SCORE'; compId: string; matchId: string }
   | { type: 'SAVE_DRAFT'; compId: string; matchId: string; draftSets: { a: number; b: number }[] }
   | { type: 'CLEAR_DRAFT'; compId: string; matchId: string }
+  // Sincronização interna vinda da subcoleção liveMatches (ver
+  // subscribeLiveMatches) — nunca despachada pelo usuário, só atualiza o
+  // liveScore/draftSets em memória de um match. Sempre via dispatch puro,
+  // nunca wrappedDispatch (não é ação admin-gated nem grava no Firestore).
+  | { type: 'SYNC_LIVE_MATCH'; compId: string; matchId: string; liveScore: LiveScore | null; draftSets: SetScore[] | null }
   | { type: 'DELETE'; compId: string }
   | { type: 'DELETE_MATCH'; compId: string; matchId: string }
   | { type: 'EDIT_MATCH_PLAYERS'; compId: string; matchId: string; teamA: string[]; teamB: string[] }
@@ -203,6 +213,18 @@ function reducer(state: State, action: Action): State {
       };
     case 'UPDATE':
       return { ...state, competitions: state.competitions.map(c => c.id === action.comp.id ? action.comp : c) };
+    case 'SYNC_LIVE_MATCH':
+      return {
+        ...state,
+        competitions: state.competitions.map(c =>
+          c.id !== action.compId ? c : {
+            ...c,
+            matches: c.matches.map(m =>
+              m.id !== action.matchId ? m : { ...m, liveScore: action.liveScore, draftSets: action.draftSets }
+            ),
+          }
+        ),
+      };
   }
 }
 
@@ -214,6 +236,11 @@ type CtxType = {
    * tempo real já mantém tudo sincronizado; isso serve mais como reconexão
    * explícita e feedback visual pro usuário do que uma correção de dados. */
   refresh: () => Promise<void>;
+  /** Assina o placar ao vivo/rascunho de UMA competição (subcoleção
+   * liveMatches) — chamar de qualquer tela que renderize liveScore/draftSets
+   * (Quadra ao Vivo, tela da competição, King Scout, atalho do dashboard),
+   * já que isso não vem mais junto do listener geral de competições. */
+  subscribeLiveMatches: (compId: string) => Unsubscribe;
 };
 
 const Ctx = createContext<CtxType | null>(null);
@@ -272,31 +299,26 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    if (action.type === 'SAVE_DRAFT' || action.type === 'CLEAR_DRAFT') {
-      const comp = state.competitions.find(c => c.id === action.compId);
-      if (comp) {
-        const updatedMatches = comp.matches.map(m => {
-          if (m.id !== action.matchId) return m;
-          if (action.type === 'CLEAR_DRAFT') return { ...m, draftSets: null };
-          return { ...m, draftSets: action.draftSets };
-        });
-        try { await updateLiveScore(group.id, comp.id, updatedMatches); } catch { /* silent */ }
-      }
+    if (action.type === 'SAVE_DRAFT') {
+      try { await setDraftSets(group.id, action.compId, action.matchId, action.draftSets); } catch { /* silent */ }
     }
 
-    if (action.type === 'UPDATE_LIVE_SCORE' || action.type === 'CLEAR_LIVE_SCORE') {
-      const comp = state.competitions.find(c => c.id === action.compId);
-      if (comp) {
-        const updatedMatches = comp.matches.map(m => {
-          if (m.id !== action.matchId) return m;
-          if (action.type === 'CLEAR_LIVE_SCORE') return { ...m, liveScore: null };
-          return {
-            ...m,
-            liveScore: { gamesA: action.gamesA, gamesB: action.gamesB, setsA: action.setsA, setsB: action.setsB, updatedAt: new Date().toISOString(), scorerUid: action.scorerUid ?? null, scorerName: action.scorerName ?? null },
-          };
+    if (action.type === 'CLEAR_DRAFT') {
+      try { await clearDraftSets(group.id, action.compId, action.matchId); } catch { /* silent */ }
+    }
+
+    if (action.type === 'UPDATE_LIVE_SCORE') {
+      try {
+        await setLiveScore(group.id, action.compId, action.matchId, {
+          gamesA: action.gamesA, gamesB: action.gamesB, setsA: action.setsA, setsB: action.setsB,
+          updatedAt: new Date().toISOString(),
+          scorerUid: action.scorerUid ?? null, scorerName: action.scorerName ?? null,
         });
-        try { await updateLiveScore(group.id, comp.id, updatedMatches); } catch { /* silent */ }
-      }
+      } catch { /* silent */ }
+    }
+
+    if (action.type === 'CLEAR_LIVE_SCORE') {
+      try { await clearLiveScore(group.id, action.compId, action.matchId); } catch { /* silent */ }
     }
 
     if (action.type === 'SAVE_SCORE' || action.type === 'CORRECT_SCORE') {
@@ -307,6 +329,11 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
         catch {
           await enqueue({ type: 'UPDATE_COMP', payload: { groupId: group.id, data: updated } });
         }
+        // Placar final salvo — o doc de placar ao vivo/rascunho não serve
+        // mais pra nada. Fire-and-forget: um resto órfão não afeta nada (o
+        // jogo já tem scoreA/scoreB, então liveScore/draftSets nem chegam a
+        // ser exibidos — ver ScoreboardCard).
+        deleteLiveMatch(group.id, action.compId, action.matchId).catch(() => {});
       }
     }
 
@@ -619,8 +646,15 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET', competitions: comps });
   }
 
+  function subscribeLiveMatchesForComp(compId: string): Unsubscribe {
+    if (!group) return () => {};
+    return fsSubscribeLiveMatches(group.id, compId, (matchId, data) => {
+      dispatch({ type: 'SYNC_LIVE_MATCH', compId, matchId, liveScore: data.liveScore, draftSets: data.draftSets });
+    });
+  }
+
   return (
-    <Ctx.Provider value={{ state, dispatch: wrappedDispatch, addCompetition, refresh }}>
+    <Ctx.Provider value={{ state, dispatch: wrappedDispatch, addCompetition, refresh, subscribeLiveMatches: subscribeLiveMatchesForComp }}>
       {children}
     </Ctx.Provider>
   );

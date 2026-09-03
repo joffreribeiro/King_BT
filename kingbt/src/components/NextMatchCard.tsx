@@ -21,7 +21,7 @@ import type { Competition, Match } from '@/logic/types';
 export function NextMatchCard() {
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
-  const { state, dispatch } = useCompetitions();
+  const { state, dispatch, subscribeLiveMatches } = useCompetitions();
   const { findPlayer } = useGroupPlayers();
   const { isAdmin, isMember } = useAuth();
   const reduced = useReducedMotion();
@@ -41,6 +41,14 @@ export function NextMatchCard() {
     }
     return null;
   }, [state.competitions]);
+
+  // Placar ao vivo/rascunho (usado pelo ScorerModal abaixo pra prefill) não
+  // vem mais junto do listener geral de competições — precisa assinar por
+  // competição aberta (ver CompetitionsContext).
+  useEffect(() => {
+    if (!next) return;
+    return subscribeLiveMatches(next.comp.id);
+  }, [next?.comp.id]);
 
   // Ponto pulsante — é o único loop da tela, e o elemento que deve chamar
   // atenção. Os cards da lista abaixo já não pulsam mais (ver CompCard).

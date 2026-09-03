@@ -40,11 +40,19 @@ export default function CompetitionDetail() {
   const main = useMemo(() => makeMainStyles(Colors), [Colors]);
   const upcoming = useMemo(() => makeUpcomingStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { state, dispatch } = useCompetitions();
+  const { state, dispatch, subscribeLiveMatches } = useCompetitions();
   const { user, isAdmin, myPlayerId, group, isMember } = useAuth();
   const [joinReqBusy, setJoinReqBusy] = useState(false);
   const { findPlayer, groupPlayers } = useGroupPlayers();
   const comp = state.competitions.find(c => c.id === id);
+
+  // Placar ao vivo/rascunho (usado por GameRow/ScoreboardCard/ScorerModal
+  // abaixo) não vem mais junto do listener geral de competições — precisa
+  // assinar por competição aberta (ver CompetitionsContext).
+  useEffect(() => {
+    if (!id) return;
+    return subscribeLiveMatches(id);
+  }, [id]);
   const [scoring, setScoring]             = useState<Match | null>(null);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showEditName, setShowEditName]   = useState(false);
