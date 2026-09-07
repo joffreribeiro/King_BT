@@ -85,6 +85,16 @@ type AuthContextType = AuthState & {
   leaveGroup: () => Promise<void>;
   switchGroup: (groupId: string) => Promise<void>;
   getMyGroups: () => Promise<Group[]>;
+  /**
+   * True só depois que o usuário passa pela tela de escolha de grupo nesta
+   * sessão (reseta a cada reload/abertura do app). O grupo ativo (`group`)
+   * já vem preenchido sozinho no boot — sem essa flag, uma URL antiga
+   * apontando direto pra `/(app)` (aba salva, PWA reaberto) entrava sem
+   * nunca passar pela tela de escolha.
+   */
+  groupConfirmed: boolean;
+  /** Chamado pela tela de escolha de grupo ao entrar/criar/visitar um grupo. */
+  confirmGroup: () => void;
   /** Atualiza o nome de perfil globalmente — mesmo nome em todos os grupos do usuário. */
   updateProfileName: (name: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -108,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
   const [playerLoading, setPlayerLoading] = useState(false);
   const [groupIds, setGroupIds] = useState<string[]>([]);
+  const [groupConfirmed, setGroupConfirmed] = useState(false);
 
   // Captura resultado do redirect do Google (web only)
   useEffect(() => {
@@ -396,20 +407,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function getMyGroups(): Promise<Group[]> {
     if (!user) return [];
+    let userSnap;
     try {
-      const userSnap = await getDoc(doc(db, 'users', user.uid));
-      const groupIds: string[] = userSnap.data()?.groupIds ?? [];
-      const groups = await Promise.all(
-        groupIds.map(async (gid) => {
-          const gSnap = await getDoc(doc(db, 'groups', gid));
-          if (!gSnap.exists()) return null;
-          return { id: gSnap.id, ...gSnap.data() } as Group;
-        })
-      );
-      return groups.filter(Boolean) as Group[];
+      userSnap = await getDoc(doc(db, 'users', user.uid));
     } catch {
       return [];
     }
+    const groupIds: string[] = userSnap.data()?.groupIds ?? [];
+    const groups = await Promise.all(
+      groupIds.map(async (gid) => {
+        // Isolado por grupo: um id de grupo do qual o usuário foi removido,
+        // que foi excluído, ou sem permissão de leitura não pode derrubar
+        // a lista inteira (ver nota em updateProfileName sobre groupIds
+        // conter grupos "stale").
+        try {
+          const gSnap = await getDoc(doc(db, 'groups', gid));
+          if (!gSnap.exists()) return null;
+          return { id: gSnap.id, ...gSnap.data() } as Group;
+        } catch {
+          return null;
+        }
+      })
+    );
+    return groups.filter(Boolean) as Group[];
   }
 
   /**
@@ -531,6 +551,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function logout() {
     await signOut(auth);
     setGroup(null);
+    setGroupConfirmed(false);
+  }
+
+  function confirmGroup() {
+    setGroupConfirmed(true);
   }
 
   // Memoiza o value para não re-renderizar toda a árvore a cada render do provider.
@@ -541,11 +566,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AuthContextType>(() => ({
     user, group, isAdmin: effectiveAdmin, loading, error, myPlayerId, playerLoading, groupIds, isMember, isSuperAdmin,
+    groupConfirmed, confirmGroup,
     signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, joinGroup, linkToPlayer,
     createGroup, leaveGroup, switchGroup, getMyGroups, updateProfileName, logout,
     clearError: () => setError(null), promoteToAdmin, removeFromGroup, addExistingUserToGroup, setGroupVisibility, updateGroupName,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [user, group, effectiveAdmin, loading, error, myPlayerId, playerLoading, groupIds, isMember, isSuperAdmin]);
+  }), [user, group, effectiveAdmin, loading, error, myPlayerId, playerLoading, groupIds, isMember, isSuperAdmin, groupConfirmed]);
 
   return (
     <Ctx.Provider value={value}>

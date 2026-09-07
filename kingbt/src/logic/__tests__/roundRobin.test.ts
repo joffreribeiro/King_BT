@@ -38,6 +38,62 @@ describe('generateSchedule — Americano (duplas rotativas)', () => {
   });
 });
 
+describe('generateSchedule — equilíbrio por handicap', () => {
+  /** Soma, pra cada jogador, de (handicap do próprio time − handicap do time adversário) em cada jogo — mede quem pegou parceiros fracos/adversários fortes ao longo do torneio. */
+  function balanceByPlayer(games: ReturnType<typeof generateSchedule>, byId: Record<string, number>) {
+    const balance: Record<string, number> = {};
+    for (const g of games) {
+      const [a, b] = g.teamA!;
+      const [d, e] = g.teamB!;
+      const edge = (byId[a] + byId[b]) - (byId[d] + byId[e]);
+      balance[a] = (balance[a] ?? 0) + edge;
+      balance[b] = (balance[b] ?? 0) + edge;
+      balance[d] = (balance[d] ?? 0) - edge;
+      balance[e] = (balance[e] ?? 0) - edge;
+    }
+    return balance;
+  }
+
+  it('sem handicap, gera o mesmo calendário de antes (uma única tentativa)', () => {
+    const semHandicap = generateSchedule(players(8));
+    const comHandicapZero = generateSchedule(players(8).map(p => ({ ...p, handicap: 0 })));
+    expect(comHandicapZero).toEqual(semHandicap);
+  });
+
+  it('continua cobrindo todos os pares e equilibrando jogos mesmo com handicaps variados', () => {
+    const ps = players(8).map((p, i) => ({ ...p, handicap: [2, 1, 1, 0, 0, -1, -1, -2][i] }));
+    const games = generateSchedule(ps);
+
+    const covered = new Set<string>();
+    const count: Record<string, number> = {};
+    for (const g of games) {
+      const [a, b] = [...g.teamA!].sort();
+      const [d, e] = [...g.teamB!].sort();
+      covered.add(`${a}|${b}`);
+      covered.add(`${d}|${e}`);
+      [...g.teamA!, ...g.teamB!].forEach(id => { count[id] = (count[id] ?? 0) + 1; });
+    }
+    expect(covered.size).toBe((8 * 7) / 2);
+    const values = Object.values(count);
+    expect(Math.max(...values) - Math.min(...values)).toBeLessThanOrEqual(2);
+  });
+
+  it('nunca deixa o desequilíbrio por handicap pior do que a versão sem equilíbrio (guloso original)', () => {
+    const byId: Record<string, number> = {
+      p1: 2, p2: 1, p3: 1, p4: 0, p5: 0, p6: -1, p7: -1, p8: -2,
+    };
+    const ps = players(8).map(p => ({ ...p, handicap: byId[p.id] }));
+    const games = generateSchedule(ps);
+    const balance = balanceByPlayer(games, byId);
+    const score = Object.values(balance).reduce((s, x) => s + x * x, 0);
+
+    // Score do guloso original (sem considerar handicap nos empates), calculado
+    // uma vez e travado aqui: a versão com handicap nunca deve ficar pior que isso.
+    const baselineScore = 320;
+    expect(score).toBeLessThanOrEqual(baselineScore);
+  });
+});
+
 describe('generateScheduleIndividual — Super 8 individual', () => {
   it('gera round-robin completo 1v1', () => {
     const comps = players(8).map(p => ({ id: p.id, members: [p.id] }));

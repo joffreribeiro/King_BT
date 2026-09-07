@@ -12,7 +12,8 @@ export type IconName =
   | 'trash' | 'compare' | 'clock' | 'chevronLeft' | 'close' | 'more' | 'plus'
   | 'users' | 'chart' | 'calendar' | 'settings' | 'menu'
   | 'edit' | 'qr' | 'logout' | 'swap' | 'check' | 'x' | 'comment'
-  | 'chevronRight' | 'minus' | 'arrowUp' | 'eye' | 'eyeOff';
+  | 'chevronRight' | 'minus' | 'arrowUp' | 'eye' | 'eyeOff'
+  | 'key' | 'globe' | 'chevronDown';
 
 type Props = { name: IconName; size?: number; color: string };
 
@@ -142,5 +143,17 @@ function paths(name: IconName, s: any) {
         <Path d="M9.9 4.24A9.1 9.1 0 0112 4c6 0 10 7 10 7a13.2 13.2 0 01-2.66 3.43M6.6 6.6C3.7 8.4 2 11 2 11s4 7 10 7a9.6 9.6 0 004.24-.98M9.5 14.5a3 3 0 004.24-4.24" {...s} />
         <Line x1="2" y1="2" x2="22" y2="22" {...s} />
       </>;
+    case 'key':
+      return <>
+        <Circle cx="7" cy="7" r="4" {...s} strokeLinecap={undefined} strokeLinejoin={undefined} />
+        <Path d="M10 10l10 10M17 17l2.5-2.5M20 20l2.5-2.5" {...s} />
+      </>;
+    case 'globe':
+      return <>
+        <Circle cx="12" cy="12" r="9" {...s} strokeLinecap={undefined} strokeLinejoin={undefined} />
+        <Path d="M3 12h18M12 3c2.5 2.5 4 5.5 4 9s-1.5 6.5-4 9c-2.5-2.5-4-5.5-4-9s1.5-6.5 4-9z" {...s} />
+      </>;
+    case 'chevronDown':
+      return <Path d="M5 9l7 7 7-7" {...s} />;
   }
 }

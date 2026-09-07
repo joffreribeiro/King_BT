@@ -25,7 +25,7 @@ type State = {
 type Action =
   | { type: 'SET'; competitions: Competition[] }
   | { type: 'ADD'; comp: Competition }
-  | { type: 'CLONE'; compId: string }
+  | { type: 'CLONE'; compId: string; playerHandicaps?: Record<string, number> }
   | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; sets?: { a: number; b: number }[] }
   | { type: 'CORRECT_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; sets?: { a: number; b: number }[] }
   | { type: 'CLEAR_SCORE'; compId: string; matchId: string }
@@ -97,6 +97,7 @@ function reducer(state: State, action: Action): State {
         unit: src.unit,
         competitors: src.competitors,
         config: src.config,
+        playerHandicaps: action.playerHandicaps,
         ...(src.location ? { location: src.location } : {}),
       });
       return { ...state, competitions: [cloned, ...state.competitions] };
@@ -291,6 +292,7 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
           unit: src.unit,
           competitors: src.competitors,
           config: src.config,
+          playerHandicaps: action.playerHandicaps,
           ...(src.location ? { location: src.location } : {}),
         });
         const { id, ...data } = cloned;

@@ -16,7 +16,7 @@ type Mode = 'join' | 'create';
 export default function JoinGroupScreen() {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
-  const { user, group, loading, myPlayerId, joinGroup, createGroup, logout, error, clearError } = useAuth();
+  const { user, group, loading, myPlayerId, joinGroup, createGroup, logout, error, clearError, confirmGroup } = useAuth();
   const router = useRouter();
   const [mode, setMode]   = useState<Mode>('join');
   const [code, setCode]   = useState('');
@@ -31,6 +31,7 @@ export default function JoinGroupScreen() {
   useEffect(() => {
     if (loading) return;
     if (user && group && myPlayerId !== null && !showLink) {
+      confirmGroup();
       router.replace('/(app)');
     }
   }, [loading, user, group, myPlayerId, showLink]);

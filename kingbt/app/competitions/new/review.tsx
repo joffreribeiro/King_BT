@@ -53,11 +53,17 @@ export default function ReviewStep() {
   const winRule = `${setsLabel} · até ${gamesN} games · TB ${tiebreakN} pts`;
 
   // Jogadores + convidados
-  const guests: { id: string; name: string; color: string }[] = p.guestData ? JSON.parse(p.guestData) : [];
+  const guests: { id: string; name: string; color: string; handicap?: number }[] = p.guestData ? JSON.parse(p.guestData) : [];
   const allPlayers = [
-    ...groupPlayers.map(pl => ({ id: pl.id, name: pl.name, color: pl.color })),
+    ...groupPlayers.map(pl => ({ id: pl.id, name: pl.name, color: pl.color, handicap: pl.handicap })),
     ...guests.filter(g => !groupPlayers.some(pl => pl.id === g.id)),
   ];
+
+  // Handicap por jogador — usado só pelo Super 8 duplas rotativas pra equilibrar o sorteio.
+  const playerHandicaps: Record<string, number> = {};
+  allPlayers.forEach(pl => {
+    if (pl.handicap != null) playerHandicaps[pl.id] = pl.handicap;
+  });
 
   // Montar competitors a partir dos playerIds
   const competitors: Competitor[] = (() => {
@@ -99,6 +105,7 @@ export default function ReviewStep() {
     unit: isDuplas || (isSuper8 && p.unit === 'duplas') ? 'duplas' : 'individual',
     gender,
     competitors,
+    playerHandicaps,
     location: p.location?.trim() || undefined,
     notes: p.notes?.trim() || undefined,
     preassignedGroups,

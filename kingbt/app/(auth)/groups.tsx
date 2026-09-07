@@ -14,17 +14,18 @@ import { VisibilityPicker, type GroupVisibility, Icon } from '@/components';
 import { DEFAULT_SCORING, isScoringConfigValid, type ScoringConfig } from '@/logic/scoringConfig';
 import { statPoints } from '@/logic/scoring';
 
-type Mode = 'list' | 'join' | 'create';
+type Mode = 'list' | 'create';
 
 export default function GroupsScreen() {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
-  const { user, group: currentGroup, loading, joinGroup, createGroup, switchGroup, getMyGroups, clearError, error } = useAuth();
+  const { user, group: currentGroup, loading, joinGroup, createGroup, switchGroup, getMyGroups, clearError, error, confirmGroup } = useAuth();
   const router = useRouter();
   const [mode, setMode]         = useState<Mode>('list');
   const [myGroups, setMyGroups] = useState<Group[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
   const [code, setCode]         = useState('');
+  const [groupsExpanded, setGroupsExpanded] = useState(false);
   const [name, setName]         = useState('');
   const [visibility, setVisibility] = useState<GroupVisibility>('privado');
   const [busy, setBusy]         = useState(false);
@@ -92,18 +93,21 @@ export default function GroupsScreen() {
     setVisitBusy(true);
     await switchGroup(groupId);
     setVisitBusy(false);
+    confirmGroup();
     router.replace('/(app)');
   }
 
   async function handleSwitch(groupId: string) {
     // Grupo já ativo — entra direto, sem gravar nada
     if (currentGroup?.id === groupId) {
+      confirmGroup();
       router.replace('/(app)');
       return;
     }
     setBusy(true);
     await switchGroup(groupId);
     setBusy(false);
+    confirmGroup();
     router.replace('/(app)');
   }
 
@@ -118,6 +122,7 @@ export default function GroupsScreen() {
       setShowLink(true);
       return;
     }
+    confirmGroup();
     router.replace('/(app)');
   }
 
@@ -128,12 +133,14 @@ export default function GroupsScreen() {
     clearError();
     await createGroup(name.trim(), visibility, showScoring ? parsedScoring : undefined);
     setBusy(false);
+    confirmGroup();
     router.replace('/(app)');
   }
 
   function switchMode(m: Mode) {
     clearError();
     setCode('');
+    setGroupsExpanded(false);
     setName('');
     setVisibility('privado');
     setShowScoring(false);
@@ -176,47 +183,87 @@ export default function GroupsScreen() {
                 <ActivityIndicator color={Colors.gold} style={{ marginTop: Spacing.xl }} />
               ) : (
                 <>
-                  {myGroups.length > 0 && (
-                    <View style={styles.section}>
-                      <Text style={styles.sectionTitle}>Seus grupos</Text>
-                      {myGroups.map(g => (
+                  {myGroups.length > 0 && (() => {
+                    const active = myGroups.find(g => g.id === currentGroup?.id) ?? myGroups[0];
+                    const others = myGroups.filter(g => g.id !== active.id);
+                    return (
+                      <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Seus grupos</Text>
                         <TouchableOpacity
-                          key={g.id}
-                          style={[styles.groupCard, currentGroup?.id === g.id && styles.groupCardActive]}
-                          onPress={() => handleSwitch(g.id)}
+                          style={[styles.groupCard, styles.groupCardActive]}
+                          onPress={() => handleSwitch(active.id)}
                           disabled={busy}
                           activeOpacity={0.8}
                         >
-                          <View style={styles.groupCardInfo}>
-                            <Text style={styles.groupCardName}>{g.name}</Text>
-                            <Text style={styles.groupCardCode}>{g.code}</Text>
+                          <View style={styles.groupCrest}>
+                            <Icon name="crown" size={18} color={Colors.gold} />
                           </View>
-                          {currentGroup?.id === g.id && <Text style={styles.activeBadge}>Ativo</Text>}
-                          <Icon name="chevronRight" size={18} color={Colors.faint} />
+                          <View style={styles.groupCardInfo}>
+                            <Text style={styles.groupCardName}>{active.name}</Text>
+                            <Text style={styles.groupCardCode}>{active.code}</Text>
+                          </View>
+                          {currentGroup?.id === active.id && <Text style={styles.activeBadge}>Ativo</Text>}
+                          {others.length > 0 && (
+                            <TouchableOpacity
+                              onPress={(e) => { e.stopPropagation(); setGroupsExpanded(v => !v); }}
+                              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                              style={styles.dropdownToggle}
+                            >
+                              <Icon name={groupsExpanded ? 'chevronDown' : 'chevronRight'} size={18} color={Colors.faint} />
+                            </TouchableOpacity>
+                          )}
                         </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
 
+                        {groupsExpanded && others.map(g => (
+                          <TouchableOpacity
+                            key={g.id}
+                            style={styles.groupCardSub}
+                            onPress={() => { setGroupsExpanded(false); handleSwitch(g.id); }}
+                            disabled={busy}
+                            activeOpacity={0.8}
+                          >
+                            <View style={styles.groupCardInfo}>
+                              <Text style={styles.groupCardName}>{g.name}</Text>
+                              <Text style={styles.groupCardCode}>{g.code}</Text>
+                            </View>
+                            <Icon name="chevronRight" size={18} color={Colors.faint} />
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    );
+                  })()}
+
+                  {/* Entrar em outro grupo — inline, sem trocar de tela */}
                   <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Outras opções</Text>
-                    <TouchableOpacity style={styles.optionBtn} onPress={() => switchMode('join')} activeOpacity={0.8}>
-                      <Text style={styles.optionIcon}>🔑</Text>
-                      <View style={styles.optionInfo}>
-                        <Text style={styles.optionTitle}>Entrar com código</Text>
-                        <Text style={styles.optionDesc}>Tem um convite? Digite o código</Text>
+                    <Text style={styles.sectionTitle}>Entrar em outro grupo</Text>
+                    <View style={styles.joinRow}>
+                      <View style={styles.joinInputWrap}>
+                        <Icon name="key" size={16} color={Colors.faint} />
+                        <TextInput
+                          style={styles.joinInput}
+                          value={code}
+                          onChangeText={t => { setCode(t.toUpperCase()); clearError(); }}
+                          placeholder="Código do convite"
+                          placeholderTextColor={Colors.faint}
+                          autoCapitalize="characters"
+                          autoCorrect={false}
+                        />
                       </View>
-                      <Icon name="chevronRight" size={18} color={Colors.faint} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.optionBtn} onPress={() => switchMode('create')} activeOpacity={0.8}>
-                      <Text style={styles.optionIcon}>➕</Text>
-                      <View style={styles.optionInfo}>
-                        <Text style={styles.optionTitle}>Criar novo grupo</Text>
-                        <Text style={styles.optionDesc}>Comece seu próprio grupo</Text>
-                      </View>
-                      <Icon name="chevronRight" size={18} color={Colors.faint} />
-                    </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.joinBtn, (!code.trim() || busy) && styles.btnDisabled]}
+                        onPress={handleJoin}
+                        disabled={!code.trim() || busy}
+                        activeOpacity={0.85}
+                      >
+                        {busy ? <ActivityIndicator color={Colors.bg} size="small" /> : <Text style={styles.btnText}>Entrar</Text>}
+                      </TouchableOpacity>
+                    </View>
                   </View>
+
+                  <TouchableOpacity style={styles.createLink} onPress={() => switchMode('create')} activeOpacity={0.7}>
+                    <Icon name="plus" size={16} color={Colors.teal} />
+                    <Text style={styles.createLinkText}>Criar um novo grupo</Text>
+                  </TouchableOpacity>
 
                   {/* Explorar grupos públicos */}
                   {!loadingPublic && publicGroups.length > 0 && (
@@ -230,11 +277,17 @@ export default function GroupsScreen() {
                           disabled={visitBusy}
                           activeOpacity={0.8}
                         >
+                          <View style={styles.groupCrest}>
+                            <Icon name="globe" size={16} color={Colors.teal} />
+                          </View>
                           <View style={styles.groupCardInfo}>
                             <Text style={styles.groupCardName}>{g.name}</Text>
-                            <Text style={styles.groupCardCode}>🌍 Público</Text>
+                            <Text style={styles.groupCardCode}>Público</Text>
                           </View>
-                          <Text style={styles.visitBadge}>👁 Visitar</Text>
+                          <View style={styles.visitBadge}>
+                            <Icon name="eye" size={13} color={Colors.teal} />
+                            <Text style={styles.visitBadgeText}>Visitar</Text>
+                          </View>
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -242,37 +295,6 @@ export default function GroupsScreen() {
                 </>
               )}
             </>
-          )}
-
-          {/* Entrar com código */}
-          {mode === 'join' && (
-            <View style={styles.formSection}>
-              <TouchableOpacity onPress={() => switchMode('list')} style={styles.backLink}>
-                <Icon name="chevronLeft" size={14} color={Colors.teal} />
-                <Text style={styles.backLinkText}>Voltar</Text>
-              </TouchableOpacity>
-              <Text style={styles.formTitle}>Entrar com código</Text>
-              <View style={styles.inputWrap}>
-                <TextInput
-                  style={styles.input}
-                  value={code}
-                  onChangeText={t => { setCode(t.toUpperCase()); clearError(); }}
-                  placeholder="Ex: KINGBT"
-                  placeholderTextColor={Colors.faint}
-                  autoCapitalize="characters"
-                  autoCorrect={false}
-                  autoFocus
-                />
-              </View>
-              <TouchableOpacity
-                style={[styles.btnPrimary, (!code.trim() || busy) && styles.btnDisabled]}
-                onPress={handleJoin}
-                disabled={!code.trim() || busy}
-                activeOpacity={0.85}
-              >
-                {busy ? <ActivityIndicator color={Colors.bg} /> : <Text style={styles.btnText}>Entrar no grupo</Text>}
-              </TouchableOpacity>
-            </View>
           )}
 
           {/* Criar grupo */}
@@ -366,7 +388,7 @@ export default function GroupsScreen() {
       <LinkPlayerModal
         visible={showLink}
         unlinkedPlayers={unlinked}
-        onDone={() => { setShowLink(false); router.replace('/(app)'); }}
+        onDone={() => { setShowLink(false); confirmGroup(); router.replace('/(app)'); }}
       />
     </SafeAreaView>
   );
@@ -387,18 +409,23 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
 
   groupCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, padding: Spacing.md },
   groupCardActive: { borderColor: Colors.gold, backgroundColor: Colors.surf2 },
+  groupCardSub: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, padding: Spacing.md, marginTop: Spacing.xs },
+  groupCrest: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.gold + '1a', alignItems: 'center', justifyContent: 'center' },
   groupCardInfo: { flex: 1, gap: 2 },
   groupCardName: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
   groupCardCode: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.muted, letterSpacing: 1 },
-  groupCardArrow: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.faint },
+  dropdownToggle: { padding: 4 },
   activeBadge: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.gold, backgroundColor: Colors.gold + '22', paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.full },
-  visitBadge: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal, backgroundColor: Colors.teal + '22', paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.full },
+  visitBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.teal + '22', paddingHorizontal: Spacing.sm, paddingVertical: 4, borderRadius: Radius.full },
+  visitBadgeText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal },
 
-  optionBtn: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, padding: Spacing.md },
-  optionIcon: { fontSize: 22 },
-  optionInfo: { flex: 1, gap: 2 },
-  optionTitle: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
-  optionDesc: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
+  joinRow: { flexDirection: 'row', gap: Spacing.sm },
+  joinInputWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, paddingHorizontal: Spacing.md },
+  joinInput: { flex: 1, fontFamily: FontFamily.numberBold, fontSize: 15, color: Colors.text, paddingVertical: Spacing.md, letterSpacing: 1 },
+  joinBtn: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingHorizontal: Spacing.lg, alignItems: 'center', justifyContent: 'center' },
+
+  createLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.xs, paddingVertical: Spacing.sm },
+  createLinkText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.teal },
 
   formSection: { gap: Spacing.md },
   backLink: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingBottom: Spacing.xs },
@@ -406,7 +433,6 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   formTitle: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.text },
 
   inputWrap: { backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line },
-  input: { fontFamily: FontFamily.numberBold, fontSize: 22, color: Colors.text, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, letterSpacing: 2, textAlign: 'center' },
   inputName: { fontFamily: FontFamily.body, fontSize: 18, color: Colors.text, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, textAlign: 'center' },
 
   codePreview: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, backgroundColor: Colors.surf2, borderRadius: Radius.sm, padding: Spacing.sm },

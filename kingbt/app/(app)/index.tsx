@@ -266,6 +266,12 @@ export default function HubScreen() {
   const { groupPlayers } = useGroupPlayers();
   const me = groupPlayers.find(p => p.id === myPlayerId);
 
+  // Handicap por jogador — usado só pra equilibrar o sorteio ao clonar/revanche um Super 8 duplas rotativas.
+  const playerHandicaps: Record<string, number> = {};
+  groupPlayers.forEach(p => {
+    if (p.handicap != null) playerHandicaps[p.id] = p.handicap;
+  });
+
   const [refreshing, setRefreshing] = useState(false);
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -398,7 +404,7 @@ export default function HubScreen() {
               <CompCard
                 comp={item}
                 onDelete={isAdmin ? (id) => dispatch({ type: 'DELETE', compId: id }) : () => {}}
-                onClone={isAdmin ? (id) => dispatch({ type: 'CLONE', compId: id }) : () => {}}
+                onClone={isAdmin ? (id) => dispatch({ type: 'CLONE', compId: id, playerHandicaps }) : () => {}}
                 isAdmin={isAdmin}
                 highlight={item.id === highlightId}
               />

@@ -426,6 +426,8 @@ export function buildCompetition(spec: {
   location?: string;
   notes?: string;
   preassignedGroups?: string[][];
+  /** Handicap por jogador (id → valor), usado só para equilibrar o sorteio do Super 8 duplas rotativas. Não é salvo na competição. */
+  playerHandicaps?: Record<string, number>;
 }): Competition {
   const id = 'comp_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
   const comp: Competition = {
@@ -450,7 +452,10 @@ export function buildCompetition(spec: {
   } else if (spec.format === 'super8') {
     if (spec.unit === 'duplas') {
       // Duplas rotativas: o sistema sorteia os pares automaticamente
-      comp.matches = generateSchedule(spec.competitors.map(c => ({ id: c.members[0] ?? c.id })));
+      comp.matches = generateSchedule(spec.competitors.map(c => {
+        const id = c.members[0] ?? c.id;
+        return { id, handicap: spec.playerHandicaps?.[id] };
+      }));
     } else {
       // Individual: todos contra todos (round-robin 1v1)
       comp.matches = generateScheduleIndividual(spec.competitors);

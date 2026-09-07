@@ -381,7 +381,17 @@ function AppHeader({ onMenuPress }: { onMenuPress: () => void }) {
 export default function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const insets = useSafeAreaInsets();
-  const { isMember } = useAuth();
+  const { isMember, loading, user, groupConfirmed } = useAuth();
+
+  // Sem isso, uma URL/aba salva apontando direto pra dentro do app (comum na
+  // versão web/PWA, que restaura a última rota visitada) entrava direto sem
+  // nunca passar pela tela "Escolha seu grupo" — o grupo ativo já vem
+  // preenchido sozinho no boot da sessão, então checar só isso não bastava.
+  useEffect(() => {
+    if (loading) return;
+    if (!user) { router.replace('/(auth)/login'); return; }
+    if (!groupConfirmed) router.replace('/(auth)/groups');
+  }, [loading, user, groupConfirmed]);
 
   return (
     <ErrorBoundary label="AppLayout">
