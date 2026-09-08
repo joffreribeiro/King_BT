@@ -8,47 +8,6 @@ import { FontFamily, type ThemeColors, Colors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Icon } from '@/components';
 
-const CONFETTI_COLORS = [Colors.gold, Colors.teal, Colors.accentSuper8, Colors.accentGrupos, Colors.coral, Colors.goldBright, Colors.teal];
-
-function Confetti() {
-  const items = Array.from({ length: 14 }, (_, i) => {
-    const anim = useRef(new Animated.Value(0)).current;
-    useEffect(() => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(anim, { toValue: 1, duration: 1800 + i * 120, useNativeDriver: true }),
-          Animated.timing(anim, { toValue: 0, duration: 1800 + i * 120, useNativeDriver: true }),
-        ])
-      ).start();
-    }, []);
-    const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [0, -14] });
-    const opacity = anim.interpolate({ inputRange: [0, 0.2, 0.8, 1], outputRange: [0, 1, 1, 0.6] });
-    return { anim, translateY, opacity, i };
-  });
-
-  return (
-    <>
-      {items.map(({ translateY, opacity, i }) => (
-        <Animated.View
-          key={i}
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: `${8 + (i % 4) * 6}%` as any,
-            left: `${5 + (i * 7) % 90}%` as any,
-            width: i % 3 === 0 ? 8 : 6,
-            height: i % 3 === 0 ? 8 : 5,
-            borderRadius: i % 2 === 0 ? 4 : 1,
-            backgroundColor: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
-            opacity,
-            transform: [{ translateY }],
-          }}
-        />
-      ))}
-    </>
-  );
-}
-
 export default function VictoryScreen() {
   const params = useLocalSearchParams<{
     winnerName?: string;
@@ -57,10 +16,23 @@ export default function VictoryScreen() {
     loserScore?: string;
     competitionName?: string;
     duration?: string;
+    setsGames?: string;
   }>();
 
   const { colors: Colors } = useTheme();
   const v = useMemo(() => makeStyles(Colors), [Colors]);
+
+  // Games de cada set (na perspectiva vencedor/perdedor) — winnerScore/loserScore
+  // acima é o placar em SETS; isto é o detalhe de games dentro de cada set.
+  const setsGames = useMemo<{ a: number; b: number }[]>(() => {
+    if (!params.setsGames) return [];
+    try {
+      const parsed = JSON.parse(params.setsGames);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }, [params.setsGames]);
 
   const scaleAnim = useRef(new Animated.Value(0.6)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -84,7 +56,7 @@ export default function VictoryScreen() {
       {/* Mascote King BT no topo — sangra até a borda e dissolve no fundo da tela */}
       <View style={v.banner} pointerEvents="none">
         <Image
-          source={require('../assets/kingbt-mascote.jpg')}
+          source={require('../assets/kingbt-mascote-fogo.jpg')}
           style={v.bannerImg}
           resizeMode="cover"
         />
@@ -93,8 +65,6 @@ export default function VictoryScreen() {
           style={v.bannerFade}
         />
       </View>
-
-      <Confetti />
 
       <ScrollView
         contentContainerStyle={v.scroll}
@@ -128,6 +98,17 @@ export default function VictoryScreen() {
               </Text>
             </View>
           </View>
+
+          {setsGames.length > 0 && (
+            <View style={v.gamesRow}>
+              <Text style={v.gamesLabel}>GAMES</Text>
+              <View style={v.gamesChips}>
+                {setsGames.map((s, i) => (
+                  <Text key={i} style={v.gamesChip}>{s.a}-{s.b}</Text>
+                ))}
+              </View>
+            </View>
+          )}
 
           <Text style={v.meta}>
             {params.competitionName ?? ''}
@@ -218,6 +199,32 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 13,
     color: Colors.muted,
     textAlign: 'center',
+  },
+  gamesRow: {
+    alignItems: 'center',
+    gap: 6,
+    marginTop: -8,
+  },
+  gamesLabel: {
+    fontFamily: FontFamily.numberBold,
+    fontSize: 10,
+    color: Colors.faint,
+    letterSpacing: 1.5,
+  },
+  gamesChips: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  gamesChip: {
+    fontFamily: FontFamily.numberBold,
+    fontSize: 15,
+    color: Colors.text,
+    backgroundColor: Colors.surf,
+    borderWidth: 1,
+    borderColor: 'rgba(243,197,68,0.18)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
   shareBtn: {
     width: '100%',

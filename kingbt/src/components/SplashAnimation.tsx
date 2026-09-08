@@ -16,68 +16,6 @@ const { width: SW, height: SH } = Dimensions.get('window');
 const CX = SW / 2;
 const CY = SH / 2;
 
-// --- Particles ---
-type Particle = {
-  x: Animated.Value;
-  y: Animated.Value;
-  alpha: Animated.Value;
-  size: number;
-  key: number;
-};
-
-function useParticles(count: number, active: boolean): Particle[] {
-  const particles = useRef<Particle[]>([]);
-
-  if (particles.current.length === 0) {
-    for (let i = 0; i < count; i++) {
-      particles.current.push({
-        x: new Animated.Value(0),
-        y: new Animated.Value(0),
-        alpha: new Animated.Value(0),
-        size: Math.random() * 2.4 + 0.6,
-        key: i,
-      });
-    }
-  }
-
-  const animateParticle = useCallback((p: Particle, delay: number) => {
-    const angle = Math.random() * Math.PI * 2;
-    const dist = 50 + Math.random() * 110;
-    const startX = CX + Math.cos(angle) * dist;
-    const startY = CY + Math.sin(angle) * dist;
-    const vx = (Math.random() - 0.5) * 60;
-    const vy = -(Math.random() * 80 + 30);
-    const duration = 1200 + Math.random() * 800;
-
-    p.x.setValue(startX);
-    p.y.setValue(startY);
-    p.alpha.setValue(0);
-
-    Animated.sequence([
-      Animated.delay(delay),
-      Animated.parallel([
-        Animated.sequence([
-          Animated.timing(p.alpha, { toValue: 0.7 + Math.random() * 0.25, duration: duration * 0.2, useNativeDriver: true }),
-          Animated.timing(p.alpha, { toValue: 0, duration: duration * 0.8, useNativeDriver: true }),
-        ]),
-        Animated.timing(p.x, { toValue: startX + vx, duration, useNativeDriver: true }),
-        Animated.timing(p.y, { toValue: startY + vy, duration, useNativeDriver: true }),
-      ]),
-    ]).start(() => {
-      if (active) animateParticle(p, Math.random() * 400);
-    });
-  }, [active]);
-
-  useEffect(() => {
-    if (!active) return;
-    particles.current.forEach((p, i) => {
-      animateParticle(p, 1000 + i * 30);
-    });
-  }, [active]);
-
-  return particles.current;
-}
-
 // --- Ring component ---
 function PulseRing({ size, delay, borderColor }: { size: number; delay: number; borderColor: string }) {
   const scale = useRef(new Animated.Value(0.93)).current;
@@ -122,7 +60,6 @@ type Props = {
 };
 
 export default function SplashAnimation({ onFinish }: Props) {
-  const [active, setActive] = useState(true);
   const [showReplay, setShowReplay] = useState(false);
 
   // Animated values
@@ -141,11 +78,8 @@ export default function SplashAnimation({ onFinish }: Props) {
   const raysRotate     = useRef(new Animated.Value(0)).current;
   const screenOpacity  = useRef(new Animated.Value(1)).current;
 
-  const particles = useParticles(50, active);
-
   const runAnimation = useCallback(() => {
     setShowReplay(false);
-    setActive(true);
 
     // Reset all values
     coverOpacity.setValue(1);
@@ -300,27 +234,6 @@ export default function SplashAnimation({ onFinish }: Props) {
         opacity: burstOpacity,
         transform: [{ scale: burstScale }],
       }} />
-
-      {/* Particles */}
-      {particles.map(p => (
-        <Animated.View
-          key={p.key}
-          style={{
-            position: 'absolute',
-            width: p.size * 5,
-            height: p.size * 5,
-            borderRadius: p.size * 2.5,
-            backgroundColor: '#FFDC50',
-            left: 0, top: 0,
-            opacity: p.alpha,
-            transform: [
-              { translateX: p.x as any },
-              { translateY: p.y as any },
-            ],
-          }}
-          pointerEvents="none"
-        />
-      ))}
 
       {/* Logo outer with glow */}
       <Animated.View style={{

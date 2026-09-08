@@ -691,6 +691,9 @@ export default function CourtScreen() {
     const loserName   = winner === 'A' ? getNome(teamB) : getNome(teamA);
     const winnerScore = winner === 'A' ? String(a) : String(b);
     const loserScore  = winner === 'A' ? String(b) : String(a);
+    // Games de cada set, reordenados pra bater com winner/loser acima (o
+    // array de `sets` vem sempre na perspectiva do time A/B, não vencedor/perdedor).
+    const setsGames = winner === 'A' ? sets : sets?.map(s => ({ a: s.b, b: s.a }));
 
     router.push({
       pathname: '/victory',
@@ -700,6 +703,7 @@ export default function CourtScreen() {
         winnerScore,
         loserScore,
         competitionName: comp?.name ?? '',
+        setsGames: JSON.stringify(setsGames ?? []),
       },
     });
 

@@ -2,10 +2,11 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "kingbt-web",
+      "name": "kingbt-web-local",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "cd /d C:\\KINGBT && npx expo start --web"],
-      "port": 8081
+      "runtimeArgs": ["/c", "cd /d C:\\KINGBT && npx expo start --web --port %PORT%"],
+      "port": 8082,
+      "autoPort": true
     }
   ]
 }

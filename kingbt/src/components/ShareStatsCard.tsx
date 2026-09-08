@@ -68,7 +68,7 @@ export function ShareStatsCard({ data }: { data: ShareStatsData }) {
       {/* Footer — faixa de marca com o mascote */}
       <View style={s.footer}>
         <Image
-          source={require('../../assets/kingbt-mascote.jpg')}
+          source={require('../../assets/kingbt-mascote-fogo.jpg')}
           style={s.footerImg}
           resizeMode="cover"
         />

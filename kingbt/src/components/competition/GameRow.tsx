@@ -24,7 +24,7 @@ export function GameRow({ match: m, index, comp, isNext, onPress, onLongPress, c
       isNext={isNext}
       hint={
         m.scoreA == null && !m.liveScore
-          ? (canEdit ? 'Toque para registrar placar · segure para editar' : 'Toque para registrar placar')
+          ? (canEdit ? 'Segure para editar' : null)
           : (canEdit ? 'Segure para corrigir, trocar jogadores ou excluir' : null)
       }
       onPress={onPress}

@@ -6,13 +6,44 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
 import { Icon } from '@/components';
 
+/**
+ * Botão dourado em degradê — usado tanto pro CTA único da tela de opções
+ * quanto pelos botões de submit (Entrar/Criar conta/Redefinir). Extraído
+ * porque o estado desabilitado tinha um bug real: `btnDisabled` trocava só o
+ * fundo pro cinza escuro `surf2`, mas o texto continuava com `Colors.bg`
+ * (quase preto) — texto escuro sobre fundo escuro, ilegível. Aqui o texto
+ * desabilitado usa `Colors.faint`, visível mas claramente inativo.
+ */
+function GoldButton({ label, onPress, disabled, busy, styles, Colors }: {
+  label: string; onPress: () => void; disabled?: boolean; busy?: boolean;
+  styles: ReturnType<typeof makeStyles>; Colors: ThemeColors;
+}) {
+  return (
+    <TouchableOpacity onPress={onPress} disabled={disabled} activeOpacity={0.85} style={styles.btnGradientWrap}>
+      {disabled ? (
+        <View style={[styles.btnGradientInner, styles.btnDisabled]}>
+          <Text style={styles.btnTextDisabled}>{label}</Text>
+        </View>
+      ) : (
+        <LinearGradient
+          colors={[Colors.gold, Colors.goldDeep]}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+          style={styles.btnGradientInner}
+        >
+          {busy ? <ActivityIndicator color={Colors.bg} /> : <Text style={styles.btnText}>{label}</Text>}
+        </LinearGradient>
+      )}
+    </TouchableOpacity>
+  );
+}
+
 const { width: SW, height: SH } = Dimensions.get('window');
-const ICON_CX = SW / 2;
 
 type Mode = 'options' | 'signin' | 'signup' | 'forgot';
 
@@ -51,48 +82,6 @@ function PulseRing({ size, delay, borderColor, centerY }: { size: number; delay:
   );
 }
 
-// ── Partículas ────────────────────────────────────────────────────────────────
-type Particle = { x: Animated.Value; y: Animated.Value; alpha: Animated.Value; size: number; key: number };
-
-function useLoginParticles(count: number, centerYRef: { current: number }) {
-  const particles = useRef<Particle[]>([]);
-  if (particles.current.length === 0) {
-    for (let i = 0; i < count; i++) {
-      particles.current.push({
-        x: new Animated.Value(0), y: new Animated.Value(0),
-        alpha: new Animated.Value(0), size: Math.random() * 2 + 0.8, key: i,
-      });
-    }
-  }
-  const animate = useCallback((p: Particle, delay: number) => {
-    const angle = Math.random() * Math.PI * 2;
-    const dist  = 40 + Math.random() * 80;
-    const sx = ICON_CX + Math.cos(angle) * dist;
-    const sy = centerYRef.current + Math.sin(angle) * dist;
-    const vx = (Math.random() - 0.5) * 50;
-    const vy = -(Math.random() * 60 + 20);
-    const dur = 1000 + Math.random() * 800;
-    p.x.setValue(sx); p.y.setValue(sy); p.alpha.setValue(0);
-    Animated.sequence([
-      Animated.delay(delay),
-      Animated.parallel([
-        Animated.sequence([
-          Animated.timing(p.alpha, { toValue: 0.8, duration: dur * 0.2, useNativeDriver: true }),
-          Animated.timing(p.alpha, { toValue: 0,   duration: dur * 0.8, useNativeDriver: true }),
-        ]),
-        Animated.timing(p.x, { toValue: sx + vx, duration: dur, useNativeDriver: true }),
-        Animated.timing(p.y, { toValue: sy + vy, duration: dur, useNativeDriver: true }),
-      ]),
-    ]).start(() => animate(p, Math.random() * 500));
-  }, []);
-
-  useEffect(() => {
-    particles.current.forEach((p, i) => animate(p, 800 + i * 40));
-  }, []);
-
-  return particles.current;
-}
-
 export default function LoginScreen() {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
@@ -101,13 +90,11 @@ export default function LoginScreen() {
   const [mode, setMode] = useState<Mode>('options');
 
   // Centro do logo: a tela agora centraliza o conteúdo verticalmente, então a
-  // posição real do logo varia com a altura do formulário — os anéis, raios,
-  // glow e partículas seguem essa medida em vez de um Y fixo.
+  // posição real do logo varia com a altura do formulário — os anéis, raios
+  // e glow seguem essa medida em vez de um Y fixo.
   const [centerY, setCenterY] = useState(SH * 0.32);
-  const centerYRef = useRef(centerY);
   const onLogoLayout = useCallback((e: { nativeEvent: { layout: { y: number; height: number } } }) => {
     const y = e.nativeEvent.layout.y + e.nativeEvent.layout.height / 2;
-    centerYRef.current = y;
     setCenterY(y);
   }, []);
 
@@ -120,8 +107,6 @@ export default function LoginScreen() {
 
   // Shimmer em loop
   const shimmerX = useRef(new Animated.Value(-200)).current;
-
-  const particles = useLoginParticles(30, centerYRef);
 
   useEffect(() => {
     // Raios aparecem e giram
@@ -189,50 +174,50 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+
+        {/* ── Anéis pulsantes (fora do ScrollView pra cobrir a tela toda) ──
+            Antes viviam DENTRO do ScrollView apesar do comentário dizer o
+            contrário: por serem 2,5x mais largos que a tela (deco.raysWrap),
+            viravam parte do conteúdo rolável e um scroll horizontal (gesto de
+            trackpad, por ex.) desalinhava a tela inteira. */}
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <PulseRing size={230} delay={0}    borderColor="rgba(243,197,68,0.35)" centerY={centerY} />
+          <PulseRing size={290} delay={500}  borderColor="rgba(243,197,68,0.18)" centerY={centerY} />
+          <PulseRing size={360} delay={1000} borderColor="rgba(243,197,68,0.09)" centerY={centerY} />
+        </View>
+
+        {/* ── Camada de animação (atrás de tudo) ── */}
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+
+          {/* Raios rotativos */}
+          <Animated.View style={[deco.raysWrap, { top: centerY - SW * 1.25, opacity: raysOpacity, transform: [{ rotate: raysRotateDeg }] }]}>
+            {[0, 52, 105, 160, 215, 270, 325].map((angle, i) => (
+              <View key={i} style={[deco.rayLine, { transform: [{ rotate: `${angle}deg` }] }]}>
+                <View style={{ width: SW * 2.5, height: 1.5, backgroundColor: `rgba(243,197,68,${0.04 + (i % 3) * 0.012})` }} />
+              </View>
+            ))}
+          </Animated.View>
+
+          {/* Glow dourado atrás do ícone */}
+          <Animated.View style={[deco.glow, { top: centerY - 120, opacity: glowOpacity }]} />
+
+        </View>
+
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          {/* ── Anéis pulsantes (fora do ScrollView para cobrir a tela) ── */}
-          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-            <PulseRing size={230} delay={0}    borderColor="rgba(243,197,68,0.35)" centerY={centerY} />
-            <PulseRing size={290} delay={500}  borderColor="rgba(243,197,68,0.18)" centerY={centerY} />
-            <PulseRing size={360} delay={1000} borderColor="rgba(243,197,68,0.09)" centerY={centerY} />
-          </View>
-
-          {/* ── Camada de animação (atrás de tudo) ── */}
-          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-
-            {/* Raios rotativos */}
-            <Animated.View style={[deco.raysWrap, { top: centerY - SW * 1.25, opacity: raysOpacity, transform: [{ rotate: raysRotateDeg }] }]}>
-              {[0, 52, 105, 160, 215, 270, 325].map((angle, i) => (
-                <View key={i} style={[deco.rayLine, { transform: [{ rotate: `${angle}deg` }] }]}>
-                  <View style={{ width: SW * 2.5, height: 1.5, backgroundColor: `rgba(243,197,68,${0.04 + (i % 3) * 0.012})` }} />
-                </View>
-              ))}
-            </Animated.View>
-
-            {/* Glow dourado atrás do ícone */}
-            <Animated.View style={[deco.glow, { top: centerY - 120, opacity: glowOpacity }]} />
-
-            {/* Partículas */}
-            {particles.map(p => (
-              <Animated.View key={p.key} style={{
-                position: 'absolute', width: p.size * 5, height: p.size * 5,
-                borderRadius: p.size * 2.5, backgroundColor: '#FFDC50',
-                left: 0, top: 0, opacity: p.alpha,
-                transform: [{ translateX: p.x as any }, { translateY: p.y as any }],
-              }} />
-            ))}
-          </View>
-
-          {/* Logo com shimmer */}
+          {/* Logo com anel dourado + shimmer */}
           <View style={styles.logoWrap} onLayout={onLogoLayout}>
-            <View style={styles.logoGlow}>
-              <View style={{ overflow: 'hidden', borderRadius: 100, width: 200, height: 200 }}>
+            <LinearGradient
+              colors={[Colors.goldBright, Colors.goldDeep, Colors.goldBright]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              style={styles.logoRing}
+            >
+              <View style={{ overflow: 'hidden', borderRadius: 96, width: 192, height: 192 }}>
                 <Image source={require('../../assets/kingbt-icon.png')} style={styles.logo} resizeMode="contain" />
                 {/* Shimmer sweep */}
                 <Animated.View style={[deco.shimmer, { transform: [{ translateX: shimmerX }, { skewX: '-20deg' }] }]} />
               </View>
-            </View>
+            </LinearGradient>
           </View>
 
           {/* Erro */}
@@ -246,10 +231,9 @@ export default function LoginScreen() {
           {mode === 'options' && (
             <View style={styles.form}>
               <Text style={styles.title}>Entrar</Text>
+              <Text style={styles.subtitle}>Acesse sua conta e volte pra quadra.</Text>
 
-              <TouchableOpacity style={styles.btnEmail} onPress={() => reset('signin')} activeOpacity={0.85}>
-                <Text style={styles.btnEmailText}>Entrar com e-mail</Text>
-              </TouchableOpacity>
+              <GoldButton label="Entrar com e-mail" onPress={() => reset('signin')} styles={styles} Colors={Colors} />
 
               <TouchableOpacity onPress={() => reset('signup')} style={styles.linkBtn}>
                 <Text style={styles.linkText}>Não tem conta? <Text style={styles.linkAccent}>Criar conta</Text></Text>
@@ -282,11 +266,11 @@ export default function LoginScreen() {
                 <Text style={styles.linkText}>Esqueceu a senha?</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.btnPrimary, (!email || !password || busy) && styles.btnDisabled]}
-                onPress={handleSignIn} disabled={!email || !password || busy} activeOpacity={0.85}>
-                {busy ? <ActivityIndicator color={Colors.bg} /> : <Text style={styles.btnText}>Entrar</Text>}
-              </TouchableOpacity>
+              <GoldButton
+                label="Entrar" onPress={handleSignIn}
+                disabled={!email || !password || busy} busy={busy}
+                styles={styles} Colors={Colors}
+              />
 
               <TouchableOpacity onPress={() => reset('signup')} style={styles.linkBtn}>
                 <Text style={styles.linkText}>Não tem conta? <Text style={styles.linkAccent}>Criar conta</Text></Text>
@@ -318,11 +302,11 @@ export default function LoginScreen() {
                     placeholder="E-mail" placeholderTextColor={Colors.faint}
                     keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
 
-                  <TouchableOpacity
-                    style={[styles.btnPrimary, (!email || busy) && styles.btnDisabled]}
-                    onPress={handleResetPassword} disabled={!email || busy} activeOpacity={0.85}>
-                    {busy ? <ActivityIndicator color={Colors.bg} /> : <Text style={styles.btnText}>Enviar link de redefinição</Text>}
-                  </TouchableOpacity>
+                  <GoldButton
+                    label="Enviar link de redefinição" onPress={handleResetPassword}
+                    disabled={!email || busy} busy={busy}
+                    styles={styles} Colors={Colors}
+                  />
                 </>
               )}
             </View>
@@ -335,6 +319,7 @@ export default function LoginScreen() {
                 <Text style={styles.backText}>← Voltar</Text>
               </TouchableOpacity>
               <Text style={styles.title}>Criar conta</Text>
+              <Text style={styles.subtitle}>Cadastre-se e comece a disputar o ranking da temporada.</Text>
 
               <TextInput style={styles.input} value={name} onChangeText={setName}
                 placeholder="Seu nome" placeholderTextColor={Colors.faint}
@@ -353,11 +338,11 @@ export default function LoginScreen() {
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity
-                style={[styles.btnPrimary, (!name || !email || !password || busy) && styles.btnDisabled]}
-                onPress={handleSignUp} disabled={!name || !email || !password || busy} activeOpacity={0.85}>
-                {busy ? <ActivityIndicator color={Colors.bg} /> : <Text style={styles.btnText}>Criar conta</Text>}
-              </TouchableOpacity>
+              <GoldButton
+                label="Criar conta" onPress={handleSignUp}
+                disabled={!name || !email || !password || busy} busy={busy}
+                styles={styles} Colors={Colors}
+              />
 
               <TouchableOpacity onPress={() => reset('signin')} style={styles.linkBtn}>
                 <Text style={styles.linkText}>Já tem conta? <Text style={styles.linkAccent}>Entrar</Text></Text>
@@ -397,15 +382,22 @@ const deco = StyleSheet.create({
 });
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000' },
+  // overflow:'hidden' corta a camada decorativa de raios (deco.raysWrap,
+  // 2,5x mais larga que a tela) nos limites da tela — sem isso, no RN Web
+  // ela expandia o conteúdo scrollável e um scroll horizontal (trackpad,
+  // gesto) desalinhava a tela inteira, cortando o formulário na lateral.
+  container: { flex: 1, backgroundColor: '#000000', overflow: 'hidden' },
   scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xl },
   logoWrap: { alignItems: 'center', paddingBottom: Spacing.sm },
-  logoGlow: {
-    width: 200, height: 200, borderRadius: 100,
+  logoRing: {
+    width: 202, height: 202, borderRadius: 101,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: Colors.gold, shadowOpacity: 0.5, shadowRadius: 24, shadowOffset: { width: 0, height: 0 }, elevation: 8,
   },
-  logo: { width: 200, height: 200, borderRadius: 100 },
+  logo: { width: 192, height: 192, borderRadius: 96 },
   form: { gap: Spacing.md },
   title: { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text },
+  subtitle: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, marginTop: -Spacing.sm },
   errorBox: { backgroundColor: Colors.coral + '22', borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.coral + '44', marginBottom: Spacing.xs },
   errorText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.coral },
   successBox: { backgroundColor: Colors.teal + '22', borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.teal + '44' },
@@ -414,12 +406,13 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   passwordWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line },
   passwordInput: { flex: 1, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, fontFamily: FontFamily.body, fontSize: 15, color: Colors.text },
   eyeBtn: { paddingHorizontal: Spacing.md },
-  btnGoogle: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md + 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 54, shadowColor: Colors.gold, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 10 },
-  btnEmail: { borderWidth: 1.5, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', backgroundColor: Colors.surf, minHeight: 52 },
-  btnEmailText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
-  btnPrimary: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.md + 2, alignItems: 'center', minHeight: 54 },
+  btnGradientWrap: { borderRadius: Radius.md, overflow: 'hidden', shadowColor: Colors.gold, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 14, elevation: 8 },
+  btnGradientInner: { paddingVertical: Spacing.md + 2, alignItems: 'center', justifyContent: 'center', minHeight: 54 },
   btnDisabled: { backgroundColor: Colors.surf2 },
   btnText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg },
+  // Antes o estado desabilitado só trocava o fundo (pra surf2) e deixava o
+  // texto em Colors.bg (quase preto) — texto ilegível sobre fundo escuro.
+  btnTextDisabled: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.faint },
   googleG: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.bg },
   sep: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   sepLine: { flex: 1, height: 1, backgroundColor: Colors.line },

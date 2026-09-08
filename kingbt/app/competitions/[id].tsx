@@ -1,6 +1,6 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform,
-  Animated, Dimensions, TextInput,
+  Animated, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -14,7 +14,6 @@ import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import type { Match, Competition } from '@/logic/types';
-import ConfettiCannon from 'react-native-confetti-cannon';
 import {
   confirmParticipation, cancelParticipation,
   requestRegistration, cancelRegistrationRequest, approveJoinRequest, rejectJoinRequest,
@@ -56,7 +55,6 @@ export default function CompetitionDetail() {
   const [scoring, setScoring]             = useState<Match | null>(null);
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [showEditName, setShowEditName]   = useState(false);
-  const [showConfetti, setShowConfetti]   = useState(false);
   const [showChampion, setShowChampion]   = useState(false);
   const [confirmBusy, setConfirmBusy]     = useState(false);
   const [showAddAvulso, setShowAddAvulso] = useState(false);
@@ -71,8 +69,7 @@ export default function CompetitionDetail() {
   const [editTeamA, setEditTeamA]         = useState<string[]>([]);
   const [editTeamB, setEditTeamB]         = useState<string[]>([]);
   const champAnim  = useRef(new Animated.Value(0)).current;
-  const screenW = Dimensions.get('window').width;
-  const confettiFired = useRef(false);
+  const championShown = useRef(false);
 
   // Para competição tipo "Grupo", inicia na aba correta baseado na fase ativa
   const [activeTab, setActiveTab] = useState<'regras' | 'classificacao' | 'partidas'>(() => {
@@ -82,36 +79,18 @@ export default function CompetitionDetail() {
     return allGroupsComplete ? 'partidas' : 'classificacao';
   });
 
-  /**
-   * @param celebrate confete só quando a competição ACABOU de ser encerrada
-   *   nesta sessão. Ao apenas abrir uma competição já encerrada, o banner do
-   *   campeão aparece sem confete — a celebração é do momento da conquista,
-   *   não de toda visita ao histórico.
-   */
-  function triggerChampion(celebrate: boolean) {
-    if (confettiFired.current) return;
-    confettiFired.current = true;
+  function triggerChampion() {
+    if (championShown.current) return;
+    championShown.current = true;
     setShowChampion(true);
     champAnim.setValue(0);
     Animated.spring(champAnim, { toValue: 1, useNativeDriver: true, tension: 60, friction: 7 }).start();
-    if (celebrate) {
-      setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 4000);
-    }
   }
 
-  // Status anterior, para distinguir "acabou de encerrar" de "já estava
-  // encerrada quando abri" — antes os dois casos caíam no mesmo caminho e a
-  // competição encerrada soltava confete a cada abertura.
-  const prevStatus = useRef<string | undefined>(undefined);
   useEffect(() => {
-    const was = prevStatus.current;
-    prevStatus.current = comp?.status;
     if (comp?.status !== 'done') return;
     if (!competitionChampion(comp, id => findPlayer(id)?.name ?? id)) return;
-    // `was === undefined` = primeira leitura (abri a tela); qualquer outro
-    // valor diferente de 'done' = encerrou agora, com o app aberto.
-    triggerChampion(was !== undefined && was !== 'done');
+    triggerChampion();
   }, [comp?.status, !!comp]);
 
   // Para competição tipo "Grupo", ajusta a aba quando a fase muda (grupos completos → mata-mata)
@@ -409,17 +388,6 @@ export default function CompetitionDetail() {
   return (
     <ErrorBoundary label="CompetitionDetail">
     <SafeAreaView style={main.container} edges={['top']}>
-      {/* Confetti */}
-      {showConfetti && (
-        <ConfettiCannon
-          count={120}
-          origin={{ x: screenW / 2, y: -20 }}
-          autoStart
-          fadeOut
-          colors={[Colors.gold, Colors.teal, '#FF6B6B', '#FFFFFF', '#A8DADC']}
-        />
-      )}
-
       {/* Champion banner */}
       {showChampion && champPlayer && (
         <Animated.View style={[main.champBanner, {

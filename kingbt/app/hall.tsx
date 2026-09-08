@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMemo } from 'react';
 import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { goToPlayer } from '@/logic/nav';
 import { FontFamily, Spacing, type ThemeColors, PODIUM_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
@@ -77,6 +78,18 @@ export default function HallScreen() {
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
+      {/* Mascote King BT — mesmo banner da tela de vitória, aqui fixo (não
+          precisa de uma vitória ao vivo pra aparecer) já que este é o único
+          lugar da árvore de navegação que celebra os campeões de verdade. */}
+      <View style={s.banner} pointerEvents="none">
+        <Image
+          source={require('../assets/kingbt-mascote-fogo.jpg')}
+          style={s.bannerImg}
+          resizeMode="cover"
+        />
+        <LinearGradient colors={['transparent', Colors.bg]} style={s.bannerFade} />
+      </View>
+
       <ScreenHeader title="Hall dos Campeões" />
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
@@ -150,6 +163,9 @@ export default function HallScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
+  banner: { width: '100%', height: 150 },
+  bannerImg: { width: '100%', height: '100%' },
+  bannerFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 90 },
   title: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.gold, flex: 1 },
   scroll: { padding: Spacing.md, gap: Spacing.sm },
   sectionLabel: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted, letterSpacing: 2, marginTop: Spacing.sm },
