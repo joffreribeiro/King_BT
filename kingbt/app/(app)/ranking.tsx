@@ -400,7 +400,7 @@ export default function RankingScreen() {
         <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }}>
           <RankingCard
             ranking={ranking}
-            players={groupPlayers.map(p => ({ id: p.id, name: p.name, color: p.color, short: p.name.slice(0, 3).toUpperCase(), title: '', titleEmoji: '', guest: p.guest ?? false }))}
+            players={groupPlayers.map(p => ({ id: p.id, name: p.name, color: p.color }))}
             groupName={groupName}
             season={season}
             roundsDone={roundsDone}
@@ -525,6 +525,12 @@ export default function RankingScreen() {
             <Text style={{ color: Colors.text }}>(J × {fmtCoef(scoringConfig.playedCoef)})</Text>
             {' + '}
             <Text style={{ color: Colors.goldBright }}>(GA × {fmtCoef(scoringConfig.gaCoef)})</Text>
+            {!!scoringConfig.eventCoef && (
+              <>
+                {' + '}
+                <Text style={{ color: Colors.faint }}>(Eventos × {fmtCoef(scoringConfig.eventCoef)})</Text>
+              </>
+            )}
           </Text>
           <Text style={modal.note}>GA = Games Pró ÷ Games Contra</Text>
           <View style={modal.divider} />
@@ -534,21 +540,33 @@ export default function RankingScreen() {
             const winPts = me.wins * scoringConfig.winCoef;
             const playedPts = me.played * scoringConfig.playedCoef;
             const gaPts = me.ga * scoringConfig.gaCoef;
+            const hasEvents = !!scoringConfig.eventCoef;
+            const eventsPts = (me.events ?? 0) * (scoringConfig.eventCoef ?? 0);
             return (
               <View style={modal.example}>
                 <Text style={modal.exTitle}>Seu exemplo:</Text>
                 <Text style={modal.exText}>
                   ({me.wins}×{fmtCoef(scoringConfig.winCoef)}) + ({me.played}×{fmtCoef(scoringConfig.playedCoef)}) + ({fmtCoef(me.ga)}×{fmtCoef(scoringConfig.gaCoef)})
+                  {hasEvents && ` + (${me.events ?? 0}×${fmtCoef(scoringConfig.eventCoef!)})`}
                 </Text>
                 <Text style={modal.exText}>
-                  = {fmtCoef(winPts)} + {fmtCoef(playedPts)} + {fmtCoef(gaPts)} = <Text style={{ color: Colors.gold }}>{me.points.toFixed(2).replace('.', ',')} pts</Text>
+                  = {fmtCoef(winPts)} + {fmtCoef(playedPts)} + {fmtCoef(gaPts)}
+                  {hasEvents && ` + ${fmtCoef(eventsPts)}`}
+                  {' = '}<Text style={{ color: Colors.gold }}>{me.points.toFixed(2).replace('.', ',')} pts</Text>
                 </Text>
               </View>
             );
           })()}
           <View style={modal.divider} />
           <Text style={modal.desempateTitle}>Critérios de desempate</Text>
-          {['1° Pontuação King BT', '2° Game Average (GA)', '3° Saldo de Games (SG)', '4° Nº de Vitórias', '5° Confronto Direto'].map(d => (
+          {[
+            '1° Pontuação King BT',
+            '2° Confronto Direto',
+            '3° Saldo de Games (SG)',
+            '4° Game Average (GA)',
+            '5° Nº de Vitórias',
+            '6° Ordem alfabética',
+          ].map(d => (
             <Text key={d} style={modal.desempateItem}>{d}</Text>
           ))}
           <TouchableOpacity style={modal.closeBtn} onPress={() => setShowFormula(false)}>

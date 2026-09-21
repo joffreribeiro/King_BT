@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useMemo } from 'react';
-import { router } from 'expo-router';
+import { goToTreino } from '@/logic/nav';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
@@ -11,6 +11,7 @@ import {
   listarTreinos, novoTreino, salvarTreino, calcularAnaliseTreino, type BtTreino,
 } from '@/logic/btTreino';
 import { saveTreinoFs, listTreinosFs } from '@/firebase/treinos';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -25,7 +26,7 @@ function TreinoCard({ treino, nomeJogador }: { treino: BtTreino; nomeJogador: st
     <TouchableOpacity
       style={card.wrap}
       activeOpacity={0.8}
-      onPress={() => router.push({ pathname: '/treino/[treinoId]', params: { treinoId: treino.id, playerId: treino.playerId } })}
+      onPress={() => goToTreino(treino.id, treino.playerId)}
     >
       <View style={card.header}>
         <Text style={card.titulo} numberOfLines={1}>{treino.titulo}</Text>
@@ -54,6 +55,7 @@ const makeCardStyles = (Colors: ThemeColors) => StyleSheet.create({
 });
 
 export default function TreinoListScreen() {
+  useRequireAuth();
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { group } = useAuth();
@@ -88,7 +90,7 @@ export default function TreinoListScreen() {
     saveTreinoFs(group.id, treino).catch(() => {});
     setTreinos(prev => [treino, ...prev]);
     setTitulo(''); setPlayerId(null); setShowNovo(false);
-    router.push({ pathname: '/treino/[treinoId]', params: { treinoId: treino.id, playerId: treino.playerId } });
+    goToTreino(treino.id, treino.playerId);
   }
 
   return (

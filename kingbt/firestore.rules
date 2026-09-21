@@ -53,20 +53,38 @@ service cloud.firestore {
 
     // ── Usuários ─────────────────────────────────────────────────────────
     match /users/{uid} {
-      // Leitura por qualquer autenticado (necessário para telas de membros)
-      allow read: if signedIn();
+      // Get por uid específico — usado por removeFromGroup (admin lendo o
+      // doc de um membro que está saindo) e pelo próprio dono do doc.
+      allow get: if signedIn();
+      // NUNCA list: getDocs(collection('users')) sem filtro baixava nome e
+      // e-mail de TODOS os usuários do app para qualquer conta logada — era
+      // a implementação antiga de searchUsers (tela "adicionar membro
+      // existente"). Essa busca agora roda na Cloud Function searchUsers
+      // (functions/src/index.ts), com Admin SDK, sem passar pelas regras.
+      allow list: if false;
       // Escrita: só o próprio usuário...
       allow write: if signedIn() && request.auth.uid == uid;
-      // ...exceto limpar o groupId de outro usuário (fluxo de remoção do
-      // grupo pelo admin). Só permite alterar o campo groupId para null, e só
-      // quem é admin (ou super admin) do grupo de onde a pessoa está saindo —
-      // sem isso, qualquer usuário logado conseguia remover qualquer outro
-      // do grupo dele, bastava chamar o SDK direto ignorando o app.
+      // ...exceto limpar o groupId (e opcionalmente groupIds) de outro
+      // usuário — fluxo de remoção individual (removeFromGroup) OU de
+      // exclusão do grupo inteiro (deleteGroup, que também tira o grupo do
+      // histórico de cada ex-membro). Só quem é admin (ou super admin) do
+      // grupo de onde a pessoa está saindo — sem isso, qualquer usuário
+      // logado conseguia remover qualquer outro do grupo dele, bastava
+      // chamar o SDK direto ignorando o app.
       allow update: if signedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['groupId'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['groupId', 'groupIds'])
         && request.resource.data.groupId == null
         && resource.data.groupId != null
         && (isGroupAdmin(resource.data.groupId) || isSuperAdmin());
+    }
+
+    // Contador de rate limit da Cloud Function searchUsers
+    // (functions/src/index.ts) — só o Admin SDK toca aqui, que ignora estas
+    // regras de qualquer forma. Bloqueio explícito por defesa em
+    // profundidade: o cliente nunca tem motivo legítimo pra ler ou escrever
+    // isto diretamente.
+    match /rateLimits/{doc} {
+      allow read, write: if false;
     }
 
     // ── Grupos ───────────────────────────────────────────────────────────
@@ -102,14 +120,34 @@ service cloud.firestore {
         // dia a dia (autocadastro ao entrar no grupo, adicionar um
         // convidado avulso ao montar uma competição).
         allow create: if isMember(gid);
-        // Editar: o próprio dono do perfil (id do doc == uid de quem
-        // registrou), ou admin/super admin — sem isso, qualquer membro
-        // conseguia alterar o handicap ou os dados de OUTRO jogador.
-        allow update: if isMember(gid) && (playerId == request.auth.uid || canManageComp(gid));
+        // Editar. Três caminhos legítimos, e nenhum a mais:
+        //  1. Sou o dono do perfil. Vale tanto pelo uid gravado nele quanto
+        //     pelo id do doc — um perfil criado pelo próprio usuário nasce
+        //     com o uid como id, mas um perfil que o admin cadastrou antes
+        //     tem id aleatório e só carrega o uid depois da vinculação.
+        //     Checar só o id do doc deixava quem se vinculou sem conseguir
+        //     nem trocar o próprio nome (updateProfileName no AuthContext).
+        //  2. Admin/super admin: gerencia qualquer perfil do grupo.
+        //  3. Vinculação: o perfil ainda não tem dono e estou carimbando o
+        //     MEU uid nele, sem tocar em mais nada. É o fluxo de quem entra
+        //     no grupo e se reconhece num jogador que o admin já cadastrou
+        //     (linkToPlayer). Sem esta cláusula a regra barrava o fluxo
+        //     inteiro: o doc tem id aleatório, então nenhuma das outras
+        //     passava, e só admin conseguia vincular.
+        allow update: if isMember(gid) && (
+          resource.data.get('uid', null) == request.auth.uid
+          || playerId == request.auth.uid
+          || canManageComp(gid)
+          || (
+            resource.data.get('uid', null) == null
+            && request.resource.data.get('uid', null) == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'guest'])
+          )
+        );
         // Apagar: qualquer membro pode remover um CONVIDADO (guest == true —
         // fluxo normal de "desfazer" um convidado adicionado à toa), mas só
         // admin/super admin apaga o perfil de um jogador de verdade.
-        allow delete: if isMember(gid) && (resource.data.guest == true || canManageComp(gid));
+        allow delete: if isMember(gid) && (resource.data.get('guest', false) == true || canManageComp(gid));
       }
 
       match /competitions/{compId} {
@@ -215,7 +253,14 @@ service cloud.firestore {
     // também deixava qualquer autenticado descobrir e entrar num grupo
     // "privado" sem nunca ter recebido o código.
     match /groupCodes/{code} {
-      allow read: if signedIn();
+      // `get` por código exato, nunca `list`. Com `read` (que é get + list)
+      // qualquer conta logada podia baixar a coleção inteira e sair com o
+      // groupId de TODOS os grupos do app; somada à regra de `members` acima
+      // — que deixa um não-membro se adicionar sozinho — isso dava entrada
+      // livre em qualquer grupo privado, sem nunca ter visto o código.
+      // O app só lê por getDoc(code), então perder o list não custa nada.
+      allow get:  if signedIn();
+      allow list: if false;
       // Só cria quem já é admin do grupo referenciado — na prática, só
       // createGroup() logo após criar o próprio grupo.
       allow create: if signedIn()

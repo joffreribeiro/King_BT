@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/store/AuthContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
+import { matchGames } from '@/logic/setOutcome';
 
 export type NotifType =
   | 'result_new'
@@ -90,8 +91,7 @@ export function useNotifications() {
         .sort((a, b) => (b.playedAt ?? '').localeCompare(a.playedAt ?? ''))
         .slice(0, 3)
         .forEach(m => {
-          const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA;
-          const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB;
+          const { a: gA, b: gB } = matchGames(m, comp.config?.winRule);
           list.push({
             id: `result_${m.id}`,
             type: 'result_new',

@@ -6,6 +6,7 @@ import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
+import { matchGames } from '@/logic/setOutcome';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 
 type Tab = 'geral' | 'historico' | 'stats';
@@ -68,9 +69,7 @@ export default function H2HScreen() {
 
         if (p1Score > p2Score) wins1++; else wins2++;
 
-        // Usa games reais quando disponíveis, fallback para sets
-        const rawGa = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA;
-        const rawGb = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB;
+        const { a: rawGa, b: rawGb } = matchGames(m, comp.config?.winRule);
         const p1Games = p1Side === 'A' ? rawGa : rawGb;
         const p2Games = p1Side === 'A' ? rawGb : rawGa;
         gp1 += p1Games;

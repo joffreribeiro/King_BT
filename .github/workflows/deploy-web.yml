@@ -9,7 +9,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  # `needs:` só funciona entre jobs do MESMO workflow — não existe forma de
+  # um job aqui esperar o resultado de ci.yml (arquivo diferente). Por isso
+  # os checks rodam de novo aqui, como gate do próprio job `deploy`: um
+  # commit que quebra typecheck/testes/regras não publica, mesmo que alguém
+  # tenha ignorado o status do ci.yml no PR.
+  check:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -24,7 +29,56 @@ jobs:
           cache-dependency-path: kingbt/package-lock.json
 
       - name: Instalar dependências
-        run: npm install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Testes
+        run: npm test
+
+  rules-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kingbt
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: kingbt/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Testes de regras do Firestore (emulador)
+        run: npm run test:rules
+
+  deploy:
+    needs: [check, rules-test]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kingbt
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: kingbt/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
 
       # Timestamp (epoch ms) deste build — usado pela checagem de atualização
       # obrigatória (ver src/store/UpdateContext.tsx e /config/appVersion no
@@ -32,10 +86,21 @@ jobs:
       - name: Definir timestamp do build
         run: echo "EXPO_PUBLIC_BUILD_TIME=$(date -u +%s%3N)" >> "$GITHUB_ENV"
 
+      # SHA do commit publicado — usado junto com EXPO_PUBLIC_BUILD_TIME pela
+      # checagem de atualização obrigatória. Antes só build-apk.yml definia
+      # isso: no build web CURRENT_SHA ficava sempre null, e o aviso de
+      # "nova versão" nunca aparecia na web (ver src/store/UpdateContext.tsx).
+      - name: Definir SHA do build
+        run: echo "EXPO_PUBLIC_GIT_SHA=${{ github.sha }}" >> "$GITHUB_ENV"
+
       - name: Exportar build web
         run: npx expo export --platform web
 
-      - name: Publicar no Firebase Hosting
-        run: npx firebase-tools deploy --only hosting --project king-bt-7f559 --token "$FIREBASE_TOKEN"
+      # firestore:rules vai junto: antes só o hosting era publicado aqui, então
+      # uma correção em firestore.rules só ia ao ar se alguém lembrasse de
+      # rodar `firebase deploy --only firestore:rules` manualmente. Os jobs
+      # `check`/`rules-test` acima já validaram tudo antes deste passo rodar.
+      - name: Publicar no Firebase Hosting e nas regras do Firestore
+        run: npx firebase-tools deploy --only hosting,firestore:rules --project king-bt-7f559 --token "$FIREBASE_TOKEN"
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}

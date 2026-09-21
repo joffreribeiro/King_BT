@@ -1,7 +1,8 @@
-import type { Match, MatchSource, GroupDef, Competition, Standing, Competitor } from './types';
+import type { Match, MatchSource, GroupDef, Competition, Standing, Competitor, WinRule } from './types';
 import { generateSchedule, generateScheduleIndividual, generateScheduleDuplas } from './roundRobin';
-import { gameAverage, statPoints, compareRank } from './scoring';
+import { gameAverage, statPoints, sortRanking, type PlayerGame } from './scoring';
 import { DEFAULT_SCORING, type ScoringConfig } from './scoringConfig';
+import { matchGames } from './setOutcome';
 
 // ─── Liga (round-robin Circle method) ────────────────────────────────────────
 
@@ -143,16 +144,20 @@ export function genGroups(
 
 // ─── Standings ────────────────────────────────────────────────────────────────
 
-export function standings(ids: string[], matches: Match[], nameOf?: (id: string) => string, cfg: ScoringConfig = DEFAULT_SCORING): Standing[] {
+export function standings(
+  ids: string[],
+  matches: Match[],
+  nameOf?: (id: string) => string,
+  cfg: ScoringConfig = DEFAULT_SCORING,
+  winRule?: WinRule,
+): Standing[] {
   // acc.gc = games contra (acumulador interno, não exposto)
   const acc: Record<string, { played: number; wins: number; losses: number; gf: number; gc: number }> = {};
   ids.forEach(id => { acc[id] = { played: 0, wins: 0, losses: 0, gf: 0, gc: 0 }; });
   matches.forEach(m => {
     if (m.scoreA == null || m.scoreB == null) return;
     if (!m.aId || !m.bId || !acc[m.aId] || !acc[m.bId]) return;
-    // Usa games reais quando disponíveis, caso contrário usa sets como fallback
-    const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA;
-    const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB;
+    const { a: gA, b: gB } = matchGames(m, winRule);
     acc[m.aId].played++; acc[m.bId].played++;
     acc[m.aId].gf += gA; acc[m.aId].gc += gB;
     acc[m.bId].gf += gB; acc[m.bId].gc += gA;
@@ -184,14 +189,13 @@ export function standings(ids: string[], matches: Match[], nameOf?: (id: string)
   }
 
   const resolveName = (id: string) => (nameOf ? nameOf(id) : id);
-  return rows.sort((a, b) =>
-    compareRank(
-      { id: a.id, points: a.pts, sg: a.gd, ga: a.ga, wins: a.wins },
-      { id: b.id, points: b.pts, sg: b.gd, ga: b.ga, wins: b.wins },
-      h2h,
-      resolveName,
-    )
-  );
+  // sortRanking espera objetos com {id, points, sg, ga, wins} diretamente —
+  // Standing usa outros nomes (pts, gd), então cada linha carrega uma
+  // referência de volta a si mesma (`original`) pra extrair depois de ordenar.
+  const views = rows.map(s => ({
+    id: s.id, points: s.pts, sg: s.gd, ga: s.ga, wins: s.wins, original: s,
+  }));
+  return sortRanking(views, h2h, resolveName).map(v => v.original);
 }
 
 export function groupComplete(matches: Match[], gi: number): boolean {
@@ -217,7 +221,7 @@ export function matchLoser(m: Match): string | null {
 
 // ─── resolveCompetition (fixpoint) ────────────────────────────────────────────
 
-export function resolveCompetition(comp: Competition): Competition {
+export function resolveCompetition(comp: Competition, cfg: ScoringConfig = DEFAULT_SCORING): Competition {
   const { matches, groupDefs } = comp;
   const byId: Record<string, Match> = Object.fromEntries(matches.map(m => [m.id, m]));
 
@@ -229,7 +233,7 @@ export function resolveCompetition(comp: Competition): Competition {
       const done = groupComplete(matches, gi);
       groupDone[gi] = done;
       // Calcula mesmo incompleto para pré-visualização (mas só fecha slot quando done)
-      groupRank[gi] = standings(gd.ids, matches.filter(m => m.stage === 'group' && m.groupIdx === gi));
+      groupRank[gi] = standings(gd.ids, matches.filter(m => m.stage === 'group' && m.groupIdx === gi), undefined, cfg, comp.config?.winRule);
     });
   }
 
@@ -296,9 +300,7 @@ export function competitionChampion(comp: Competition, nameOf?: (id: string) => 
     const stats: Record<string, { wins: number; played: number; pro: number; con: number }> = {};
     for (const m of scored) {
       const aWin = m.scoreA! > m.scoreB!;
-      // Usa games reais quando disponíveis, fallback para sets
-      const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA!;
-      const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB!;
+      const { a: gA, b: gB } = matchGames(m, comp.config?.winRule);
       for (const id of m.teamA!) {
         if (!stats[id]) stats[id] = { wins: 0, played: 0, pro: 0, con: 0 };
         stats[id].played++; stats[id].pro += gA; stats[id].con += gB;
@@ -331,15 +333,14 @@ export function competitionChampion(comp: Competition, nameOf?: (id: string) => 
       ga: gameAverage({ gamesPro: s.pro, gamesCon: s.con }),
       wins: s.wins,
     });
-    const sorted = Object.entries(stats).sort(([idA, a], [idB, b]) =>
-      compareRank(rankRow(idA, a), rankRow(idB, b), h2hAvulso, resolveNameOf)
-    );
+    const entries = Object.entries(stats).map(([id, s]) => rankRow(id, s));
+    const sorted = sortRanking(entries, h2hAvulso, resolveNameOf);
     if (!sorted.length) return null;
-    const [champId] = sorted[0];
+    const champId = sorted[0].id;
     return { id: champId, members: [champId] };
   }
   if (comp.format === 'liga') {
-    const st = standings(comp.competitors.map(c => c.id), comp.matches, nameOf, cfg);
+    const st = standings(comp.competitors.map(c => c.id), comp.matches, nameOf, cfg, comp.config?.winRule);
     const allDone = comp.matches.every(m => m.scoreA != null && m.scoreB != null);
     return allDone && st[0] ? comp.competitors.find(c => c.id === st[0].id) ?? null : null;
   }
@@ -357,27 +358,46 @@ function membersOf(comp: Competition, id: string): string[] {
   return c ? (c.members.length > 0 ? c.members : [c.id]) : [id];
 }
 
-export function extractPlayerGames(
-  comp: Competition
-): Array<{ teamA: string[]; teamB: string[]; scoreA: number; scoreB: number; compId: string }> {
-  const out: Array<{ teamA: string[]; teamB: string[]; scoreA: number; scoreB: number; compId: string }> = [];
+export function extractPlayerGames(comp: Competition): PlayerGame[] {
+  const out: PlayerGame[] = [];
   comp.matches.forEach(m => {
-    if (m.scoreA == null || m.scoreB == null || m.scoreA === m.scoreB) return;
+    if (m.scoreA == null || m.scoreB == null) return;
 
-    // Usa games reais (soma dos sets) quando disponível, caso contrário usa sets como fallback
-    let gA = m.scoreA;
-    let gB = m.scoreB;
-    if (m.sets && m.sets.length > 0) {
-      gA = m.sets.reduce((acc, s) => acc + s.a, 0);
-      gB = m.sets.reduce((acc, s) => acc + s.b, 0);
+    if (m.scoreA === m.scoreB) {
+      // Empate no placar da PARTIDA. Dois casos bem diferentes:
+      //  - Com m.sets preenchido, o placar conta sets vencidos — 1-1 (MD3)
+      //    é uma partida que ainda não terminou (falta o set decisivo), não
+      //    um resultado. Continua fora do ranking, como sempre foi.
+      //  - Sem m.sets (placar registrado direto, sem passar pela grade de
+      //    sets — o modo mais rápido do formato avulso), não sobra nenhum
+      //    "set pendente": o placar É o resultado final, e empatado é
+      //    empatado de verdade (ex.: "paramos em 4x4"). Contava como se o
+      //    jogo nunca tivesse existido — não somava J, não entrava no GA de
+      //    ninguém, embora tivesse sido jogado de verdade.
+      if (m.sets && m.sets.length > 0) return;
+      const { a: gamesA, b: gamesB } = matchGames(m, comp.config?.winRule);
+      if (m.teamA && m.teamB) {
+        out.push({ teamA: m.teamA, teamB: m.teamB, gamesA, gamesB, winner: 'draw', compId: comp.id });
+      } else if (m.aId && m.bId) {
+        out.push({ teamA: membersOf(comp, m.aId), teamB: membersOf(comp, m.bId), gamesA, gamesB, winner: 'draw', compId: comp.id });
+      }
+      return;
     }
 
+    // Vencedor SEMPRE pelo placar da partida (sets vencidos). Os games abaixo
+    // alimentam só GP/GC e o GA — ver o comentário de PlayerGame em scoring.ts.
+    const winner: 'A' | 'B' = m.scoreA > m.scoreB ? 'A' : 'B';
+
+    // Games de cada lado — fonte única em matchGames, que trata o set de
+    // super tie-break à parte (é disputado em pontos, não em games).
+    const { a: gamesA, b: gamesB } = matchGames(m, comp.config?.winRule);
+
     if (m.teamA && m.teamB) {
-      out.push({ teamA: m.teamA, teamB: m.teamB, scoreA: gA, scoreB: gB, compId: comp.id });
+      out.push({ teamA: m.teamA, teamB: m.teamB, gamesA, gamesB, winner, compId: comp.id });
       return;
     }
     if (!m.aId || !m.bId) return;
-    out.push({ teamA: membersOf(comp, m.aId), teamB: membersOf(comp, m.bId), scoreA: gA, scoreB: gB, compId: comp.id });
+    out.push({ teamA: membersOf(comp, m.aId), teamB: membersOf(comp, m.bId), gamesA, gamesB, winner, compId: comp.id });
   });
   return out;
 }
@@ -428,6 +448,8 @@ export function buildCompetition(spec: {
   preassignedGroups?: string[][];
   /** Handicap por jogador (id → valor), usado só para equilibrar o sorteio do Super 8 duplas rotativas. Não é salvo na competição. */
   playerHandicaps?: Record<string, number>;
+  /** Fórmula de pontuação do grupo — decide a classificação dos grupos. */
+  scoringConfig?: ScoringConfig;
 }): Competition {
   const id = 'comp_' + Math.random().toString(36).slice(2, 9) + Date.now().toString(36);
   const comp: Competition = {
@@ -462,6 +484,6 @@ export function buildCompetition(spec: {
     }
   }
   // avulso: começa sem partidas — jogos são adicionados manualmente
-  resolveCompetition(comp);
+  resolveCompetition(comp, spec.scoringConfig);
   return comp;
 }

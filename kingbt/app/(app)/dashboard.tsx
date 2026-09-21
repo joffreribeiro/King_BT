@@ -12,6 +12,7 @@ import { useAuth } from '@/store/AuthContext';
 import { useSettings } from '@/store/SettingsContext';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
+import { matchGames } from '@/logic/setOutcome';
 import { computeGroupRivalries } from '@/logic/rivalries';
 import type { Match } from '@/logic/types';
 
@@ -71,11 +72,11 @@ export default function DashboardScreen() {
   });
   const streakPlayer = longestStreak.id ? findPlayer(longestStreak.id) : null;
 
-  // Jogo mais disputado (menor diferença de games)
-  const gamesOf = (m: Match) => ({
-    a: m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA!,
-    b: m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB!,
-  });
+  // Jogo mais disputado (menor diferença de games). `allMatches` é um flatMap
+  // sem a competição de origem, então não dá pra passar a winRule aqui: jogos
+  // antigos, gravados antes da marca `stb`, seguem somando o super tie-break
+  // como games. Cosmético — só decide qual jogo aparece como "mais disputado".
+  const gamesOf = (m: Match) => matchGames(m);
   const closest = [...playedMatches]
     .filter(m => m.scoreA != null && m.scoreB != null)
     .sort((a, b) => {

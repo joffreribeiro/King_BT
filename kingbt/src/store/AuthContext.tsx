@@ -11,7 +11,7 @@ import {
   type User,
 } from 'firebase/auth';
 import { Platform } from 'react-native';
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, limit, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, limit, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { auth, db } from '@/firebase/config';
 import { Logger } from '@/services/Logger';
 import * as Device from 'expo-device';
@@ -67,7 +67,6 @@ export interface UnlinkedPlayer {
 
 type AuthContextType = AuthState & {
   myPlayerId: string | null;
-  playerLoading: boolean;
   /** IDs de todos os grupos dos quais o usuário faz parte */
   groupIds: string[];
   /** True se o usuário é membro do grupo ativo (false = visitante de grupo público) */
@@ -116,7 +115,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
   const [myPlayerId, setMyPlayerId] = useState<string | null>(null);
-  const [playerLoading, setPlayerLoading] = useState(false);
   const [groupIds, setGroupIds] = useState<string[]>([]);
   const [groupConfirmed, setGroupConfirmed] = useState(false);
 
@@ -481,6 +479,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const g = { id: gSnap.id, ...gData } as Group;
       setGroup(g);
       setIsAdmin((gData.admins ?? []).includes(user.uid));
+      // Sem isto, "meu perfil"/"meus jogos" continuavam apontando pro
+      // player do grupo ANTERIOR até a próxima vez que onAuthStateChanged
+      // rodasse (só ele e joinGroup carregavam myPlayerId).
+      const myPlayerSnap = await getDocs(query(
+        collection(db, 'groups', groupId, 'players'),
+        where('uid', '==', user.uid),
+        limit(1),
+      ));
+      setMyPlayerId(myPlayerSnap.docs[0]?.id ?? null);
     } catch {
       setError('Erro ao trocar de grupo.');
     }
@@ -506,14 +513,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Checa colisão via /groupCodes (não /groups — essa coleção não é mais
       // legível por quem não é membro).
       const base = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'GRUPO' + Math.floor(Math.random() * 1000);
+      const groupRef = doc(collection(db, 'groups'));
       let code = base;
+      let codeIsFree = false;
       for (let attempt = 0; attempt < 5; attempt++) {
         const clash = await getDoc(doc(db, 'groupCodes', code));
-        if (!clash.exists()) break;
+        if (!clash.exists()) { codeIsFree = true; break; }
         const suffix = String(Math.floor(Math.random() * 90) + 10); // 2 dígitos
         code = base.slice(0, 8 - suffix.length) + suffix;
       }
-      const groupRef = doc(collection(db, 'groups'));
+      // As 5 tentativas com sufixo aleatório colidiram (extremamente raro,
+      // mas o `setDoc` de groupCodes abaixo é um `update` se o código já
+      // existir, e a regra proíbe update — sem este fallback, isso lançava
+      // exceção DEPOIS do grupo já criado, deixando um grupo órfão sem
+      // código de entrada e o catch genérico escondendo esse estado.
+      // groupRef.id é o id gerado pelo Firestore para ESTE grupo — não
+      // colide com nenhum grupo existente por definição.
+      if (!codeIsFree) {
+        code = groupRef.id.slice(0, 8).toUpperCase();
+      }
       await setDoc(groupRef, {
         name,
         code,
@@ -526,8 +544,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...(scoringConfig ? { scoringConfig: validateScoringConfig(scoringConfig) } : {}),
       });
       // Mapeia código → id — regra exige que o grupo já exista com o
-      // criador como admin, por isso vem só depois do setDoc acima.
-      await setDoc(doc(db, 'groupCodes', code), { groupId: groupRef.id });
+      // criador como admin, por isso vem só depois do setDoc acima. Se isso
+      // falhar por qualquer motivo, desfaz o grupo em vez de deixá-lo criado
+      // e inacessível por código (nenhum outro passo depende do grupo já
+      // existir, então apagar aqui é seguro).
+      try {
+        await setDoc(doc(db, 'groupCodes', code), { groupId: groupRef.id });
+      } catch (codeErr) {
+        await deleteDoc(groupRef).catch(() => {});
+        throw codeErr;
+      }
       // Cria player no grupo
       await setDoc(doc(db, 'groups', groupRef.id, 'players', user.uid), {
         name: user.displayName ?? 'Jogador',
@@ -543,6 +569,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setGroup({ id: groupRef.id, name, code, admins: [user.uid], members: [user.uid], visibility });
       setGroupIds(groupIds2);
       setIsAdmin(true);
+      // O player do criador acabou de ser criado com id == user.uid (linha
+      // acima) — sem isto, myPlayerId ficava null logo após criar um grupo,
+      // e "meu perfil"/confirmação de participação não achavam ninguém.
+      setMyPlayerId(user.uid);
     } catch (e: any) {
       setError('Erro ao criar grupo. Tente novamente.');
     }
@@ -565,13 +595,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isMember = !!user && (effectiveAdmin || !!group?.members?.includes(user.uid));
 
   const value = useMemo<AuthContextType>(() => ({
-    user, group, isAdmin: effectiveAdmin, loading, error, myPlayerId, playerLoading, groupIds, isMember, isSuperAdmin,
+    user, group, isAdmin: effectiveAdmin, loading, error, myPlayerId, groupIds, isMember, isSuperAdmin,
     groupConfirmed, confirmGroup,
     signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, joinGroup, linkToPlayer,
     createGroup, leaveGroup, switchGroup, getMyGroups, updateProfileName, logout,
     clearError: () => setError(null), promoteToAdmin, removeFromGroup, addExistingUserToGroup, setGroupVisibility, updateGroupName,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [user, group, effectiveAdmin, loading, error, myPlayerId, playerLoading, groupIds, isMember, isSuperAdmin, groupConfirmed]);
+  }), [user, group, effectiveAdmin, loading, error, myPlayerId, groupIds, isMember, isSuperAdmin, groupConfirmed]);
 
   return (
     <Ctx.Provider value={value}>

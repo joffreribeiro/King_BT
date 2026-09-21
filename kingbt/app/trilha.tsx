@@ -8,8 +8,10 @@ import { useCompetitions } from '@/store/CompetitionsContext';
 import { koRoundName, matchWinner } from '@/logic/formats';
 import { getCompetitor } from '@/components/competition/helpers';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 export default function TrilhaScreen() {
+  useRequireAuth();
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { competitionId, playerId } = useLocalSearchParams<{ competitionId: string; playerId: string }>();

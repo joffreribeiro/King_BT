@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/firebase/config';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import app, { db } from '@/firebase/config';
 import { useAuth } from './AuthContext';
 
 interface UpdateContextType {
@@ -47,12 +48,16 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
 
     async function checkForUpdates() {
       try {
-        const res = await fetch('https://api.github.com/repos/joffreribeiro/King_BT/commits/main', {
-          headers: { 'Accept': 'application/vnd.github.v3+json' },
-        });
-        if (!res.ok) return;
-        const commit = await res.json();
-        const latestSha: string | undefined = commit.sha;
+        // Roda numa Cloud Function (functions/src/index.ts), não direto na
+        // API pública do GitHub: sem token, o limite é 60 req/hora POR IP —
+        // numa rede compartilhada (clube, quadra), várias pessoas checando
+        // pelo mesmo IP esgotavam a cota e a checagem parava de funcionar
+        // silenciosamente pra todo mundo ali. Um token daria mais fôlego,
+        // mas só é seguro guardado no servidor — no bundle do cliente,
+        // qualquer pessoa consegue extrair.
+        const getLatestCommitSha = httpsCallable<void, { sha: string }>(getFunctions(app), 'getLatestCommitSha');
+        const result = await getLatestCommitSha();
+        const latestSha = result.data.sha;
         if (latestSha && latestSha !== CURRENT_SHA) setUpdateAvailable(true);
       } catch (e) {
         // Silenciosamente falha se não conseguir checar

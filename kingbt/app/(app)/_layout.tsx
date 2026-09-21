@@ -8,6 +8,7 @@ import { useMemo, useRef, useEffect, useState } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useSyncQueue } from '@/store/SyncQueueContext';
+import { syncBannerLabel } from '@/store/syncQueue';
 import { useAuth } from '@/store/AuthContext';
 import { useUpdate } from '@/store/UpdateContext';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -258,16 +259,15 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
 // ── Offline Banner ─────────────────────────────────────────────────────────────
 function OfflineBanner() {
-  const { isOnline, pendingCount } = useSyncQueue();
+  const { isOnline, pendingCount, stuckCount } = useSyncQueue();
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
-  if (isOnline) return null;
+  const label = syncBannerLabel(isOnline, pendingCount, stuckCount);
+  if (!label) return null;
   return (
     <View style={styles.offlineBanner}>
       <Text style={{ fontSize: 11 }}>📶</Text>
-      <Text style={styles.offlineText}>
-        {pendingCount > 0 ? `Offline · ${pendingCount} pendente${pendingCount > 1 ? 's' : ''}` : 'Offline'}
-      </Text>
+      <Text style={styles.offlineText}>{label}</Text>
     </View>
   );
 }

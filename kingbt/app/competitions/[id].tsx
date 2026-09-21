@@ -13,6 +13,7 @@ import { competitionChampion, groupComplete } from '@/logic/formats';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { useSettings } from '@/store/SettingsContext';
 import type { Match, Competition } from '@/logic/types';
 import {
   confirmParticipation, cancelParticipation,
@@ -26,6 +27,7 @@ import { RulesView } from '@/components/competition/RulesView';
 import { ScorerModal } from '@/components/competition/ScorerModal';
 import { FreeScoreModal } from '@/components/competition/FreeScoreModal';
 import { AvulsoView } from '@/components/competition/AvulsoView';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import {
   RotatingView, LeagueView, GroupsPhaseView, KOView,
 } from '@/components/competition/FormatViews';
@@ -35,6 +37,7 @@ import {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function CompetitionDetail() {
+  useRequireAuth();
   const { colors: Colors } = useTheme();
   const main = useMemo(() => makeMainStyles(Colors), [Colors]);
   const upcoming = useMemo(() => makeUpcomingStyles(Colors), [Colors]);
@@ -43,6 +46,7 @@ export default function CompetitionDetail() {
   const { user, isAdmin, myPlayerId, group, isMember } = useAuth();
   const [joinReqBusy, setJoinReqBusy] = useState(false);
   const { findPlayer, groupPlayers } = useGroupPlayers();
+  const { scoringConfig } = useSettings();
   const comp = state.competitions.find(c => c.id === id);
 
   // Placar ao vivo/rascunho (usado por GameRow/ScoreboardCard/ScorerModal
@@ -89,7 +93,7 @@ export default function CompetitionDetail() {
 
   useEffect(() => {
     if (comp?.status !== 'done') return;
-    if (!competitionChampion(comp, id => findPlayer(id)?.name ?? id)) return;
+    if (!competitionChampion(comp, id => findPlayer(id)?.name ?? id, scoringConfig)) return;
     triggerChampion();
   }, [comp?.status, !!comp]);
 
@@ -117,7 +121,7 @@ export default function CompetitionDetail() {
     );
   }
 
-  const champion = competitionChampion(comp, id => findPlayer(id)?.name ?? id);
+  const champion = competitionChampion(comp, id => findPlayer(id)?.name ?? id, scoringConfig);
   const champPlayer = champion
     ? findPlayer(champion.members[0]) ?? { name: (champion as any).name ?? champion.members[0], color: Colors.gold }
     : null;
@@ -238,12 +242,12 @@ export default function CompetitionDetail() {
   }
 
   function handleReopenAvulso() {
-    dispatch({ type: 'UPDATE', comp: { ...comp!, status: 'active' } });
+    dispatch({ type: 'SET_STATUS', compId: comp!.id, status: 'active' });
   }
 
   function handleEndAvulso() {
     const doEnd = () => {
-      dispatch({ type: 'UPDATE', comp: { ...comp!, status: 'done' } });
+      dispatch({ type: 'SET_STATUS', compId: comp!.id, status: 'done' });
     };
     if (Platform.OS === 'web') {
       if (window.confirm('Encerrar sessão? Não será mais possível registrar novos jogos.')) doEnd();
@@ -271,7 +275,7 @@ export default function CompetitionDetail() {
   }
 
   async function handleShare() {
-    const text = buildShareText(comp!, findPlayer);
+    const text = buildShareText(comp!, findPlayer, scoringConfig);
     const result = await shareText(text, comp!.name);
     if (result === 'copied') notifyCopied('Resultados');
   }
@@ -341,10 +345,7 @@ export default function CompetitionDetail() {
       scoreA: null,
       scoreB: null,
     };
-    dispatch({
-      type: 'UPDATE',
-      comp: { ...comp!, matches: [...comp!.matches, newMatch], status: 'active' },
-    });
+    dispatch({ type: 'ADD_MATCH', compId: comp!.id, match: newMatch });
     setAvulsoTeamA([]);
     setAvulsoTeamB([]);
     setShowAddAvulso(false);
@@ -361,13 +362,9 @@ export default function CompetitionDetail() {
       color: p.color, members: [p.id],
     }));
     dispatch({
-      type: 'UPDATE',
-      comp: {
-        ...comp,
-        status: 'active',
-        competitors,
-        confirmedIds: comp.confirmedIds,
-      },
+      type: 'START_UPCOMING',
+      compId: comp.id,
+      competitors,
     });
   }
 

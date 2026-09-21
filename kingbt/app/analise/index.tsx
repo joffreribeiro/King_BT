@@ -8,6 +8,7 @@ import { listarAnalises, type BtAnalise } from '@/logic/btTracker';
 import { useAuth } from '@/store/AuthContext';
 import { listAnalisesFs } from '@/firebase/analises';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString('pt-BR', {
@@ -65,6 +66,7 @@ const makeCardStyles = (Colors: ThemeColors) => StyleSheet.create({
 });
 
 export default function AnaliseListScreen() {
+  useRequireAuth();
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { group } = useAuth();

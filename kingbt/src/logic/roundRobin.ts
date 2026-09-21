@@ -182,6 +182,15 @@ export function generateScheduleIndividual(competitors: Pick<Competitor, 'id' | 
 /**
  * Super 8 com duplas fixas: round-robin completo, cada dupla joga contra todas as outras.
  * Mínimo 2 duplas.
+ *
+ * NÃO CONECTADA A NENHUM FLUXO DE UI HOJE. `buildCompetition` (formats.ts),
+ * pra Super 8 com unit:'duplas', sempre chama `generateSchedule` (duplas
+ * ROTATIVAS — parceiro troca a cada jogo); esta função nunca é invocada. Não
+ * há nenhuma tela que ofereça "duplas fixas" como opção — os testes desta
+ * função passam, mas cobrem um caminho inalcançável em produção. Conectar
+ * isso exigiria uma escolha de produto (um novo toggle? um formato
+ * separado?) que não foi pedida — mantida por não ser código incorreto, só
+ * desconectado.
  */
 export function generateScheduleDuplas(competitors: Pick<Competitor, 'id' | 'members'>[]): Match[] {
   const n = competitors.length;

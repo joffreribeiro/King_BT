@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 import { FontFamily, Spacing, Radius, formatAccent, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
+import { matchGames } from '@/logic/setOutcome';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { statPoints } from '@/logic/scoring';
@@ -244,8 +245,7 @@ export default function HistoryScreen() {
     mine.forEach(({ comp, m }) => {
         const inA = m.aId === MY_ID || m.teamA?.includes(MY_ID);
         const isWin    = inA ? m.scoreA! > m.scoreB! : m.scoreB! > m.scoreA!;
-        const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA!;
-        const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB!;
+        const { a: gA, b: gB } = matchGames(m, comp.config?.winRule);
         const myScore  = inA ? gA : gB;
         const oppScore = inA ? gB : gA;
 

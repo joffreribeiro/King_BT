@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
@@ -49,8 +50,6 @@ export default function RootLayout() {
     if (fontsLoaded || fontError) SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded, fontError]);
 
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
-
   useEffect(() => {
     if (!fontsLoaded && !fontError) return;
     AsyncStorage.getItem('@kingbt:onboarding_done')
@@ -58,12 +57,28 @@ export default function RootLayout() {
         if (!done) router.replace('/onboarding');
       })
       .catch(() => {})
-      .finally(() => setOnboardingChecked(true));
   }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded && !fontError) return null;
+  // Título padrão da aba/link compartilhado na web. Usa o mesmo mecanismo
+  // (react-helmet-async) que o Expo Router já deixa como placeholder vazio
+  // no <head> — por isso reconcilia em vez de duplicar, e qualquer tela
+  // específica que use seu próprio <Head> continua livre para sobrescrever
+  // este valor. Precisa ficar ANTES do return null: `expo export` faz SSG
+  // (renderiza a árvore sem browser real), e useFonts nunca resolve nesse
+  // ambiente — se o <Head> estivesse depois do gate de loading, o HTML
+  // estático gerado nunca chegaria a montá-lo, e o <title> continuaria vazio
+  // para crawlers que não executam JS (WhatsApp, Facebook, Google Rich Cards).
+  const headTag = (
+    <Head>
+      <title>King BT</title>
+    </Head>
+  );
+
+  if (!fontsLoaded && !fontError) return headTag;
 
   return (
+    <>
+      {headTag}
     <ThemeProvider>
     <AuthProvider>
     <UpdateProvider>
@@ -81,6 +96,7 @@ export default function RootLayout() {
     </UpdateProvider>
     </AuthProvider>
     </ThemeProvider>
+    </>
   );
 }
 

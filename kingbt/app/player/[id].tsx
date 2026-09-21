@@ -13,12 +13,16 @@ import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
+import { matchGames } from '@/logic/setOutcome';
 import { computeBadges } from '@/logic/badges';
+import { useSettings } from '@/store/SettingsContext';
 import { computeFormatStats } from '@/logic/formatStats';
 import { computeRivalries } from '@/logic/rivalries';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 
 export default function PlayerDetailScreen() {
+  useRequireAuth();
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const monthly = useMemo(() => makeMonthlyStyles(Colors), [Colors]);
@@ -32,6 +36,7 @@ export default function PlayerDetailScreen() {
   const { state } = useCompetitions();
   const { groupPlayers, findPlayer } = useGroupPlayers();
   const { myPlayerId } = useAuth();
+  const { scoringConfig } = useSettings();
   const [selectedMatch, setSelectedMatch] = useState<MatchDetail | null>(null);
 
   const player = groupPlayers.find(p => p.id === id);
@@ -50,7 +55,8 @@ export default function PlayerDetailScreen() {
   const allGames = state.competitions.flatMap(extractPlayerGames);
   const ranking = buildRanking(
     groupPlayers.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color, handicap: p.handicap })),
-    allGames
+    allGames,
+    scoringConfig
   );
   const me = ranking.find(r => r.id === id) ?? ranking[0];
   const myPos = ranking.findIndex(r => r.id === id) + 1;
@@ -65,8 +71,7 @@ export default function PlayerDetailScreen() {
       const inB = m.teamB ? m.teamB.includes(id!) : m.bId === id;
       if (!inA && !inB) return;
       const won = (inA ? m.scoreA : m.scoreB) > (inA ? m.scoreB : m.scoreA);
-      const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA;
-      const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB;
+      const { a: gA, b: gB } = matchGames(m, comp.config?.winRule);
       const myScore = inA ? gA : gB;
       const oppScore = inA ? gB : gA;
       let opponents = '?', partner: string | null = null;
@@ -134,7 +139,7 @@ export default function PlayerDetailScreen() {
     return compsWithMe.map((comp, idx) => {
       const compsUpTo = compsWithMe.slice(0, idx + 1);
       const games = compsUpTo.flatMap(extractPlayerGames);
-      const rank = buildRanking(players, games);
+      const rank = buildRanking(players, games, scoringConfig);
       const meRank = rank.find(r => r.id === id);
       const pos = rank.findIndex(r => r.id === id) + 1;
       return { label: comp.name.slice(0, 7), pts: meRank?.points ?? 0, pos };
@@ -167,7 +172,7 @@ export default function PlayerDetailScreen() {
     .sort((a, b) => b.wins - a.wins || (b.wins / b.played) - (a.wins / a.played))
     .slice(0, 5);
 
-  const badges = computeBadges(id!, state.competitions, pid => findPlayer(pid)?.name ?? pid);
+  const badges = computeBadges(id!, state.competitions, pid => findPlayer(pid)?.name ?? pid, scoringConfig);
   const unlockedBadges = badges.filter(b => b.unlocked);
   const formatStats = computeFormatStats(state.competitions, id!);
   const rivalries = computeRivalries(id!, state.competitions);

@@ -1,6 +1,9 @@
-import { statPoints, gameAverage, compareRank, buildRanking } from '../scoring';
+import { statPoints, gameAverage, compareRank, buildRanking, type PlayerGame } from '../scoring';
 import { validateScoringConfig, DEFAULT_SCORING } from '../scoringConfig';
-import { standings, competitionChampion, extractPlayerGames } from '../formats';
+import { standings, competitionChampion, extractPlayerGames, resolveCompetition } from '../formats';
+import { computeBadges } from '../badges';
+import { computeAchievementStats } from '../achievementStats';
+import { matchGames } from '../setOutcome';
 import type { Player, Match, Competition } from '../types';
 
 // ─── Fórmula de pontos ──────────────────────────────────────────────────────
@@ -58,7 +61,7 @@ describe('validateScoringConfig — saneamento de entrada', () => {
 describe('buildRanking — respeita cfg custom', () => {
   it('recalcula pontos com coeficientes alterados', () => {
     const players: Player[] = ['a', 'b'].map(id => ({ id, name: id, short: id, color: '#000' }));
-    const games = [{ teamA: ['a'], teamB: ['b'], scoreA: 6, scoreB: 3 }];
+    const games: PlayerGame[] = [{ teamA: ['a'], teamB: ['b'], gamesA: 6, gamesB: 3, winner: 'A' }];
     const cfg = { winCoef: 10, playedCoef: 0, gaCoef: 0 };
     const rk = buildRanking(players, games, cfg);
     const a = rk.find(r => r.id === 'a')!;
@@ -70,10 +73,10 @@ describe('buildRanking — respeita cfg custom', () => {
     const players: Player[] = ['a', 'b', 'c'].map(id => ({ id, name: id, short: id, color: '#000' }));
     // 'a' joga 2 partidas na MESMA competição (c1) + 1 em outra (c2) → 2 eventos.
     // 'b' joga só em c1 (2 partidas) → 1 evento (prova que conta competição, não jogo).
-    const games = [
-      { teamA: ['a'], teamB: ['b'], scoreA: 6, scoreB: 1, compId: 'c1' },
-      { teamA: ['a'], teamB: ['b'], scoreA: 6, scoreB: 1, compId: 'c1' },
-      { teamA: ['a'], teamB: ['c'], scoreA: 6, scoreB: 1, compId: 'c2' },
+    const games: PlayerGame[] = [
+      { teamA: ['a'], teamB: ['b'], gamesA: 6, gamesB: 1, winner: 'A', compId: 'c1' },
+      { teamA: ['a'], teamB: ['b'], gamesA: 6, gamesB: 1, winner: 'A', compId: 'c1' },
+      { teamA: ['a'], teamB: ['c'], gamesA: 6, gamesB: 1, winner: 'A', compId: 'c2' },
     ];
     const cfg = { winCoef: 0, playedCoef: 0, gaCoef: 0, eventCoef: 10 };
     const rk = buildRanking(players, games, cfg);
@@ -118,9 +121,9 @@ describe('buildRanking — handicap removido do cálculo', () => {
   it('pontos são crus (statPoints), independentes do handicap', () => {
     const players = [mkPlayer('forte', 3), mkPlayer('fraco', -3)];
     // Mesmos jogos/resultados para ambos, contra um sparring neutro sem handicap.
-    const games = [
-      { teamA: ['forte'], teamB: ['spar'], scoreA: 6, scoreB: 3 },
-      { teamA: ['fraco'], teamB: ['spar'], scoreA: 6, scoreB: 3 },
+    const games: PlayerGame[] = [
+      { teamA: ['forte'], teamB: ['spar'], gamesA: 6, gamesB: 3, winner: 'A' },
+      { teamA: ['fraco'], teamB: ['spar'], gamesA: 6, gamesB: 3, winner: 'A' },
     ];
     const allPlayers = [...players, mkPlayer('spar', 0)];
     const rk = buildRanking(allPlayers, games);
@@ -242,5 +245,309 @@ describe('buildRanking + extractPlayerGames ≡ cálculo antigo da UI', () => {
       expect(r.gamesPro).toBe(legacy[i].gf);
       expect(r.gamesCon).toBe(legacy[i].gc);
     });
+  });
+});
+
+// ─── Regressão: vencedor vem dos sets, nunca da soma de games ───────────────
+// Antes desta correção o ranking decidia o vencedor pela soma dos games, o que
+// invertia o resultado quando o vencedor em sets somava menos games, e apagava
+// o jogo inteiro quando os games empatavam.
+
+describe('extractPlayerGames — vencedor pelo placar da partida', () => {
+  const mkComp = (sets: { a: number; b: number }[], scoreA: number, scoreB: number): Competition => ({
+    id: 'c1', name: 'x', format: 'avulso', unit: 'duplas', gender: 'misto',
+    status: 'done', date: '2026-01-01',
+    // superTiebreak: false — este bloco testa a vitória em SETS. Sem isso o 3º
+    // set de um 1-1 seria lido como super tie-break (o default é true) e
+    // contaria 1-0 em vez dos games realmente disputados.
+    config: {
+      rounds: 'single', groups: 1, qualifiers: 1, thirdPlace: false,
+      winRule: { sets: 3, games: 6, tiebreak: 7, superTiebreak: false },
+    },
+    competitors: [],
+    matches: [{ id: 'm1', stage: 'rotating', scoreA, scoreB, sets, teamA: ['p1'], teamB: ['p2'] }],
+  });
+  const players: Player[] = [
+    { id: 'p1', name: 'A', short: 'A', color: '#fff' },
+    { id: 'p2', name: 'B', short: 'B', color: '#000' },
+  ];
+
+  it('vitória em sets com MENOS games totais ainda é vitória', () => {
+    // 7-6, 0-6, 7-6 → p1 vence por 2x1 em sets, mas soma 14 games contra 18.
+    const games = extractPlayerGames(mkComp([{ a: 7, b: 6 }, { a: 0, b: 6 }, { a: 7, b: 6 }], 2, 1));
+    expect(games).toHaveLength(1);
+    expect(games[0].winner).toBe('A');
+    expect(games[0].gamesA).toBe(14);
+    expect(games[0].gamesB).toBe(18);
+
+    const rk = buildRanking(players, games);
+    expect(rk.find(r => r.id === 'p1')!.wins).toBe(1);
+    expect(rk.find(r => r.id === 'p2')!.wins).toBe(0);
+    expect(rk.find(r => r.id === 'p2')!.losses).toBe(1);
+  });
+
+  it('games empatados não apagam o jogo do ranking', () => {
+    // 6-4, 3-6, 7-6 → p1 vence por 2x1, games 16 a 16.
+    const games = extractPlayerGames(mkComp([{ a: 6, b: 4 }, { a: 3, b: 6 }, { a: 7, b: 6 }], 2, 1));
+    expect(games[0].gamesA).toBe(games[0].gamesB);
+    expect(games[0].winner).toBe('A');
+
+    const rk = buildRanking(players, games);
+    expect(rk.find(r => r.id === 'p1')!.played).toBe(1);
+    expect(rk.find(r => r.id === 'p2')!.played).toBe(1);
+    expect(rk.find(r => r.id === 'p1')!.wins).toBe(1);
+  });
+
+  it('super tie-break gravado 0-0 não descarta a partida', () => {
+    // Set decisivo em super tie-break entra como 0-0 no detalhe set a set
+    // (ver btTracker); a partida continua valendo pelo placar em sets.
+    const games = extractPlayerGames(mkComp([{ a: 4, b: 0 }, { a: 0, b: 4 }, { a: 0, b: 0 }], 2, 1));
+    expect(games[0].winner).toBe('A');
+    const rk = buildRanking(players, games);
+    expect(rk.find(r => r.id === 'p1')!.wins).toBe(1);
+    expect(rk.find(r => r.id === 'p1')!.played).toBe(1);
+  });
+
+  it('partida sem vencedor definido (sets empatados) fica de fora', () => {
+    const games = extractPlayerGames(mkComp([{ a: 6, b: 4 }, { a: 4, b: 6 }], 1, 1));
+    expect(games).toHaveLength(0);
+  });
+});
+
+describe('buildRanking — confronto direto usa o vencedor da partida', () => {
+  it('h2h conta a vitória em sets, não quem somou mais games', () => {
+    const players: Player[] = ['a', 'b'].map(id => ({ id, name: id, short: id, color: '#000' }));
+    // Mesmos pontos para os dois; 'a' venceu o confronto direto somando menos games.
+    const games: PlayerGame[] = [
+      { teamA: ['a'], teamB: ['b'], gamesA: 14, gamesB: 18, winner: 'A' },
+      { teamA: ['b'], teamB: ['a'], gamesA: 18, gamesB: 14, winner: 'B' },
+    ];
+    const cfg = { winCoef: 0, playedCoef: 0, gaCoef: 0 };
+    const rk = buildRanking(players, games, cfg);
+    expect(rk[0].id).toBe('a');
+  });
+
+  // compareRank usava confronto direto DENTRO do comparator geral do sort —
+  // mas H2H não é transitivo: com A>B, B>C e C>A (um ciclo), não existe "o
+  // melhor" por H2H, e um comparator que finge que existe quebra a
+  // invariante que Array.sort espera, podendo devolver ordens diferentes
+  // pra mesma entrada dependendo só da ordem em que os itens chegaram.
+  it('empate em pontos com H2H em ciclo (A>B, B>C, C>A): ordem é determinística e não depende da entrada', () => {
+    const players: Player[] = ['a', 'b', 'c'].map(id => ({ id, name: id, short: id, color: '#000' }));
+    const cfg = { winCoef: 1, playedCoef: 0, gaCoef: 0 }; // só vitórias pontuam
+    // Cada um ganha 1 e perde 1 → mesmos pontos, mesmo SG (0), mesmo GA — só
+    // o H2H (que forma um ciclo) poderia desempatar, e não consegue.
+    const gamesFwd: PlayerGame[] = [
+      { teamA: ['a'], teamB: ['b'], gamesA: 6, gamesB: 4, winner: 'A' }, // a > b
+      { teamA: ['b'], teamB: ['c'], gamesA: 6, gamesB: 4, winner: 'A' }, // b > c
+      { teamA: ['c'], teamB: ['a'], gamesA: 6, gamesB: 4, winner: 'A' }, // c > a
+    ];
+    const rkFwd = buildRanking(players, gamesFwd, cfg);
+    // Mesmos jogos, ordem de entrada embaralhada — deve dar a MESMA ordem.
+    const gamesShuffled = [gamesFwd[2], gamesFwd[0], gamesFwd[1]];
+    const rkShuffled = buildRanking([...players].reverse(), gamesShuffled, cfg);
+
+    expect(rkFwd.map(r => r.id)).toEqual(rkShuffled.map(r => r.id));
+    // Sem H2H pra desempatar o ciclo, cai no critério seguinte — como todos
+    // empatam em tudo, o desempate final é alfabético: a, b, c.
+    expect(rkFwd.map(r => r.id)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+// ─── matchGames: super tie-break não vira games ─────────────────────────────
+
+describe('matchGames — super tie-break conta 1-0, não os pontos', () => {
+  const STB_RULE = { sets: 3, games: 4, tiebreak: 7, superTiebreak: true, superTiebreakPts: 10 };
+
+  it('set marcado com stb conta 1-0 para o vencedor', () => {
+    // 4+0+1 = 5 pró, 0+4+0 = 4 contra — os 18 pontos do STB ficam de fora.
+    expect(matchGames({ scoreA: 2, scoreB: 1, sets: [{ a: 4, b: 0 }, { a: 0, b: 4 }, { a: 10, b: 8, stb: true }] }))
+      .toEqual({ a: 5, b: 4 });
+  });
+
+  it('set normal continua somando os games', () => {
+    expect(matchGames({ scoreA: 2, scoreB: 0, sets: [{ a: 4, b: 2 }, { a: 4, b: 1 }] }))
+      .toEqual({ a: 8, b: 3 });
+  });
+
+  it('jogo antigo sem a marca: reconhece o set decisivo pela regra da competição', () => {
+    const sets = [{ a: 4, b: 0 }, { a: 0, b: 4 }, { a: 10, b: 8 }];
+    // Sem a regra não há como saber — soma tudo como games (comportamento herdado).
+    expect(matchGames({ scoreA: 2, scoreB: 1, sets })).toEqual({ a: 14, b: 12 });
+    // Com a regra, o 3º set após 1-1 é o super tie-break.
+    expect(matchGames({ scoreA: 2, scoreB: 1, sets }, STB_RULE)).toEqual({ a: 5, b: 4 });
+  });
+
+  it('sem detalhe set a set cai no placar da partida', () => {
+    expect(matchGames({ scoreA: 2, scoreB: 1, sets: null })).toEqual({ a: 2, b: 1 });
+  });
+});
+
+// ─── A fórmula do grupo vale em toda a cadeia ──────────────────────────────
+// Antes só o Ranking a respeitava: a tabela da competição, quem classificava
+// para o mata-mata e o campeão caíam no DEFAULT_SCORING, então o campeão e o
+// topo do ranking podiam ser pessoas diferentes.
+
+describe('scoringConfig atravessa standings, campeão e conquistas', () => {
+  // Ana ganha na fórmula padrão (GA alto); Bruno ganha quando só vitórias contam.
+  const PADRAO = { winCoef: 3, playedCoef: 0.5, gaCoef: 2 };
+  const SO_VITORIAS = { winCoef: 5, playedCoef: 0, gaCoef: 0 };
+
+  // ana:   2V em 2J, saldo largo   → GA 6,0  → PADRAO 19,0 | SO_VITORIAS 10
+  // bruno: 3V em 3J, tudo apertado → GA 1,2  → PADRAO 12,9 | SO_VITORIAS 15
+  // Uma fórmula premia o aproveitamento, a outra o número de vitórias.
+  const mk = (id: string, a: string, b: string, sA: number, sB: number): Match =>
+    ({ id, stage: 'league', aId: a, bId: b, aSrc: null, bSrc: null, scoreA: sA, scoreB: sB });
+
+  const matches: Match[] = [
+    mk('m1', 'ana', 'caio', 6, 1),
+    mk('m2', 'ana', 'caio', 6, 1),
+    mk('m3', 'bruno', 'caio', 6, 5),
+    mk('m4', 'bruno', 'caio', 6, 5),
+    mk('m5', 'bruno', 'caio', 6, 5),
+  ];
+  const ids = ['ana', 'bruno', 'caio'];
+
+  it('standings ordena conforme a fórmula recebida', () => {
+    const porPadrao = standings(ids, matches, undefined, PADRAO);
+    const porVitorias = standings(ids, matches, undefined, SO_VITORIAS);
+    // As duas ordens existem e diferem — é o que provava estar faltando.
+    expect(porPadrao[0].id).toBe('ana');
+    expect(porVitorias[0].id).toBe('bruno');
+  });
+
+  it('competitionChampion segue a fórmula recebida', () => {
+    const comp = {
+      id: 'c1', name: 'Liga', format: 'liga', unit: 'individual', gender: 'misto',
+      status: 'done', date: '2026-01-01',
+      config: { rounds: 'single', groups: 1, qualifiers: 1, thirdPlace: false, winRule: {} },
+      competitors: ids.map(id => ({ id, name: id, short: id, color: '#000', members: [id] })),
+      matches,
+    } as unknown as Competition;
+
+    expect(competitionChampion(comp, id => id, PADRAO)?.id).toBe('ana');
+    expect(competitionChampion(comp, id => id, SO_VITORIAS)?.id).toBe('bruno');
+  });
+
+  it('contagem de títulos (badges e conquistas) acompanha a fórmula', () => {
+    const comp = {
+      id: 'c1', name: 'Liga', format: 'liga', unit: 'individual', gender: 'misto',
+      status: 'done', date: '2026-01-01',
+      config: { rounds: 'single', groups: 1, qualifiers: 1, thirdPlace: false, winRule: {} },
+      competitors: ids.map(id => ({ id, name: id, short: id, color: '#000', members: [id] })),
+      matches,
+    } as unknown as Competition;
+
+    const tituloDe = (playerId: string, cfg: typeof PADRAO) =>
+      computeAchievementStats([comp], playerId, 0, cfg).champCount;
+
+    expect(tituloDe('ana', PADRAO)).toBe(1);
+    expect(tituloDe('ana', SO_VITORIAS)).toBe(0);
+    expect(tituloDe('bruno', SO_VITORIAS)).toBe(1);
+
+    // Os badges de Ana mudam junto com a fórmula (ela perde o de campeã).
+    const desbloqueados = (cfg: typeof PADRAO) =>
+      computeBadges('ana', [comp], id => id, cfg).filter(b => b.unlocked).map(b => b.id).sort();
+    expect(desbloqueados(PADRAO)).not.toEqual(desbloqueados(SO_VITORIAS));
+  });
+
+  it('resolveCompetition classifica dos grupos pela fórmula recebida', () => {
+    const base = () => ({
+      id: 'c2', name: 'Grupos', format: 'grupos', unit: 'individual', gender: 'misto',
+      status: 'active', date: '2026-01-01',
+      config: { rounds: 'single', groups: 1, qualifiers: 1, thirdPlace: false, winRule: {} },
+      competitors: ids.map(id => ({ id, name: id, short: id, color: '#000', members: [id] })),
+      groupDefs: [{ name: 'Grupo A', ids }],
+      matches: [
+        ...matches.map(m => ({ ...m, stage: 'group' as const, groupIdx: 0 })),
+        { id: 'k0', stage: 'ko' as const, koRound: 0, cnt: 1, slot: 0,
+          aId: null, bId: null,
+          aSrc: { type: 'group' as const, g: 0, pos: 1 },
+          bSrc: { type: 'group' as const, g: 0, pos: 2 },
+          scoreA: null, scoreB: null },
+      ],
+    }) as unknown as Competition;
+
+    const porPadrao = base(); resolveCompetition(porPadrao, PADRAO);
+    const porVitorias = base(); resolveCompetition(porVitorias, SO_VITORIAS);
+
+    const ko = (c: Competition) => c.matches.find(m => m.id === 'k0')!;
+    expect(ko(porPadrao).aId).toBe('ana');
+    expect(ko(porVitorias).aId).toBe('bruno');
+  });
+});
+
+// ─── Empate no placar da partida ────────────────────────────────────────────
+// extractPlayerGames descartava por completo qualquer jogo com
+// scoreA === scoreB: um empate genuíno no formato avulso (placar direto,
+// "paramos em 4x4") desaparecia do ranking — não contava jogo disputado,
+// não entrava no GA de ninguém, como se o jogo nunca tivesse existido.
+
+describe('empate no placar — conta como jogo disputado, sem V nem D', () => {
+  const compAvulso = (scoreA: number, scoreB: number): Competition => ({
+    id: 'c1', name: 'Avulso', format: 'avulso', unit: 'duplas', gender: 'misto',
+    status: 'active', date: '2026-01-01',
+    config: { rounds: 'single', groups: 0, qualifiers: 0, thirdPlace: false, winRule: {} },
+    competitors: [],
+    matches: [
+      // Sem `sets`: placar registrado direto — é o resultado final, não uma
+      // partida pela metade.
+      { id: 'm1', stage: 'rotating', teamA: ['ana'], teamB: ['bruno'], scoreA, scoreB },
+    ],
+  } as unknown as Competition);
+
+  it('placar direto empatado (sem sets): vira PlayerGame com winner "draw"', () => {
+    const games = extractPlayerGames(compAvulso(4, 4));
+    expect(games).toHaveLength(1);
+    expect(games[0].winner).toBe('draw');
+    expect(games[0].gamesA).toBe(4);
+    expect(games[0].gamesB).toBe(4);
+  });
+
+  it('empate conta como jogo disputado no ranking, mas não dá V nem D a ninguém', () => {
+    const games = extractPlayerGames(compAvulso(4, 4));
+    const ranking = buildRanking(
+      [{ id: 'ana', name: 'Ana', short: 'ANA', color: '#000' }, { id: 'bruno', name: 'Bruno', short: 'BRU', color: '#000' }],
+      games,
+    );
+    const ana = ranking.find(r => r.id === 'ana')!;
+    const bruno = ranking.find(r => r.id === 'bruno')!;
+    expect(ana.played).toBe(1);
+    expect(bruno.played).toBe(1);
+    expect(ana.wins).toBe(0);
+    expect(bruno.wins).toBe(0);
+    // GA sobe pros dois — o jogo aconteceu, os games foram jogados.
+    expect(ana.gamesPro).toBe(4);
+    expect(bruno.gamesPro).toBe(4);
+  });
+
+  it('empate em placar de SETS (partida incompleta, ex.: 1-1 no MD3) continua fora — não é resultado', () => {
+    const comp = {
+      id: 'c1', name: 'Liga', format: 'liga', unit: 'duplas', gender: 'misto',
+      status: 'active', date: '2026-01-01',
+      config: { rounds: 'single', groups: 0, qualifiers: 0, thirdPlace: false, winRule: { sets: 3 } },
+      competitors: [],
+      matches: [
+        {
+          id: 'm1', stage: 'league', teamA: ['ana'], teamB: ['bruno'],
+          scoreA: 1, scoreB: 1, // 1 set pra cada — falta o terceiro, decisivo
+          sets: [{ a: 6, b: 4 }, { a: 4, b: 6 }],
+        },
+      ],
+    } as unknown as Competition;
+    expect(extractPlayerGames(comp)).toHaveLength(0);
+  });
+
+  it('empate não decide confronto direto (h2h) entre os dois jogadores', () => {
+    const games: PlayerGame[] = [
+      { teamA: ['ana'], teamB: ['bruno'], gamesA: 4, gamesB: 4, winner: 'draw' },
+    ];
+    const ranking = buildRanking(
+      [{ id: 'ana', name: 'Ana', short: 'ANA', color: '#000' }, { id: 'bruno', name: 'Bruno', short: 'BRU', color: '#000' }],
+      games,
+    );
+    // Com só um empate entre os dois e pontos idênticos, o desempate final é
+    // alfabético (h2h não decide nada) — Ana vem antes de Bruno.
+    expect(ranking[0].id).toBe('ana');
   });
 });

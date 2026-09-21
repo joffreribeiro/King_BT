@@ -21,10 +21,42 @@ jobs:
           cache-dependency-path: kingbt/package-lock.json
 
       - name: Instalar dependências
-        run: npm install
+        run: npm ci
 
       - name: Typecheck
         run: npm run typecheck
 
       - name: Testes
         run: npm test
+
+  # Testa firestore.rules contra o emulador: fecha as mesmas duas brechas de
+  # segurança encontradas nesta auditoria (vinculação de perfil quebrada, e
+  # /groupCodes listável para qualquer conta) e a race condition de placar
+  # (last-write-wins). Sem este job, uma regra que reabrisse alguma dessas
+  # brechas só seria detectada rodando os testes manualmente — como aconteceu
+  # aqui, meses depois de introduzida.
+  rules-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kingbt
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: kingbt/package-lock.json
+
+      # firebase-tools 15.x recusa Java anterior a 21 (ver AGENTS.md).
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Testes de regras do Firestore (emulador)
+        run: npm run test:rules

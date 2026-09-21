@@ -12,7 +12,9 @@ import { useAuth } from '@/store/AuthContext';
 import { addGuestPlayer, removeGuestPlayer } from '@/firebase/groupPlayers';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
+import { useSettings } from '@/store/SettingsContext';
 import { balancedPairs } from '@/logic/roundRobin';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 const STEPS = ['Formato', 'Ajustes', 'Quem joga', 'Revisar'];
 
@@ -25,6 +27,7 @@ type GuestPlayer = { id: string; name: string; color: string; guest: true };
 
 
 export default function ParticipantsStep() {
+  useRequireAuth();
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const params = useLocalSearchParams<Params>();
@@ -34,6 +37,7 @@ export default function ParticipantsStep() {
   const { state } = useCompetitions();
   const { groupPlayers, findPlayer } = useGroupPlayers();
   const { group } = useAuth();
+  const { scoringConfig } = useSettings();
 
   const [selected, setSelected] = useState<string[]>([]);
   const [pairs, setPairs] = useState<[string, string][]>([]);
@@ -54,8 +58,9 @@ export default function ParticipantsStep() {
     return buildRanking(
       groupPlayers.map(p => ({ id: p.id, name: p.name, short: '', color: p.color })),
       allGames,
+      scoringConfig,
     );
-  }, [isGrupos, distMode, state.competitions, groupPlayers]);
+  }, [isGrupos, distMode, state.competitions, groupPlayers, scoringConfig]);
 
   function changeDistMode(mode: DistMode) {
     setDistMode(mode);
@@ -89,10 +94,11 @@ export default function ParticipantsStep() {
     const allGames = state.competitions.flatMap(extractPlayerGames);
     const ranking = buildRanking(
       groupPlayers.map(p => ({ id: p.id, name: p.name, short: '', color: p.color })),
-      allGames
+      allGames,
+      scoringConfig
     );
     return balancedPairs(selected.map(id => ({ id })), ranking);
-  }, [balanced, selected, isDuplas, state.competitions, groupPlayers]);
+  }, [balanced, selected, isDuplas, state.competitions, groupPlayers, scoringConfig]);
 
   // Persiste o convidado direto no grupo (groups/{id}/players) em vez de
   // guardar só no estado local da tela — antes disso, o convidado "sumia" ao

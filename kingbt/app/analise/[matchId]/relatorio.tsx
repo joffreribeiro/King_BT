@@ -20,6 +20,7 @@ import { useAuth } from '@/store/AuthContext';
 import { makeScoutOptions } from '@/components/analise/scoutOptions';
 import { BarChart, PieChart, LineChart } from 'react-native-gifted-charts';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 const { width: SW } = Dimensions.get('window');
 const CHART_W = SW - Spacing.md * 2 - 2;
@@ -537,6 +538,7 @@ const makeLogStyles = (Colors: ThemeColors) => StyleSheet.create({
 // ─── Tela principal ──────────────────────────────────────────────────────────
 
 export default function RelatorioScreen() {
+  useRequireAuth();
   const { colors: Colors } = useTheme();
   const r = useMemo(() => makeRStyles(Colors), [Colors]);
   const p = useMemo(() => makePStyles(Colors), [Colors]);

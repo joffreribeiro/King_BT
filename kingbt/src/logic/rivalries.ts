@@ -1,5 +1,4 @@
 import type { Competition } from './types';
-import { extractPlayerGames } from './formats';
 
 export interface RivalryStats {
   /** Com quem jogou mais vezes (independente de resultado) */

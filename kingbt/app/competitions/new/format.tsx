@@ -5,6 +5,7 @@ import { useState, useMemo } from 'react';
 import { FontFamily, Spacing, Radius, formatAccent, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import type { Format } from '@/logic/types';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 const STEPS = ['Formato', 'Ajustes', 'Quem joga', 'Revisar'];
 
@@ -41,6 +42,7 @@ const FORMATS: {
 ];
 
 export default function FormatStep() {
+  useRequireAuth();
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const [selected, setSelected] = useState<Format | null>(null);

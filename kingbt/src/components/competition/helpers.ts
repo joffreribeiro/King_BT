@@ -1,15 +1,11 @@
-import { PLAYERS } from '@/mocks/data';
 import { standings, koRoundName, competitionChampion } from '@/logic/formats';
+import { DEFAULT_SCORING, type ScoringConfig } from '@/logic/scoringConfig';
 import type { Match, Competition, MatchSource } from '@/logic/types';
 import type { ThemeColors } from '@/theme';
 
 // Cor do saldo de games (SG): verde se positivo, vermelho se negativo, neutro se zero
 export function sgColor(sg: number, Colors: ThemeColors): string {
   return sg > 0 ? Colors.teal : sg < 0 ? Colors.coral : Colors.muted;
-}
-
-export function getPlayer(id: string) {
-  return PLAYERS.find(p => p.id === id);
 }
 
 export function getCompetitor(comp: Competition, id: string) {
@@ -21,7 +17,10 @@ export function srcLabel(comp: Competition, src: MatchSource | null | undefined)
   if (!src) return null;
   const ordinal = (n: number) => n === 1 ? '1º' : n === 2 ? '2º' : n === 3 ? '3º' : `${n}º`;
   if (src.type === 'group') {
-    const gName = comp.groupDefs?.[src.g ?? 0]?.name ?? `Grupo ${src.g ?? 0 + 1}`;
+    // (src.g ?? 0) + 1, não src.g ?? (0 + 1): sem os parênteses, o grupo de
+    // índice 0 (o primeiro) mostrava "Grupo 0" em vez de "Grupo 1" — `??`
+    // só cai no fallback quando o lado esquerdo é null/undefined, e 0 não é.
+    const gName = comp.groupDefs?.[src.g ?? 0]?.name ?? `Grupo ${(src.g ?? 0) + 1}`;
     return `${ordinal(src.pos ?? 1)} ${gName}`;
   }
   if (src.type === 'best3') {
@@ -44,12 +43,16 @@ export function firstUnscored(matches: Match[]): string | null {
 
 // ─── Share helpers ────────────────────────────────────────────────────────────
 
-export function buildShareText(comp: Competition, findPlayer: (id: string) => { name: string } | undefined): string {
+export function buildShareText(
+  comp: Competition,
+  findPlayer: (id: string) => { name: string } | undefined,
+  cfg: ScoringConfig = DEFAULT_SCORING,
+): string {
   const lines: string[] = [`🏆 ${comp.name}\n`];
 
   if (comp.format === 'liga') {
     lines.push('CLASSIFICAÇÃO:');
-    const st = standings(comp.competitors.map(c => c.id), comp.matches);
+    const st = standings(comp.competitors.map(c => c.id), comp.matches, undefined, cfg, comp.config?.winRule);
     st.forEach((s, i) => {
       const c = comp.competitors.find(x => x.id === s.id);
       lines.push(`${i + 1}. ${c?.name ?? s.id}  ${s.pts}pts  ${s.wins}V/${s.losses}D`);
@@ -77,7 +80,7 @@ export function buildShareText(comp: Competition, findPlayer: (id: string) => { 
   return lines.join('\n');
 }
 
-export function buildBracketShareText(comp: Competition): string {
+export function buildBracketShareText(comp: Competition, cfg: ScoringConfig = DEFAULT_SCORING): string {
   const lines: string[] = [`🏆 ${comp.name} — CHAVEAMENTO\n`];
   const roundNums = [...new Set(
     comp.matches.filter(m => m.stage === 'ko' && !m.third).map(m => m.koRound ?? 0)
@@ -98,7 +101,7 @@ export function buildBracketShareText(comp: Competition): string {
     const nB = third.bId ? comp.competitors.find(c => c.id === third.bId)?.name ?? '?' : '?';
     lines.push(`\n3º Lugar:\n  ${nA} ${third.scoreA}–${third.scoreB} ${nB}`);
   }
-  const champ = competitionChampion(comp);
+  const champ = competitionChampion(comp, undefined, cfg);
   if (champ) {
     const champName = (champ as any).name ?? comp.competitors.find(c => c.id === champ.members[0])?.name ?? champ.members[0];
     lines.push(`\n🥇 Campeão: ${champName}`);

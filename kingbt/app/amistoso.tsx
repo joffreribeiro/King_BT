@@ -11,10 +11,12 @@ import { buildCompetition } from '@/logic/formats';
 import type { Match, Unit } from '@/logic/types';
 import { WIN_RULE_PRESETS } from '@/constants/winRulePresets';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 const DEFAULT_PRESET = 6; // MD3 · 4 games, com tie e super tiebreak
 
 export default function AmistosoScreen() {
+  useRequireAuth();
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { myPlayerId } = useAuth();

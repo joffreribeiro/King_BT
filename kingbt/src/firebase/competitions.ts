@@ -1,6 +1,6 @@
 import {
   collection, doc, addDoc, updateDoc, setDoc, deleteDoc, onSnapshot, getDocs,
-  query, orderBy, arrayUnion, arrayRemove, type Unsubscribe,
+  query, orderBy, arrayUnion, arrayRemove, runTransaction, type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './config';
 import type { Competition, Match, JoinRequest, LiveScore, SetScore } from '@/logic/types';
@@ -44,20 +44,6 @@ export async function createCompetition(
   return ref.id;
 }
 
-/** Salva placar de um jogo */
-export async function saveMatchScore(
-  groupId: string,
-  compId: string,
-  matchId: string,
-  scoreA: number,
-  scoreB: number,
-  updatedMatches: Match[]
-): Promise<void> {
-  await updateDoc(compDoc(groupId, compId), {
-    matches: updatedMatches,
-  });
-}
-
 /** Deleta competição permanentemente e limpa o feed associado */
 export async function deleteCompetition(groupId: string, compId: string): Promise<void> {
   const { deleteDoc } = await import('firebase/firestore');
@@ -66,6 +52,42 @@ export async function deleteCompetition(groupId: string, compId: string): Promis
     deleteDoc(compDoc(groupId, compId)),
     deleteFeedItemsByComp(groupId, compId),
   ]);
+}
+
+/**
+ * Aplica uma mudança na competição relendo a versão do SERVIDOR dentro de uma
+ * transação.
+ *
+ * Toda escrita de competição reescreve o documento inteiro, `matches` junto.
+ * Partindo do estado local isso é last-write-wins: dois celulares marcando
+ * jogos diferentes da mesma competição — o caso normal numa rodada, com várias
+ * quadras em paralelo — gravam por cima um do outro, e o placar de quem salvou
+ * primeiro desaparece sem erro nenhum na tela. A transação relê o documento,
+ * aplica a mudança sobre o que está lá e repete sozinha se alguém escreveu no
+ * meio do caminho.
+ *
+ * `mutate` recebe a competição do servidor e devolve a próxima versão, ou
+ * `null` para desistir sem gravar (ex.: o jogo já não existe mais).
+ * Transações exigem rede — offline elas falham, e quem chama decide se
+ * enfileira (ver SyncQueueContext).
+ */
+export async function mutateCompetition(
+  groupId: string,
+  compId: string,
+  mutate: (atual: Competition) => Competition | null,
+): Promise<void> {
+  await runTransaction(db, async (tx) => {
+    const ref = compDoc(groupId, compId);
+    const snap = await tx.get(ref);
+    if (!snap.exists()) return;
+    const atual = { id: snap.id, ...snap.data() } as Competition;
+    const proximo = mutate(atual);
+    if (!proximo) return;
+    const { id, ...data } = proximo;
+    // Remove undefined — o Firestore rejeita a gravação inteira se qualquer
+    // campo aninhado (ex.: match.aId) vier undefined.
+    tx.update(ref, JSON.parse(JSON.stringify(data)));
+  });
 }
 
 /** Atualiza competição inteira (status, matches resolvidos) */

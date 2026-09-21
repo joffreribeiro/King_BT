@@ -1,16 +1,18 @@
 import type { Match, Competition } from '@/logic/types';
-import { getPlayer, getCompetitor, srcLabel, isByeSlot } from './helpers';
+import { getCompetitor, srcLabel, isByeSlot } from './helpers';
 import { ScoreboardCard, type ScoreSide } from './ScoreboardCard';
+import { useGroupPlayers } from '@/store/GroupPlayersContext';
 
 // Jogo de liga/grupos/mata-mata (competidores via aId/bId, com BYE e placeholders)
 export function MatchRow({ match: m, comp, isNext, onPress, onLongPress }: {
   match: Match; comp: Competition; isNext: boolean;
   onPress: () => void; onLongPress?: () => void;
 }) {
+  const { findPlayer } = useGroupPlayers();
   const cA = m.aId ? getCompetitor(comp, m.aId) : null;
   const cB = m.bId ? getCompetitor(comp, m.bId) : null;
-  const pA = cA?.members[0] ? getPlayer(cA.members[0]) : null;
-  const pB = cB?.members[0] ? getPlayer(cB.members[0]) : null;
+  const pA = cA?.members[0] ? findPlayer(cA.members[0]) : undefined;
+  const pB = cB?.members[0] ? findPlayer(cB.members[0]) : undefined;
   const byeA = isByeSlot(m.aId, m.aSrc);
   const byeB = isByeSlot(m.bId, m.bSrc);
   const pending = !cA || !cB;

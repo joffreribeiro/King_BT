@@ -8,11 +8,13 @@ import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { useSettings } from '@/store/SettingsContext';
 import { useAuth } from '@/store/AuthContext';
 import { koRoundName, competitionChampion } from '@/logic/formats';
 import type { Match, Competition } from '@/logic/types';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Icon } from '@/components';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 const BK_CARD_H  = 62;
 const BK_GAP     = 12;
@@ -73,12 +75,14 @@ function MatchCard({ match: m, comp }: { match: Match; comp: Competition }) {
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 export default function BracketScreen() {
+  useRequireAuth();
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const bk = useMemo(() => makeBkStyles(Colors), [Colors]);
   const { competitionId } = useLocalSearchParams<{ competitionId: string }>();
   const { state } = useCompetitions();
   const { findPlayer } = useGroupPlayers();
+  const { scoringConfig } = useSettings();
   const { myPlayerId } = useAuth();
 
   const comp = state.competitions.find(c => c.id === competitionId);
@@ -108,7 +112,7 @@ export default function BracketScreen() {
 
   // Champion
   const champRaw = comp.status === 'done'
-    ? competitionChampion(comp, id => findPlayer(id)?.name ?? id)
+    ? competitionChampion(comp, id => findPlayer(id)?.name ?? id, scoringConfig)
     : null;
   const champName = champRaw
     ? ((champRaw as any).name ?? findPlayer(champRaw.members[0])?.name ?? '—')

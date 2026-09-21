@@ -2,11 +2,12 @@ import React, { createContext, useContext, useReducer, useEffect, type ReactNode
 import type { Competition, Match, Substitution, LiveScore, SetScore } from '@/logic/types';
 import type { Unsubscribe } from 'firebase/firestore';
 import { applySubstitution } from '@/logic/substitution';
-import { resolveCompetition, extractPlayerGames, buildCompetition } from '@/logic/formats';
+import { extractPlayerGames, buildCompetition } from '@/logic/formats';
+import { applyScore, withMatches, clearScore } from '@/logic/competitionOps';
 import { computeRivalries } from '@/logic/rivalries';
-import { MOCK_COMPETITIONS } from '@/mocks/competitions';
 import {
-  subscribeCompetitions, createCompetition, updateCompetition as fsUpdateComp, deleteCompetition as fsDeleteComp,
+  subscribeCompetitions, createCompetition, deleteCompetition as fsDeleteComp,
+  mutateCompetition,
   setLiveScore, clearLiveScore, setDraftSets, clearDraftSets, deleteLiveMatch, subscribeLiveMatches as fsSubscribeLiveMatches,
   fetchCompetitionsOnce,
 } from '@/firebase/competitions';
@@ -16,14 +17,21 @@ import { buildRanking } from '@/logic/scoring';
 import { enqueue } from './syncQueue';
 import { useAuth } from './AuthContext';
 import { useGroupPlayers } from './GroupPlayersContext';
+import { useSettings } from './SettingsContext';
+import type { ScoringConfig } from '@/logic/scoringConfig';
 
 type State = {
   competitions: Competition[];
   synced: boolean;
+  // Fórmula de pontuação do grupo ativo. Mora no estado porque
+  // resolveCompetition — que define quem classifica dos grupos para o
+  // mata-mata — roda dentro do reducer, e o reducer é puro.
+  scoringConfig: ScoringConfig;
 };
 
 type Action =
   | { type: 'SET'; competitions: Competition[] }
+  | { type: 'SET_SCORING_CONFIG'; cfg: ScoringConfig }
   | { type: 'ADD'; comp: Competition }
   | { type: 'CLONE'; compId: string; playerHandicaps?: Record<string, number> }
   | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; sets?: { a: number; b: number }[] }
@@ -43,49 +51,16 @@ type Action =
   | { type: 'EDIT_MATCH_PLAYERS'; compId: string; matchId: string; teamA: string[]; teamB: string[] }
   | { type: 'RENAME'; compId: string; name: string }
   | { type: 'SUBSTITUTE_PLAYER'; compId: string; sub: Substitution }
-  | { type: 'UPDATE'; comp: Competition };
-
-function applyScore(comp: Competition, matchId: string, scoreA: number, scoreB: number, sets?: { a: number; b: number }[]): Competition {
-  const updated = {
-    ...comp,
-    matches: comp.matches.map(m =>
-      m.id === matchId ? { ...m, scoreA, scoreB, ...(sets ? { sets } : {}) } : m
-    ),
-  };
-  resolveCompetition(updated);
-  // Avulso é uma sessão livre: não fecha sozinha ao "esgotar" os jogos registrados
-  // até agora — só o usuário encerra manualmente.
-  if (comp.format === 'avulso') return updated;
-  const scoreable = updated.matches.filter(
-    m => (m.aId != null && m.bId != null) || (m.teamA && m.teamB)
-  );
-  updated.status = scoreable.length > 0 && scoreable.every(m => m.scoreA != null)
-    ? 'done' : 'active';
-  return updated;
-}
-
-/**
- * Troca a lista de jogos de uma competição e reavalia chaveamento e status.
- * Excluir um jogo ou trocar quem jogou muda quem está classificado e se a
- * competição ainda tem jogo pendente, então não dá pra só mexer no array —
- * é a mesma reavaliação que `applyScore` faz ao registrar um placar.
- */
-function withMatches(comp: Competition, matches: Match[]): Competition {
-  const updated = { ...comp, matches };
-  resolveCompetition(updated);
-  if (comp.format === 'avulso') return updated;
-  const scoreable = updated.matches.filter(
-    m => (m.aId != null && m.bId != null) || (m.teamA && m.teamB)
-  );
-  updated.status = scoreable.length > 0 && scoreable.every(m => m.scoreA != null)
-    ? 'done' : 'active';
-  return updated;
-}
+  | { type: 'SET_STATUS'; compId: string; status: Competition['status'] }
+  | { type: 'ADD_MATCH'; compId: string; match: Match }
+  | { type: 'START_UPCOMING'; compId: string; competitors: Competition['competitors'] };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'SET':
-      return { competitions: action.competitions, synced: true };
+      return { ...state, competitions: action.competitions, synced: true };
+    case 'SET_SCORING_CONFIG':
+      return { ...state, scoringConfig: action.cfg };
     case 'ADD':
       return { ...state, competitions: [action.comp, ...state.competitions] };
     case 'CLONE': {
@@ -108,7 +83,7 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         competitions: state.competitions.map(c =>
-          c.id !== action.compId ? c : withMatches(c, c.matches.filter(m => m.id !== action.matchId))
+          c.id !== action.compId ? c : withMatches(c, c.matches.filter(m => m.id !== action.matchId), state.scoringConfig)
         ),
       };
     case 'EDIT_MATCH_PLAYERS':
@@ -117,7 +92,7 @@ function reducer(state: State, action: Action): State {
         competitions: state.competitions.map(c =>
           c.id !== action.compId ? c : withMatches(c, c.matches.map(m =>
             m.id !== action.matchId ? m : { ...m, teamA: action.teamA, teamB: action.teamB }
-          ))
+          ), state.scoringConfig)
         ),
       };
     case 'RENAME':
@@ -132,7 +107,7 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         competitions: state.competitions.map(c =>
-          c.id !== action.compId ? c : applyScore(c, action.matchId, action.scoreA, action.scoreB, action.sets)
+          c.id !== action.compId ? c : applyScore(c, action.matchId, action.scoreA, action.scoreB, action.sets, state.scoringConfig)
         ),
       };
     case 'SUBSTITUTE_PLAYER': {
@@ -148,17 +123,9 @@ function reducer(state: State, action: Action): State {
     case 'CLEAR_SCORE': {
       return {
         ...state,
-        competitions: state.competitions.map(c => {
-          if (c.id !== action.compId) return c;
-          const updated = { ...c, matches: c.matches.map(m =>
-            m.id === action.matchId ? { ...m, scoreA: null, scoreB: null } : m
-          )};
-          resolveCompetition(updated);
-          if (c.format === 'avulso') return updated;
-          const scoreable = updated.matches.filter(m => (m.aId != null && m.bId != null) || (m.teamA && m.teamB));
-          updated.status = scoreable.length > 0 && scoreable.every(m => m.scoreA != null) ? 'done' : 'active';
-          return updated;
-        }),
+        competitions: state.competitions.map(c =>
+          c.id !== action.compId ? c : clearScore(c, action.matchId, state.scoringConfig)
+        ),
       };
     }
     case 'UPDATE_LIVE_SCORE':
@@ -212,8 +179,27 @@ function reducer(state: State, action: Action): State {
           }
         ),
       };
-    case 'UPDATE':
-      return { ...state, competitions: state.competitions.map(c => c.id === action.comp.id ? action.comp : c) };
+    case 'SET_STATUS':
+      return {
+        ...state,
+        competitions: state.competitions.map(c =>
+          c.id !== action.compId ? c : { ...c, status: action.status }
+        ),
+      };
+    case 'ADD_MATCH':
+      return {
+        ...state,
+        competitions: state.competitions.map(c =>
+          c.id !== action.compId ? c : { ...c, matches: [...c.matches, action.match], status: 'active' }
+        ),
+      };
+    case 'START_UPCOMING':
+      return {
+        ...state,
+        competitions: state.competitions.map(c =>
+          c.id !== action.compId ? c : { ...c, status: 'active', competitors: action.competitors }
+        ),
+      };
     case 'SYNC_LIVE_MATCH':
       return {
         ...state,
@@ -249,10 +235,24 @@ const Ctx = createContext<CtxType | null>(null);
 export function CompetitionsProvider({ children }: { children: ReactNode }) {
   const { user, group, isAdmin } = useAuth();
   const { groupPlayers, findPlayer } = useGroupPlayers();
+  const { scoringConfig } = useSettings();
+  // Nasce com o valor JÁ disponível de useSettings() (não DEFAULT_SCORING
+  // fixo) — useReducer só lê este argumento na primeira renderização, então
+  // se ele começasse em DEFAULT_SCORING, existia uma janela entre o mount
+  // e o useEffect logo abaixo rodar onde os updates otimistas locais
+  // (SAVE_SCORE, CLEAR_SCORE, etc.) calculavam pontos/saldo com a fórmula
+  // errada, mesmo com a fórmula real já disponível no hook.
   const [state, dispatch] = useReducer(reducer, {
     competitions: [],
     synced: false,
+    scoringConfig,
   });
+
+  // Espelha no reducer a fórmula do grupo, que o SettingsContext escuta em
+  // tempo real no doc do grupo.
+  useEffect(() => {
+    dispatch({ type: 'SET_SCORING_CONFIG', cfg: scoringConfig });
+  }, [scoringConfig]);
 
   useEffect(() => {
     if (!user || !group) return;
@@ -324,12 +324,25 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
     }
 
     if (action.type === 'SAVE_SCORE' || action.type === 'CORRECT_SCORE') {
-      const comp = state.competitions.find(c => c.id === action.compId);
-      if (comp) {
-        const updated = applyScore(comp, action.matchId, action.scoreA, action.scoreB, action.sets);
-        try { await fsUpdateComp(group.id, updated); }
-        catch {
-          await enqueue({ type: 'UPDATE_COMP', payload: { groupId: group.id, data: updated } });
+      {
+        // A mudança é aplicada sobre a competição do SERVIDOR, não sobre o
+        // estado local: dois aparelhos marcando jogos diferentes da mesma
+        // competição deixavam de se sobrescrever só assim.
+        try {
+          await mutateCompetition(group.id, action.compId, (servidor) =>
+            applyScore(servidor, action.matchId, action.scoreA, action.scoreB, action.sets, scoringConfig),
+          );
+        } catch {
+          // Sem rede a transação não roda — guarda a intenção (não o documento
+          // inteiro), para reaplicá-la sobre o servidor quando voltar.
+          await enqueue({
+            type: 'APPLY_SCORE',
+            payload: {
+              groupId: group.id, compId: action.compId, matchId: action.matchId,
+              scoreA: action.scoreA, scoreB: action.scoreB,
+              sets: action.sets ?? null, cfg: scoringConfig,
+            },
+          });
         }
         // Placar final salvo — o doc de placar ao vivo/rascunho não serve
         // mais pra nada. Fire-and-forget: um resto órfão não afeta nada (o
@@ -387,12 +400,12 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
               id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color,
             }));
             const allGamesBefore = state.competitions.flatMap(extractPlayerGames);
-            const rankBefore = buildRanking(rankPlayers, allGamesBefore);
+            const rankBefore = buildRanking(rankPlayers, allGamesBefore, scoringConfig);
 
-            const updatedComp = applyScore(comp, action.matchId, action.scoreA, action.scoreB);
+            const updatedComp = applyScore(comp, action.matchId, action.scoreA, action.scoreB, undefined, scoringConfig);
             const compsAfter = state.competitions.map(c => c.id === comp.id ? updatedComp : c);
             const allGamesAfter = compsAfter.flatMap(extractPlayerGames);
-            const rankAfter = buildRanking(rankPlayers, allGamesAfter);
+            const rankAfter = buildRanking(rankPlayers, allGamesAfter, scoringConfig);
 
             const involvedIds = [
               ...(match.teamA ?? []),
@@ -433,7 +446,7 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
 
           // Detectar milestones de rivalidade
           try {
-            const updatedComp = applyScore(comp, action.matchId, action.scoreA, action.scoreB);
+            const updatedComp = applyScore(comp, action.matchId, action.scoreA, action.scoreB, undefined, scoringConfig);
             const compsAfter  = state.competitions.map(c => c.id === comp.id ? updatedComp : c);
 
             // Expandir IDs dos lados da partida para player IDs reais
@@ -565,54 +578,76 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
     }
 
     if (action.type === 'CLEAR_SCORE') {
-      const comp = state.competitions.find(c => c.id === action.compId);
-      if (comp) {
-        const cleared = { ...comp, matches: comp.matches.map(m =>
-          m.id === action.matchId ? { ...m, scoreA: null, scoreB: null } : m
-        )};
-        resolveCompetition(cleared);
-        try { await fsUpdateComp(group.id, cleared); }
-        catch { console.error('[KingBT] Sync error: CLEAR_SCORE'); }
-      }
+      try {
+        await mutateCompetition(group.id, action.compId, (servidor) =>
+          clearScore(servidor, action.matchId, scoringConfig),
+        );
+      } catch { console.error('[KingBT] Sync error: CLEAR_SCORE'); }
     }
 
     if (action.type === 'RENAME') {
-      const comp = state.competitions.find(c => c.id === action.compId);
-      if (comp) {
-        try { await fsUpdateComp(group.id, { ...comp, name: action.name }); }
-        catch { console.error('[KingBT] Sync error: RENAME'); }
-      }
+      try {
+        await mutateCompetition(group.id, action.compId, (servidor) => ({ ...servidor, name: action.name }));
+      } catch { console.error('[KingBT] Sync error: RENAME'); }
     }
 
     if (action.type === 'SUBSTITUTE_PLAYER') {
-      const comp = state.competitions.find(c => c.id === action.compId);
-      if (comp) {
-        const updated = {
-          ...comp,
-          matches: applySubstitution(comp.matches, action.sub),
-          substitutions: [...(comp.substitutions ?? []), action.sub],
-        };
-        try { await fsUpdateComp(group.id, updated); }
-        catch (e) { console.error('[KingBT] Sync error: SUBSTITUTE_PLAYER', e); }
-      }
+      try {
+        await mutateCompetition(group.id, action.compId, (servidor) => ({
+          ...servidor,
+          matches: applySubstitution(servidor.matches, action.sub),
+          substitutions: [...(servidor.substitutions ?? []), action.sub],
+        }));
+      } catch (e) { console.error('[KingBT] Sync error: SUBSTITUTE_PLAYER', e); }
     }
 
-    if (action.type === 'UPDATE') {
-      try { await fsUpdateComp(group.id, action.comp); }
-      catch { console.error('[KingBT] Sync error: UPDATE'); }
+    if (action.type === 'SET_STATUS') {
+      try {
+        await mutateCompetition(group.id, action.compId, (servidor) => ({ ...servidor, status: action.status }));
+      } catch { console.error('[KingBT] Sync error: SET_STATUS'); }
+    }
+
+    if (action.type === 'ADD_MATCH') {
+      try {
+        // O jogo entra na lista do SERVIDOR. Numa sessão avulsa é comum duas
+        // pessoas adicionarem jogos ao mesmo tempo; partindo da lista local,
+        // uma apagava o jogo da outra.
+        await mutateCompetition(group.id, action.compId, (servidor) => ({
+          ...servidor,
+          matches: [...servidor.matches, action.match],
+          status: 'active',
+        }));
+      } catch { console.error('[KingBT] Sync error: ADD_MATCH'); }
+    }
+
+    if (action.type === 'START_UPCOMING') {
+      try {
+        await mutateCompetition(group.id, action.compId, (servidor) => ({
+          ...servidor, status: 'active', competitors: action.competitors,
+        }));
+      } catch { console.error('[KingBT] Sync error: START_UPCOMING'); }
     }
 
     if (action.type === 'DELETE_MATCH' || action.type === 'EDIT_MATCH_PLAYERS') {
-      const comp = state.competitions.find(c => c.id === action.compId);
-      if (comp) {
-        const updated = action.type === 'DELETE_MATCH'
-          ? withMatches(comp, comp.matches.filter(m => m.id !== action.matchId))
-          : withMatches(comp, comp.matches.map(m =>
-              m.id !== action.matchId ? m : { ...m, teamA: action.teamA, teamB: action.teamB }
-            ));
-        try { await fsUpdateComp(group.id, updated); }
-        catch {
-          await enqueue({ type: 'UPDATE_COMP', payload: { groupId: group.id, data: updated } });
+      {
+        try {
+          await mutateCompetition(group.id, action.compId, (servidor) =>
+            action.type === 'DELETE_MATCH'
+              ? withMatches(servidor, servidor.matches.filter(m => m.id !== action.matchId), scoringConfig)
+              : withMatches(servidor, servidor.matches.map(m =>
+                  m.id !== action.matchId ? m : { ...m, teamA: action.teamA, teamB: action.teamB }
+                ), scoringConfig),
+          );
+        } catch {
+          await enqueue({
+            type: action.type === 'DELETE_MATCH' ? 'DELETE_MATCH' : 'EDIT_MATCH_PLAYERS',
+            payload: {
+              groupId: group.id, compId: action.compId, matchId: action.matchId,
+              teamA: action.type === 'EDIT_MATCH_PLAYERS' ? action.teamA : null,
+              teamB: action.type === 'EDIT_MATCH_PLAYERS' ? action.teamB : null,
+              cfg: scoringConfig,
+            },
+          });
         }
         // O post do resultado sai junto com o jogo — senão o feed segue
         // anunciando um placar que não existe mais na competição. Falha aqui

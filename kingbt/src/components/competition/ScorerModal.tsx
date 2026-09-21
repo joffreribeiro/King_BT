@@ -212,6 +212,13 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
         b1: teamB[0] ?? '', b2: teamB[1] ?? '',
         sets: String(wr?.sets ?? 3), games: String(wr?.games ?? 6),
         tiebreak: String(wr?.tiebreak ?? 7), scoutMode: wr?.scoutMode ?? 'avancado',
+        // A regra atravessa como parâmetros de URL. Sem estes três campos o
+        // Scout caía no padrão — e como ele lê `superTiebreak === 'true'`, a
+        // ausência virava "sem super tie-break" mesmo com a competição
+        // configurada com ele.
+        tiebreakAt: wr?.tiebreakAt ?? 'deuce',
+        superTiebreak: String(wr?.superTiebreak ?? false),
+        superTiebreakPts: String(wr?.superTiebreakPts ?? 10),
       },
     });
   }
@@ -438,7 +445,6 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
             <TouchableOpacity
               onPress={() => {
                 if (hasWinner && canEdit) {
-                  console.log('[KingBT] Salvando placar:', { setsA, setsB, validSets, setScores });
                   onSave(match.id, setsA, setsB, validSets.length > 0 ? validSets : undefined);
                 }
               }}

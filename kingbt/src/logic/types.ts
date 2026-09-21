@@ -11,6 +11,13 @@ export interface Player {
   handicap?: number;
 }
 
+/** Forma mínima de jogador para exibição (avatar, nome) — sem os campos de competição do Player. */
+export interface PlayerInfo {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface Competitor {
   id: string;
   name: string;
@@ -31,6 +38,13 @@ export interface MatchSource {
 export interface SetScore {
   a: number;
   b: number;
+  /**
+   * Set decidido em super tie-break: `a`/`b` são os PONTOS disputados
+   * (ex.: 10-8), não games. Quem soma games precisa tratar este set à parte —
+   * ver `matchGames` em logic/setOutcome.ts. Ausente nos jogos gravados antes
+   * desta marca existir.
+   */
+  stb?: boolean;
 }
 
 export interface LiveScore {

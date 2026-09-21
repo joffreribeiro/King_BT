@@ -212,6 +212,7 @@ export function GroupsPhaseView({ comp, onScore, onMatchActions }: { comp: Compe
 }
 
 export function KOView({ comp, onScore, onMatchActions, preview = false }: { comp: Competition; onScore: (m: Match) => void; onMatchActions: (matchId: string) => void; preview?: boolean }) {
+  const { scoringConfig } = useSettings();
   const { colors: Colors } = useTheme();
   const tabs = useMemo(() => makeTabs(Colors), [Colors]);
   return (
@@ -224,7 +225,7 @@ export function KOView({ comp, onScore, onMatchActions, preview = false }: { com
         <TouchableOpacity
           style={[tabs.tab, { flex: 0, paddingHorizontal: Spacing.md }]}
           onPress={async () => {
-            const result = await shareText(buildBracketShareText(comp));
+            const result = await shareText(buildBracketShareText(comp, scoringConfig));
             if (result === 'copied') notifyCopied('Chaveamento');
           }}
         >

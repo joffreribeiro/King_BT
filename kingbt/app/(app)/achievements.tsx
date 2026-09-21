@@ -11,6 +11,7 @@ import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
+import { useSettings } from '@/store/SettingsContext';
 import { computeAchievementStats } from '@/logic/achievementStats';
 import { ACHIEVEMENTS, CATEGORY_LABELS, type AchievementCategory } from '@/constants/achievements';
 import { AchievementCard } from '@/components/AchievementCard';
@@ -26,22 +27,24 @@ export default function AchievementsScreen() {
   const { state } = useCompetitions();
   const { myPlayerId } = useAuth();
   const { groupPlayers } = useGroupPlayers();
+  const { scoringConfig } = useSettings();
   const MY_ID = myPlayerId ?? '';
 
   const [previewAch, setPreviewAch] = useState<Achievement | null>(null);
 
   // Build stats
   const stats = useMemo(() => {
-    const base = computeAchievementStats(state.competitions, MY_ID);
+    const base = computeAchievementStats(state.competitions, MY_ID, 0, scoringConfig);
     // Inject current rating from ranking
     const allGames = state.competitions.flatMap(extractPlayerGames);
     const ranking  = buildRanking(
       groupPlayers.map(p => ({ id: p.id, name: p.name, short: '', color: p.color, handicap: p.handicap })),
-      allGames
+      allGames,
+      scoringConfig
     );
     const myRank = ranking.find(r => r.id === MY_ID);
     return { ...base, currentRating: myRank?.points ?? 0 };
-  }, [state.competitions, MY_ID, groupPlayers]);
+  }, [state.competitions, MY_ID, groupPlayers, scoringConfig]);
 
   // Group by category
   const grouped = useMemo(() => {

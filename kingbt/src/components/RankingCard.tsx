@@ -5,7 +5,7 @@ import { useTheme } from '@/store/ThemeContext';
 import { useSettings } from '@/store/SettingsContext';
 import { Avatar } from '@/components';
 import type { RankedPlayer } from '@/logic/scoring';
-import type { MockPlayer } from '@/mocks/data';
+import type { PlayerInfo } from '@/logic/types';
 
 /** Formata a fórmula de pontuação real do grupo (inclui eventos só se usado). */
 function formatFormula(cfg: { winCoef: number; playedCoef: number; gaCoef: number; eventCoef?: number }): string {
@@ -17,7 +17,7 @@ function formatFormula(cfg: { winCoef: number; playedCoef: number; gaCoef: numbe
 
 type Props = {
   ranking: RankedPlayer[];
-  players: MockPlayer[];
+  players: PlayerInfo[];
   groupName: string;
   season: string;
   roundsDone: number;

@@ -12,9 +12,10 @@ import { saveAnaliseFs, loadAnaliseFs } from '@/firebase/analises';
 import { PointLogModal } from '@/components/analise/PointLogModal';
 import {
   carregarAnalise, salvarAnalise, placardInicial, avancaPonto, formatGameScore, formatSetScore,
-  winRuleFromComp, type BtAnalise, type BtPlacardState, type BtPonto,
+  winRuleFromComp, setsDoPlacard, type BtAnalise, type BtPlacardState, type BtPonto,
 } from '@/logic/btTracker';
 import type { Match, Competition } from '@/logic/types';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 function firstUnscored(matches: Match[]): Match | undefined {
   return matches.find(m => m.scoreA == null && ((m.aId && m.bId) || (m.teamA && m.teamB)));
@@ -241,7 +242,6 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
     const novosPontos = [...pontos, novoPonto];
     setPontos(novosPontos);
 
-    const eraSuperTie = placard.superTiebreakAtivo;
     const next = avancaPonto(placard, dupla);
     setPlacard(next);
     // Publica placar ao vivo
@@ -249,15 +249,11 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
     // No Avulso o set normal nunca fecha sozinho (games livres) — só o super
     // tie-break decisivo encerra por conta própria.
     if (next.encerrada) {
-      // O btTracker grava o set de super tie-break como 0-0 (os pontos não
-      // viram games). Registra os pontos disputados para o placar fazer sentido.
-      if (eraSuperTie && next.historicGamesA.length > 0) {
-        const i = next.historicGamesA.length - 1;
-        next.historicGamesA[i] = placard.pontosA + (dupla === 'A' ? 1 : 0);
-        next.historicGamesB[i] = placard.pontosB + (dupla === 'B' ? 1 : 0);
-      }
-      const sets = next.historicGamesA.map((gA, i) => ({ a: gA, b: next.historicGamesB[i] ?? 0 }));
-      persistAnalise(novosPontos, { setsA: next.setsA, setsB: next.setsB, gamesA: next.historicGamesA, gamesB: next.historicGamesB });
+      const sets = setsDoPlacard(next);
+      persistAnalise(novosPontos, {
+        setsA: next.setsA, setsB: next.setsB,
+        gamesA: next.historicGamesA, gamesB: next.historicGamesB, stb: next.historicStb,
+      });
       onSave(next.setsA, next.setsB, sets);
     } else {
       persistAnalise(novosPontos);
@@ -278,10 +274,10 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
   // ── Avulso: sets fechados manualmente (games livres) ─────────────────────
   // Grava o resultado a partir de um placard: sets vencidos + games de cada set.
   function salvarAvulso(st: BtPlacardState) {
-    const sets = st.historicGamesA.map((gA, i) => ({ a: gA, b: st.historicGamesB[i] ?? 0 }));
+    const sets = setsDoPlacard(st);
     persistAnalise(pontos, {
       setsA: st.setsA, setsB: st.setsB,
-      gamesA: st.historicGamesA, gamesB: st.historicGamesB,
+      gamesA: st.historicGamesA, gamesB: st.historicGamesB, stb: st.historicStb,
     });
     onSave(st.setsA, st.setsB, sets);
   }
@@ -295,6 +291,8 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
       ...placard,
       historicGamesA: [...placard.historicGamesA, gA],
       historicGamesB: [...placard.historicGamesB, gB],
+      // Set fechado à mão no Avulso: games livres, nunca super tie-break.
+      historicStb: [...placard.historicStb, false],
       setsA: placard.setsA + (gA > gB ? 1 : 0),
       setsB: placard.setsB + (gB > gA ? 1 : 0),
       gamesA: 0, gamesB: 0, pontosA: 0, pontosB: 0,
@@ -323,6 +321,7 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
           ...placard,
           historicGamesA: [...placard.historicGamesA, gA],
           historicGamesB: [...placard.historicGamesB, gB],
+          historicStb: [...placard.historicStb, false],
           setsA: placard.setsA + (gA > gB ? 1 : 0),
           setsB: placard.setsB + (gB > gA ? 1 : 0),
         }
@@ -537,6 +536,7 @@ function MatchMiniCard({
 const SCORER_LOCK_MS = 3 * 60 * 1000;
 
 export default function CourtScreen() {
+  useRequireAuth();
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeSStyles(Colors), [Colors]);
   const md = useMemo(() => makeMdStyles(Colors), [Colors]);
@@ -656,6 +656,9 @@ export default function CourtScreen() {
         games: String(wr?.games ?? 6),
         tiebreak: String(wr?.tiebreak ?? 7),
         scoutMode: wr?.scoutMode ?? 'avancado',
+        tiebreakAt: wr?.tiebreakAt ?? 'deuce',
+        superTiebreak: String(wr?.superTiebreak ?? false),
+        superTiebreakPts: String(wr?.superTiebreakPts ?? 10),
       },
     });
   }

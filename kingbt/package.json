@@ -53,7 +53,7 @@
     "web": "expo start --web",
     "test": "jest",
     "typecheck": "tsc --noEmit",
-    "test:rules": "npx firebase-tools emulators:exec --only firestore \"node test/firestore.rules.test.mjs\""
+    "test:rules": "npx firebase-tools emulators:exec --only firestore \"node test/firestore.rules.test.mjs && node test/competition.concurrency.test.mjs\""
   },
   "jest": {
     "preset": "jest-expo",

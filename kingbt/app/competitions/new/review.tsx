@@ -10,6 +10,7 @@ import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import type { Format, Competitor, Gender } from '@/logic/types';
 import { useState, useMemo } from 'react';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 const STEPS = ['Formato', 'Ajustes', 'Quem joga', 'Revisar'];
 
@@ -31,6 +32,7 @@ type Params = {
 };
 
 export default function ReviewStep() {
+  useRequireAuth();
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const sr = useMemo(() => makeSrStyles(Colors), [Colors]);
@@ -52,79 +54,94 @@ export default function ReviewStep() {
   const setsLabel = setsN <= 1 ? '1 set' : `Melhor de ${setsN} sets`;
   const winRule = `${setsLabel} · até ${gamesN} games · TB ${tiebreakN} pts`;
 
-  // Jogadores + convidados
-  const guests: { id: string; name: string; color: string; handicap?: number }[] = p.guestData ? JSON.parse(p.guestData) : [];
-  const allPlayers = [
-    ...groupPlayers.map(pl => ({ id: pl.id, name: pl.name, color: pl.color, handicap: pl.handicap })),
-    ...guests.filter(g => !groupPlayers.some(pl => pl.id === g.id)),
-  ];
+  // Jogadores + convidados — leve, mas ainda memoizado porque é dependência
+  // do cálculo pesado abaixo e também é usado direto no JSX (grid de
+  // competidores).
+  const allPlayers = useMemo(() => {
+    const guests: { id: string; name: string; color: string; handicap?: number }[] = p.guestData ? JSON.parse(p.guestData) : [];
+    return [
+      ...groupPlayers.map(pl => ({ id: pl.id, name: pl.name, color: pl.color, handicap: pl.handicap })),
+      ...guests.filter(g => !groupPlayers.some(pl => pl.id === g.id)),
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.guestData, groupPlayers]);
 
-  // Handicap por jogador — usado só pelo Super 8 duplas rotativas pra equilibrar o sorteio.
-  const playerHandicaps: Record<string, number> = {};
-  allPlayers.forEach(pl => {
-    if (pl.handicap != null) playerHandicaps[pl.id] = pl.handicap;
-  });
+  // Monta a competição inteira (inclui generateSchedule pro Super 8 — até
+  // C(n,4)×3 combinações avaliadas por jogo gerado, milhões de iterações
+  // síncronas com 20+ jogadores). Sem useMemo, isso rodava de novo A CADA
+  // RENDER do componente — não só uma vez ao entrar na tela, mas toda vez
+  // que qualquer estado local mudasse (ex.: `busy` ao tocar em "Confirmar"),
+  // travando a UI sem feedback repetidamente pelo mesmo cálculo.
+  const paramsKey = JSON.stringify(p);
+  const comp = useMemo(() => {
+    // Handicap por jogador — usado só pelo Super 8 duplas rotativas pra equilibrar o sorteio.
+    const playerHandicaps: Record<string, number> = {};
+    allPlayers.forEach(pl => {
+      if (pl.handicap != null) playerHandicaps[pl.id] = pl.handicap;
+    });
 
-  // Montar competitors a partir dos playerIds
-  const competitors: Competitor[] = (() => {
-    if (!p.playerIds) return [];
-    if (isDuplas) {
-      return p.playerIds.split(',').map((pair, i) => {
-        const [aId, bId] = pair.split('+');
-        const pA = allPlayers.find(pl => pl.id === aId);
-        const pB = allPlayers.find(pl => pl.id === bId);
-        if (!pA || !pB) return null;
-        return {
-          id: `d${i}`,
-          name: `${pA.name.split(' ')[0]}/${pB.name.split(' ')[0]}`,
-          short: `${pA.name[0]}${pB.name[0]}`,
-          color: pA.color,
-          members: [aId, bId],
-        };
+    // Montar competitors a partir dos playerIds
+    const competitors: Competitor[] = (() => {
+      if (!p.playerIds) return [];
+      if (isDuplas) {
+        return p.playerIds.split(',').map((pair, i) => {
+          const [aId, bId] = pair.split('+');
+          const pA = allPlayers.find(pl => pl.id === aId);
+          const pB = allPlayers.find(pl => pl.id === bId);
+          if (!pA || !pB) return null;
+          return {
+            id: `d${i}`,
+            name: `${pA.name.split(' ')[0]}/${pB.name.split(' ')[0]}`,
+            short: `${pA.name[0]}${pB.name[0]}`,
+            color: pA.color,
+            members: [aId, bId],
+          };
+        }).filter(Boolean) as Competitor[];
+      }
+      return p.playerIds.split(',').map(id => {
+        const pl = allPlayers.find(x => x.id === id);
+        if (!pl) return null;
+        return { id, name: pl.name, short: pl.name.slice(0, 3).toUpperCase(), color: pl.color, members: [id] };
       }).filter(Boolean) as Competitor[];
-    }
-    return p.playerIds.split(',').map(id => {
-      const pl = allPlayers.find(x => x.id === id);
-      if (!pl) return null;
-      return { id, name: pl.name, short: pl.name.slice(0, 3).toUpperCase(), color: pl.color, members: [id] };
-    }).filter(Boolean) as Competitor[];
-  })();
+    })();
 
-  const preassignedGroups: string[][] | undefined = p.groupMap
-    ? (JSON.parse(p.groupMap) as string[][]).map(group =>
-        group.map(id => {
-          const pl = allPlayers.find(x => x.id === id);
-          return pl ? id : null;
-        }).filter(Boolean) as string[]
-      ).filter(g => g.length > 0)
-    : undefined;
+    const preassignedGroups: string[][] | undefined = p.groupMap
+      ? (JSON.parse(p.groupMap) as string[][]).map(group =>
+          group.map(id => {
+            const pl = allPlayers.find(x => x.id === id);
+            return pl ? id : null;
+          }).filter(Boolean) as string[]
+        ).filter(g => g.length > 0)
+      : undefined;
 
-  const comp = buildCompetition({
-    name: p.name,
-    format: p.format,
-    unit: isDuplas || (isSuper8 && p.unit === 'duplas') ? 'duplas' : 'individual',
-    gender,
-    competitors,
-    playerHandicaps,
-    location: p.location?.trim() || undefined,
-    notes: p.notes?.trim() || undefined,
-    preassignedGroups,
-    config: {
-      rounds: p.rounds === 'double' ? 'double' : 'single',
-      groups: parseInt(p.groups ?? '2'),
-      qualifiers: parseInt(p.qualifiers ?? '2'),
-      bestThirds: parseInt(p.bestThirds ?? '0'),
-      thirdPlace: p.thirdPlace === 'true',
-      winRule: {
-        sets: setsN, games: gamesN, tiebreak: tiebreakN,
-        tiebreakAt: (p.tiebreakAt ?? 'deuce') as 'deuce' | 'full',
-        superTiebreak: p.superTiebreak === 'true',
-        superTiebreakPts: parseInt(p.superTiebreakPts ?? '10', 10) || 10,
-        scoutMode: (p.scoutMode ?? 'avancado') as 'aovivo' | 'padrao' | 'avancado',
+    return buildCompetition({
+      name: p.name,
+      format: p.format,
+      unit: isDuplas || (isSuper8 && p.unit === 'duplas') ? 'duplas' : 'individual',
+      gender,
+      competitors,
+      playerHandicaps,
+      location: p.location?.trim() || undefined,
+      notes: p.notes?.trim() || undefined,
+      preassignedGroups,
+      config: {
+        rounds: p.rounds === 'double' ? 'double' : 'single',
+        groups: parseInt(p.groups ?? '2'),
+        qualifiers: parseInt(p.qualifiers ?? '2'),
+        bestThirds: parseInt(p.bestThirds ?? '0'),
+        thirdPlace: p.thirdPlace === 'true',
+        winRule: {
+          sets: setsN, games: gamesN, tiebreak: tiebreakN,
+          tiebreakAt: (p.tiebreakAt ?? 'deuce') as 'deuce' | 'full',
+          superTiebreak: p.superTiebreak === 'true',
+          superTiebreakPts: parseInt(p.superTiebreakPts ?? '10', 10) || 10,
+          scoutMode: (p.scoutMode ?? 'avancado') as 'aovivo' | 'padrao' | 'avancado',
+        },
+        useOfficialRules: p.useOfficialRules !== 'false',
       },
-      useOfficialRules: p.useOfficialRules !== 'false',
-    },
-  });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramsKey, allPlayers, isDuplas, isSuper8, gender, setsN, gamesN, tiebreakN]);
 
   async function start() {
     setBusy(true);
@@ -195,7 +212,7 @@ export default function ReviewStep() {
           <SummaryRow label="Categoria" value={GENDER_LABEL[gender]} />
           <SummaryRow
             label="Competidores"
-            value={`${competitors.length} ${isDuplas ? 'duplas' : 'jogadores'}${isSuper8 && p.unit === 'duplas' ? ' (duplas rotativas)' : ''}`}
+            value={`${comp.competitors.length} ${isDuplas ? 'duplas' : 'jogadores'}${isSuper8 && p.unit === 'duplas' ? ' (duplas rotativas)' : ''}`}
           />
           {(p.format === 'liga' || p.format === 'grupos') && (
             <SummaryRow label="Turnos" value={roundsLabel} />
@@ -212,7 +229,7 @@ export default function ReviewStep() {
 
         {/* Grid de competidores */}
         <View style={styles.competitorGrid}>
-          {competitors.map(c => {
+          {comp.competitors.map(c => {
             const mainPlayer = allPlayers.find(pl => pl.id === c.members[0]);
             return (
               <View key={c.id} style={styles.competitorChip}>

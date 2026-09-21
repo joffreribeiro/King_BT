@@ -17,7 +17,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
 import {
-  doc, getDoc, setDoc, updateDoc, deleteDoc, arrayUnion, Timestamp,
+  doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, arrayUnion, Timestamp,
 } from 'firebase/firestore';
 
 // Docs de teste para /groupCodes que precisam ser recriados do zero por não
@@ -427,6 +427,166 @@ async function run() {
       });
       await deleteDoc(doc(ctxFor(MEMBER_UID).firestore(), 'groups', GID, 'competitions', 'comp1', 'liveMatches', 'm2'));
     })(),
+    'succeed',
+  );
+
+  // ── Vinculação de perfil (linkToPlayer) ────────────────────────────────
+  // O perfil que o admin cadastra antes tem id ALEATÓRIO, não o uid de quem
+  // vai usá-lo. A regra antiga só aceitava `playerId == uid`, então o fluxo
+  // de entrada no grupo caía em permission-denied para todo mundo que não
+  // fosse admin.
+  const P_LIVRE = 'perfilSemDono';
+  const P_DO_ADMIN = 'perfilDoAdmin';
+  const P_DO_MEMBRO = 'perfilJaVinculadoAoMembro';
+
+  async function seedPlayers() {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'groups', GID, 'players', P_LIVRE), {
+        name: 'Convidado', color: '#FFD166', guest: true, uid: null,
+      });
+      await setDoc(doc(db, 'groups', GID, 'players', P_DO_ADMIN), {
+        name: 'Admin', color: '#2DD4BF', guest: false, uid: ADMIN_UID, handicap: 0,
+      });
+      await setDoc(doc(db, 'groups', GID, 'players', P_DO_MEMBRO), {
+        name: 'Membro', color: '#A78BFA', guest: false, uid: MEMBER_UID,
+      });
+    });
+  }
+
+  await seed(); await seedPlayers();
+  await check(
+    'MEMBRO se vincula a um perfil sem dono (fluxo de entrada no grupo)',
+    setDoc(
+      doc(ctxFor(MEMBER_UID).firestore(), 'groups', GID, 'players', P_LIVRE),
+      { uid: MEMBER_UID, guest: false },
+      { merge: true },
+    ),
+    'succeed',
+  );
+
+  await seed(); await seedPlayers();
+  await check(
+    'MEMBRO NÃO rouba um perfil já vinculado a outra pessoa',
+    setDoc(
+      doc(ctxFor(MEMBER_UID).firestore(), 'groups', GID, 'players', P_DO_ADMIN),
+      { uid: MEMBER_UID },
+      { merge: true },
+    ),
+    'fail',
+  );
+
+  await seed(); await seedPlayers();
+  await check(
+    'MEMBRO NÃO se vincula carimbando o uid de OUTRA pessoa',
+    setDoc(
+      doc(ctxFor(MEMBER_UID).firestore(), 'groups', GID, 'players', P_LIVRE),
+      { uid: OUTSIDER_UID, guest: false },
+      { merge: true },
+    ),
+    'fail',
+  );
+
+  await seed(); await seedPlayers();
+  await check(
+    'MEMBRO NÃO aproveita a vinculação para mexer em outro campo (handicap)',
+    setDoc(
+      doc(ctxFor(MEMBER_UID).firestore(), 'groups', GID, 'players', P_LIVRE),
+      { uid: MEMBER_UID, guest: false, handicap: 3 },
+      { merge: true },
+    ),
+    'fail',
+  );
+
+  await seed(); await seedPlayers();
+  await check(
+    'DONO do perfil vinculado troca o próprio nome (id do doc != uid)',
+    updateDoc(
+      doc(ctxFor(MEMBER_UID).firestore(), 'groups', GID, 'players', P_DO_MEMBRO),
+      { name: 'Nome Novo' },
+    ),
+    'succeed',
+  );
+
+  await seed(); await seedPlayers();
+  await check(
+    'MEMBRO NÃO altera o handicap de OUTRO jogador',
+    updateDoc(
+      doc(ctxFor(MEMBER_UID).firestore(), 'groups', GID, 'players', P_DO_ADMIN),
+      { handicap: 3 },
+    ),
+    'fail',
+  );
+
+  await seed(); await seedPlayers();
+  await check(
+    'ADMIN altera o handicap de qualquer jogador',
+    updateDoc(
+      doc(ctxFor(ADMIN_UID).firestore(), 'groups', GID, 'players', P_DO_MEMBRO),
+      { handicap: 2 },
+    ),
+    'succeed',
+  );
+
+  // ── Enumeração de /groupCodes ──────────────────────────────────────────
+  // Listar a coleção devolvia o groupId de TODOS os grupos; com a regra de
+  // `members`, que deixa um não-membro se adicionar sozinho, isso era
+  // entrada livre em qualquer grupo privado sem nunca ter visto o código.
+  await seed();
+  await check(
+    'Ninguém LISTA /groupCodes (enumeração de todos os grupos)',
+    getDocs(collection(ctxFor(OUTSIDER_UID).firestore(), 'groupCodes')),
+    'fail',
+  );
+
+  await seed();
+  await check(
+    'Nem um membro consegue LISTAR /groupCodes',
+    getDocs(collection(ctxFor(MEMBER_UID).firestore(), 'groupCodes')),
+    'fail',
+  );
+
+  await seed();
+  await check(
+    'Entrar por código continua funcionando (get do código exato)',
+    getDoc(doc(ctxFor(OUTSIDER_UID).firestore(), 'groupCodes', CODE1)),
+    'succeed',
+  );
+
+  // ── Enumeração de /users ────────────────────────────────────────────────
+  // getDocs(collection('users')) sem filtro baixava nome e e-mail de TODOS
+  // os usuários do app para qualquer conta logada — era a implementação
+  // antiga de searchUsers (tela "adicionar membro existente"), rodando
+  // direto no cliente. A busca agora roda numa Cloud Function com Admin
+  // SDK; aqui só garantimos que a porta antiga (list direto do cliente)
+  // continua fechada, e que o get por uid específico — usado por
+  // removeFromGroup para checar o groupId de quem está saindo — não quebrou.
+  async function seedUsers() {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'users', MEMBER_UID), { name: 'Membro', email: 'membro@example.com', groupId: GID });
+      await setDoc(doc(db, 'users', OUTSIDER_UID), { name: 'De Fora', email: 'defora@example.com', groupId: null });
+    });
+  }
+
+  await seed(); await seedUsers();
+  await check(
+    'Ninguém LISTA /users (enumeração de nome/e-mail de todo mundo)',
+    getDocs(collection(ctxFor(OUTSIDER_UID).firestore(), 'users')),
+    'fail',
+  );
+
+  await seed(); await seedUsers();
+  await check(
+    'GET por uid específico continua funcionando (removeFromGroup depende disso)',
+    getDoc(doc(ctxFor(ADMIN_UID).firestore(), 'users', MEMBER_UID)),
+    'succeed',
+  );
+
+  await seed(); await seedUsers();
+  await check(
+    'Usuário lê o próprio doc normalmente',
+    getDoc(doc(ctxFor(MEMBER_UID).firestore(), 'users', MEMBER_UID)),
     'succeed',
   );
 

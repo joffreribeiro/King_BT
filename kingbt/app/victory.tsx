@@ -7,8 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontFamily, type ThemeColors, Colors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Icon } from '@/components';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 export default function VictoryScreen() {
+  useRequireAuth();
   const params = useLocalSearchParams<{
     winnerName?: string;
     loserName?: string;

@@ -6,8 +6,9 @@ import { goToPlayer } from '@/logic/nav';
 import { Avatar, Card } from '@/components';
 import { standings } from '@/logic/formats';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { useSettings } from '@/store/SettingsContext';
 import type { Match, Competition } from '@/logic/types';
-import { getPlayer, getCompetitor, sgColor } from './helpers';
+import { getCompetitor, sgColor } from './helpers';
 
 // Em duplas fixas, o id da linha é o time (sem perfil próprio) — só navega
 // quando dá pra resolver um único jogador real por trás do id.
@@ -21,6 +22,7 @@ export function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
   comp: Competition; ids: string[]; matches: Match[]; highlightTop?: number;
 }) {
   const { findPlayer } = useGroupPlayers();
+  const { scoringConfig } = useSettings();
   const { colors: Colors } = useTheme();
   const stRow = useMemo(() => makeStRow(Colors), [Colors]);
 
@@ -29,12 +31,10 @@ export function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
     if (competitor) return { name: competitor.name, color: competitor.color };
     const gp = findPlayer(id);
     if (gp) return { name: gp.name, color: gp.color };
-    const mock = getPlayer(id);
-    if (mock) return { name: mock.name, color: mock.color };
     return { name: id, color: Colors.muted };
   }
 
-  const st = standings(ids, matches, id => resolveEntry(id).name);
+  const st = standings(ids, matches, id => resolveEntry(id).name, scoringConfig, comp.config?.winRule);
   return (
     <Card padding={0} style={{ overflow: 'hidden', marginBottom: Spacing.sm }}>
       {/* Cabeçalho */}

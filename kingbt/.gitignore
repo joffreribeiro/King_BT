@@ -46,3 +46,9 @@ serviceAccount*.json
 
 # log do emulador do Firestore rodando localmente (npm run test:rules)
 firestore-debug.log
+
+# Cloud Functions: build compilado (gerado de functions/src por `npm run build`)
+functions/lib/
+
+# cache local do Firebase CLI (dry-run, deploy, emulador)
+.firebase/

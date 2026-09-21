@@ -1,3 +1,6 @@
+import type { SetScore } from './types';
+import { tieAtGames } from './setOutcome';
+
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
 export type BtFinalizacao =
@@ -114,13 +117,12 @@ export interface BtAnalise {
   };
   nomes: Record<string, string>; // id → nome
   pontos: BtPonto[];
-  placarFinal?: { setsA: number; setsB: number; gamesA: number[]; gamesB: number[] };
+  placarFinal?: { setsA: number; setsB: number; gamesA: number[]; gamesB: number[]; stb?: boolean[] };
 }
 
 // ─── Lógica de placar beach tennis ───────────────────────────────────────────
 
 const GAME_SEQ = [0, 15, 30, 40] as const;
-// "AD" é representado internamente como 50
 
 export type BtScoutMode = 'aovivo' | 'padrao' | 'avancado';
 
@@ -128,6 +130,8 @@ export interface BtWinRule {
   sets: number;
   games: number;
   tiebreak: number;
+  /** Onde o tie-break do set acontece: 'deuce' = (G-1)-(G-1), 'full' = G-G. */
+  tiebreakAt?: 'deuce' | 'full';
   superTiebreak?: boolean;     // substitui set decisivo por super tie-break
   superTiebreakPts?: number;   // pontos do super tie-break (padrão 10)
   scoutMode?: BtScoutMode;     // modo de scout: aovivo / padrao / avancado
@@ -136,13 +140,17 @@ export interface BtWinRule {
 export const BT_WIN_RULE_DEFAULT: BtWinRule = { sets: 3, games: 6, tiebreak: 7, superTiebreak: false, superTiebreakPts: 10 };
 
 export function winRuleFromComp(wr?: {
-  sets?: number; games?: number; tiebreak?: number;
+  sets?: number; games?: number; tiebreak?: number; tiebreakAt?: 'deuce' | 'full';
   superTiebreak?: boolean; superTiebreakPts?: number;
 }): BtWinRule {
   return {
     sets:             wr?.sets             ?? 3,
     games:            wr?.games            ?? 6,
     tiebreak:         wr?.tiebreak         ?? 7,
+    // Sem isto a configuração da competição parava aqui: o motor ao vivo
+    // sempre jogava a regra 'full', mesmo nos presets 'deuce' — que são a
+    // maioria, incluindo o padrão ("4 games, tie 7 em 3-3").
+    tiebreakAt:       wr?.tiebreakAt       ?? 'deuce',
     superTiebreak:    wr?.superTiebreak    ?? false,
     superTiebreakPts: wr?.superTiebreakPts ?? 10,
   };
@@ -164,6 +172,8 @@ export interface BtPlacardState {
   winnerDupla: 'A' | 'B' | null;
   historicGamesA: number[];
   historicGamesB: number[];
+  /** Para cada set já encerrado: true se foi decidido em super tie-break. */
+  historicStb: boolean[];
 }
 
 export function placardInicial(rule: BtWinRule = BT_WIN_RULE_DEFAULT): BtPlacardState {
@@ -180,6 +190,7 @@ export function placardInicial(rule: BtWinRule = BT_WIN_RULE_DEFAULT): BtPlacard
     winnerDupla: null,
     historicGamesA: [],
     historicGamesB: [],
+    historicStb: [],
   };
 }
 
@@ -194,14 +205,36 @@ export function formatSetScore(state: BtPlacardState): string {
   return `${state.setsA}x${state.setsB}`;
 }
 
+/**
+ * Placar set a set de um placard, no formato que vai para `Match.sets`.
+ * Marca o set decidido em super tie-break — nele `a`/`b` são pontos, não
+ * games, e quem soma games precisa saber disso (ver `matchGames`).
+ */
+export function setsDoPlacard(st: BtPlacardState): SetScore[] {
+  return st.historicGamesA.map((a, i) => ({
+    a,
+    b: st.historicGamesB[i] ?? 0,
+    ...(st.historicStb[i] ? { stb: true as const } : {}),
+  }));
+}
+
 function avancaGame(state: BtPlacardState, dupla: 'A' | 'B'): BtPlacardState {
-  const s = { ...state, historicGamesA: [...state.historicGamesA], historicGamesB: [...state.historicGamesB] };
+  const s = {
+    ...state,
+    historicGamesA: [...state.historicGamesA],
+    historicGamesB: [...state.historicGamesB],
+    historicStb:    [...state.historicStb],
+  };
   const { games: G, sets: S } = s.rule;
 
   // ── Super tie-break encerrado ──────────────────────────────────────────────
   if (s.superTiebreakAtivo) {
-    s.historicGamesA.push(s.gamesA);
-    s.historicGamesB.push(s.gamesB);
+    // O super tie-break é disputado em PONTOS — gamesA/gamesB ficam em 0 o
+    // tempo todo, então gravá-los registrava o set decisivo como 0-0 e o
+    // placar da partida perdia o resultado que a decidiu.
+    s.historicGamesA.push(s.pontosA);
+    s.historicGamesB.push(s.pontosB);
+    s.historicStb.push(true);
     if (dupla === 'A') s.setsA += 1; else s.setsB += 1;
     s.gamesA = 0; s.gamesB = 0;
     s.pontosA = 0; s.pontosB = 0;
@@ -223,18 +256,20 @@ function avancaGame(state: BtPlacardState, dupla: 'A' | 'B'): BtPlacardState {
   s.sacadorInicioTiebreak = null;
 
   const { gamesA, gamesB } = s;
-  const fechouA =
-    (gamesA >= G && gamesA - gamesB >= 2) ||
-    (gamesA === G + 1 && gamesB === G - 1) ||
-    (gamesA === G + 1 && gamesB === G);
-  const fechouB =
-    (gamesB >= G && gamesB - gamesA >= 2) ||
-    (gamesB === G + 1 && gamesA === G - 1) ||
-    (gamesB === G + 1 && gamesA === G);
+  // T = placar em que o tie-break acontece; o set termina no máximo em T+1
+  // games. Em 'deuce' (T = G-1) não existe vantagem de 2: o empate em T-T é
+  // resolvido pelo tie-break, e o vencedor fecha em G. Em 'full' (T = G) a
+  // vantagem de 2 vale até G-G, e o vencedor do tie-break fecha em G+1.
+  const T = tieAtGames(G, s.rule.tiebreakAt);
+  const fechou = (mine: number, theirs: number) =>
+    (mine >= T + 1 && mine > theirs) || (mine >= G && mine - theirs >= 2);
+  const fechouA = fechou(gamesA, gamesB);
+  const fechouB = fechou(gamesB, gamesA);
 
   if (fechouA || fechouB) {
     s.historicGamesA.push(s.gamesA);
     s.historicGamesB.push(s.gamesB);
+    s.historicStb.push(false);
     if (fechouA) s.setsA += 1; else s.setsB += 1;
     s.gamesA = 0; s.gamesB = 0;
 
@@ -250,8 +285,8 @@ function avancaGame(state: BtPlacardState, dupla: 'A' | 'B'): BtPlacardState {
       s.pontosJogadosNoTiebreak = 0; s.sacadorInicioTiebreak = null;
     }
   } else {
-    // Ativa tiebreak normal se empatou em G x G
-    if (s.gamesA === G && s.gamesB === G) {
+    // Ativa o tie-break normal no ponto configurado (T x T)
+    if (s.gamesA === T && s.gamesB === T) {
       s.tiebreak = true;
       s.pontosA = 0; s.pontosB = 0;
       s.pontosJogadosNoTiebreak = 0; s.sacadorInicioTiebreak = null;

@@ -11,7 +11,7 @@ import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useSettings } from '@/store/SettingsContext';
 import {
-  placardInicial, avancaPonto, formatGameScore, formatSetScore,
+  placardInicial, avancaPonto, formatGameScore, formatSetScore, setsDoPlacard,
   salvarAnalise, carregarAnalise, winRuleFromComp,
   type BtAnalise, type BtPonto, type BtFinalizacao,
   type BtTipoFinalizacao, type BtPosicaoSaque, type BtPlacardState, type BtWinRule,
@@ -25,6 +25,7 @@ import { Chip } from '@/components/analise/Chip';
 import { EditPontoModal } from '@/components/analise/EditPontoModal';
 import { PhaseDivider } from '@/components/analise/PhaseDivider';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import {
   POSICOES_SIMPLES, DIRECOES_PADRAO, DIRECAO_LOB,
   DIRECAO_DEVOLUCAO,
@@ -36,11 +37,12 @@ import {
 // ─── Tela principal ──────────────────────────────────────────────────────────
 
 export default function PontoScreen() {
+  useRequireAuth();
   const params = useLocalSearchParams<{
     matchId: string; compId: string;
     a1: string; a2?: string;
     b1: string; b2?: string;
-    sets?: string; games?: string; tiebreak?: string;
+    sets?: string; games?: string; tiebreak?: string; tiebreakAt?: string;
     superTiebreak?: string; superTiebreakPts?: string;
     scoutMode?: string;
   }>();
@@ -68,6 +70,7 @@ export default function PontoScreen() {
     sets:             params.sets             ? parseInt(params.sets)             : undefined,
     games:            params.games            ? parseInt(params.games)            : undefined,
     tiebreak:         params.tiebreak         ? parseInt(params.tiebreak)         : undefined,
+    tiebreakAt:       params.tiebreakAt === 'full' ? 'full' : 'deuce',
     superTiebreak:    params.superTiebreak === 'true',
     superTiebreakPts: params.superTiebreakPts ? parseInt(params.superTiebreakPts) : undefined,
   });
@@ -472,11 +475,14 @@ export default function PontoScreen() {
   async function encerrarPartida(a: BtAnalise, pl: BtPlacardState) {
     const analiseComPlacar: BtAnalise = {
       ...a,
-      placarFinal: { setsA: pl.setsA, setsB: pl.setsB, gamesA: pl.historicGamesA, gamesB: pl.historicGamesB },
+      placarFinal: {
+        setsA: pl.setsA, setsB: pl.setsB,
+        gamesA: pl.historicGamesA, gamesB: pl.historicGamesB, stb: pl.historicStb,
+      },
     };
     await salvarAnalise(analiseComPlacar);
     if (group?.id) saveAnaliseSynced(group.id, analiseComPlacar);
-    const sets = pl.historicGamesA.map((gA, i) => ({ a: gA, b: pl.historicGamesB[i] ?? 0 }));
+    const sets = setsDoPlacard(pl);
     dispatch({ type: 'SAVE_SCORE', compId, matchId, scoreA: pl.setsA, scoreB: pl.setsB, sets });
     router.replace({ pathname: '/analise/[matchId]/relatorio', params: { matchId, compId } });
   }

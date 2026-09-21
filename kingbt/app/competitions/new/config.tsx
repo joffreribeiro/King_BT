@@ -7,6 +7,7 @@ import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import type { Format, Gender } from '@/logic/types';
 import { WIN_RULE_PRESETS } from '@/constants/winRulePresets';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 const STEPS = ['Formato', 'Ajustes', 'Quem joga', 'Revisar'];
 
@@ -88,6 +89,7 @@ const makeStpStyles = (Colors: ThemeColors) => StyleSheet.create({
 });
 
 export default function ConfigStep() {
+  useRequireAuth();
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const preset = useMemo(() => makePresetStyles(Colors), [Colors]);

@@ -1,9 +1,9 @@
 import type { RankedPlayer } from '@/logic/scoring';
-import type { MockPlayer } from '@/mocks/data';
+import type { PlayerInfo } from '@/logic/types';
 
 export function generateRankingHtml(
   ranking: RankedPlayer[],
-  players: MockPlayer[],
+  players: PlayerInfo[],
   groupName: string,
   season: string,
   roundsDone: number,
@@ -65,7 +65,7 @@ export function generateRankingHtml(
 
   const elencoHtml = players.map(p => `
     <div style="font-size:12px;color:#ddd;margin-bottom:4px;">
-      <span style="color:${p.color};font-weight:700;">●</span> ${p.name} — <span style="color:#aaa;">${p.title}</span>
+      <span style="color:${p.color};font-weight:700;">●</span> ${p.name}
     </div>
   `).join('');
 

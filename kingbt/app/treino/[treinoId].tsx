@@ -17,6 +17,7 @@ import {
 import { saveTreinoFs, loadTreinoFs } from '@/firebase/treinos';
 import { BarChart } from 'react-native-gifted-charts';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 type Aba = 'Golpes' | 'Análise';
 
@@ -83,6 +84,7 @@ const makeDashStyles = (Colors: ThemeColors) => StyleSheet.create({
 });
 
 export default function TreinoDetailScreen() {
+  useRequireAuth();
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { treinoId, playerId } = useLocalSearchParams<{ treinoId: string; playerId: string }>();

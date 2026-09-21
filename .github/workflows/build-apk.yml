@@ -12,7 +12,34 @@ permissions:
   contents: write
 
 jobs:
+  # `needs:` só funciona entre jobs do MESMO workflow — ci.yml é um arquivo
+  # separado e não bloqueia este. Sem este gate, um commit que quebra
+  # typecheck/testes ainda gerava e publicava um APK normalmente.
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kingbt
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: kingbt/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Testes
+        run: npm test
+
   build:
+    needs: check
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -47,7 +74,7 @@ jobs:
       - uses: android-actions/setup-android@v3
 
       - name: Instalar dependências
-        run: npm install
+        run: npm ci
 
       - name: Gerar projeto Android nativo (expo prebuild)
         run: npx expo prebuild --platform android --non-interactive

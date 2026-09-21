@@ -1,5 +1,5 @@
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from './config';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import app from './config';
 
 export type AppUser = {
   uid: string;
@@ -8,22 +8,15 @@ export type AppUser = {
   photoURL: string | null;
 };
 
+// Busca no servidor (functions/src/index.ts), com Admin SDK. A regra do
+// Firestore proíbe `list` em /users — baixar a coleção inteira e filtrar no
+// cliente, como este arquivo fazia antes, expunha nome e e-mail de todos os
+// usuários do app para qualquer conta logada.
+const searchUsersFn = httpsCallable<{ term: string }, AppUser[]>(getFunctions(app), 'searchUsers');
+
 export async function searchUsers(term: string): Promise<AppUser[]> {
-  const trimmed = term.trim().toLowerCase();
+  const trimmed = term.trim();
   if (!trimmed) return [];
-  const snap = await getDocs(collection(db, 'users'));
-  return snap.docs
-    .map(d => {
-      const data = d.data();
-      return {
-        uid: d.id,
-        name: data.name ?? '?',
-        email: data.email ?? null,
-        photoURL: data.photoURL ?? null,
-      } as AppUser;
-    })
-    .filter(u =>
-      u.name.toLowerCase().includes(trimmed) ||
-      (u.email ?? '').toLowerCase().includes(trimmed)
-    );
+  const result = await searchUsersFn({ term: trimmed });
+  return result.data;
 }

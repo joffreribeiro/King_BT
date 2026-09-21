@@ -9,7 +9,9 @@ import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card, Icon, ScreenHeader } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { useSettings } from '@/store/SettingsContext';
 import { competitionChampion } from '@/logic/formats';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 const FORMAT_LABEL: Record<string, string> = {
   liga: 'Liga', grupos: 'Grupos + KO', mata: 'Mata-mata', avulso: 'Avulso', super8: 'Super 8',
@@ -22,15 +24,17 @@ function formatDate(iso: string): string {
 }
 
 export default function HallScreen() {
+  useRequireAuth();
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { state } = useCompetitions();
   const { findPlayer } = useGroupPlayers();
+  const { scoringConfig } = useSettings();
 
   const champions = useMemo(() => state.competitions
     .filter(c => c.status === 'done' && !c.isFriendly)
     .map(c => {
-      const champ = competitionChampion(c, id => findPlayer(id)?.name ?? id);
+      const champ = competitionChampion(c, id => findPlayer(id)?.name ?? id, scoringConfig);
       if (!champ) return null;
       // O campeão pode ser uma dupla. Antes só `members[0]` era considerado, o
       // que apagava o parceiro do card e da contagem de títulos. `members` fica
@@ -58,7 +62,7 @@ export default function HallScreen() {
       format: string;
       champName: string;
       memberIds: string[];
-    }>, [state.competitions, findPlayer]);
+    }>, [state.competitions, findPlayer, scoringConfig]);
 
   // Títulos por jogador. A contagem era feita pelo nome exibido, então dois
   // homônimos viravam uma linha só e renomear um jogador criava duas — agora a

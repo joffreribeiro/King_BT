@@ -1,3 +1,5 @@
+import { tieAtGames } from './setOutcome';
+
 export type ScoreState =
   | 'normal'
   | 'advantage'
@@ -8,44 +10,67 @@ export type ScoreState =
 export interface BtScoreRule {
   games: number;
   tiebreak: number;
+  /** Onde o tie-break do set acontece — ver `tieAtGames`. Padrão: 'deuce'. */
+  tiebreakAt?: 'deuce' | 'full';
 }
 
 const DEFAULT_RULE: BtScoreRule = { games: 6, tiebreak: 7 };
 
 /**
- * Retorna o estado atual do placar em um set de beach tennis.
- * Regras: primeiro a G (win by 2), (G-1)-(G-1) → G+1, G-G → tie-break (TB pts, win by 2)
+ * Estado de um set a partir do placar de games.
+ *
+ * Toda a regra sai de `tieAtGames`: o tie-break acontece em T-T e o set termina
+ * no máximo em T+1 games. Com `'deuce'` (padrão dos presets) T = G-1, então um
+ * set de 4 games vai a 3-3 e fecha em 4-3. Com `'full'` T = G, o set exige 2
+ * games de vantagem até G-G e fecha em G+1.
+ *
+ * Antes esta função assumia sempre `'full'`, ignorando a configuração da
+ * competição — por isso discordava do registro manual em todo preset 'deuce'.
  */
 export function getBeachTennisScoreState(a: number, b: number, rule: BtScoreRule = DEFAULT_RULE): ScoreState {
   if (a < 0 || b < 0) return 'invalid';
+  if (!Number.isInteger(a) || !Number.isInteger(b)) return 'invalid';
 
   const G = rule.games;
+  const T = tieAtGames(G, rule.tiebreakAt);
+  const maxGames = T + 1; // maior nº de games que um lado pode ter no set
+
   const max = Math.max(a, b);
   const min = Math.min(a, b);
 
-  // Scores finais válidos
-  if (max === G && min <= G - 2) return 'done';         // G-0 … G-(G-2)  ex: 4-0..4-2, 6-0..6-4
-  if (max === G + 1 && min === G - 1) return 'done';   // (G+1)-(G-1)    ex: 5-3, 7-5
-  if (max === G + 1 && min === G) return 'done';        // tiebreak ganho ex: 5-4, 7-6
+  if (max > maxGames) return 'invalid';
 
-  // Estados intermediários
-  if (a === G - 1 && b === G - 1) return 'advantage';  // (G-1)-(G-1) → jogue até G+1  ex: 3-3, 5-5
-  if (a === G && b === G) return 'tiebreak';            // G-G → tie-break               ex: 4-4, 6-6
-  if (max === G && min === G - 1) return 'advantage';   // G-(G-1) → ainda não é fim     ex: 4-3, 6-5
+  // Set fechado no limite: vencedor do tie-break (T+1 x T) ou, em 'deuce',
+  // fechamento direto em G games.
+  if (max === maxGames) {
+    if (max <= min) return 'invalid';
+    // Em 'full', chegar a G+1 exige ter passado por G-(G-1) ou G-G: 7-3 num
+    // set de 6 é inalcançável, o set teria fechado em 6-3.
+    if (maxGames > G && min < G - 1) return 'invalid';
+    return 'done';
+  }
 
-  // Em andamento normal
-  if (max < G) return 'normal';
+  // Fechamento antes do tie-break: alcançou G games com 2 de vantagem.
+  // Só existe em 'full' — em 'deuce' G já é o próprio maxGames.
+  if (max >= G && max - min >= 2) return 'done';
 
-  return 'invalid';
+  // Tie-break em T-T.
+  if (a === T && b === T) return 'tiebreak';
+
+  // Em 'full', G x (G-1) ainda não decide: falta a vantagem de 2.
+  if (max >= G && max - min === 1) return 'advantage';
+
+  return 'normal';
 }
 
 /** Mensagem de feedback para o árbitro. */
 export function getScoreHint(a: number, b: number, rule: BtScoreRule = DEFAULT_RULE): string | null {
   const G = rule.games;
   const TB = rule.tiebreak;
+  const T = tieAtGames(G, rule.tiebreakAt);
   const state = getBeachTennisScoreState(a, b, rule);
-  if (state === 'advantage') return `Empate em ${G - 1}-${G - 1} — jogue até ${G + 1}`;
-  if (state === 'tiebreak')  return `${G}-${G} — Tie-break! (primeiro a ${TB} pts)`;
+  if (state === 'tiebreak')  return `${T}-${T} — Tie-break! (primeiro a ${TB} pts)`;
+  if (state === 'advantage') return `${Math.max(a, b)}-${Math.min(a, b)} — jogue até ${T + 1}`;
   if (state === 'invalid')   return `Placar inválido para o beach tennis`;
   return null;
 }

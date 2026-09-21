@@ -12,6 +12,7 @@ import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Badge, Card, ShareStatsCard, Icon } from '@/components';
 import type { ShareStatsData } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
+import { matchGames } from '@/logic/setOutcome';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useSettings } from '@/store/SettingsContext';
@@ -139,8 +140,7 @@ export default function ProfileScreen() {
         const inB = m.teamB ? m.teamB.includes(MY_ID) : m.bId === MY_ID;
         if (!inA && !inB) return;
         const won = (inA ? m.scoreA : m.scoreB) > (inA ? m.scoreB : m.scoreA);
-        const gA = m.sets?.length ? m.sets.reduce((s, x) => s + x.a, 0) : m.scoreA;
-        const gB = m.sets?.length ? m.sets.reduce((s, x) => s + x.b, 0) : m.scoreB;
+        const { a: gA, b: gB } = matchGames(m, comp.config?.winRule);
         const myScore = inA ? gA : gB;
         const oppScore = inA ? gB : gA;
         const isTeam = !!(m.teamA && m.teamB);
@@ -221,8 +221,9 @@ export default function ProfileScreen() {
       games.forEach(g => {
         const inA = g.teamA.includes(MY_ID);
         played++;
-        if (inA) { gp += g.scoreA; gc += g.scoreB; if (g.scoreA > g.scoreB) wins++; }
-        else { gp += g.scoreB; gc += g.scoreA; if (g.scoreB > g.scoreA) wins++; }
+        // Vitória vem de g.winner (sets da partida); os games só somam GP/GC.
+        if (inA) { gp += g.gamesA; gc += g.gamesB; if (g.winner === 'A') wins++; }
+        else { gp += g.gamesB; gc += g.gamesA; if (g.winner === 'B') wins++; }
       });
       const ga = gc > 0 ? gp / gc : gp > 0 ? 2 : 0;
       const pts = Math.round((wins * scoringConfig.winCoef + played * scoringConfig.playedCoef + ga * scoringConfig.gaCoef) * 100) / 100;
@@ -256,7 +257,10 @@ export default function ProfileScreen() {
   const formatStats = useMemo(() => computeFormatStats(state.competitions, MY_ID), [state.competitions, MY_ID]);
   const rivalries   = useMemo(() => computeRivalries(MY_ID, state.competitions), [MY_ID, state.competitions]);
 
-  const achStats = useMemo(() => computeAchievementStats(state.competitions, MY_ID), [state.competitions, MY_ID]);
+  const achStats = useMemo(
+    () => computeAchievementStats(state.competitions, MY_ID, 0, scoringConfig),
+    [state.competitions, MY_ID, scoringConfig],
+  );
 
   const { nextAchievement, unlockedAchievements } = useMemo(() => {
     const achStatsWithRating = { ...achStats, currentRating: me?.points ?? 0 };

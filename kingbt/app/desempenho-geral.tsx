@@ -12,8 +12,11 @@ import { computeSituationStats, mergeSituationStats, type SituationStat } from '
 import { computeNamedRivalries, mergeNamedRivalries, reduceNamedRivalries, type NamedRivalryMaps, type NamedRivalryStats } from '@/logic/rivalries';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
+import { matchGames } from '@/logic/setOutcome';
+import { validateScoringConfig } from '@/logic/scoringConfig';
 import { MatchDetailModal } from '@/components/MatchDetailModal';
 import { ScreenHeader, ProgressBar } from '@/components';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 interface GroupPerf {
   groupId: string;
@@ -61,6 +64,7 @@ function computeMergedStreak(matches: { won: boolean; date: string }[]): { curre
 }
 
 export default function DesempenhoGeralScreen() {
+  useRequireAuth();
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { user, getMyGroups } = useAuth();
@@ -110,10 +114,14 @@ export default function DesempenhoGeralScreen() {
             const wins = groupFormatStats.reduce((acc, f) => acc + f.wins, 0);
             const groupSituationStats = computeSituationStats(competitions, playerId);
 
+            // Cada grupo tem a sua fórmula — usar a do grupo ativo aqui
+            // daria a posição do jogador medida pela régua de outro grupo.
+            const groupCfg = validateScoringConfig(g.scoringConfig);
             const games = competitions.flatMap(extractPlayerGames);
             const ranking = buildRanking(
               allPlayers.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color, handicap: p.handicap })),
-              games
+              games,
+              groupCfg
             );
             const myPos = ranking.findIndex(r => r.id === playerId) + 1;
             const total = ranking.length;
@@ -129,8 +137,7 @@ export default function DesempenhoGeralScreen() {
                 if (!inA && !inB) return;
 
                 const won = inA ? m.scoreA > m.scoreB : m.scoreB > m.scoreA;
-                const gA = m.sets?.length ? m.sets.reduce((sum, x) => sum + x.a, 0) : m.scoreA;
-                const gB = m.sets?.length ? m.sets.reduce((sum, x) => sum + x.b, 0) : m.scoreB;
+                const { a: gA, b: gB } = matchGames(m, comp.config?.winRule);
                 const myScore = inA ? gA : gB;
                 const oppScore = inA ? gB : gA;
 

@@ -111,7 +111,11 @@ describe('generateScheduleIndividual — Super 8 individual', () => {
   });
 });
 
-describe('generateScheduleDuplas — Super 8 duplas fixas', () => {
+// generateScheduleDuplas não é chamada por nenhum fluxo de UI hoje —
+// buildCompetition sempre usa duplas rotativas pra Super 8. Este teste cobre
+// a função isoladamente (ela funciona), não um caminho real do app — ver o
+// comentário da função em roundRobin.ts.
+describe('generateScheduleDuplas — Super 8 duplas fixas (função não conectada à UI)', () => {
   it('cada dupla joga contra todas as outras', () => {
     const comps = [
       { id: 'd1', members: ['p1', 'p2'] },

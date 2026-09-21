@@ -14,7 +14,7 @@ jest.mock('@react-native-async-storage/async-storage', () => {
 });
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { enqueue, enqueueLatest, getQueue, getQueueSize, removeFromQueue } from '@/store/syncQueue';
+import { enqueue, enqueueLatest, getQueue, getQueueSize, removeFromQueue, syncBannerLabel } from '@/store/syncQueue';
 
 const analiseKey = (a: { payload: Record<string, unknown> }) =>
   `SAVE_ANALISE:${(a.payload.analise as { matchId?: string } | undefined)?.matchId ?? ''}`;
@@ -59,5 +59,31 @@ describe('fila de sincronização offline', () => {
     const [item] = await getQueue();
     await removeFromQueue(item.id);
     expect(await getQueueSize()).toBe(0);
+  });
+});
+
+// ─── Banner de sincronização ────────────────────────────────────────────────
+// Antes, o banner só aparecia com isOnline === false. Uma escrita podia
+// falhar por timeout/instabilidade (Wi-Fi "conectado" o tempo todo, mas
+// perdendo pacotes) sem o dispositivo jamais reportar desconexão — nesse
+// caso isOnline continuava true, e o item ficava pendente na fila sem
+// NENHUM sinal na tela.
+
+describe('syncBannerLabel', () => {
+  it('online e sem pendências: banner some (null)', () => {
+    expect(syncBannerLabel(true, 0)).toBeNull();
+  });
+
+  it('online com pendências: mostra "Sincronizando" em vez de sumir', () => {
+    expect(syncBannerLabel(true, 1)).toBe('Sincronizando · 1 pendente');
+    expect(syncBannerLabel(true, 3)).toBe('Sincronizando · 3 pendentes');
+  });
+
+  it('offline sem pendências: "Offline" simples', () => {
+    expect(syncBannerLabel(false, 0)).toBe('Offline');
+  });
+
+  it('offline com pendências: mostra a contagem', () => {
+    expect(syncBannerLabel(false, 2)).toBe('Offline · 2 pendentes');
   });
 });

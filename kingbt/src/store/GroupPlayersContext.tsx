@@ -1,19 +1,21 @@
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { subscribeGroupPlayers, type GroupPlayer } from '@/firebase/groupPlayers';
 import { useAuth } from './AuthContext';
-import { PLAYERS } from '@/mocks/data';
+import type { PlayerInfo } from '@/logic/types';
+import { resolvePlayer } from '@/logic/players';
 
-export type PlayerInfo = { id: string; name: string; color: string };
+export type { PlayerInfo };
 
 type CtxType = {
   groupPlayers: GroupPlayer[];
   findPlayer: (id: string) => PlayerInfo | undefined;
 };
 
-const defaultFind = (id: string): PlayerInfo | undefined => {
-  const p = PLAYERS.find(x => x.id === id);
-  return p ? { id: p.id, name: p.name, color: p.color } : undefined;
-};
+// Sem Provider (ex.: componente renderizado fora da árvore do app), não há
+// como saber quem é o jogador — retornar undefined é o comportamento seguro;
+// antes caía num fallback de dados fictícios (@/mocks/data), que podia
+// devolver um nome errado com aparência de válido.
+const defaultFind = (): PlayerInfo | undefined => undefined;
 
 const Ctx = createContext<CtxType>({ groupPlayers: [], findPlayer: defaultFind });
 
@@ -22,15 +24,17 @@ export function GroupPlayersProvider({ children }: { children: ReactNode }) {
   const [groupPlayers, setGroupPlayers] = useState<GroupPlayer[]>([]);
 
   useEffect(() => {
+    // Zera ANTES de subscrever o novo grupo (ou ao deslogar/sair): sem
+    // isso, a lista antiga ficava na tela até o primeiro snapshot do novo
+    // grupo chegar — trocar de grupo mostrava por um instante (ou
+    // indefinidamente, se !group) os jogadores do grupo anterior.
+    setGroupPlayers([]);
     if (!user || !group) return;
     return subscribeGroupPlayers(group.id, setGroupPlayers);
   }, [user, group]);
 
   function findPlayer(id: string): PlayerInfo | undefined {
-    const gp = groupPlayers.find(p => p.id === id);
-    if (gp) return { id: gp.id, name: gp.name, color: gp.color };
-    const mp = PLAYERS.find(p => p.id === id);
-    return mp ? { id: mp.id, name: mp.name, color: mp.color } : undefined;
+    return resolvePlayer(groupPlayers, id);
   }
 
   return (
