@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Modal,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, ScreenHeader, Icon } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -1010,7 +1010,7 @@ const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   title: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text, flex: 1 },
   meta: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
-  scroll: { padding: Spacing.md, gap: Spacing.sm },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.sm },
   empty: { alignItems: 'center', padding: Spacing.xl, gap: Spacing.sm },
   emptyTitle: { fontFamily: FontFamily.title, fontSize: 18, color: Colors.text },
   emptySub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },

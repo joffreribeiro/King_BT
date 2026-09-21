@@ -5,10 +5,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useRef, useMemo, useState } from 'react';
 import { router } from 'expo-router';
-import { FontFamily, Spacing, Radius, formatAccent, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, formatAccent, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { matchGames } from '@/logic/setOutcome';
+import { formatRelativeDate, parseStoredDate } from '@/logic/format';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { statPoints } from '@/logic/scoring';
@@ -36,14 +37,7 @@ const FORMAT_LABEL: Record<string, string> = {
 };
 
 function formatDateStr(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00');
-  const now = new Date();
-  const diff = Math.floor((now.getTime() - d.getTime()) / 86400000);
-  if (diff === 0) return 'Hoje';
-  if (diff === 1) return 'Ontem';
-  if (diff < 7)  return `Há ${diff} dias`;
-  if (diff < 30) return `Há ${Math.floor(diff / 7)} sem.`;
-  return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+  return formatRelativeDate(parseStoredDate(dateStr));
 }
 
 function getInsight(isWin: boolean, playerScore: number, opponentScore: number): string {
@@ -405,7 +399,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   statLbl:    { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
   statDivider:{ width: 1, backgroundColor: Colors.line, alignSelf: 'stretch', marginVertical: 4 },
 
-  list: { paddingHorizontal: Spacing.md, paddingTop: 0 },
+  list: { ...centeredContent, paddingHorizontal: Spacing.md, paddingTop: 0 },
 
   timelineWrap: { position: 'relative' },
   timelineLine: {

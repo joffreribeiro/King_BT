@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { goToPlayer } from '@/logic/nav';
-import { FontFamily, Spacing, type ThemeColors, PODIUM_COLORS } from '@/theme';
+import { FontFamily, Spacing, centeredContent, type ThemeColors, PODIUM_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card, Icon, ScreenHeader } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -171,7 +171,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   bannerImg: { width: '100%', height: '100%' },
   bannerFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 90 },
   title: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.gold, flex: 1 },
-  scroll: { padding: Spacing.md, gap: Spacing.sm },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.sm },
   sectionLabel: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted, letterSpacing: 2, marginTop: Spacing.sm },
   emptyTitle: { fontFamily: FontFamily.title, fontSize: 18, color: Colors.text, marginTop: Spacing.sm },
   emptySub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', marginTop: 4 },

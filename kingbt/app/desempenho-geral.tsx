@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useMemo, useState } from 'react';
 import { collection, query, where, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/firebase/config';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
 import { fetchCompetitionsOnce } from '@/firebase/competitions';
@@ -11,6 +11,7 @@ import { computeFormatStats, mergeFormatStats, generateFormatInsight, type Forma
 import { computeSituationStats, mergeSituationStats, type SituationStat } from '@/logic/situationStats';
 import { computeNamedRivalries, mergeNamedRivalries, reduceNamedRivalries, type NamedRivalryMaps, type NamedRivalryStats } from '@/logic/rivalries';
 import { buildRanking } from '@/logic/scoring';
+import { formatRating, formatRelativeDate } from '@/logic/format';
 import { extractPlayerGames } from '@/logic/formats';
 import { matchGames } from '@/logic/setOutcome';
 import { validateScoringConfig } from '@/logic/scoringConfig';
@@ -336,7 +337,7 @@ export default function DesempenhoGeralScreen() {
                     <Text style={[s.groupPct, { color: Colors.gold }]}>{pct}%</Text>
                   </View>
                   <Text style={s.groupCount}>
-                    {g.played} partidas · {g.wins}V {g.played - g.wins}D · rating {g.points.toFixed(2)}
+                    {g.played} partidas · {g.wins}V {g.played - g.wins}D · rating {formatRating(g.points)}
                     {g.total > 1 ? ` · acima de ${g.percentile}% do grupo` : ''}
                   </Text>
                   <ProgressBar pct={pct} color={Colors.gold} height={4} />
@@ -453,7 +454,7 @@ export default function DesempenhoGeralScreen() {
                     <Text style={s.catOpp} numberOfLines={1}>
                       vs {m.opponent}{m.partner ? ` · com ${m.partner}` : ''}
                     </Text>
-                    <Text style={s.catSub} numberOfLines={1}>{[m.groupName, m.date?.slice(0, 10)].filter(Boolean).join(' · ')}</Text>
+                    <Text style={s.catSub} numberOfLines={1}>{[m.groupName, m.date ? formatRelativeDate(new Date(m.date)) : null].filter(Boolean).join(' · ')}</Text>
                   </View>
                   <Text style={[s.catScore, { color: m.won ? Colors.teal : Colors.coral }]}>{m.myScore}–{m.oppScore}</Text>
                 </View>
@@ -471,7 +472,7 @@ export default function DesempenhoGeralScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  scroll: { padding: Spacing.md, gap: Spacing.sm, paddingBottom: Spacing.xl },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.sm, paddingBottom: Spacing.xl },
 
   hint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, lineHeight: 19, marginBottom: 4 },
 

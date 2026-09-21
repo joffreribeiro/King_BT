@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState, useMemo } from 'react';
-import { FontFamily, Spacing, Radius, type ThemeColors, PLAYER_COLORS } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors, PLAYER_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Icon } from '@/components';
 import type { Format } from '@/logic/types';
@@ -530,7 +530,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   stepLineActive: { backgroundColor: Colors.gold },
   stepLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   stepLabelActive: { color: Colors.gold, fontFamily: FontFamily.bodyMed },
-  scroll: { padding: Spacing.md, gap: Spacing.md },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.md },
 
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   title: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text },

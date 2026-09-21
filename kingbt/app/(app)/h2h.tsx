@@ -2,11 +2,12 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated } from '
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useMemo, useState, useRef } from 'react';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { matchGames } from '@/logic/setOutcome';
+import { formatGA } from '@/logic/format';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 
 type Tab = 'geral' | 'historico' | 'stats';
@@ -261,7 +262,7 @@ export default function H2HScreen() {
                   </View>
                   <View style={s.statCard}>
                     <Text style={[s.statValue, { color: stats.ga >= 1 ? Colors.teal : Colors.coral }]}>
-                      {stats.ga.toFixed(2)}
+                      {formatGA(stats.ga)}
                     </Text>
                     <Text style={s.statLabel}>GA</Text>
                     <Text style={s.statSub}>GP ÷ GC</Text>
@@ -313,7 +314,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   tabLabel: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.faint },
   tabLabelActive: { color: Colors.gold },
 
-  scroll: { paddingHorizontal: Spacing.md },
+  scroll: { ...centeredContent, paddingHorizontal: Spacing.md },
   section: { gap: Spacing.sm },
 
   wrCard: { backgroundColor: Colors.surf, borderRadius: Radius.md, padding: Spacing.md, gap: Spacing.sm },

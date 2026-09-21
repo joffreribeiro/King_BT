@@ -1,15 +1,16 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  StatusBar, Modal, Alert, TextInput,
+  StatusBar, Modal, TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useSettings } from '@/store/SettingsContext';
+import { notify } from '@/services/notify';
 import {
   placardInicial, avancaPonto, formatGameScore, formatSetScore, setsDoPlacard,
   salvarAnalise, carregarAnalise, winRuleFromComp,
@@ -508,7 +509,7 @@ export default function PontoScreen() {
   }
 
   function pedirEncerrar() {
-    if (pontos.length === 0) { Alert.alert('Sem pontos', 'Registre ao menos um ponto antes de encerrar.'); return; }
+    if (pontos.length === 0) { notify('Sem pontos', 'Registre ao menos um ponto antes de encerrar.'); return; }
     setModalEncerrar(true);
   }
 
@@ -537,7 +538,7 @@ export default function PontoScreen() {
             else router.replace({ pathname: '/competitions/[id]', params: { id: compId } });
           }}
         />
-        <ScrollView contentContainerStyle={{ padding: 24, gap: 20, alignItems: 'center' }}>
+        <ScrollView contentContainerStyle={{ ...centeredContent, padding: 24, gap: 20, alignItems: 'center' }}>
           <View style={{ alignItems: 'center', gap: 8, marginTop: 16 }}>
             <Text style={{ fontSize: 40 }}>✅</Text>
             <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text }}>Partida Encerrada</Text>
@@ -1254,7 +1255,7 @@ const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   gameScore:     { fontFamily: FontFamily.numberBold, fontSize: 20, color: Colors.text },
   setScoreLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   tiebreakLabel: { fontFamily: FontFamily.bodyMed, fontSize: 9, color: Colors.gold, backgroundColor: Colors.gold + '22', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, textAlign: 'center' },
-  scroll:   { padding: Spacing.md, gap: Spacing.sm },
+  scroll:   { ...centeredContent, padding: Spacing.md, gap: Spacing.sm },
   label:    { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted, marginTop: Spacing.sm },
   sublabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, marginBottom: 2 },
   opt:      { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },

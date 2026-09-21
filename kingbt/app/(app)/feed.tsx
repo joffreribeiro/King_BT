@@ -4,7 +4,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FontFamily, Spacing, Radius, Type, formatAccent, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, Type, formatAccent, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card, Icon } from '@/components';
 import { useFeed } from '@/store/FeedContext';
@@ -810,7 +810,7 @@ export default function FeedScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container:  { flex: 1, backgroundColor: Colors.bg },
-  list:       { padding: Spacing.md, paddingBottom: 140 },
+  list:       { ...centeredContent, padding: Spacing.md, paddingBottom: 140 },
   titleRow:   { marginBottom: Spacing.md },
   title:      { ...Type.h1, color: Colors.text },
   dayDivider: { fontFamily: FontFamily.numberBold, fontSize: 10, letterSpacing: 1.2, color: Colors.faint, textTransform: 'uppercase', marginBottom: Spacing.xs, marginTop: Spacing.xs },

@@ -3,7 +3,7 @@ import { Icon } from '@/components/icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState, useMemo } from 'react';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import type { Format, Gender } from '@/logic/types';
 import { WIN_RULE_PRESETS } from '@/constants/winRulePresets';
@@ -410,7 +410,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   stepLineActive: { backgroundColor: Colors.gold },
   stepLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   stepLabelActive: { color: Colors.gold, fontFamily: FontFamily.bodyMed },
-  scroll: { padding: Spacing.md, gap: Spacing.lg },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.lg },
   field: { gap: Spacing.sm },
   fieldLabel: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
   required: { color: Colors.coral },

@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useMemo } from 'react';
 import { router } from 'expo-router';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { listarAnalises, type BtAnalise } from '@/logic/btTracker';
 import { useAuth } from '@/store/AuthContext';
@@ -132,7 +132,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line,
   },
   title: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
-  scroll: { padding: Spacing.md, gap: Spacing.sm },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.sm },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl, gap: Spacing.sm },
   emptyTitle: { fontFamily: FontFamily.title, fontSize: 18, color: Colors.text, textAlign: 'center' },
   hint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },

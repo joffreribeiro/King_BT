@@ -1,10 +1,11 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Dimensions, StatusBar, Alert,
+  Dimensions, StatusBar,
 } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { gerarRelatorioPartidaHtml } from '@/logic/exportRelatorio';
+import { notify } from '@/services/notify';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -562,7 +563,7 @@ export default function RelatorioScreen() {
       }
     } catch {
       setExportando(false);
-      Alert.alert('Erro', 'Não foi possível gerar o PDF.');
+      notify('Erro', 'Não foi possível gerar o PDF.');
     }
   }
 

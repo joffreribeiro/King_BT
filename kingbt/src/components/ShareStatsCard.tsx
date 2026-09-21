@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, Image, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontFamily, type ThemeColors } from '@/theme';
+import { formatRating, formatGA } from '@/logic/format';
 import { useTheme } from '@/store/ThemeContext';
 
 export interface ShareStatsData {
@@ -44,7 +45,7 @@ export function ShareStatsCard({ data }: { data: ShareStatsData }) {
       <View style={s.ptsRow}>
         <Text style={s.ptsLabel}>PONTUAÇÃO</Text>
         <Text style={[s.ptsVal, { color: data.color === '#FFD166' ? Colors.gold : data.color }]}>
-          {data.points.toFixed(2)}
+          {formatRating(data.points)}
         </Text>
       </View>
 
@@ -56,7 +57,7 @@ export function ShareStatsCard({ data }: { data: ShareStatsData }) {
           { l: 'Derrotas', v: data.losses,               c: Colors.coral },
           { l: 'Win %',    v: `${data.winRate}%`,        c: Colors.gold },
           { l: 'SG',       v: (data.sg >= 0 ? '+' : '') + data.sg, c: data.sg >= 0 ? Colors.teal : Colors.coral },
-          { l: 'GA',       v: data.ga.toFixed(2),        c: Colors.gold },
+          { l: 'GA',       v: formatGA(data.ga),         c: Colors.gold },
         ].map(item => (
           <View key={item.l} style={s.cell}>
             <Text style={[s.cellVal, { color: item.c }]}>{item.v}</Text>

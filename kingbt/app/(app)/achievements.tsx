@@ -4,7 +4,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useMemo } from 'react';
 import { router } from 'expo-router';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
@@ -132,7 +132,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   overallTrack: { height: 4, backgroundColor: Colors.surf2, borderRadius: 2, overflow: 'hidden' },
   overallFill:  { height: 4, backgroundColor: Colors.gold, borderRadius: 2 },
 
-  scroll: { padding: Spacing.md },
+  scroll: { ...centeredContent, padding: Spacing.md },
 
   catHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',

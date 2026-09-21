@@ -7,7 +7,7 @@ import { useState, useRef, useMemo, useCallback } from 'react';
 import { router } from 'expo-router';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import { FontFamily, Spacing, Radius, type ThemeColors, PLAYER_COLORS } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors, PLAYER_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Badge, Card, ShareStatsCard, Icon } from '@/components';
 import type { ShareStatsData } from '@/components';
@@ -17,6 +17,7 @@ import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useSettings } from '@/store/SettingsContext';
 import { addGuestPlayer, removeGuestPlayer } from '@/firebase/groupPlayers';
+import { notify } from '@/services/notify';
 import { EditNameModal } from '@/components/competition/EditNameModal';
 import QRCode from 'react-native-qrcode-svg';
 import { buildRanking } from '@/logic/scoring';
@@ -112,7 +113,10 @@ export default function ProfileScreen() {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Compartilhar stats' });
       }
-    } catch { setSharingInProgress(false); }
+    } catch {
+      setSharingInProgress(false);
+      notify('Erro', 'Não foi possível gerar a imagem.');
+    }
   }
 
   // ── Data ────────────────────────────────────────────────────────────────────
@@ -472,7 +476,7 @@ export default function ProfileScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  scroll: { padding: Spacing.md, gap: Spacing.md },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.md },
 
   heroBanner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, position: 'relative', overflow: 'hidden' },
   heroBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },

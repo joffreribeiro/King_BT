@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { formatRating, formatGA } from '@/logic/format';
 import { useTheme } from '@/store/ThemeContext';
 import { Card, RatingChart, Icon } from '@/components';
 import { MatchDetailModal, type MatchDetail } from '@/components/MatchDetailModal';
@@ -43,7 +44,7 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
             PONTUAÇÃO KING BT
           </Text>
           <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 40, color: Colors.gold, lineHeight: 46 }}>
-            {me.points.toFixed(2)}
+            {formatRating(me.points)}
           </Text>
         </View>
         <View style={statRow.row}>
@@ -53,7 +54,7 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
             { l: 'A favor', v: me.gamesPro,                      c: Colors.teal },
             { l: 'Contra',  v: me.gamesCon,                      c: Colors.coral },
             { l: 'Saldo',   v: (me.sg >= 0 ? '+' : '') + me.sg, c: me.sg >= 0 ? Colors.teal : Colors.coral },
-            { l: 'Média',   v: me.ga.toFixed(2),                 c: Colors.gold },
+            { l: 'Média',   v: formatGA(me.ga),                  c: Colors.gold },
             { l: 'Aprov.',  v: `${winRate}%`,                    c: Colors.goldBright },
           ].map((item, i, arr) => (
             <View key={item.l} style={[statRow.cell, i < arr.length - 1 && statRow.divider]}>

@@ -5,6 +5,7 @@ import { useTheme } from '@/store/ThemeContext';
 import { useSettings } from '@/store/SettingsContext';
 import { Avatar } from '@/components';
 import type { RankedPlayer } from '@/logic/scoring';
+import { formatRating, formatGA } from '@/logic/format';
 import type { PlayerInfo } from '@/logic/types';
 
 /** Formata a fórmula de pontuação real do grupo (inclui eventos só se usado). */
@@ -89,7 +90,7 @@ export default function RankingCard({ ranking, players, groupName, season, round
               <Text style={card.podPos}>2°</Text>
               <Avatar name={getPlayer(second.id)?.name ?? ''} color={getPlayer(second.id)?.color ?? '#ccc'} size={52} />
               <Text style={[card.podName, { color: MEDAL_COLOR[2] }]}>{getPlayer(second.id)?.name?.split(' ')[0]}</Text>
-              <Text style={[card.podPts, { color: MEDAL_COLOR[2] }]}>{second.points.toFixed(2)}</Text>
+              <Text style={[card.podPts, { color: MEDAL_COLOR[2] }]}>{formatRating(second.points)}</Text>
               <View style={[card.podBlock, { height: 80, backgroundColor: MEDAL_COLOR[2] + '22', borderTopColor: MEDAL_COLOR[2] }]}>
                 <Text style={[card.podBlockNum, { color: MEDAL_COLOR[2] }]}>2</Text>
               </View>
@@ -104,7 +105,7 @@ export default function RankingCard({ ranking, players, groupName, season, round
               <Text style={[card.podPos, { color: MEDAL_COLOR[1], fontSize: 17 }]}>1°</Text>
               <Avatar name={getPlayer(first.id)?.name ?? ''} color={getPlayer(first.id)?.color ?? '#ccc'} size={72} showCrown />
               <Text style={[card.podName, { color: MEDAL_COLOR[1], fontSize: 17 }]}>{getPlayer(first.id)?.name?.toUpperCase()}</Text>
-              <Text style={[card.podPts, { color: MEDAL_COLOR[1], fontSize: 22 }]}>{first.points.toFixed(2)}</Text>
+              <Text style={[card.podPts, { color: MEDAL_COLOR[1], fontSize: 22 }]}>{formatRating(first.points)}</Text>
               <View style={[card.podBlock, { height: 120, backgroundColor: MEDAL_COLOR[1] + '22', borderTopColor: MEDAL_COLOR[1] }]}>
                 <Text style={[card.podBlockNum, { color: MEDAL_COLOR[1], fontSize: 32 }]}>1</Text>
               </View>
@@ -119,7 +120,7 @@ export default function RankingCard({ ranking, players, groupName, season, round
               <Text style={card.podPos}>3°</Text>
               <Avatar name={getPlayer(third.id)?.name ?? ''} color={getPlayer(third.id)?.color ?? '#ccc'} size={44} />
               <Text style={[card.podName, { color: MEDAL_COLOR[3] }]}>{getPlayer(third.id)?.name?.split(' ')[0]}</Text>
-              <Text style={[card.podPts, { color: MEDAL_COLOR[3] }]}>{third.points.toFixed(2)}</Text>
+              <Text style={[card.podPts, { color: MEDAL_COLOR[3] }]}>{formatRating(third.points)}</Text>
               <View style={[card.podBlock, { height: 60, backgroundColor: MEDAL_COLOR[3] + '22', borderTopColor: MEDAL_COLOR[3] }]}>
                 <Text style={[card.podBlockNum, { color: MEDAL_COLOR[3] }]}>3</Text>
               </View>
@@ -161,8 +162,8 @@ export default function RankingCard({ ranking, players, groupName, season, round
               <Text style={[card.td, card.tdNum]}>{r.gamesPro}</Text>
               <Text style={[card.td, card.tdNum]}>{r.gamesCon}</Text>
               <Text style={[card.td, card.tdNum, { color: sgColor }]}>{r.sg > 0 ? '+' : ''}{r.sg}</Text>
-              <Text style={[card.td, card.tdNum]}>{r.ga.toFixed(2)}</Text>
-              <Text style={[card.td, { width: 52, textAlign: 'right', fontFamily: FontFamily.numberBold, color: Colors.gold, fontSize: 13 }]}>{r.points.toFixed(2)}</Text>
+              <Text style={[card.td, card.tdNum]}>{formatGA(r.ga)}</Text>
+              <Text style={[card.td, { width: 52, textAlign: 'right', fontFamily: FontFamily.numberBold, color: Colors.gold, fontSize: 13 }]}>{formatRating(r.points)}</Text>
             </View>
           );
         })}

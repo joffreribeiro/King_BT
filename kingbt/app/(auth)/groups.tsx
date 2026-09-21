@@ -5,7 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'expo-router';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
 import type { Group, UnlinkedPlayer } from '@/store/AuthContext';
@@ -58,6 +58,7 @@ export default function GroupsScreen() {
   // Grupos públicos que o usuário pode visitar (somente leitura)
   const [publicGroups, setPublicGroups] = useState<Group[]>([]);
   const [loadingPublic, setLoadingPublic] = useState(true);
+  const [publicGroupsError, setPublicGroupsError] = useState(false);
   const [visitBusy, setVisitBusy] = useState(false);
 
   useEffect(() => {
@@ -74,6 +75,7 @@ export default function GroupsScreen() {
 
   async function loadPublicGroups() {
     setLoadingPublic(true);
+    setPublicGroupsError(false);
     try {
       const [{ collection, query, where, limit, getDocs }, myIds] = await Promise.all([
         import('firebase/firestore'),
@@ -84,7 +86,10 @@ export default function GroupsScreen() {
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }) as Group);
       setPublicGroups(all.filter(g => !myIds.includes(g.id)));
     } catch {
+      // Antes uma falha de rede virava "nenhum grupo público" — indistinguível
+      // de fato não haver grupos. Agora mostra retry em vez de esconder a seção.
       setPublicGroups([]);
+      setPublicGroupsError(true);
     }
     setLoadingPublic(false);
   }
@@ -266,6 +271,14 @@ export default function GroupsScreen() {
                   </TouchableOpacity>
 
                   {/* Explorar grupos públicos */}
+                  {publicGroupsError && (
+                    <View style={styles.section}>
+                      <Text style={styles.sectionTitle}>Explorar grupos públicos</Text>
+                      <TouchableOpacity style={styles.publicGroupsRetry} onPress={loadPublicGroups} activeOpacity={0.7}>
+                        <Text style={styles.publicGroupsRetryText}>Não foi possível carregar. Toque para tentar de novo.</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                   {!loadingPublic && publicGroups.length > 0 && (
                     <View style={styles.section}>
                       <Text style={styles.sectionTitle}>Explorar grupos públicos</Text>
@@ -399,13 +412,18 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.line },
   backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
-  scroll: { padding: Spacing.md, gap: Spacing.md },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.md },
 
   errorBox: { backgroundColor: Colors.coral + '22', borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.coral + '44' },
   errorText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.coral },
 
   section: { gap: Spacing.sm },
   sectionTitle: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.muted, letterSpacing: 1, marginBottom: Spacing.xs },
+  publicGroupsRetry: {
+    borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md,
+    paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md, alignItems: 'center',
+  },
+  publicGroupsRetryText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
 
   groupCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.line, padding: Spacing.md },
   groupCardActive: { borderColor: Colors.gold, backgroundColor: Colors.surf2 },

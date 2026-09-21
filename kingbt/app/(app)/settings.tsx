@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
-import { FontFamily, Spacing, Radius, type ThemeColors, PLAYER_COLORS } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors, PLAYER_COLORS } from '@/theme';
 import { Avatar, Card, VisibilityPicker, ScreenHeader } from '@/components';
 import { Icon } from '@/components/icons';
 import { useAuth } from '@/store/AuthContext';
@@ -179,7 +179,7 @@ export default function SettingsScreen() {
   function handleRemovePlayer(playerId: string, playerUid: string | null | undefined, name: string) {
     if (!group) return;
     if (playerUid && playerUid === user?.uid) {
-      Alert.alert('Ação inválida', 'Você não pode remover a si mesmo do grupo.');
+      notify('Ação inválida', 'Você não pode remover a si mesmo do grupo.');
       return;
     }
     const doRemove = async () => {
@@ -643,7 +643,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   tabLabelActive: { color: Colors.gold, fontWeight: '700' },
   tabIndicator: { position: 'absolute', bottom: -1, left: 0, right: 0, height: 2.5, backgroundColor: Colors.gold, borderRadius: 1 },
   title: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
-  scroll: { padding: Spacing.md, gap: Spacing.lg },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.lg },
 
   versionFooter: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center', letterSpacing: 1 },
   prefCard: { gap: 0, paddingVertical: Spacing.xs },

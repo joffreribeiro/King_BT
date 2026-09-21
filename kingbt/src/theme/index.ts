@@ -79,6 +79,23 @@ export const Spacing = {
   xl: 32,
 } as const;
 
+/**
+ * Largura máxima do conteúdo scrollável nas telas. Sem isso, cada tela
+ * esticava borda a borda na web — que é o canal de distribuição principal
+ * do app — com avatar e valor de uma linha da tabela a mais de 1000px de
+ * distância um do outro em telas largas. Não afeta nativo/mobile: a tela
+ * sempre é mais estreita que isto, então o `maxWidth` nunca entra em jogo.
+ */
+export const MAX_CONTENT_WIDTH = 640;
+
+/** Spread no `contentContainerStyle` (ou estilo equivalente) do scroll
+ * principal de cada tela, junto do padding/gap que a tela já define. */
+export const centeredContent = {
+  width: '100%',
+  maxWidth: MAX_CONTENT_WIDTH,
+  alignSelf: 'center',
+} as const;
+
 export const FontFamily = {
   title:      'Sora_700Bold',
   titleBold:  'Sora_800ExtraBold',

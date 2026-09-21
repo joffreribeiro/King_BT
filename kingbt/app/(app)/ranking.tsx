@@ -1,9 +1,10 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useRef, useMemo, useCallback } from 'react';
 import ViewShot from 'react-native-view-shot';
 import { router } from 'expo-router';
 import { goToPlayer } from '@/logic/nav';
+import { notify } from '@/services/notify';
 import { FontFamily, Spacing, Radius, Type, type ThemeColors, Colors, PODIUM_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card, Icon } from '@/components';
@@ -16,6 +17,7 @@ import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useSettings } from '@/store/SettingsContext';
 import { buildRanking } from '@/logic/scoring';
+import { formatRating, formatGA } from '@/logic/format';
 import { extractPlayerGames } from '@/logic/formats';
 import { sgColor } from '@/components/competition/helpers';
 import { computeRankingDeltas } from '@/logic/rankingDelta';
@@ -135,7 +137,7 @@ export default function RankingScreen() {
       }
     } catch {
       setSharingImg(false);
-      Alert.alert('Erro', 'Não foi possível gerar a imagem.');
+      notify('Erro', 'Não foi possível gerar a imagem.');
     }
   }
 
@@ -149,7 +151,7 @@ export default function RankingScreen() {
       }
     } catch {
       setExporting(false);
-      Alert.alert('Erro', 'Não foi possível gerar o PDF.');
+      notify('Erro', 'Não foi possível gerar o PDF.');
     }
   }
 
@@ -319,7 +321,7 @@ export default function RankingScreen() {
                         { label: 'VITÓRIAS', value: String(s.wins) },
                         { label: 'DERROTAS', value: String(s.losses) },
                         { label: 'SALDO',    value: `${s.sg > 0 ? '+' : ''}${s.sg}`, color: sgColor(s.sg, Colors) },
-                        { label: 'GA',       value: s.ga >= 10 ? s.ga.toFixed(1) : s.ga.toFixed(2) },
+                        { label: 'GA',       value: formatGA(s.ga) },
                       ] as const).map(st => (
                         <View key={st.label} style={styles.statCell}>
                           <Text style={styles.statCellLabel}>{st.label}</Text>
@@ -449,10 +451,10 @@ export default function RankingScreen() {
               const plB = findPlayer(compareB);
               const { wA, wB } = h2hBetween(state, compareA, compareB);
               const stats: { label: string; a: string | number; b: string | number }[] = [
-                { label: 'Pontos', a: pA.points.toFixed(2), b: pB.points.toFixed(2) },
+                { label: 'Pontos', a: formatRating(pA.points), b: formatRating(pB.points) },
                 { label: 'Vitórias', a: pA.wins, b: pB.wins },
                 { label: 'Derrotas', a: pA.losses, b: pB.losses },
-                { label: 'GA', a: pA.ga.toFixed(2), b: pB.ga.toFixed(2) },
+                { label: 'GA', a: formatGA(pA.ga), b: formatGA(pB.ga) },
                 { label: 'H2H', a: `${wA}V`, b: `${wB}V` },
               ];
               return (
@@ -552,7 +554,7 @@ export default function RankingScreen() {
                 <Text style={modal.exText}>
                   = {fmtCoef(winPts)} + {fmtCoef(playedPts)} + {fmtCoef(gaPts)}
                   {hasEvents && ` + ${fmtCoef(eventsPts)}`}
-                  {' = '}<Text style={{ color: Colors.gold }}>{me.points.toFixed(2).replace('.', ',')} pts</Text>
+                  {' = '}<Text style={{ color: Colors.gold }}>{formatRating(me.points)} pts</Text>
                 </Text>
               </View>
             );

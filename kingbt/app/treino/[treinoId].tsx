@@ -1,12 +1,13 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
 import { Icon } from '@/components/icons';
+import { notify } from '@/services/notify';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { gerarRelatorioTreinoHtml } from '@/logic/exportRelatorio';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -107,7 +108,7 @@ export default function TreinoDetailScreen() {
       }
     } catch {
       setExportando(false);
-      Alert.alert('Erro', 'Não foi possível gerar o PDF.');
+      notify('Erro', 'Não foi possível gerar o PDF.');
     }
   }
 
@@ -241,7 +242,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   tabActive: { borderBottomColor: Colors.gold },
   tabTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.faint },
   tabTxtActive: { color: Colors.gold },
-  scroll: { padding: Spacing.md, gap: Spacing.md },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.md },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl },
   hint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
   dashGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },

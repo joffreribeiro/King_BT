@@ -11,6 +11,7 @@ import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
 import { useSettings } from '@/store/SettingsContext';
 import { buildRanking } from '@/logic/scoring';
+import { formatRating } from '@/logic/format';
 import { extractPlayerGames } from '@/logic/formats';
 import { matchGames } from '@/logic/setOutcome';
 import { computeGroupRivalries } from '@/logic/rivalries';
@@ -52,24 +53,39 @@ export default function DashboardScreen() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
 
-  const allMatches = state.competitions.flatMap(c => c.matches);
-  const playedMatches = allMatches.filter(m => m.scoreA != null && m.scoreB != null);
+  // Recalcula sobre TODAS as partidas do grupo a cada render — sem memoização
+  // era o cálculo mais caro do app recalculado toda vez, no dashboard sendo
+  // a tela inicial. Cada bloco abaixo memoiza pela sua própria fatia de estado.
+  const allMatches = useMemo(() => state.competitions.flatMap(c => c.matches), [state.competitions]);
+  const playedMatches = useMemo(
+    () => allMatches.filter(m => m.scoreA != null && m.scoreB != null),
+    [allMatches]
+  );
   const totalGames = playedMatches.length;
   const totalComps = state.competitions.length;
-  const doneComps = state.competitions.filter(c => c.status === 'done').length;
+  const doneComps = useMemo(
+    () => state.competitions.filter(c => c.status === 'done').length,
+    [state.competitions]
+  );
 
-  const allGames = state.competitions.flatMap(extractPlayerGames);
-  const rankPlayers = groupPlayers.map(p => ({ id: p.id, name: p.name, short: '', color: p.color, handicap: p.handicap }));
-  const ranking = buildRanking(rankPlayers, allGames, scoringConfig);
-  const mostActive = [...ranking].sort((a, b) => b.played - a.played)[0];
+  const allGames = useMemo(() => state.competitions.flatMap(extractPlayerGames), [state.competitions]);
+  const rankPlayers = useMemo(
+    () => groupPlayers.map(p => ({ id: p.id, name: p.name, short: '', color: p.color, handicap: p.handicap })),
+    [groupPlayers]
+  );
+  const ranking = useMemo(() => buildRanking(rankPlayers, allGames, scoringConfig), [rankPlayers, allGames, scoringConfig]);
+  const mostActive = useMemo(() => [...ranking].sort((a, b) => b.played - a.played)[0], [ranking]);
   const mostActivePlayer = mostActive ? findPlayer(mostActive.id) : null;
 
   // Sequência de vitórias ativa por jogador
-  let longestStreak = { id: '', streak: 0 };
-  groupPlayers.forEach(player => {
-    const streak = currentStreak(player.id, playedMatches);
-    if (streak > longestStreak.streak) longestStreak = { id: player.id, streak };
-  });
+  const longestStreak = useMemo(() => {
+    let best = { id: '', streak: 0 };
+    groupPlayers.forEach(player => {
+      const streak = currentStreak(player.id, playedMatches);
+      if (streak > best.streak) best = { id: player.id, streak };
+    });
+    return best;
+  }, [groupPlayers, playedMatches]);
   const streakPlayer = longestStreak.id ? findPlayer(longestStreak.id) : null;
 
   // Jogo mais disputado (menor diferença de games). `allMatches` é um flatMap
@@ -77,19 +93,19 @@ export default function DashboardScreen() {
   // antigos, gravados antes da marca `stb`, seguem somando o super tie-break
   // como games. Cosmético — só decide qual jogo aparece como "mais disputado".
   const gamesOf = (m: Match) => matchGames(m);
-  const closest = [...playedMatches]
+  const closest = useMemo(() => [...playedMatches]
     .filter(m => m.scoreA != null && m.scoreB != null)
     .sort((a, b) => {
       const ga = gamesOf(a), gb = gamesOf(b);
       return Math.abs(ga.a - ga.b) - Math.abs(gb.a - gb.b);
-    })[0];
+    })[0], [playedMatches]);
   const closestGames = closest ? gamesOf(closest) : null;
-  const closestComp = closest
+  const closestComp = useMemo(() => closest
     ? state.competitions.find(c => c.matches.some(m => m.id === closest.id))
-    : null;
+    : null, [closest, state.competitions]);
 
   // Rivalidades do grupo (top 5 pares com mais confrontos)
-  const groupRivalries = computeGroupRivalries(state.competitions).slice(0, 5);
+  const groupRivalries = useMemo(() => computeGroupRivalries(state.competitions).slice(0, 5), [state.competitions]);
 
   // Stats pessoais do usuário logado
   const myStats = myPlayerId ? ranking.find(r => r.id === myPlayerId) : null;
@@ -114,7 +130,7 @@ export default function DashboardScreen() {
         {myStats && (
           <View style={ds.statsRow}>
             <View style={ds.statCard}>
-              <Text style={ds.statValue}>{myStats.points.toFixed(1)}</Text>
+              <Text style={ds.statValue}>{formatRating(myStats.points)}</Text>
               <Text style={ds.statLabel}>RATING</Text>
               <Text style={[ds.statSub, { color: Colors.gold }]}>pts King BT</Text>
             </View>
@@ -332,7 +348,7 @@ export default function DashboardScreen() {
                     {pl?.name ?? r.id}
                   </Text>
                   <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 15, color: Colors.gold }}>
-                    {r.points.toFixed(2)}
+                    {formatRating(r.points)}
                   </Text>
                 </TouchableOpacity>
               );

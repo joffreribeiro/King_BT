@@ -1,10 +1,10 @@
 import { StyleSheet } from 'react-native';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 
 // Estilos compartilhados pelas views por formato (Rotating/League/Groups/KO/Bracket)
 // Parametrizados pela paleta ativa — chamar com useMemo(() => makeVw(Colors), [Colors]) no componente.
 export const makeVw = (Colors: ThemeColors) => StyleSheet.create({
-  scroll: { padding: Spacing.md, gap: Spacing.sm },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.sm },
   prog: { gap: Spacing.sm, marginBottom: Spacing.sm },
   progRow: { flexDirection: 'row', justifyContent: 'space-between' },
   progLabel: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },

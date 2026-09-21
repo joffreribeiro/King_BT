@@ -4,7 +4,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useRef, useMemo } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FontFamily, type ThemeColors, Colors } from '@/theme';
+import { FontFamily, centeredContent, type ThemeColors, Colors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Icon } from '@/components';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
@@ -147,7 +147,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   banner: { position: 'absolute', top: 0, left: 0, right: 0, height: 220 },
   bannerImg: { width: '100%', height: '100%' },
   bannerFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 130 },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24, paddingTop: 150 },
+  scroll: { ...centeredContent, flexGrow: 1, justifyContent: 'center', padding: 24, paddingTop: 150 },
   content: { alignItems: 'center', gap: 16 },
   resultLabel: {
     fontFamily: FontFamily.numberBold,

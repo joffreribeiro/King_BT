@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { FontFamily, Spacing, Radius, formatAccent, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, formatAccent, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Icon } from '@/components';
 import { buildCompetition } from '@/logic/formats';
@@ -291,7 +291,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   stepLineActive: { backgroundColor: Colors.gold },
   stepLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   stepLabelActive: { color: Colors.gold, fontFamily: FontFamily.bodyMed },
-  scroll: { padding: Spacing.md, gap: Spacing.md },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.md },
 
   fmtHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   fmtStrip: { width: 4, height: 44, borderRadius: 2 },

@@ -5,7 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { router } from 'expo-router';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar } from '@/components';
 import { useAuth } from '@/store/AuthContext';
@@ -193,7 +193,7 @@ const makeNsStyles = (Colors: ThemeColors) => StyleSheet.create({
   tabLabel: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.faint },
   tabLabelActive: { color: Colors.gold },
 
-  scroll: { paddingHorizontal: Spacing.md },
+  scroll: { ...centeredContent, paddingHorizontal: Spacing.md },
 
   item: {
     flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm,

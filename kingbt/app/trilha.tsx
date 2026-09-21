@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useMemo } from 'react';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { koRoundName, matchWinner } from '@/logic/formats';
@@ -103,7 +103,7 @@ export default function TrilhaScreen() {
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   title:    { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
-  scroll:   { padding: Spacing.md, paddingBottom: Spacing.xl },
+  scroll:   { ...centeredContent, padding: Spacing.md, paddingBottom: Spacing.xl },
 
   stepRow: { flexDirection: 'row', gap: Spacing.sm },
   stepLine: { alignItems: 'center', width: 16 },

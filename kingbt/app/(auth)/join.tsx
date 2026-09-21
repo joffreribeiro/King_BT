@@ -5,7 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'expo-router';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useAuth, type UnlinkedPlayer } from '@/store/AuthContext';
 import { LinkPlayerModal } from '@/components/LinkPlayerModal';
@@ -190,7 +190,7 @@ export default function JoinGroupScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  center: { flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.xl, gap: Spacing.md },
+  center: { ...centeredContent, flex: 1, justifyContent: 'center', paddingHorizontal: Spacing.xl, gap: Spacing.md },
   top: { gap: Spacing.sm, marginBottom: Spacing.sm },
   title: { fontFamily: FontFamily.titleBold, fontSize: 28, color: Colors.text },
   subtitle: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.muted, lineHeight: 22 },

@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useMemo } from 'react';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import type { Match, Competition } from '@/logic/types';
 import { PlayerRankingTable } from './FormatViews';
@@ -20,7 +20,7 @@ export function AvulsoView({ comp, onScore, onMatchActions, onAddMatch, canEdit 
   const pending = comp.matches.filter(m => m.scoreA == null);
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: Spacing.md, gap: Spacing.md }}
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ ...centeredContent, padding: Spacing.md, gap: Spacing.md }}
       showsVerticalScrollIndicator={false}>
 
       {/* Classificação */}

@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import React, { useMemo } from 'react';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Icon, type IconName } from '@/components/icons';
 import type { Competition } from '@/logic/types';
@@ -134,7 +134,7 @@ export function RulesView({ comp }: { comp: Competition }) {
 }
 
 const makeRls = (Colors: ThemeColors) => StyleSheet.create({
-  scroll: { padding: Spacing.md, gap: Spacing.md },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.md },
   section: { gap: Spacing.xs },
   sectionTitle: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted, letterSpacing: 1.5, paddingLeft: 2 },
   card: { backgroundColor: Colors.surf, borderRadius: Radius.md, overflow: 'hidden' },

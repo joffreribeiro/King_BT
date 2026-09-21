@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Platf
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { FontFamily, Spacing, Radius, Type, formatAccent, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, Type, formatAccent, type ThemeColors } from '@/theme';
 import { makeShadows } from '@/theme/shadows';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/store/ThemeContext';
@@ -13,6 +13,7 @@ import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import type { Competition, Format } from '@/logic/types';
 import { competitionChampion as getChampion } from '@/logic/formats';
 import { computeStreak } from '@/logic/streak';
+import { formatRelativeDate, parseStoredDate } from '@/logic/format';
 import { StreakBanner } from '@/components/StreakBanner';
 import { usePulseAnim } from '@/hooks/usePulseAnim';
 import { FadeScreen } from '@/components/FadeScreen';
@@ -38,12 +39,7 @@ const FORMAT_FILTERS: { key: Format | 'all'; label: string }[] = [
 ];
 
 function formatDate(iso: string) {
-  const d = new Date(iso + 'T12:00:00');
-  const today = new Date();
-  const diff = Math.round((today.getTime() - d.getTime()) / 86400000);
-  if (diff === 0) return 'hoje';
-  if (diff === 1) return 'ontem';
-  return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '');
+  return formatRelativeDate(parseStoredDate(iso));
 }
 
 
@@ -472,7 +468,7 @@ export default function HubScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  list: { padding: Spacing.md, paddingTop: Spacing.sm },
+  list: { ...centeredContent, padding: Spacing.md, paddingTop: Spacing.sm },
 
   headerLeft: {
     flexDirection: 'row',

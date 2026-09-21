@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
 import { Icon } from '@/components';
@@ -387,7 +387,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   // ela expandia o conteúdo scrollável e um scroll horizontal (trackpad,
   // gesto) desalinhava a tela inteira, cortando o formulário na lateral.
   container: { flex: 1, backgroundColor: '#000000', overflow: 'hidden' },
-  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xl },
+  scroll: { ...centeredContent, flexGrow: 1, justifyContent: 'center', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.xl },
   logoWrap: { alignItems: 'center', paddingBottom: Spacing.sm },
   logoRing: {
     width: 202, height: 202, borderRadius: 101,

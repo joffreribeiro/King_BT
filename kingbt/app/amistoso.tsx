@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -178,7 +178,7 @@ export default function AmistosoScreen() {
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   title: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text, flex: 1 },
-  scroll: { padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xl },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xl },
 
   hint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, lineHeight: 19 },
 

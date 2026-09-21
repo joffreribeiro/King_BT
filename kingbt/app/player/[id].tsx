@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { goToPlayer, goToTrilha } from '@/logic/nav';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Badge, Card, Icon } from '@/components';
 import { useAuth } from '@/store/AuthContext';
@@ -12,6 +12,7 @@ import { PointsTimeline } from '@/components/profile/PointsTimeline';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { buildRanking } from '@/logic/scoring';
+import { formatRating, formatGA } from '@/logic/format';
 import { extractPlayerGames } from '@/logic/formats';
 import { matchGames } from '@/logic/setOutcome';
 import { computeBadges } from '@/logic/badges';
@@ -214,7 +215,7 @@ export default function PlayerDetailScreen() {
         {/* Pontuação */}
         <Card elevated style={styles.ptsCard}>
           <Text style={styles.ptsLabel}>PONTUAÇÃO KING BT</Text>
-          <Text style={styles.ptsVal}>{me.points.toFixed(2)}</Text>
+          <Text style={styles.ptsVal}>{formatRating(me.points)}</Text>
         </Card>
 
         {/* Últimos 20 jogos por formato */}
@@ -268,7 +269,7 @@ export default function PlayerDetailScreen() {
               { l: 'GP',   v: me.gamesPro,                      c: Colors.teal },
               { l: 'GC',   v: me.gamesCon,                      c: Colors.coral },
               { l: 'SG',   v: (me.sg >= 0 ? '+' : '') + me.sg, c: me.sg >= 0 ? Colors.teal : Colors.coral },
-              { l: 'GA',   v: me.ga.toFixed(2),                 c: Colors.gold },
+              { l: 'GA',   v: formatGA(me.ga),                  c: Colors.gold },
               { l: 'WIN%', v: `${winRate}%`,                    c: Colors.goldBright },
             ].map((item, i, arr) => (
               <View key={item.l} style={[statRow.cell, i < arr.length - 1 && statRow.divider]}>
@@ -552,7 +553,7 @@ const makeHistStyles = (Colors: ThemeColors) => StyleSheet.create({
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  scroll: { padding: Spacing.md, gap: Spacing.md },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.md },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.xs },
   backRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   backText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.teal },

@@ -5,7 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { FontFamily, Spacing, Radius, type ThemeColors, Type, PLAYER_COLORS } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors, Type, PLAYER_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Badge, Card, ScreenHeader, Icon, OptionModal } from '@/components';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -466,7 +466,7 @@ export default function CompetitionDetail() {
 
       {/* Painel de confirmação (upcoming) */}
       {comp.status === 'upcoming' && (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: Spacing.md, gap: Spacing.md }}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ ...centeredContent, padding: Spacing.md, gap: Spacing.md }}>
 
           {/* Banner info */}
           <View style={upcoming.infoBanner}>
@@ -610,7 +610,7 @@ export default function CompetitionDetail() {
               /* Mata-mata não tem tabela de classificação — mas tem chave.
                  Aqui era um beco sem saída ("não possui classificação"); o
                  chaveamento existia em app/bracket.tsx sem nenhuma entrada. */
-              : <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, gap: 12 }}>
+              : <ScrollView contentContainerStyle={{ ...centeredContent, padding: 16, paddingBottom: 40, gap: 12 }}>
                   <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', marginTop: 24 }}>
                     Mata-mata não tem tabela de classificação — a posição de cada
                     dupla é a fase até onde ela chegou.

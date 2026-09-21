@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, TextIn
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useMemo } from 'react';
 import { goToTreino } from '@/logic/nav';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -166,7 +166,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line,
   },
   title: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
-  scroll: { padding: Spacing.md, gap: Spacing.sm },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.sm },
   novoBtn: { backgroundColor: Colors.gold, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
   novoBtnTxt: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.bg },
   novoForm: { backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, padding: Spacing.md, gap: Spacing.sm },

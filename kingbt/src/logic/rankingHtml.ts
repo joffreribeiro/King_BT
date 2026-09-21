@@ -1,5 +1,6 @@
 import type { RankedPlayer } from '@/logic/scoring';
 import type { PlayerInfo } from '@/logic/types';
+import { formatRating, formatGA } from '@/logic/format';
 
 export function generateRankingHtml(
   ranking: RankedPlayer[],
@@ -40,8 +41,8 @@ export function generateRankingHtml(
         <td style="text-align:center;font-size:14px;padding:10px 4px;">${r.gamesPro}</td>
         <td style="text-align:center;font-size:14px;padding:10px 4px;">${r.gamesCon}</td>
         <td style="text-align:center;font-size:14px;font-weight:700;color:${sgColor};padding:10px 4px;">${r.sg > 0 ? '+' : ''}${r.sg}</td>
-        <td style="text-align:center;font-size:14px;padding:10px 4px;">${r.ga.toFixed(2)}</td>
-        <td style="text-align:right;font-size:16px;font-weight:900;color:#F3C544;padding:10px 8px;">${r.points.toFixed(2)}</td>
+        <td style="text-align:center;font-size:14px;padding:10px 4px;">${formatGA(r.ga)}</td>
+        <td style="text-align:right;font-size:16px;font-weight:900;color:#F3C544;padding:10px 8px;">${formatRating(r.points)}</td>
       </tr>
     `;
   }).join('');
@@ -135,7 +136,7 @@ export function generateRankingHtml(
     <div style="font-size:16px;font-weight:800;color:#C7D4E0;margin-bottom:6px;">2°</div>
     <div style="width:60px;height:60px;border-radius:50%;background:${getPlayer(second?.id)?.color ?? '#555'};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#000;border:3px solid #C7D4E0;">${getPlayer(second?.id)?.name?.slice(0,2).toUpperCase()}</div>
     <div style="font-size:16px;font-weight:800;color:#C7D4E0;margin-top:8px;text-transform:uppercase;">${getPlayer(second?.id)?.name?.toUpperCase()}</div>
-    <div style="font-size:24px;font-weight:900;color:#C7D4E0;margin-bottom:8px;">${second?.points.toFixed(2)}</div>
+    <div style="font-size:24px;font-weight:900;color:#C7D4E0;margin-bottom:8px;">${second ? formatRating(second.points) : ''}</div>
     <div style="width:100%;height:90px;background:rgba(199,212,224,0.1);border-top:3px solid #C7D4E0;display:flex;align-items:center;justify-content:center;">
       <span style="font-size:36px;font-weight:900;color:#C7D4E0;">2</span>
     </div>
@@ -146,7 +147,7 @@ export function generateRankingHtml(
     <div style="font-size:20px;font-weight:900;color:#F3C544;margin-bottom:6px;">👑 1°</div>
     <div style="width:80px;height:80px;border-radius:50%;background:${getPlayer(first?.id)?.color ?? '#F3C544'};display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;color:#000;border:4px solid #F3C544;box-shadow:0 0 20px rgba(243,197,68,0.5);">${getPlayer(first?.id)?.name?.slice(0,2).toUpperCase()}</div>
     <div style="font-size:22px;font-weight:900;color:#F3C544;margin-top:8px;text-transform:uppercase;letter-spacing:1px;">${getPlayer(first?.id)?.name?.toUpperCase()}</div>
-    <div style="font-size:36px;font-weight:900;color:#F3C544;margin-bottom:8px;text-shadow:0 0 20px rgba(243,197,68,0.5);">${first?.points.toFixed(2)}</div>
+    <div style="font-size:36px;font-weight:900;color:#F3C544;margin-bottom:8px;text-shadow:0 0 20px rgba(243,197,68,0.5);">${first ? formatRating(first.points) : ''}</div>
     <div style="width:100%;height:130px;background:rgba(243,197,68,0.1);border-top:4px solid #F3C544;display:flex;align-items:center;justify-content:center;box-shadow:0 -10px 30px rgba(243,197,68,0.2);">
       <span style="font-size:52px;font-weight:900;color:#F3C544;">1</span>
     </div>
@@ -157,7 +158,7 @@ export function generateRankingHtml(
     <div style="font-size:16px;font-weight:800;color:#D89A6A;margin-bottom:6px;">3°</div>
     <div style="width:52px;height:52px;border-radius:50%;background:${getPlayer(third?.id)?.color ?? '#555'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#000;border:3px solid #D89A6A;">${getPlayer(third?.id)?.name?.slice(0,2).toUpperCase()}</div>
     <div style="font-size:14px;font-weight:800;color:#D89A6A;margin-top:8px;text-transform:uppercase;">${getPlayer(third?.id)?.name?.toUpperCase()}</div>
-    <div style="font-size:22px;font-weight:900;color:#D89A6A;margin-bottom:8px;">${third?.points.toFixed(2)}</div>
+    <div style="font-size:22px;font-weight:900;color:#D89A6A;margin-bottom:8px;">${third ? formatRating(third.points) : ''}</div>
     <div style="width:100%;height:70px;background:rgba(216,154,106,0.1);border-top:3px solid #D89A6A;display:flex;align-items:center;justify-content:center;">
       <span style="font-size:30px;font-weight:900;color:#D89A6A;">3</span>
     </div>
@@ -215,8 +216,8 @@ export function generateRankingHtml(
     </div>
     <div style="margin-top:10px;font-size:10px;color:#888;text-align:center;">
       <div style="color:#F3C544;font-weight:700;">EXEMPLO: ${getPlayer(first?.id)?.name?.toUpperCase()}</div>
-      <div>(${first?.wins}×3) + (${first?.played}×0,5) + (${first?.ga.toFixed(2)}×2)</div>
-      <div style="color:#F3C544;font-weight:800;font-size:13px;margin-top:4px;">= ${first?.points.toFixed(2)} PONTOS KING BT</div>
+      <div>(${first?.wins}×3) + (${first?.played}×0,5) + (${first ? formatGA(first.ga) : ''}×2)</div>
+      <div style="color:#F3C544;font-weight:800;font-size:13px;margin-top:4px;">= ${first ? formatRating(first.points) : ''} PONTOS KING BT</div>
     </div>
   </div>
 

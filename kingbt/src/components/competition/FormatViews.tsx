@@ -2,6 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { shareText, notifyCopied } from '@/services/share';
 import { goToPlayer } from '@/logic/nav';
 import { buildRanking } from '@/logic/scoring';
+import { formatRating, formatGA } from '@/logic/format';
 import { extractPlayerGames } from '@/logic/formats';
 import { useMemo, useState } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
@@ -150,9 +151,9 @@ export function PlayerRankingTable({ comp }: { comp: Competition }) {
             <Text style={stRow.cN}>{r.gamesCon}</Text>
             <Text style={[stRow.cN, { color: sgColor(r.sg, Colors) }]}>{r.sg > 0 ? '+' : ''}{r.sg}</Text>
             <Text style={stRow.cNw} numberOfLines={1}>
-              {r.ga >= 10 ? r.ga.toFixed(1) : r.ga.toFixed(2)}
+              {formatGA(r.ga)}
             </Text>
-            <Text style={[stRow.cPts, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>{r.points.toFixed(2)}</Text>
+            <Text style={[stRow.cPts, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>{formatRating(r.points)}</Text>
           </View>
         );
       })}

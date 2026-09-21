@@ -4,13 +4,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMemo } from 'react';
 import { router } from 'expo-router';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { computeFormatStats, generateFormatInsight, type FormatStat } from '@/logic/formatStats';
 import { computeSituationStats, type SituationStat } from '@/logic/situationStats';
 import { buildRanking } from '@/logic/scoring';
+import { formatRating } from '@/logic/format';
 import { extractPlayerGames } from '@/logic/formats';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useSettings } from '@/store/SettingsContext';
@@ -102,7 +103,7 @@ export default function StatsScreen() {
         <View style={s.ratingCard}>
           <View style={s.ratingLeft}>
             <Text style={s.ratingLabel}>RATING KING BT</Text>
-            <Text style={s.ratingValue}>{myRank?.points.toFixed(2) ?? '—'}</Text>
+            <Text style={s.ratingValue}>{myRank ? formatRating(myRank.points) : '—'}</Text>
           </View>
           <View style={s.ratingRight}>
             <Text style={s.ratingPosLabel}>POSIÇÃO</Text>
@@ -219,7 +220,7 @@ export default function StatsScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  scroll: { padding: Spacing.md, gap: Spacing.sm },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.sm },
 
   // Rating card
   percentileCard: { backgroundColor: Colors.surf, borderRadius: Radius.md, padding: Spacing.md, gap: 8, marginBottom: 4, borderWidth: 1, borderColor: Colors.line },

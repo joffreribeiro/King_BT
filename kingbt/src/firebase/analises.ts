@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, getDoc, getDocs, deleteDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, query, orderBy, limit } from 'firebase/firestore';
 import { db } from './config';
 import type { BtAnalise } from '@/logic/btTracker';
 import { enqueueLatest } from '@/store/syncQueue';
@@ -18,8 +18,12 @@ export async function loadAnaliseFs(groupId: string, matchId: string): Promise<B
   return snap.exists() ? (snap.data() as BtAnalise) : null;
 }
 
+/** As 50 análises mais recentes do grupo — a tela já ordena por `criadaEm`
+ * desc e mostra lista; sem limite, crescia sem teto (uma análise por partida
+ * tracked ao vivo). */
 export async function listAnalisesFs(groupId: string): Promise<BtAnalise[]> {
-  const snap = await getDocs(analisesCol(groupId));
+  const q = query(analisesCol(groupId), orderBy('criadaEm', 'desc'), limit(50));
+  const snap = await getDocs(q);
   return snap.docs.map(d => d.data() as BtAnalise);
 }
 
