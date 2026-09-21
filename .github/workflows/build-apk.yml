@@ -71,7 +71,11 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
+      # v3 falhava com "Failed to find package 'tools'" — o pacote legado
+      # 'tools' não é mais servido pelo Google, e v3 ainda pedia ele por
+      # padrão. v4 removeu 'tools' do valor padrão de `packages` (só
+      # platform-tools por default).
+      - uses: android-actions/setup-android@v4
 
       - name: Instalar dependências
         run: npm ci
