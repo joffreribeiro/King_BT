@@ -1,5 +1,6 @@
 import type { Competition, Match } from './types';
 import { competitionChampion } from './formats';
+import { rankedCompetitions } from './rankingScope';
 import { DEFAULT_SCORING, type ScoringConfig } from './scoringConfig';
 
 /**
@@ -34,6 +35,7 @@ function won(m: Match, playerId: string): boolean {
 
 /** Jogos em que o jogador participou e há placar. */
 export function matchesOf(competitions: Competition[], playerId: string): Match[] {
+  competitions = rankedCompetitions(competitions);
   return competitions.flatMap(c => c.matches.filter(m => m.scoreA != null && joga(m, playerId)));
 }
 
@@ -44,7 +46,7 @@ export function computeChampCount(
   cfg: ScoringConfig = DEFAULT_SCORING,
   nameOf?: (id: string) => string,
 ): number {
-  return competitions.filter(c => {
+  return rankedCompetitions(competitions).filter(c => {
     if (c.status !== 'done') return false;
     const champ = competitionChampion(c, nameOf, cfg);
     return champ && champ.members.includes(playerId);
@@ -63,6 +65,7 @@ export function computeMaxStreak(matches: Match[], playerId: string): number {
 
 /** true se o jogador venceu 3+ partidas numa mesma competição. */
 export function computeHatTrick(competitions: Competition[], playerId: string): boolean {
+  competitions = rankedCompetitions(competitions);
   return competitions.some(c => {
     const compWins = c.matches.filter(m => m.scoreA != null && joga(m, playerId) && won(m, playerId)).length;
     return compWins >= 3;
@@ -72,7 +75,7 @@ export function computeHatTrick(competitions: Competition[], playerId: string): 
 /** true se, em algum mês, o jogador jogou 3+ partidas e venceu todas. */
 export function computeUnbeatableMonth(competitions: Competition[], playerId: string): boolean {
   const monthMap: Record<string, { w: number; total: number }> = {};
-  competitions.forEach(c => {
+  rankedCompetitions(competitions).forEach(c => {
     const month = c.date?.slice(0, 7) ?? '';
     c.matches.forEach(m => {
       if (m.scoreA == null || !month || !joga(m, playerId)) return;
@@ -87,7 +90,7 @@ export function computeUnbeatableMonth(competitions: Competition[], playerId: st
 /** true se algum parceiro de dupla tem 5+ jogos com o jogador e 80%+ de aproveitamento. */
 export function computePerfectPartner(competitions: Competition[], playerId: string): boolean {
   const partnerMap: Record<string, { wins: number; played: number }> = {};
-  competitions.forEach(c => {
+  rankedCompetitions(competitions).forEach(c => {
     c.matches.filter(m => m.scoreA != null && m.teamA && m.teamB).forEach(m => {
       const inA = m.teamA!.includes(playerId);
       const inB = m.teamB!.includes(playerId);
@@ -105,7 +108,7 @@ export function computePerfectPartner(competitions: Competition[], playerId: str
 
 /** Vitórias do jogador em partidas de um conjunto de formatos. */
 export function computeFormatWins(competitions: Competition[], playerId: string, formats: string[]): number {
-  return competitions
+  return rankedCompetitions(competitions)
     .filter(c => formats.includes(c.format))
     .flatMap(c => c.matches)
     .filter(m => m.scoreA != null && joga(m, playerId) && won(m, playerId))

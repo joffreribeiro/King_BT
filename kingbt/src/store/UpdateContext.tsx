@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
+import { entryHashFrom, isNewerBuild } from '@/logic/webVersion';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import app, { db } from '@/firebase/config';
@@ -38,13 +40,58 @@ export const CURRENT_BUILD_TIME = process.env.EXPO_PUBLIC_BUILD_TIME
   ? Number(process.env.EXPO_PUBLIC_BUILD_TIME)
   : null;
 
+/** Hash do pacote que está rodando no navegador (null no servidor de desenvolvimento e fora da web). */
+function runningEntryHash(): string | null {
+  if (Platform.OS !== 'web' || typeof document === 'undefined') return null;
+  for (const el of Array.from(document.querySelectorAll('script[src]'))) {
+    const h = entryHashFrom(el.getAttribute('src'));
+    if (h) return h;
+  }
+  return null;
+}
+
+/** Hash do pacote publicado agora no site, lido do index.html (sem cache). */
+async function fetchLiveEntryHash(): Promise<string | null> {
+  const res = await fetch(`/?_=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) return null;
+  return entryHashFrom(await res.text());
+}
+
+const WEB_CHECK_EVERY_MS = 30 * 60 * 1000;
+const WEB_CHECK_MIN_GAP_MS = 5 * 60 * 1000;
+
 export function UpdateProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [minRequiredBuildTime, setMinRequiredBuildTime] = useState<number | null>(null);
 
+  // Web: compara o pacote em uso com o publicado no próprio site. Sem token, sem
+  // Cloud Function e sem plano pago. Checa ao entrar, a cada 30 min e quando a aba
+  // volta ao primeiro plano (no máximo a cada 5 min).
   useEffect(() => {
-    if (!user || !CURRENT_SHA) return;
+    if (!user || Platform.OS !== 'web') return;
+    const running = runningEntryHash();
+    if (!running) return; // desenvolvimento: não há como saber a própria versão
+    let last = 0;
+    let alive = true;
+    async function check() {
+      last = Date.now();
+      try {
+        const live = await fetchLiveEntryHash();
+        if (alive && isNewerBuild(running, live)) setUpdateAvailable(true);
+      } catch { /* sem rede: tenta de novo depois */ }
+    }
+    check();
+    const timer = setInterval(check, WEB_CHECK_EVERY_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible' && Date.now() - last > WEB_CHECK_MIN_GAP_MS) check(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { alive = false; clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+  }, [user]);
+
+  // App instalado (APK): continua comparando o commit embutido com o mais recente
+  // via Cloud Function (precisa do plano Blaze e do segredo GITHUB_TOKEN).
+  useEffect(() => {
+    if (!user || !CURRENT_SHA || Platform.OS === 'web') return;
 
     async function checkForUpdates() {
       try {

@@ -2,6 +2,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Dimensions, StatusBar,
 } from 'react-native';
+import { HexBackground } from '@/components/HexBackground';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { gerarRelatorioPartidaHtml } from '@/logic/exportRelatorio';
@@ -598,6 +599,7 @@ export default function RelatorioScreen() {
 
   return (
     <SafeAreaView style={r.safe} edges={['top']}>
+      <HexBackground />
       <StatusBar barStyle="light-content" />
 
       {/* Header */}

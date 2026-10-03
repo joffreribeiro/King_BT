@@ -1,4 +1,5 @@
 import type { Competition } from './types';
+import { rankedCompetitions } from './rankingScope';
 
 export interface StreakInfo {
   type: 'winning' | 'inactive' | 'none';
@@ -23,7 +24,7 @@ export function computeStreakHistory(
 
   const played: { won: boolean; date: string }[] = [];
 
-  competitions.forEach(comp => {
+  rankedCompetitions(competitions).forEach(comp => {
     comp.matches.forEach(m => {
       if (m.scoreA == null || m.scoreB == null) return;
 

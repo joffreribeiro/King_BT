@@ -7,7 +7,7 @@ import Svg, { Path, Circle, Line } from 'react-native-svg';
  * espalhados pelas telas, cada um com um peso visual diferente.
  */
 export type IconName =
-  | 'feed' | 'competitions' | 'ranking' | 'profile'
+  | 'home' | 'feed' | 'competitions' | 'ranking' | 'profile'
   | 'crown' | 'search' | 'filter' | 'bell' | 'share' | 'clone'
   | 'trash' | 'compare' | 'clock' | 'chevronLeft' | 'close' | 'more' | 'plus'
   | 'users' | 'chart' | 'calendar' | 'settings' | 'menu'
@@ -29,6 +29,8 @@ export function Icon({ name, size = 22, color }: Props) {
 function paths(name: IconName, s: any) {
   switch (name) {
     // ── Tab bar (mantidos exatamente como estavam no _layout) ──────────────
+    case 'home':
+      return <Path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7H9v7H4a1 1 0 01-1-1V11z" {...s} />;
     case 'feed':
       return <Path d="M3 12h3l3-7 3 14 3-10 3 5h3" {...s} />;
     case 'competitions':

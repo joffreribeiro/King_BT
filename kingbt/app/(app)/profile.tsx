@@ -1,6 +1,6 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, Platform, Modal, RefreshControl,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useRef, useMemo, useCallback } from 'react';
@@ -9,48 +9,49 @@ import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors, PLAYER_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Badge, Card, ShareStatsCard, Icon } from '@/components';
-import type { ShareStatsData } from '@/components';
+import { ShareStatsCard, Icon } from '@/components';
+import { computeStreakHistory } from '@/logic/streak';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { matchGames } from '@/logic/setOutcome';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useSettings } from '@/store/SettingsContext';
-import { addGuestPlayer, removeGuestPlayer } from '@/firebase/groupPlayers';
+import { updatePlayerAbout, updatePlayerSkills } from '@/firebase/groupPlayers';
 import { notify } from '@/services/notify';
-import { EditNameModal } from '@/components/competition/EditNameModal';
-import QRCode from 'react-native-qrcode-svg';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 import { computeFormatStats } from '@/logic/formatStats';
-import { computeRivalries } from '@/logic/rivalries';
-import { computeAchievementStats } from '@/logic/achievementStats';
-import { ACHIEVEMENTS } from '@/constants/achievements';
 import { ResumoTab } from '@/components/profile/ResumoTab';
 import { HistoricoTab } from '@/components/profile/HistoricoTab';
-import { RivalidadesTab } from '@/components/profile/RivalidadesTab';
+import { BatalhasTab } from '@/components/profile/BatalhasTab';
+import { HonrariasForPlayer } from '@/components/profile/HonrariasTab';
+import { SobreTab } from '@/components/profile/SobreTab';
+import { useCategorySuggestion } from '@/hooks/useCategorySuggestion';
+import { PlayerHeroCard } from '@/components/profile/ProfileHeroCard';
+import { RadarTab } from '@/components/profile/RadarTab';
+import { EditProfileModal } from '@/components/profile/EditProfileModal';
 
 
-type Tab = 'resumo' | 'historico' | 'rivalidades';
+type Tab = 'resumo' | 'historico' | 'batalhas' | 'honrarias' | 'sobre' | 'radar';
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function ProfileScreen() {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const { state, refresh } = useCompetitions();
-  const { logout, leaveGroup, group, user, isAdmin, myPlayerId, updateProfileName } = useAuth();
+  const { logout, group, user, myPlayerId, updateProfileName } = useAuth();
   const { groupPlayers, findPlayer } = useGroupPlayers();
   const { scoringConfig } = useSettings();
   const MY_ID = myPlayerId ?? '';
   const player = groupPlayers.find(p => p.id === MY_ID) ?? null;
+  const catSuggestion = useCategorySuggestion(player?.id, player?.skills, player?.about?.category);
 
-  const [activeTab, setActiveTab] = useState<Tab>('resumo');
-  const [showAddGuest, setShowAddGuest] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('sobre');
+  const [] = useState(false);
   const [showEditName, setShowEditName] = useState(false);
-  const [showQR, setShowQR] = useState(false);
   const [sharingInProgress, setSharingInProgress] = useState(false);
-  const [guestName, setGuestName] = useState('');
-  const [guestColor, setGuestColor] = useState(PLAYER_COLORS[0]);
+  const [] = useState('');
+  const [] = useState(PLAYER_COLORS[0]);
   const [refreshing, setRefreshing] = useState(false);
   const shareCardRef = useRef<View>(null);
 
@@ -61,48 +62,7 @@ export default function ProfileScreen() {
   }, [refresh]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
-  async function handleLeaveGroup() {
-    const doLeave = async () => { await leaveGroup(); router.replace('/(auth)/join'); };
-    if (Platform.OS === 'web') {
-      if (window.confirm('Sair do grupo atual?')) await doLeave();
-    } else {
-      Alert.alert('Trocar de grupo', 'Sair do grupo atual?', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Sair do grupo', style: 'destructive', onPress: doLeave },
-      ]);
-    }
-  }
 
-  async function handleLogout() {
-    const doLogout = async () => { await logout(); router.replace('/(auth)/login'); };
-    if (Platform.OS === 'web') {
-      if (window.confirm('Deseja sair da sua conta?')) await doLogout();
-    } else {
-      Alert.alert('Sair', 'Deseja sair da sua conta?', [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Sair', style: 'destructive', onPress: doLogout },
-      ]);
-    }
-  }
-
-  async function handleAddGuest() {
-    if (!guestName.trim() || !group) return;
-    await addGuestPlayer(group.id, guestName.trim(), guestColor);
-    setGuestName(''); setGuestColor(PLAYER_COLORS[0]); setShowAddGuest(false);
-  }
-
-  function handleRemoveGuest(pid: string, name: string) {
-    if (!group) return;
-    const doRemove = () => removeGuestPlayer(group.id, pid);
-    if (Platform.OS === 'web') {
-      if (window.confirm(`Remover ${name} do grupo?`)) doRemove();
-    } else {
-      Alert.alert('Remover convidado', `Remover ${name} do grupo?`, [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Remover', style: 'destructive', onPress: doRemove },
-      ]);
-    }
-  }
 
   async function handleShare() {
     if (!shareCardRef.current || sharingInProgress) return;
@@ -128,11 +88,14 @@ export default function ProfileScreen() {
   const ranking = useMemo(() => buildRanking(
     groupPlayers.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color, handicap: p.handicap })),
     allGames,
-    scoringConfig
+    scoringConfig,
+    { groupMinimum: true },
   ), [groupPlayers, allGames, scoringConfig]);
 
   const me     = ranking.find(r => r.id === MY_ID) ?? ranking[0];
-  const myPos  = ranking.findIndex(r => r.id === MY_ID) + 1;
+  // Quem ainda não atingiu o mínimo de jogos fica sem posição ("#—").
+  const myPos  = me?.provisional ? 0 : ranking.findIndex(r => r.id === MY_ID) + 1;
+  const streakHist = useMemo(() => computeStreakHistory(state.competitions, MY_ID ?? ''), [state.competitions, MY_ID]);
   const winRate = me && me.played > 0 ? Math.round((me.wins / me.played) * 100) : 0;
 
   const matchHistory = useMemo(() => {
@@ -234,61 +197,18 @@ export default function ProfileScreen() {
       return { label: comp.name.length > 9 ? comp.name.slice(0, 9) + '…' : comp.name, pts, wins, played };
     }), [state.competitions, MY_ID, scoringConfig]);
 
-  const partnerships = useMemo(() => {
-    type PairInfo = { partnerId: string; wins: number; losses: number; played: number };
-    const partnerMap = new Map<string, PairInfo>();
-    state.competitions.forEach(comp => {
-      comp.matches.forEach(m => {
-        if (m.scoreA == null || !m.teamA || !m.teamB) return;
-        const inA = m.teamA.includes(MY_ID), inB = m.teamB.includes(MY_ID);
-        if (!inA && !inB) return;
-        const myTeam = inA ? m.teamA : m.teamB;
-        const partner = myTeam.find(id => id !== MY_ID);
-        if (!partner) return;
-        const won = inA ? m.scoreA! > m.scoreB! : m.scoreB! > m.scoreA!;
-        if (!partnerMap.has(partner)) partnerMap.set(partner, { partnerId: partner, wins: 0, losses: 0, played: 0 });
-        const ps = partnerMap.get(partner)!;
-        ps.played++;
-        if (won) ps.wins++; else ps.losses++;
-      });
-    });
-    return [...partnerMap.values()]
-      .filter(p => p.played >= 2)
-      .sort((a, b) => b.wins - a.wins)
-      .slice(0, 5);
-  }, [state.competitions, MY_ID]);
-
   const formatStats = useMemo(() => computeFormatStats(state.competitions, MY_ID), [state.competitions, MY_ID]);
-  const rivalries   = useMemo(() => computeRivalries(MY_ID, state.competitions), [MY_ID, state.competitions]);
 
-  const achStats = useMemo(
-    () => computeAchievementStats(state.competitions, MY_ID, 0, scoringConfig),
-    [state.competitions, MY_ID, scoringConfig],
-  );
 
-  const { nextAchievement, unlockedAchievements } = useMemo(() => {
-    const achStatsWithRating = { ...achStats, currentRating: me?.points ?? 0 };
-    const nextAch = ACHIEVEMENTS
-      .map(a => ({ a, prog: a.progress(achStatsWithRating) }))
-      .filter(({ prog }) => prog > 0 && prog < 1)
-      .sort((a, b) => b.prog - a.prog)[0];
-    return {
-      nextAchievement: nextAch ? {
-        icon:  nextAch.a.icon,
-        title: nextAch.a.title,
-        color: nextAch.a.color,
-        prog:  nextAch.prog,
-        label: nextAch.a.progressLabel(achStatsWithRating),
-        desc:  nextAch.a.description,
-      } : null,
-      unlockedAchievements: ACHIEVEMENTS.filter(a => a.progress(achStatsWithRating) >= 1),
-    };
-  }, [achStats, me?.points]);
+  // Estatísticas das conquistas, já com o rating atual (usadas na aba Honrarias).
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: 'resumo',      label: 'RESUMO' },
+    { key: 'sobre',       label: 'SOBRE' },
+    { key: 'radar',       label: 'AVALIAÇÃO' },
+    { key: 'honrarias',   label: 'CONQUISTAS' },
+    { key: 'batalhas',    label: 'RIVALIDADE' },
+    { key: 'resumo',      label: 'ESTATÍSTICAS' },
     { key: 'historico',   label: 'HISTÓRICO' },
-    { key: 'rivalidades', label: 'RIVALIDADES' },
   ];
 
   if (!player) {
@@ -311,39 +231,28 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Hero — sempre visível */}
-      <View style={styles.heroBanner}>
-        <View style={[styles.heroBg, { backgroundColor: (player?.color ?? '#FFD166') + '22' }]} />
-        <View style={styles.heroInner}>
-          <Avatar name={player?.name ?? '?'} color={player?.color ?? '#FFD166'} size={64} showCrown={myPos === 1} />
-          {/* O e-mail saiu daqui: ninguém abre o próprio perfil pra ver o
-              próprio e-mail — ele continua no card de conta, abaixo. O lugar
-              de destaque fica com a informação que o jogador vem buscar. */}
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.name} numberOfLines={1}>{player?.name ?? user?.displayName ?? 'Jogador'}</Text>
-              <TouchableOpacity onPress={() => setShowEditName(true)} hitSlop={8}>
-                <Icon name="edit" size={14} color={Colors.muted} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.heroStats}>
-              <Text style={styles.heroPos}>{myPos}º</Text>
-              <Text style={styles.heroPosLabel}>no ranking</Text>
-              <View style={styles.heroDivider} />
-              <Text style={styles.heroRate}>{winRate}%</Text>
-              <Text style={styles.heroPosLabel}>aproveit.</Text>
-            </View>
-          </View>
-          <TouchableOpacity style={[styles.shareBtn, sharingInProgress && { opacity: 0.5 }]} onPress={handleShare} activeOpacity={0.75} disabled={sharingInProgress}>
-            <Icon name="share" size={16} color={Colors.gold} />
-          </TouchableOpacity>
-        </View>
+      {/* Topo: o mesmo card do perfil dos outros jogadores */}
+      <View style={{ marginHorizontal: Spacing.md }}>
+        <PlayerHeroCard
+          playerId={player?.id ?? ''}
+          skills={player?.skills}
+          ratedCount={player?.ratedIds?.length ?? 0}
+          name={player?.name ?? user?.displayName ?? 'Jogador'}
+          avatarColor={player?.color ?? '#FFD166'}
+          position={myPos}
+          points={me?.points ?? 0}
+          winRate={winRate}
+          played={me?.played ?? 0}
+          groupName={group?.name ?? 'King BT'}
+          onEdit={() => setShowEditName(true)}
+          onAddGroup={() => router.push('/(auth)/groups')}
+          onShare={handleShare}
+          sharing={sharingInProgress}
+        />
       </View>
 
-      {/* Tab bar — segmented de pílula, igual ao filtro de período do
-          Ranking. Era sublinhado em ouro com o mesmo indicador da tab bar
-          do app, o que sugeria que trocar de aba trocava de tela. */}
-      <View style={styles.tabBar}>
+      {/* Abas com sublinhado dourado na ativa, como no Atlas. */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabBar}>
         {TABS.map(t => (
           <TouchableOpacity
             key={t.key}
@@ -355,7 +264,7 @@ export default function ProfileScreen() {
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
       {/* Scroll content */}
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}
@@ -366,65 +275,49 @@ export default function ProfileScreen() {
             me={me} myPos={myPos} winRate={winRate}
             matchHistory={matchHistory} evoPoints={evoPoints}
             activityData={activityData} ratingHistory={ratingHistory}
-            nextAchievement={nextAchievement}
-            unlockedAchievements={unlockedAchievements}
+            streak={{ current: streakHist.current, max: streakHist.max }}
           />
         )}
         {activeTab === 'historico' && (
           <HistoricoTab matchHistory={matchHistory} formatStats={formatStats} />
         )}
-        {activeTab === 'rivalidades' && (
-          <RivalidadesTab rivalries={rivalries} partnerships={partnerships} findPlayer={findPlayer} />
+        {activeTab === 'honrarias' && <HonrariasForPlayer playerId={player?.id ?? ''} points={me?.points ?? 0} ratedCount={player?.ratedIds?.length ?? 0} played={me?.played ?? 0} skills={player?.skills} />}
+        {activeTab === 'batalhas' && (
+          <BatalhasTab playerId={MY_ID} competitions={state.competitions} findPlayer={findPlayer} />
+        )}
+        {activeTab === 'sobre' && (
+          <SobreTab
+            about={player?.about}
+            suggestion={catSuggestion}
+            onApplyCategory={async (category) => { if (group && player) await updatePlayerAbout(group.id, player.id, { ...(player.about ?? {}), category }); }}
+          />
+        )}
+        {activeTab === 'radar' && (
+          <RadarTab
+            playerId={player?.id ?? ''}
+            playerName={player?.name ?? ''}
+            skills={player?.skills}
+            onSave={async (sk) => { if (group && player) await updatePlayerSkills(group.id, player.id, sk); }}
+          />
         )}
 
-        {/* Conquistas e Estatísticas só existiam no menu lateral — aqui é o
-            lugar natural, logo depois do resumo do próprio jogador. */}
+        {/* Análise por formato, situação e percentil — não é o que o Resumo mostra (que é por tipo de jogo e por competição). */}
         {activeTab === 'resumo' && (
-          <View style={styles.shortcutRow}>
-            <TouchableOpacity style={styles.shortcut} onPress={() => router.push('/(app)/achievements')} activeOpacity={0.8}>
-              <Icon name="crown" size={20} color={Colors.gold} />
-              <Text style={styles.shortcutLabel}>Conquistas</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.shortcut} onPress={() => router.push('/(app)/stats')} activeOpacity={0.8}>
-              <Icon name="chart" size={20} color={Colors.teal} />
-              <Text style={styles.shortcutLabel}>Estatísticas</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <Card style={styles.accountCard}>
-          <Text style={styles.accountEmail}>{user?.email ?? user?.displayName}</Text>
-          {group && (
-            <TouchableOpacity onPress={() => setShowQR(true)} activeOpacity={0.8} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.groupInfo}>Grupo: {group.name} · {group.code}</Text>
-              <Icon name="qr" size={14} color={Colors.gold} />
-            </TouchableOpacity>
-          )}
-
-          {/* Navegação e ações de conta separadas: antes os quatro botões
-              tinham o mesmo peso, e "Sair" competia visualmente com o resto. */}
-          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/(app)/settings')} activeOpacity={0.8}>
-            <Icon name="settings" size={16} color={Colors.text} />
-            <Text style={styles.settingsBtnText}>Configurações</Text>
+          <>
+          <TouchableOpacity style={styles.shortcut} onPress={() => router.push('/(app)/stats')} activeOpacity={0.8}>
+            <Icon name="chart" size={20} color={Colors.teal} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.shortcutLabel}>Análise por Formato</Text>
+              <Text style={styles.shortcutSub}>Por formato de competição, por situação de jogo e seu percentil no grupo</Text>
+            </View>
+            <Icon name="chevronRight" size={16} color={Colors.faint} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/desempenho-geral')} activeOpacity={0.8}>
             <Icon name="chart" size={16} color={Colors.text} />
             <Text style={styles.settingsBtnText}>Desempenho em todos os grupos</Text>
           </TouchableOpacity>
-
-          <View style={styles.accountDivider} />
-
-          <View style={styles.accountActions}>
-            <TouchableOpacity style={styles.leaveGroupBtn} onPress={() => router.push('/(auth)/groups')} activeOpacity={0.8}>
-              <Icon name="swap" size={15} color={Colors.muted} />
-              <Text style={styles.leaveGroupText}>Trocar de grupo</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-              <Icon name="logout" size={15} color={Colors.coral} />
-              <Text style={styles.logoutText}>Sair</Text>
-            </TouchableOpacity>
-          </View>
-        </Card>
+          </>
+        )}
 
         <View style={{ height: 140 }} />
       </ScrollView>
@@ -442,31 +335,15 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      {/* Modal QR */}
-      <Modal visible={showQR} transparent animationType="fade">
-        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', alignItems: 'center', justifyContent: 'center' }}
-          onPress={() => setShowQR(false)} activeOpacity={1}>
-          <View style={{ backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.xl, alignItems: 'center', gap: Spacing.md, margin: Spacing.xl }}>
-            <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text }}>Convidar para o grupo</Text>
-            <View style={{ backgroundColor: '#fff', padding: 16, borderRadius: 12 }}>
-              <QRCode value={group?.code ?? ''} size={200} color="#0B0B0D" backgroundColor="#ffffff" />
-            </View>
-            <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 26, color: Colors.gold, letterSpacing: 6 }}>{group?.code}</Text>
-            <TouchableOpacity style={{ paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xl }} onPress={() => setShowQR(false)}>
-              <Text style={{ fontFamily: FontFamily.bodyMed, color: Colors.coral }}>Fechar</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
       {/* Modal editar nome (só nesse grupo) */}
       {showEditName && (
-        <EditNameModal
-          current={player?.name ?? user?.displayName ?? ''}
-          title="Editar meu nome"
-          subtitle="Atualiza em todos os seus grupos."
+        <EditProfileModal
+          name={player?.name ?? user?.displayName ?? ''}
+          about={player?.about}
+          suggested={catSuggestion?.category}
           onClose={() => setShowEditName(false)}
-          onSave={(name) => { updateProfileName(name); }}
+          onSaveName={(name) => updateProfileName(name)}
+          onSaveAbout={async (about) => { if (group && player) await updatePlayerAbout(group.id, player.id, about); }}
         />
       )}
     </SafeAreaView>
@@ -475,41 +352,25 @@ export default function ProfileScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
+  container: { flex: 1, backgroundColor: 'transparent' },
   scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.md },
 
-  heroBanner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, position: 'relative', overflow: 'hidden' },
-  heroBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  heroInner: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
-  name: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
-  heroStats: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 4 },
-  heroPos: { fontFamily: FontFamily.numberBold, fontSize: 20, color: Colors.gold },
-  heroRate: { fontFamily: FontFamily.numberBold, fontSize: 20, color: Colors.teal },
-  heroPosLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
-  heroDivider: { width: 1, height: 12, backgroundColor: Colors.line, marginHorizontal: Spacing.xs },
-  shareBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: Colors.gold + '55', backgroundColor: Colors.gold + '11',
-  },
+  // Rola na horizontal: com 4 abas em 15px, "RIVALIDADES" não cabe em celular estreito.
+  tabScroll: { flexGrow: 0, flexShrink: 0, marginHorizontal: Spacing.md, marginBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  tabBar: { flexGrow: 1 },
+  tabItem: { flexGrow: 1, paddingHorizontal: 14, paddingVertical: 14, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent', marginBottom: -1 },
+  tabItemActive: { borderBottomColor: Colors.gold },
+  tabLabel: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.muted },
+  tabLabelActive: { color: Colors.gold, fontFamily: FontFamily.title },
 
-  tabBar: {
-    flexDirection: 'row', backgroundColor: Colors.surf2, borderRadius: Radius.full,
-    marginHorizontal: Spacing.md, marginBottom: Spacing.sm, padding: 4,
-  },
-  tabItem: { flex: 1, paddingVertical: 14, borderRadius: Radius.full, alignItems: 'center' },
-  tabItemActive: { backgroundColor: Colors.gold },
-  tabLabel: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.faint },
-  tabLabelActive: { color: Colors.bg, fontWeight: '700' },
-
-  shortcutRow: { flexDirection: 'row', gap: Spacing.sm },
   shortcut: {
-    flex: 1, alignItems: 'center', gap: 6,
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
     backgroundColor: Colors.surf, borderRadius: Radius.md,
     borderWidth: 1, borderColor: Colors.line,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.md, paddingHorizontal: Spacing.md,
   },
-  shortcutLabel: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
+  shortcutLabel: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
+  shortcutSub: { fontFamily: FontFamily.body, fontSize: 12, lineHeight: 16, color: Colors.muted, marginTop: 2 },
 
   accountCard: { gap: Spacing.sm, alignItems: 'center' },
   accountEmail: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },

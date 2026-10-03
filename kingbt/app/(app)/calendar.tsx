@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useMemo } from 'react';
 import { Calendar } from 'react-native-calendars';
@@ -238,7 +238,7 @@ export default function CalendarScreen() {
 }
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
-  container:   { flex: 1, backgroundColor: Colors.bg },
+  container:   { flex: 1, backgroundColor: 'transparent' },
   header:      { padding: Spacing.md, paddingBottom: Spacing.sm },
   weekStrip: {
     flexDirection: 'row',
@@ -253,8 +253,8 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   dayLetter: {
     fontFamily: FontFamily.numberBold,
-    fontSize: 11,
-    color: Colors.faint,
+    fontSize: 12,
+    color: Colors.muted,
   },
   dayCircle: {
     width: 28,
@@ -278,9 +278,9 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   dayNum: {
     fontFamily: FontFamily.numberBold,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
-    color: Colors.muted,
+    color: Colors.text,
   },
   dayNumToday: { color: '#000' },
   dayDot: {
@@ -305,11 +305,11 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   compName:    { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
   compMeta:    { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 2 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
-  statusText:  { fontFamily: FontFamily.bodyMed, fontSize: 11 },
+  statusText:  { fontFamily: FontFamily.bodyMed, fontSize: 13 },
   summary:     { gap: Spacing.sm },
   summaryTitle:{ fontFamily: FontFamily.title, fontSize: 13, color: Colors.muted, letterSpacing: 1 },
   summaryRow:  { flexDirection: 'row' },
   summaryItem: { flex: 1, alignItems: 'center', gap: 2 },
   summaryValue:{ fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.gold },
-  summaryLabel:{ fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+  summaryLabel:{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
 });

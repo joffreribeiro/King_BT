@@ -11,12 +11,15 @@ import {
   type User,
 } from 'firebase/auth';
 import { Platform } from 'react-native';
+import { setCrashUser } from '@/services/crashReporting';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, limit, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { auth, db } from '@/firebase/config';
 import { Logger } from '@/services/Logger';
 import * as Device from 'expo-device';
 import * as Localization from 'expo-localization';
 import { validateScoringConfig, type ScoringConfig } from '@/logic/scoringConfig';
+import { requestToJoin, hasJoinRequest, cancelJoinRequest } from '@/firebase/joinRequests';
+import { syncGroupPreview } from '@/firebase/groupCodes';
 
 // Super Admins: acesso total em qualquer grupo + recursos exclusivos (King Scout).
 // Identificados pelo e-mail da conta logada.
@@ -49,6 +52,8 @@ export type Group = {
   visibility?: 'privado' | 'publico';
   /** Fórmula de pontuação do grupo. Ausente = DEFAULT_SCORING (grupos antigos). */
   scoringConfig?: ScoringConfig;
+  /** Descrição curta do grupo (até 140 caracteres), vista antes de entrar. */
+  description?: string;
 };
 
 type AuthState = {
@@ -58,6 +63,21 @@ type AuthState = {
   loading: boolean;
   error: string | null;
 };
+
+/** Resultado de entrar num grupo: já entrou (vincular perfil?) ou o pedido ficou aguardando o admin. */
+export interface JoinResult {
+  unlinkedPlayers: UnlinkedPlayer[];
+  needsLink?: boolean;
+  /** true = o código era válido, mas a entrada depende da aprovação de um admin. */
+  pending?: boolean;
+}
+
+/** Pedido de entrada que o usuário fez e ainda não foi aprovado/recusado. */
+export interface PendingJoin {
+  groupId: string;
+  code: string;
+  requestedAt: string;
+}
 
 export interface UnlinkedPlayer {
   id: string;
@@ -78,9 +98,19 @@ type AuthContextType = AuthState & {
   signUpWithEmail: (name: string, email: string, password: string) => Promise<void>;
   /** Envia e-mail de redefinição de senha (Firebase Auth). Retorna true em caso de sucesso. */
   resetPassword: (email: string) => Promise<boolean>;
-  joinGroup: (code: string) => Promise<{ unlinkedPlayers: UnlinkedPlayer[]; needsLink?: boolean }>;
+  joinGroup: (code: string) => Promise<JoinResult>;
+  /**
+   * Confere os pedidos de entrada do usuário. `approved`: o admin já aprovou (a
+   * pessoa já é membro, falta entrar — ver finishApprovedJoin); `pending`: ainda
+   * aguardando; `rejected`: quantos foram recusados (já removidos da lista).
+   */
+  checkPendingJoins: () => Promise<{ pending: PendingJoin[]; approved: PendingJoin[]; rejected: number }>;
+  /** Entra num grupo cujo pedido foi aprovado: vira o grupo ativo e limpa o pedido da lista. */
+  finishApprovedJoin: (groupId: string) => Promise<JoinResult>;
+  /** Desiste de um pedido de entrada pendente. */
+  cancelPendingJoin: (groupId: string) => Promise<void>;
   linkToPlayer: (playerId: string) => Promise<void>;
-  createGroup: (name: string, visibility?: 'privado' | 'publico', scoringConfig?: ScoringConfig) => Promise<void>;
+  createGroup: (name: string, visibility?: 'privado' | 'publico', scoringConfig?: ScoringConfig, description?: string) => Promise<void>;
   leaveGroup: () => Promise<void>;
   switchGroup: (groupId: string) => Promise<void>;
   getMyGroups: () => Promise<Group[]>;
@@ -144,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsub = onAuthStateChanged(auth, async (u) => {
       clearTimeout(safetyTimer);
       setUser(u);
+      setCrashUser(u?.uid ?? null);
       if (u) {
         try {
           const userDoc = await getDoc(doc(db, 'users', u.uid));
@@ -280,7 +311,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function joinGroup(code: string): Promise<{ unlinkedPlayers: UnlinkedPlayer[]; needsLink?: boolean }> {
+  /** Entra de fato no grupo (a pessoa já é membro): grupo ativo, vínculo no users e perfil de jogador. */
+  async function enterGroup(groupId: string, groupData: Record<string, any>, uid: string): Promise<JoinResult> {
+    // Associa grupo ao usuário
+    const userSnap = await getDoc(doc(db, 'users', uid));
+    const prevGroupIds: string[] = userSnap.data()?.groupIds ?? [];
+    const newGroupIds = prevGroupIds.includes(groupId) ? prevGroupIds : [...prevGroupIds, groupId];
+    await setDoc(doc(db, 'users', uid), {
+      groupId, groupIds: newGroupIds,
+      lastJoinedGroupAt: new Date().toISOString(),
+      ...collectDeviceInfo('invite'),
+    }, { merge: true });
+    setGroupIds(newGroupIds);
+
+    const g = { id: groupId, ...groupData } as Group;
+    setGroup(g);
+    const admins: string[] = groupData.admins ?? [];
+    setIsAdmin(admins.includes(uid));
+
+    // Verifica se o usuário já tem player vinculado (cadastro anterior no mesmo grupo)
+    const myPlayerSnap = await getDocs(query(
+      collection(db, 'groups', groupId, 'players'),
+      where('uid', '==', uid),
+      limit(1),
+    ));
+    if (!myPlayerSnap.empty) {
+      // Já tem player vinculado — entra direto sem perguntar
+      setMyPlayerId(myPlayerSnap.docs[0].id);
+      return { unlinkedPlayers: [], needsLink: false };
+    }
+
+    // Usuário novo no grupo — retorna jogadores sem uid para vincular
+    const playersSnap = await getDocs(collection(db, 'groups', groupId, 'players'));
+    const unlinked: UnlinkedPlayer[] = playersSnap.docs
+      .filter(d => !d.data().uid)
+      .map(d => ({ id: d.id, name: d.data().name ?? '?', color: d.data().color ?? '#FFD166' }));
+
+    // Sempre mostra o modal para o usuário escolher/criar perfil
+    return { unlinkedPlayers: unlinked, needsLink: true };
+  }
+
+  async function readPendingJoins(uid: string): Promise<PendingJoin[]> {
+    const snap = await getDoc(doc(db, 'users', uid));
+    const raw = snap.data()?.pendingGroups;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter((x: any) => x && typeof x.groupId === 'string')
+      .map((x: any) => ({ groupId: x.groupId, code: String(x.code ?? ''), requestedAt: String(x.requestedAt ?? '') }));
+  }
+
+  async function writePendingJoins(uid: string, list: PendingJoin[]) {
+    await setDoc(doc(db, 'users', uid), { pendingGroups: list }, { merge: true });
+  }
+
+  async function joinGroup(code: string): Promise<JoinResult> {
     if (!user) { setError('Faça login primeiro.'); return { unlinkedPlayers: [] }; }
     try {
       setError(null);
@@ -288,59 +372,79 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // coleção agora exige ser membro, então descobrir o grupo por código
       // sem já ter o código não é mais possível nem pra quem só "navega" a
       // coleção /groups inteira).
-      const codeSnap = await getDoc(doc(db, 'groupCodes', code.toUpperCase()));
+      const cleanCode = code.toUpperCase();
+      const codeSnap = await getDoc(doc(db, 'groupCodes', cleanCode));
       const groupId: string | undefined = codeSnap.data()?.groupId;
       if (!groupId) { setError('Código do grupo não encontrado.'); return { unlinkedPlayers: [] }; }
 
-      // Adiciona usuário ao grupo — arrayUnion não precisa ler members antes.
-      await updateDoc(doc(db, 'groups', groupId), { members: arrayUnion(user.uid) });
-
-      // Lê o grupo já como membro, pra popular o estado local.
-      const groupSnap = await getDoc(doc(db, 'groups', groupId));
-      const groupData = groupSnap.data();
-      if (!groupData) { setError('Erro ao entrar no grupo. Tente novamente.'); return { unlinkedPlayers: [] }; }
-
-      // Associa grupo ao usuário
-      const userSnap = await getDoc(doc(db, 'users', user.uid));
-      const prevGroupIds: string[] = userSnap.data()?.groupIds ?? [];
-      const newGroupIds = prevGroupIds.includes(groupId) ? prevGroupIds : [...prevGroupIds, groupId];
-      await setDoc(doc(db, 'users', user.uid), {
-        groupId, groupIds: newGroupIds,
-        lastJoinedGroupAt: new Date().toISOString(),
-        ...collectDeviceInfo('invite'),
-      }, { merge: true });
-      setGroupIds(newGroupIds);
-
-      const g = { id: groupId, ...groupData } as Group;
-      setGroup(g);
-      const admins: string[] = groupData.admins ?? [];
-      setIsAdmin(admins.includes(user.uid));
-
-      // Verifica se o usuário já tem player vinculado (cadastro anterior no mesmo grupo)
-      const myPlayerSnap = await getDocs(query(
-        collection(db, 'groups', groupId, 'players'),
-        where('uid', '==', user.uid),
-        limit(1),
-      ));
-      if (!myPlayerSnap.empty) {
-        // Já tem player vinculado — entra direto sem perguntar
-        setMyPlayerId(myPlayerSnap.docs[0].id);
-        return { unlinkedPlayers: [], needsLink: false };
+      // Já é membro (reabriu o código, ou foi adicionado por um admin)? Ler o
+      // grupo só funciona pra membro ou grupo público — então confere a lista.
+      let groupData: Record<string, any> | null = null;
+      try { groupData = (await getDoc(doc(db, 'groups', groupId))).data() ?? null; } catch { /* não é membro */ }
+      if (groupData && (groupData.members ?? []).includes(user.uid)) {
+        return await enterGroup(groupId, groupData, user.uid);
       }
 
-      // Usuário novo no grupo — retorna jogadores sem uid para vincular
-      const playersSnap = await getDocs(collection(db, 'groups', groupId, 'players'));
-      const unlinked: UnlinkedPlayer[] = playersSnap.docs
-        .filter(d => !d.data().uid)
-        .map(d => ({ id: d.id, name: d.data().name ?? '?', color: d.data().color ?? '#FFD166' }));
-
-      // Sempre mostra o modal para o usuário escolher/criar perfil
-      return { unlinkedPlayers: unlinked, needsLink: true };
+      // Não é membro: o código NÃO basta — cria o pedido e espera o admin aprovar.
+      await requestToJoin(groupId, user.uid, user.displayName ?? 'Jogador');
+      const pending = await readPendingJoins(user.uid);
+      if (!pending.some(p => p.groupId === groupId)) {
+        await writePendingJoins(user.uid, [...pending, { groupId, code: cleanCode, requestedAt: new Date().toISOString() }]);
+      }
+      return { unlinkedPlayers: [], pending: true };
     } catch (e: any) {
       Logger.error('Falha ao entrar no grupo', e, { code });
       setError('Erro ao entrar no grupo. Tente novamente.');
       return { unlinkedPlayers: [] };
     }
+  }
+
+  async function checkPendingJoins(): Promise<{ pending: PendingJoin[]; approved: PendingJoin[]; rejected: number }> {
+    if (!user) return { pending: [], approved: [], rejected: 0 };
+    try {
+      const list = await readPendingJoins(user.uid);
+      if (list.length === 0) return { pending: [], approved: [], rejected: 0 };
+      const still: PendingJoin[] = [];
+      const approved: PendingJoin[] = [];
+      let rejected = 0;
+      for (const p of list) {
+        let data: Record<string, any> | null = null;
+        try { data = (await getDoc(doc(db, 'groups', p.groupId))).data() ?? null; } catch { /* ainda não é membro */ }
+        if (data && (data.members ?? []).includes(user.uid)) { approved.push(p); continue; }
+        const exists = await hasJoinRequest(p.groupId, user.uid);
+        if (exists === false) rejected++;     // o pedido sumiu e não virei membro: recusado
+        else still.push(p);                   // existe (ou erro de leitura): continua aguardando
+      }
+      // Aprovados ficam na lista até a pessoa entrar (finishApprovedJoin); só os recusados saem.
+      if (still.length + approved.length !== list.length) await writePendingJoins(user.uid, [...approved, ...still]);
+      return { pending: still, approved, rejected };
+    } catch (e: any) {
+      Logger.error('Falha ao conferir pedidos de entrada', e);
+      return { pending: [], approved: [], rejected: 0 };
+    }
+  }
+
+  async function finishApprovedJoin(groupId: string): Promise<JoinResult> {
+    if (!user) return { unlinkedPlayers: [] };
+    try {
+      const data = (await getDoc(doc(db, 'groups', groupId))).data();
+      if (!data || !(data.members ?? []).includes(user.uid)) { setError('Seu pedido ainda não foi aprovado.'); return { unlinkedPlayers: [] }; }
+      const result = await enterGroup(groupId, data, user.uid);
+      const list = await readPendingJoins(user.uid);
+      await writePendingJoins(user.uid, list.filter(p => p.groupId !== groupId));
+      return result;
+    } catch (e: any) {
+      Logger.error('Falha ao entrar no grupo aprovado', e, { groupId });
+      setError('Erro ao entrar no grupo. Tente novamente.');
+      return { unlinkedPlayers: [] };
+    }
+  }
+
+  async function cancelPendingJoin(groupId: string) {
+    if (!user) return;
+    try { await cancelJoinRequest(groupId, user.uid); } catch { /* já não existia */ }
+    const list = await readPendingJoins(user.uid);
+    await writePendingJoins(user.uid, list.filter(p => p.groupId !== groupId));
   }
 
   async function linkToPlayer(playerId: string) {
@@ -393,6 +497,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!group || !(isAdmin || isSuperAdmin)) return;
     await setDoc(doc(db, 'groups', group.id), { visibility }, { merge: true });
     setGroup(prev => prev ? { ...prev, visibility } : prev);
+    if (group.code) syncGroupPreview(group.code, group.id, { visibility }).catch(() => {});
   }
 
   async function updateGroupName(name: string) {
@@ -401,6 +506,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!trimmed) return;
     await setDoc(doc(db, 'groups', group.id), { name: trimmed }, { merge: true });
     setGroup(prev => prev ? { ...prev, name: trimmed } : prev);
+    if (group.code) syncGroupPreview(group.code, group.id, { name: trimmed }).catch(() => {});
   }
 
   async function getMyGroups(): Promise<Group[]> {
@@ -504,7 +610,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function createGroup(name: string, visibility: 'privado' | 'publico' = 'privado', scoringConfig?: ScoringConfig) {
+  async function createGroup(name: string, visibility: 'privado' | 'publico' = 'privado', scoringConfig?: ScoringConfig, description?: string) {
     if (!user) { setError('Faça login primeiro.'); return; }
     try {
       setError(null);
@@ -538,6 +644,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         admins: [user.uid],
         members: [user.uid],
         visibility,
+        ...(description?.trim() ? { description: description.trim().slice(0, 140) } : {}),
         // Fórmula de pontuação inicial — gravada junto na criação (mesma
         // escrita, sem request extra). Se o criador não mexeu no formulário,
         // vem undefined e o grupo simplesmente usa o DEFAULT_SCORING.
@@ -549,7 +656,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // e inacessível por código (nenhum outro passo depende do grupo já
       // existir, então apagar aqui é seguro).
       try {
-        await setDoc(doc(db, 'groupCodes', code), { groupId: groupRef.id });
+        await setDoc(doc(db, 'groupCodes', code), {
+          groupId: groupRef.id, name,
+          description: description?.trim().slice(0, 140) ?? '',
+          visibility,
+        });
       } catch (codeErr) {
         await deleteDoc(groupRef).catch(() => {});
         throw codeErr;
@@ -590,6 +701,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Memoiza o value para não re-renderizar toda a árvore a cada render do provider.
   // As funções fecham sobre user/group/isAdmin, todos presentes nas deps.
+  // Mantém a prévia pública do convite (nome/descrição/visibilidade no /groupCodes)
+  // em dia com o grupo — também preenche grupos criados antes dela existir.
+  // Só o admin consegue gravar; falha (rede, regra ainda não publicada) é silenciosa.
+  useEffect(() => {
+    if (!group?.code || !isAdmin) return;
+    syncGroupPreview(group.code, group.id, {
+      name: group.name, description: group.description ?? '', visibility: group.visibility ?? 'privado',
+    }).catch(() => {});
+  }, [group?.id, group?.code, group?.name, group?.description, group?.visibility, isAdmin]);
+
   const isSuperAdmin = !!user?.email && SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase());
   const effectiveAdmin = isAdmin || isSuperAdmin;
   const isMember = !!user && (effectiveAdmin || !!group?.members?.includes(user.uid));
@@ -597,7 +718,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthContextType>(() => ({
     user, group, isAdmin: effectiveAdmin, loading, error, myPlayerId, groupIds, isMember, isSuperAdmin,
     groupConfirmed, confirmGroup,
-    signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, joinGroup, linkToPlayer,
+    signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, joinGroup, checkPendingJoins, finishApprovedJoin, cancelPendingJoin, linkToPlayer,
     createGroup, leaveGroup, switchGroup, getMyGroups, updateProfileName, logout,
     clearError: () => setError(null), promoteToAdmin, removeFromGroup, addExistingUserToGroup, setGroupVisibility, updateGroupName,
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -152,7 +152,7 @@ const makeMcStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   meta: {
     fontFamily: FontFamily.body,
-    fontSize: 11,
+    fontSize: 13,
     color: Colors.muted,
   },
   scoreWrap: {
@@ -181,7 +181,7 @@ const makeMcStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   insight: {
     fontFamily: FontFamily.bodyMed,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     flex: 1,
   },
@@ -372,7 +372,7 @@ export default function HistoryScreen() {
 }
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
+  container: { flex: 1, backgroundColor: 'transparent' },
 
   title:    { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text, lineHeight: 30 },
   headerBadge: {
@@ -396,7 +396,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   statItem:   { flex: 1, alignItems: 'center', gap: 2 },
   statVal:    { fontFamily: FontFamily.titleBold, fontSize: 20 },
-  statLbl:    { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
+  statLbl:    { fontFamily: FontFamily.number, fontSize: 13, color: Colors.faint },
   statDivider:{ width: 1, backgroundColor: Colors.line, alignSelf: 'stretch', marginVertical: 4 },
 
   list: { ...centeredContent, paddingHorizontal: Spacing.md, paddingTop: 0 },

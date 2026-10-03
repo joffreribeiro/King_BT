@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { useRef, useEffect, useMemo } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
@@ -54,14 +54,14 @@ const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    marginHorizontal: Spacing.md,
-    marginBottom: Spacing.sm,
+    marginHorizontal: 0, // a tela (Início) já aplica o recuo lateral
+    marginBottom: Spacing.md,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
+    paddingVertical: 14,
     borderRadius: Radius.md,
     borderWidth: 1,
   },
   icon:    { fontSize: 18 },
-  message: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13, lineHeight: 18 },
+  message: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 14, lineHeight: 20 },
   arrow:   { fontFamily: FontFamily.titleBold, fontSize: 17 },
 });

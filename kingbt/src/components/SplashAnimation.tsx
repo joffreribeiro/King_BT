@@ -6,10 +6,8 @@ import {
   StyleSheet,
   Dimensions,
   TouchableOpacity,
-  useWindowDimensions,
 } from 'react-native';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import Svg, { Defs, RadialGradient, Stop, Circle as SvgCircle, G } from 'react-native-svg';
 import { FontFamily } from '@/theme';
 
 const { width: SW, height: SH } = Dimensions.get('window');
@@ -67,7 +65,6 @@ export default function SplashAnimation({ onFinish }: Props) {
   const logoScale      = useRef(new Animated.Value(0.32)).current;
   const logoOpacity    = useRef(new Animated.Value(0)).current;
   const logoTranslateY = useRef(new Animated.Value(50)).current;
-  const logoBrightness = useRef(new Animated.Value(0)).current; // unused visual, kept for timing
   const glowOpacity    = useRef(new Animated.Value(0.5)).current;
   const burstOpacity   = useRef(new Animated.Value(0)).current;
   const burstScale     = useRef(new Animated.Value(0.3)).current;

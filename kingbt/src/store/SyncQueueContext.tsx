@@ -3,6 +3,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { getQueue, removeFromQueue, getQueueSize, incrementRetries, getStuckCount, MAX_RETRIES } from './syncQueue';
 import { updateCompetition, mutateCompetition } from '@/firebase/competitions';
 import { applyScore, withMatches } from '@/logic/competitionOps';
+import { applyValidationOp, type ValidationOp } from '@/logic/scoreValidation';
 import { DEFAULT_SCORING, validateScoringConfig } from '@/logic/scoringConfig';
 import type { SetScore } from '@/logic/types';
 import { saveAnaliseFs } from '@/firebase/analises';
@@ -86,6 +87,10 @@ export function SyncQueueProvider({ children }: { children: React.ReactNode }) {
           await mutateCompetition(p.groupId, p.compId, (servidor) =>
             applyScore(servidor, p.matchId, p.scoreA, p.scoreB, p.sets ?? undefined, cfg),
           );
+          await removeFromQueue(item.id);
+        } else if (item.type === 'SCORE_VALIDATION') {
+          const p = item.payload as { groupId: string; compId: string; op: ValidationOp };
+          await mutateCompetition(p.groupId, p.compId, (servidor) => applyValidationOp(servidor, p.op));
           await removeFromQueue(item.id);
         } else if (item.type === 'DELETE_MATCH' || item.type === 'EDIT_MATCH_PLAYERS') {
           const p = item.payload as {

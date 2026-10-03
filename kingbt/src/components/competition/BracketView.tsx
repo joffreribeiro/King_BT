@@ -119,7 +119,6 @@ export function BracketView({ comp, onScore, onMatchActions }: {
     return mIdx * sh + (sh - BK_CARD_H) / 2;
   }
 
-  const LABEL_H = 22;
 
   return (
     <>

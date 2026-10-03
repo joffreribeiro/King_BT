@@ -3,13 +3,23 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/store/AuthContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { matchGames } from '@/logic/setOutcome';
+import { useChallenges } from '@/hooks/useChallenges';
+import { useSettings } from '@/store/SettingsContext';
+import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { personalNotifs } from '@/logic/personalNotifs';
 
 export type NotifType =
   | 'result_new'
   | 'comp_started'
   | 'achievement_unlock'
   | 'player_ranked_up'
-  | 'invite';
+  | 'invite'
+  | 'challenge_in'
+  | 'challenge_reply'
+  | 'challenge_game'
+  | 'score_confirm'
+  | 'honor'
+  | 'announcement';
 
 export interface AppNotif {
   id: string;
@@ -19,6 +29,8 @@ export interface AppNotif {
   read: boolean;
   createdAt: Date;
   actionCompId?: string;
+  /** Rota do app a abrir ao tocar (quando não é uma competição). */
+  actionRoute?: string;
 }
 
 /**
@@ -50,8 +62,11 @@ const store = {
 };
 
 export function useNotifications() {
-  const { group } = useAuth();
+  const { group, myPlayerId } = useAuth();
   const { state } = useCompetitions();
+  const { challenges } = useChallenges();
+  const { honors, announcements } = useSettings();
+  const { findPlayer } = useGroupPlayers();
   const groupId = group?.id;
   const [, forceRender] = useState(0);
 
@@ -117,10 +132,15 @@ export function useNotifications() {
         });
       });
 
-    return list
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-      .slice(0, 20);
-  }, [state.competitions]);
+    // Avisos pessoais (desafios, placar a confirmar, honrarias, comunicados) têm prioridade sobre o resto.
+    const personal = personalNotifs({
+      myId: myPlayerId, challenges, honors, announcements, competitions: state.competitions,
+      nameOf: id => findPlayer(id)?.name ?? 'Jogador',
+    });
+
+    const byDate = (a: { createdAt: Date }, b: { createdAt: Date }) => b.createdAt.getTime() - a.createdAt.getTime();
+    return [...personal.sort(byDate).slice(0, 20), ...list.sort(byDate).slice(0, 20)].sort(byDate);
+  }, [state.competitions, myPlayerId, challenges, honors, announcements, findPlayer]);
 
   const notifs = useMemo<AppNotif[]>(
     () => base.map(n => ({ ...n, read: readIds.has(n.id) })),

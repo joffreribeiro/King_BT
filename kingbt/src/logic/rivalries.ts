@@ -1,3 +1,4 @@
+import { rankedCompetitions } from './rankingScope';
 import type { Competition } from './types';
 
 export interface RivalryStats {
@@ -17,6 +18,7 @@ export function computeRivalries(
   myId: string,
   competitions: Competition[],
 ): RivalryStats {
+  competitions = rankedCompetitions(competitions);
   // parceiro: quem jogou ao meu lado em dupla
   const partnerMap = new Map<string, { played: number; wins: number }>();
   // oponente: quem enfrentei
@@ -136,6 +138,7 @@ export function computeNamedRivalries(
   competitions: Competition[],
   resolveName: (id: string) => string,
 ): NamedRivalryMaps {
+  competitions = rankedCompetitions(competitions);
   const partners: NamedRivalryMaps['partners'] = {};
   const rivals:   NamedRivalryMaps['rivals']   = {};
 
@@ -242,6 +245,7 @@ export interface GroupRivalry {
 }
 
 export function computeGroupRivalries(competitions: Competition[]): GroupRivalry[] {
+  competitions = rankedCompetitions(competitions);
   const map = new Map<string, GroupRivalry>();
 
   for (const comp of competitions) {

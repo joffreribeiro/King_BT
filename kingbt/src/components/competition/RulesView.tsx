@@ -136,7 +136,7 @@ export function RulesView({ comp }: { comp: Competition }) {
 const makeRls = (Colors: ThemeColors) => StyleSheet.create({
   scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.md },
   section: { gap: Spacing.xs },
-  sectionTitle: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted, letterSpacing: 1.5, paddingLeft: 2 },
+  sectionTitle: { fontFamily: FontFamily.titleBold, fontSize: 12, lineHeight: 16, color: Colors.muted, letterSpacing: 1.3, paddingLeft: 2, textTransform: 'uppercase' },
   card: { backgroundColor: Colors.surf, borderRadius: Radius.md, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md },
   divider: { height: 1, backgroundColor: Colors.line, marginHorizontal: Spacing.md },
@@ -144,6 +144,6 @@ const makeRls = (Colors: ThemeColors) => StyleSheet.create({
   label: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, flex: 1 },
   value: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text, textAlign: 'right', flexShrink: 0, maxWidth: '55%' },
   tiebreakBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.gold + '22', alignItems: 'center', justifyContent: 'center' },
-  tiebreakN: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.gold },
+  tiebreakN: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.gold },
   notes: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, lineHeight: 20, padding: Spacing.md },
 });

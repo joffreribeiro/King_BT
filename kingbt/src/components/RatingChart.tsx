@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, type LayoutChangeEvent } from 'react-native';
-import { FontFamily, Radius, Spacing, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 
 const BAR_H    = 80;  // altura máxima da barra

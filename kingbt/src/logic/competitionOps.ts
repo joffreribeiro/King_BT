@@ -40,7 +40,8 @@ export function applyScore(
     matches: comp.matches.map(m =>
       m.id === matchId
         ? {
-            ...m,
+            // Placar oficial substitui qualquer pendência de confirmação deste jogo.
+            ...(({ pendingScore: _pending, ...rest }) => rest)(m),
             scoreA, scoreB,
             ...(sets ? { sets } : {}),
             // Só carimba na PRIMEIRA vez que o jogo recebe placar — uma

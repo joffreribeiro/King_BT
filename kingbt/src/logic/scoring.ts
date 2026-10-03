@@ -1,5 +1,5 @@
 import type { Player, PlayerStat, RankedPlayer } from './types';
-import { DEFAULT_SCORING, type ScoringConfig } from './scoringConfig';
+import { DEFAULT_SCORING, minGamesOf, type ScoringConfig } from './scoringConfig';
 
 export type { PlayerStat, RankedPlayer };
 
@@ -57,17 +57,16 @@ export function blankStat(): PlayerStat {
 }
 
 /**
- * GA = GamesPró ÷ GamesContra (nunca divide por 0, máximo 9.99)
+ * GA = GamesPró ÷ GamesContra (nunca divide por 0, máximo 9.99).
  *
- * DECISÃO PENDENTE (registrada 21/09/2026, não resolvida — mantida assim de
- * propósito): quem jogou uma única partida 6×0 satura o GA em 9,99 e sobe
- * ao topo do ranking, à frente de quem jogou a temporada inteira com GA
- * mais baixo mas consistente. O usuário confirmou "deixar como está por
- * agora" ao ser perguntado — não mexer na fórmula de ranking em produção
- * sem decidir antes um critério mínimo (quantos jogos pro GA valer? o que
- * acontece com o GA antes disso?). Revisitar se o assunto voltar à tona.
+ * Com suavização K > 0 (opção do grupo, valendo a partir de uma temporada):
+ * GA = (GamesPró + K) ÷ (GamesContra + K). Quem jogou uma única partida 6×0
+ * deixa de saturar em 9,99 e subir ao topo; quem jogou muito praticamente não
+ * muda, porque K pesa pouco diante de muitos games.
  */
-export function gameAverage(s: Pick<ScoreStats, 'gamesPro' | 'gamesCon'>): number {
+export function gameAverage(s: Pick<ScoreStats, 'gamesPro' | 'gamesCon'>, smoothing = 0): number {
+  if (s.gamesPro === 0 && s.gamesCon === 0) return 0; // sem nenhum game, não há GA (nem com suavização)
+  if (smoothing > 0) return Math.min(9.99, (s.gamesPro + smoothing) / (s.gamesCon + smoothing));
   if (s.gamesCon === 0) return s.gamesPro > 0 ? 9.99 : 0;
   return Math.min(9.99, s.gamesPro / s.gamesCon);
 }
@@ -79,7 +78,7 @@ export function gameAverage(s: Pick<ScoreStats, 'gamesPro' | 'gamesCon'>): numbe
  * contagem de competições distintas) — nesse caso o termo de eventos é 0.
  */
 export function statPoints(s: ScoreStats & { events?: number }, cfg: ScoringConfig = DEFAULT_SCORING): number {
-  return s.wins * cfg.winCoef + s.played * cfg.playedCoef + gameAverage(s) * cfg.gaCoef
+  return s.wins * cfg.winCoef + s.played * cfg.playedCoef + gameAverage(s, cfg.gaSmoothing) * cfg.gaCoef
     + (s.events ?? 0) * (cfg.eventCoef ?? 0);
 }
 
@@ -190,6 +189,11 @@ export function buildRanking(
   players: Player[],
   games: PlayerGame[],
   cfg: ScoringConfig = DEFAULT_SCORING,
+  /**
+   * `groupMinimum`: aplica o mínimo de jogos do grupo (ranking do grupo, por período). Fica desligado nas
+   * competições, onde todo mundo joga poucos jogos e todos precisam ter posição.
+   */
+  opts: { groupMinimum?: boolean } = {},
 ): RankedPlayer[] {
   const map: Record<string, PlayerStat> = {};
   players.forEach(p => { map[p.id] = { ...blankStat(), id: p.id }; });
@@ -228,7 +232,7 @@ export function buildRanking(
   const ranked = players.map(p => {
     const s = map[p.id];
     const sg = s.gamesPro - s.gamesCon;
-    const ga = gameAverage(s);
+    const ga = gameAverage(s, cfg.gaSmoothing);
     return {
       ...p, ...s, sg, ga,
       winRate: s.played ? Math.round((s.wins / s.played) * 100) : 0,
@@ -241,5 +245,11 @@ export function buildRanking(
   // total pra montar só os nomes do desempate alfabético.
   const nameById = new Map(ranked.map(r => [r.id, r.name]));
   const nameOf = (id: string) => nameById.get(id) ?? id;
-  return sortRanking(ranked, h2h, nameOf);
+  const sorted = sortRanking(ranked, h2h, nameOf);
+  const min = opts.groupMinimum ? minGamesOf(cfg) : 0;
+  if (min <= 0) return sorted;
+  // Quem não atingiu o mínimo vai para depois dos classificados (a ordem entre eles é mantida).
+  const full = sorted.filter(r => r.played >= min);
+  const provisional = sorted.filter(r => r.played < min).map(r => ({ ...r, provisional: true }));
+  return [...full, ...provisional];
 }

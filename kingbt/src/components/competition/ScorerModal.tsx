@@ -138,7 +138,6 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
   const canEdit = !alreadyScored || isAdmin;
   const analiseEncerrada = !!analise?.placarFinal;
 
-  const tbPoints = comp.config.winRule?.tiebreak ?? 7;
 
   // Verifica se o set atual (pelo índice) é o super tie-break decisivo.
   // Lógica compartilhada com a classificação retroativa de sets nas estatísticas
@@ -506,23 +505,23 @@ const makeSc = (Colors: ThemeColors) => StyleSheet.create({
   btBtnTxt: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.gold },
   btBtnContinuar: { borderColor: Colors.teal + '88', backgroundColor: Colors.teal + '22' },
   btBtnTxtContinuar: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.teal },
-  btBtnSub: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.teal, opacity: 0.7, marginTop: 2 },
+  btBtnSub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.teal, opacity: 0.7, marginTop: 2 },
   btBtnSecundario: { alignItems: 'center', paddingVertical: 6 },
   btBtnSecundarioTxt: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
-  setsRule: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center', marginTop: -4 },
+  setsRule: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center', marginTop: -4 },
   // Auto score display
   autoScore: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.md },
   autoSide: { flex: 1, alignItems: 'center', gap: 4 },
-  autoName: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, textAlign: 'center' },
+  autoName: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
   autoSets: { fontFamily: FontFamily.numberBold, fontSize: 40, color: Colors.muted },
   autoCenter: { alignItems: 'center', gap: 2, paddingHorizontal: Spacing.sm },
-  autoLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
-  autoWinner: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.teal, textAlign: 'center' },
+  autoLabel: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint },
+  autoWinner: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal, textAlign: 'center' },
   // Sets
   setsSection: { gap: 8 },
-  setsTitle: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted, letterSpacing: 1, textAlign: 'center' },
+  setsTitle: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted, letterSpacing: 1, textAlign: 'center' },
   setRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  setLabel: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.faint, width: 36 },
+  setLabel: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted, width: 44 },
   setDash: { fontFamily: FontFamily.body, fontSize: 17, color: Colors.faint },
   gameStepperWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 },
   // 44px: é o controle mais usado do app e é usado na beira da quadra, em pé,
@@ -536,7 +535,7 @@ const makeSc = (Colors: ThemeColors) => StyleSheet.create({
   setsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
   setInput: { width: 36, height: 34, borderRadius: 4, backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.line, fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.gold, textAlign: 'center' },
   quickRow: { gap: 6 },
-  quickLabel: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint, textAlign: 'center' },
+  quickLabel: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center' },
   quickChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' },
   quickChip: { backgroundColor: Colors.surf2, borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: Colors.line },
   quickChipText: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.teal },

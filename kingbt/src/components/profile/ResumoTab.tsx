@@ -10,11 +10,12 @@ import { PointsTimeline } from './PointsTimeline';
 import { makeTab } from './profileStyles';
 
 // ─── Aba Resumo ───────────────────────────────────────────────────────────────
-export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activityData, ratingHistory, nextAchievement, unlockedAchievements }: any) {
+export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activityData, ratingHistory, nextAchievement, unlockedAchievements, streak }: any) {
   const { colors: Colors } = useTheme();
   const tab = useMemo(() => makeTab(Colors), [Colors]);
   const statRow = useMemo(() => makeStatRowStyles(Colors), [Colors]);
   const l20 = useMemo(() => makeL20Styles(Colors), [Colors]);
+  const grid = useMemo(() => makeGridStyles(Colors), [Colors]);
   const [selectedMatch, setSelectedMatch] = useState<MatchDetail | null>(null);
   // matchHistory já vem do mais recente pro mais antigo.
   const last20  = matchHistory.slice(0, 20);
@@ -55,7 +56,6 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
             { l: 'Contra',  v: me.gamesCon,                      c: Colors.coral },
             { l: 'Saldo',   v: (me.sg >= 0 ? '+' : '') + me.sg, c: me.sg >= 0 ? Colors.teal : Colors.coral },
             { l: 'Média',   v: formatGA(me.ga),                  c: Colors.gold },
-            { l: 'Aprov.',  v: `${winRate}%`,                    c: Colors.goldBright },
           ].map((item, i, arr) => (
             <View key={item.l} style={[statRow.cell, i < arr.length - 1 && statRow.divider]}>
               <Text style={[statRow.val, { color: item.c }]}>{item.v}</Text>
@@ -64,6 +64,26 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
           ))}
         </View>
       </Card>
+
+      {/* Números principais em blocos */}
+      <View>
+        <Text style={tab.sectionTitle}>Estatísticas</Text>
+        <View style={grid.wrap}>
+          {[
+            { l: 'Jogos',          v: String(me.played),                                   c: Colors.text },
+            { l: 'Vitórias',       v: String(me.wins),                                     c: Colors.teal },
+            { l: 'Derrotas',       v: String(me.losses ?? Math.max(0, me.played - me.wins)), c: Colors.coral },
+            { l: 'Aproveitamento', v: `${winRate}%`,                                      c: Colors.gold },
+            { l: 'Sequência',      v: streak?.current > 0 ? `${streak.current}V` : streak?.current < 0 ? `${-streak.current}D` : '—', c: streak?.current > 0 ? Colors.teal : streak?.current < 0 ? Colors.coral : Colors.muted },
+            { l: 'Melhor sequência', v: streak?.max > 0 ? `${streak.max}V` : '—',           c: Colors.text },
+          ].map(item => (
+            <View key={item.l} style={grid.tile}>
+              <Text style={[grid.val, { color: item.c }]}>{item.v}</Text>
+              <Text style={grid.lbl} numberOfLines={1}>{item.l}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
 
       {/* Últimos 20 jogos — logo abaixo da pontuação */}
       {last20.length > 0 && (
@@ -173,59 +193,6 @@ export function ResumoTab({ me, myPos, winRate, matchHistory, evoPoints, activit
         <Icon name="chevronRight" size={17} color={Colors.accentGrupos} />
       </TouchableOpacity>
 
-      {/* Próxima conquista */}
-      {nextAchievement && (
-        <Card>
-          <Text style={tab.sectionTitle}>Próxima Conquista</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md }}>
-            <Text style={{ fontSize: 28 }}>{nextAchievement.icon}</Text>
-            <View style={{ flex: 1, gap: 6 }}>
-              <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text }}>
-                {nextAchievement.title}
-              </Text>
-              <View style={{ height: 4, backgroundColor: Colors.line, borderRadius: 2, overflow: 'hidden' }}>
-                <View style={{
-                  height: 4,
-                  width: `${nextAchievement.prog * 100}%` as any,
-                  backgroundColor: nextAchievement.color,
-                  borderRadius: 2,
-                }} />
-              </View>
-              <Text style={{ fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted }}>
-                {nextAchievement.label} · {nextAchievement.desc}
-              </Text>
-            </View>
-          </View>
-        </Card>
-      )}
-
-      {/* Conquistas desbloqueadas */}
-      {unlockedAchievements?.length > 0 && (
-        <Card>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm }}>
-            <Text style={tab.sectionTitle}>Conquistas</Text>
-            <TouchableOpacity onPress={() => router.push('/(app)/achievements')}>
-              <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal }}>Ver todas →</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {unlockedAchievements.map((a: any) => (
-              <View key={a.id} style={{
-                alignItems: 'center', gap: 4, padding: 8,
-                backgroundColor: `${a.color}1A`,
-                borderRadius: 10, borderWidth: 1,
-                borderColor: `${a.color}44`,
-                minWidth: 60,
-              }}>
-                <Text style={{ fontSize: 22 }}>{a.icon}</Text>
-                <Text style={{ fontFamily: FontFamily.body, fontSize: 9, color: a.color, textAlign: 'center' }}
-                  numberOfLines={2}>{a.title}</Text>
-              </View>
-            ))}
-          </View>
-        </Card>
-      )}
-
     </View>
   );
 }
@@ -234,18 +201,30 @@ const makeStatRowStyles = (Colors: ThemeColors) => StyleSheet.create({
   row:     { flexDirection: 'row', alignItems: 'center' },
   cell:    { flex: 1, alignItems: 'center', gap: 3, paddingVertical: Spacing.sm },
   divider: { borderRightWidth: 1, borderRightColor: Colors.line },
-  val:     { fontFamily: FontFamily.numberBold, fontSize: 18 },
-  lbl:     { fontFamily: FontFamily.number, fontSize: 8.5, color: Colors.faint, letterSpacing: 0.2 },
+  val:     { fontFamily: FontFamily.numberBold, fontSize: 20 },
+  lbl:     { fontFamily: FontFamily.number, fontSize: 12, color: Colors.muted },
+});
+
+const makeGridStyles = (Colors: ThemeColors) => StyleSheet.create({
+  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  // 3 por linha: (100% - 2 espaços) / 3
+  tile: {
+    flexBasis: '31%', flexGrow: 1, alignItems: 'center', gap: 4,
+    paddingVertical: 14, paddingHorizontal: 6, borderRadius: Radius.md,
+    backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line,
+  },
+  val: { fontFamily: FontFamily.numberBold, fontSize: 24, lineHeight: 28 },
+  lbl: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, textAlign: 'center' },
 });
 
 const makeL20Styles = (Colors: ThemeColors) => StyleSheet.create({
   breakdownRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: 6 },
-  breakdownLabel: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, width: 60 },
+  breakdownLabel: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, width: 64 },
   breakdownBar:   { flex: 1, flexDirection: 'row', height: 18, borderRadius: 4, overflow: 'hidden' },
   barWin:         { backgroundColor: Colors.teal + 'CC', alignItems: 'center', justifyContent: 'center' },
   barLoss:        { backgroundColor: Colors.coral + 'CC', alignItems: 'center', justifyContent: 'center' },
   barNum:         { fontFamily: FontFamily.numberBold, fontSize: 13, color: '#fff', paddingHorizontal: 6 },
   resultBox: { flex: 1, alignItems: 'center', backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.sm, gap: 2 },
   resultNum:  { fontFamily: FontFamily.titleBold, fontSize: 22 },
-  resultLbl:  { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+  resultLbl:  { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
 });

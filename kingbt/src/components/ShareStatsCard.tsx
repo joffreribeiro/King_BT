@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, Image, StyleSheet, Platform } from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontFamily, type ThemeColors } from '@/theme';
 import { formatRating, formatGA } from '@/logic/format';
@@ -31,7 +31,7 @@ export function ShareStatsCard({ data }: { data: ShareStatsData }) {
 
       {/* Header */}
       <View style={s.header}>
-        <View style={[s.avatar, { backgroundColor: data.color }]}>
+        <View style={[s.avatar, { borderWidth: 1.5, borderColor: Colors.gold }]}>
           <Text style={s.avatarText}>{data.name.slice(0, 2).toUpperCase()}</Text>
         </View>
         <View style={{ flex: 1, gap: 2 }}>
@@ -117,7 +117,7 @@ const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   avatarText: {
     fontFamily: FontFamily.titleBold,
     fontSize: 18,
-    color: '#0B0B0D',
+    color: Colors.text,
   },
   name: {
     fontFamily: FontFamily.titleBold,

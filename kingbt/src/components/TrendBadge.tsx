@@ -36,6 +36,6 @@ export function TrendBadge({ direction, diff }: TrendBadgeProps) {
 }
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
-  badge: { paddingHorizontal: 5, paddingVertical: 2, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
-  text:  { fontFamily: FontFamily.numberBold, fontSize: 9 },
+  badge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
+  text:  { fontFamily: FontFamily.numberBold, fontSize: 12 },
 });

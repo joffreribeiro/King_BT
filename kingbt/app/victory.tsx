@@ -4,7 +4,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useRef, useMemo } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FontFamily, centeredContent, type ThemeColors, Colors } from '@/theme';
+import { FontFamily, centeredContent, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Icon } from '@/components';
 import { useRequireAuth } from '@/hooks/useRequireAuth';

@@ -1,4 +1,5 @@
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { HexBackground } from '@/components/HexBackground';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMemo } from 'react';
 import { router } from 'expo-router';
@@ -82,6 +83,7 @@ export default function HallScreen() {
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
+      <HexBackground />
       {/* Mascote King BT — mesmo banner da tela de vitória, aqui fixo (não
           precisa de uma vitória ao vivo pra aparecer) já que este é o único
           lugar da árvore de navegação que celebra os campeões de verdade. */}
@@ -172,20 +174,20 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   bannerFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 90 },
   title: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.gold, flex: 1 },
   scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.sm },
-  sectionLabel: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted, letterSpacing: 2, marginTop: Spacing.sm },
+  sectionLabel: { fontFamily: FontFamily.titleBold, fontSize: 12, lineHeight: 16, color: Colors.muted, letterSpacing: 1.3, marginTop: Spacing.sm, textTransform: 'uppercase' },
   emptyTitle: { fontFamily: FontFamily.title, fontSize: 18, color: Colors.text, marginTop: Spacing.sm },
   emptySub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center', marginTop: 4 },
   rankCard: { gap: Spacing.sm },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 4 },
   medal: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  medalNum: { fontFamily: FontFamily.numberBold, fontSize: 11 },
+  medalNum: { fontFamily: FontFamily.numberBold, fontSize: 13 },
   topName: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
   topCount: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.gold },
   champCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.sm },
   champLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
   champCompName: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text },
-  champMeta: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+  champMeta: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   champRight: { alignItems: 'center', gap: 4, maxWidth: 96 },
   champAvatars: { flexDirection: 'row', gap: 3 },
-  champWinner: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.gold, textAlign: 'center' },
+  champWinner: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.gold, textAlign: 'center' },
 });

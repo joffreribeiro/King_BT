@@ -27,6 +27,7 @@ export { StatCard } from './StatCard';
 export { VisibilityPicker } from './VisibilityPicker';
 export type { GroupVisibility } from './VisibilityPicker';
 export { Icon } from './icons';
+export { HexBackground } from './HexBackground';
 export type { IconName } from './icons';
 export { NextMatchCard } from './NextMatchCard';
 export { MandatoryUpdateScreen } from './MandatoryUpdateScreen';

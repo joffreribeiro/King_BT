@@ -25,11 +25,6 @@ function firstUnscored(matches: Match[]): Match | undefined {
 // deixando a contagem de games livre até o usuário registrar o placar.
 const GAMES_LIVRE = 9999;
 
-function btHint(a: number, b: number, G: number = 6): string | null {
-  if (a === G - 1 && b === G - 1) return `Empate em ${G - 1}-${G - 1} — jogue até ${G + 1}!`;
-  if (a === G && b === G) return `${G}-${G} — próximo ponto vence!`;
-  return null;
-}
 
 function NextMatchPreview({ comp, match }: { comp: Competition; match: Match }) {
   const { colors: Colors } = useTheme();
@@ -346,7 +341,6 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
     : isTiebreak ? 'TIEBREAK' : null;
 
   // Histórico de sets encerrados (sets anteriores)
-  const setsEncerrados = placard.historicGamesA.length;
 
   return (
     <View style={live.container}>
@@ -542,7 +536,7 @@ export default function CourtScreen() {
   const md = useMemo(() => makeMdStyles(Colors), [Colors]);
   const { state, dispatch, subscribeLiveMatches } = useCompetitions();
   const { findPlayer } = useGroupPlayers();
-  const { group, user, isAdmin, isSuperAdmin, myPlayerId } = useAuth();
+  const { user, isAdmin, isSuperAdmin, myPlayerId } = useAuth();
   const params = useLocalSearchParams<{ compId?: string; matchId?: string }>();
   const [selectedCompId, setSelectedCompId] = useState<string | null>(params.compId ?? null);
 

@@ -92,28 +92,49 @@ service cloud.firestore {
       // Leitura: só membro ou visitante de grupo público — não expõe mais
       // dados de grupo pra quem não tem nada a ver com ele (ver /groupCodes
       // abaixo, que é o que resolve código→id sem vazar o resto do grupo).
-      allow read: if isMember(gid) || (signedIn() && isPublic(gid));
+      // Usa `resource.data` (e não isPublic/get) para a consulta "grupos públicos"
+      // (where visibility == 'publico') passar: o Firestore só aceita uma LISTA se
+      // a regra for provável a partir do filtro da consulta.
+      // `request.auth.uid in resource.data.members` (e não isMember(gid), que usa get()) é o que deixa passar
+      // também a CONSULTA "grupos em que sou membro" (where members array-contains uid) que o app faz ao
+      // entrar: o Firestore só aceita uma lista se a regra for provável a partir do filtro da consulta.
+      allow read: if signedIn() && (request.auth.uid in resource.data.members || resource.data.visibility == 'publico');
 
       // Criação: o criador precisa se colocar como admin e membro
       allow create: if signedIn()
         && request.auth.uid in request.resource.data.admins
         && request.auth.uid in request.resource.data.members;
 
-      // Update: admin do grupo (ou super admin) pode tudo; não-admin só pode
-      // se adicionar à lista de membros (fluxo de join por código — o
-      // código em si é resolvido via /groupCodes, não por ler /groups).
-      allow update: if (isGroupAdmin(gid) || isSuperAdmin())
-        || (
-          signedIn()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
-          && request.resource.data.members.hasAll(resource.data.members)
-          && request.resource.data.members.removeAll(resource.data.members) == [request.auth.uid]
-        );
+      // Update: só admin do grupo (ou super admin). Quem tem o código NÃO se
+      // adiciona mais sozinho em `members` — cria um pedido em
+      // /groups/{gid}/joinRequests/{uid} e o admin aprova (que é quem grava
+      // `members`). Antes, a cláusula de auto-adição deixava qualquer pessoa
+      // com o código (ou com o id do grupo) entrar sem ninguém autorizar.
+      allow update: if isGroupAdmin(gid) || isSuperAdmin();
 
       allow delete: if isGroupAdmin(gid) || isSuperAdmin();
 
       // ── Subcoleções: membros leem/escrevem; grupo público permite leitura
       // a qualquer usuário logado (modo visitante, somente leitura) ───────
+      // ── Pedidos de entrada ─────────────────────────────────────────────
+      // Quem tem o código cria o PRÓPRIO pedido (id = uid) e fica aguardando.
+      // Só quem ainda não é membro pede; o conteúdo é só { uid, name, requestedAt }.
+      // Lê o pedido: o próprio pedinte (pra saber se foi recusado) e o admin.
+      // Apaga: o pedinte (cancelar) ou o admin (aprovar/recusar). Sem update.
+      match /joinRequests/{reqUid} {
+        allow read: if signedIn() && (reqUid == request.auth.uid || canManageComp(gid));
+        allow create: if signedIn()
+          && reqUid == request.auth.uid
+          && !(request.auth.uid in groupData(gid).members)
+          && request.resource.data.keys().hasOnly(['uid', 'name', 'requestedAt'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.name is string
+          && request.resource.data.name.size() <= 80
+          && request.resource.data.requestedAt is string;
+        allow update: if false;
+        allow delete: if signedIn() && (reqUid == request.auth.uid || canManageComp(gid));
+      }
+
       match /players/{playerId} {
         allow read: if isMember(gid) || (signedIn() && isPublic(gid));
         // Criar continua liberado a qualquer membro — é o uso legítimo do
@@ -148,6 +169,86 @@ service cloud.firestore {
         // fluxo normal de "desfazer" um convidado adicionado à toa), mas só
         // admin/super admin apaga o perfil de um jogador de verdade.
         allow delete: if isMember(gid) && (resource.data.get('guest', false) == true || canManageComp(gid));
+
+        // Avaliação da comunidade (Radar): cada membro dá UMA nota por
+        // habilidade a outro jogador do grupo, no doc ratings/{seuUid}.
+        //  - Só membros leem (as notas aparecem no perfil do avaliado).
+        //  - Só se grava no doc com o PRÓPRIO uid — ninguém avalia em nome de outro.
+        //  - Ninguém avalia a si mesmo: o perfil avaliado não pode ser o do
+        //    próprio avaliador (nem pelo id do doc, nem pelo uid vinculado).
+        //  - O conteúdo é só { skills, category?, updatedAt }; cada nota é inteiro de 1 a 10
+        //    e `category` (opcional) é uma das categorias do app.
+        match /ratings/{raterUid} {
+          function okScore(sk, k) {
+            return !(k in sk) || (sk[k] is int && sk[k] >= 1 && sk[k] <= 10);
+          }
+          function validSkills(sk) {
+            return sk is map
+              && sk.keys().hasOnly(['smash', 'lob', 'defesa', 'voleio', 'curtinha', 'saque', 'movimentacao', 'posicionamento', 'mental', 'consistencia'])
+              && okScore(sk, 'smash') && okScore(sk, 'lob') && okScore(sk, 'defesa')
+              && okScore(sk, 'voleio') && okScore(sk, 'curtinha') && okScore(sk, 'saque')
+              && okScore(sk, 'movimentacao') && okScore(sk, 'posicionamento')
+              && okScore(sk, 'mental') && okScore(sk, 'consistencia');
+          }
+          function notSelf() {
+            return playerId != request.auth.uid
+              && get(/databases/$(database)/documents/groups/$(gid)/players/$(playerId)).data.get('uid', null) != request.auth.uid;
+          }
+
+          allow read: if isMember(gid);
+          allow create, update: if isMember(gid)
+            && raterUid == request.auth.uid
+            && notSelf()
+            && request.resource.data.keys().hasOnly(['skills', 'category', 'updatedAt'])
+            && request.resource.data.keys().hasAll(['skills'])
+            && validSkills(request.resource.data.skills)
+            // Categoria percebida (opcional): em que categoria quem avalia acha que o jogador joga.
+            && (!('category' in request.resource.data)
+                || request.resource.data.category in ['Open', 'A', 'B', 'C', 'D', 'Iniciante']);
+          allow delete: if isMember(gid) && raterUid == request.auth.uid;
+        }
+      }
+
+      // ── Desafios ───────────────────────────────────────────────────────
+      // Um membro desafia outro para um jogo. Quem desafia cria (sempre "pending", com o
+      // próprio uid); só o desafiado aceita/recusa; só o desafiante cancela; um dos dois
+      // liga a partida criada ao desafio aceito (uma vez). Admin pode tudo.
+      match /challenges/{cid} {
+        function chKeys() {
+          return request.resource.data.diff(resource.data).affectedKeys();
+        }
+        allow read: if isMember(gid);
+        allow create: if isMember(gid)
+          && request.resource.data.keys().hasOnly(['fromId', 'toId', 'fromUid', 'toUid', 'fromPartnerId', 'toPartnerId', 'message', 'when', 'status', 'createdAt'])
+          && request.resource.data.keys().hasAll(['fromId', 'toId', 'fromUid', 'toUid', 'status', 'createdAt'])
+          && request.resource.data.fromUid == request.auth.uid
+          && request.resource.data.fromUid != request.resource.data.toUid
+          && request.resource.data.fromId != request.resource.data.toId
+          && request.resource.data.status == 'pending'
+          && (!('fromPartnerId' in request.resource.data) || (
+            'toPartnerId' in request.resource.data
+            && request.resource.data.fromPartnerId is string && request.resource.data.toPartnerId is string
+            && request.resource.data.fromPartnerId != request.resource.data.toPartnerId
+            && request.resource.data.fromPartnerId != request.resource.data.toId
+            && request.resource.data.toPartnerId != request.resource.data.fromId
+            && request.resource.data.fromPartnerId != request.resource.data.fromId
+            && request.resource.data.toPartnerId != request.resource.data.toId))
+          && (!('toPartnerId' in request.resource.data) || 'fromPartnerId' in request.resource.data)
+          && (!('message' in request.resource.data) || (request.resource.data.message is string && request.resource.data.message.size() <= 140))
+          && (!('when' in request.resource.data) || (request.resource.data.when is string && request.resource.data.when.size() <= 60));
+        allow update: if isMember(gid) && (
+          (resource.data.toUid == request.auth.uid && resource.data.status == 'pending'
+            && request.resource.data.status in ['accepted', 'declined']
+            && chKeys().hasOnly(['status', 'respondedAt']))
+          || (resource.data.fromUid == request.auth.uid && resource.data.status == 'pending'
+            && request.resource.data.status == 'cancelled'
+            && chKeys().hasOnly(['status', 'respondedAt']))
+          || ((resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid)
+            && resource.data.status == 'accepted' && !('compId' in resource.data)
+            && chKeys().hasOnly(['compId'])
+            && request.resource.data.compId is string)
+          || canManageComp(gid));
+        allow delete: if isMember(gid) && (resource.data.fromUid == request.auth.uid || canManageComp(gid));
       }
 
       match /competitions/{compId} {
@@ -263,9 +364,17 @@ service cloud.firestore {
       allow list: if false;
       // Só cria quem já é admin do grupo referenciado — na prática, só
       // createGroup() logo após criar o próprio grupo.
+      //
+      // O doc também guarda a PRÉVIA pública do grupo (nome, descrição,
+      // visibilidade): é o que a pessoa vê ao abrir o convite, antes de
+      // pedir para entrar (um grupo privado não pode ser lido por não-membro).
       allow create: if signedIn()
-        && request.auth.uid in get(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.admins;
-      allow update: if false; // código não muda depois de criado
+        && request.auth.uid in get(/databases/$(database)/documents/groups/$(request.resource.data.groupId)).data.admins
+        && request.resource.data.keys().hasOnly(['groupId', 'name', 'description', 'visibility']);
+      // O código (e o grupo a que aponta) não muda; o admin só atualiza a prévia.
+      allow update: if (isGroupAdmin(resource.data.groupId) || isSuperAdmin())
+        && request.resource.data.groupId == resource.data.groupId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'description', 'visibility']);
       allow delete: if isGroupAdmin(resource.data.groupId) || isSuperAdmin();
     }
 

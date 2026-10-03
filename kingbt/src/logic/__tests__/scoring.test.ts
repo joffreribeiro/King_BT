@@ -551,3 +551,40 @@ describe('empate no placar — conta como jogo disputado, sem V nem D', () => {
     expect(ranking[0].id).toBe('ana');
   });
 });
+
+import { minGamesOf, DEFAULT_MIN_GAMES } from '../scoringConfig';
+
+describe('mínimo de jogos do ranking do grupo', () => {
+  const players = [
+    { id: 'novato', name: 'Novato', short: 'NOV', color: '#000', handicap: 0 },
+    { id: 'veterano', name: 'Veterano', short: 'VET', color: '#000', handicap: 0 },
+  ] as never[];
+  const g = (n: number, winner: 'A' | 'B', a: string, b: string): PlayerGame => ({ teamA: [a], teamB: [b], gamesA: winner === 'A' ? 6 : 3, gamesB: winner === 'A' ? 3 : 6, winner });
+  // novato jogou 1 jogo (6x0, GA no teto); veterano jogou 6 (5 vitórias e 1 derrota).
+  const games: PlayerGame[] = [
+    { teamA: ['novato'], teamB: ['x'], gamesA: 6, gamesB: 0, winner: 'A' },
+    ...Array.from({ length: 5 }, () => g(0, 'A', 'veterano', 'x')),
+    g(0, 'B', 'veterano', 'x'),
+  ];
+  it('sem a opção, o novato com 6x0 passa o veterano (comportamento antigo)', () => {
+    const r = buildRanking(players, games);
+    expect(r[0].id).toBe('novato');
+  });
+  it('com o mínimo, quem jogou pouco vai para depois e fica provisório', () => {
+    const r = buildRanking(players, games, undefined, { groupMinimum: true });
+    expect(r.map(x => x.id)).toEqual(['veterano', 'novato']);
+    expect(r[0].provisional).toBeUndefined();
+    expect(r[1].provisional).toBe(true);
+  });
+  it('mínimo 0 desliga; ausente vale o padrão', () => {
+    const r = buildRanking(players, games, { winCoef: 3, playedCoef: 0.5, gaCoef: 2, minGames: 0 }, { groupMinimum: true });
+    expect(r[0].id).toBe('novato');
+    expect(minGamesOf(undefined)).toBe(DEFAULT_MIN_GAMES);
+    expect(minGamesOf({ minGames: 0 })).toBe(0);
+    expect(minGamesOf({ minGames: 1000 })).toBe(DEFAULT_MIN_GAMES);
+  });
+  it('o mínimo é lido e validado do Firestore', () => {
+    expect(validateScoringConfig({ winCoef: 3, playedCoef: 0.5, gaCoef: 2, minGames: 8 }).minGames).toBe(8);
+    expect('minGames' in validateScoringConfig({ winCoef: 3, playedCoef: 0.5, gaCoef: 2, minGames: -1 })).toBe(false);
+  });
+});

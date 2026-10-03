@@ -64,6 +64,6 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   // 44px de alvo — é o botão voltar de 16 telas, e era 32 de largura.
   backBtn:   { width: 44, height: 44, marginLeft: -10, alignItems: 'flex-start', justifyContent: 'center' },
   titleWrap: { flex: 1 },
-  title:     { ...Type.h1, color: Colors.text },
+  title:     { ...Type.screenTitle, color: Colors.text },
   subtitle:  { ...Type.caption, color: Colors.muted, marginTop: 1 },
 });

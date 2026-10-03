@@ -17,7 +17,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
 import {
-  doc, getDoc, getDocs, collection, setDoc, updateDoc, deleteDoc, arrayUnion, Timestamp,
+  doc, getDoc, getDocs, collection, query, where, setDoc, updateDoc, deleteDoc, arrayUnion, Timestamp,
 } from 'firebase/firestore';
 
 // Docs de teste para /groupCodes que precisam ser recriados do zero por não
@@ -34,6 +34,8 @@ const ADMIN_UID = 'admin1';
 const SUPER_ADMIN_EMAIL = 'joffre.ribeiro@gmail.com';
 const SUPER_ADMIN_UID = 'superadmin-nao-e-membro-da-lista-admins';
 const OUTSIDER_UID = 'defora1';
+const MEMBER2_UID = 'membro2';
+const MEMBER3_UID = 'membro3';
 
 const CODE1 = 'KINGBT1';
 const CODE2 = 'KINGBT2';
@@ -48,7 +50,7 @@ async function seed() {
     await setDoc(doc(db, 'groups', GID), {
       name: 'King BT',
       code: CODE1,
-      members: [MEMBER_UID, ADMIN_UID, SUPER_ADMIN_UID],
+      members: [MEMBER_UID, ADMIN_UID, SUPER_ADMIN_UID, MEMBER2_UID, MEMBER3_UID],
       admins: [ADMIN_UID],
       visibility: 'privado',
     });
@@ -278,12 +280,71 @@ async function run() {
   );
   await seed();
   await check(
-    'Fluxo de entrar por código: resolve o id via /groupCodes, depois se autoadiciona em members',
+    'Quem tem o código NÃO se autoadiciona em members (precisa da aprovação do admin)',
     updateDoc(doc(ctxFor(OUTSIDER_UID).firestore(), 'groups', GID), {
       members: arrayUnion(OUTSIDER_UID),
     }),
-    'succeed',
+    'fail',
   );
+
+  // ── "Explorar grupos públicos": consulta por visibility ────────────────
+  await seed();
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'groups', 'publico1'), { name: 'Aberto', code: 'ABERTO', members: [ADMIN_UID], admins: [ADMIN_UID], visibility: 'publico' });
+  });
+  // Consulta que o app faz ao entrar (AuthContext, "reconciliar grupos"): grupos em que o próprio uid é membro.
+  await check('MEMBRO lista os grupos em que é membro (members array-contains uid)',
+    getDocs(query(collection(ctxFor(MEMBER_UID).firestore(), 'groups'), where('members', 'array-contains', MEMBER_UID))), 'succeed');
+  await check('Ninguém lista os grupos de OUTRA pessoa (array-contains de outro uid)',
+    getDocs(query(collection(ctxFor(OUTSIDER_UID).firestore(), 'groups'), where('members', 'array-contains', MEMBER_UID))), 'fail');
+  await check('DE FORA lista grupos PÚBLICOS (where visibility == publico)',
+    getDocs(query(collection(ctxFor(OUTSIDER_UID).firestore(), 'groups'), where('visibility', '==', 'publico'))), 'succeed');
+  await check('DE FORA não lista grupos sem o filtro de público',
+    getDocs(collection(ctxFor(OUTSIDER_UID).firestore(), 'groups')), 'fail');
+  await check('DE FORA lê um grupo PRIVADO: negado',
+    getDoc(doc(ctxFor(OUTSIDER_UID).firestore(), 'groups', GID)), 'fail');
+
+  // ── Pedido de entrada com aprovação do admin ───────────────────────────
+  const reqRef = (uid, asUid) => doc(ctxFor(asUid).firestore(), 'groups', GID, 'joinRequests', uid);
+  const goodReq = (uid) => ({ uid, name: 'Fulano', requestedAt: '2026-09-30T12:00:00.000Z' });
+  await seed();
+  await check('DE FORA cria o próprio pedido de entrada',
+    setDoc(reqRef(OUTSIDER_UID, OUTSIDER_UID), goodReq(OUTSIDER_UID)), 'succeed');
+  await seed();
+  await check('DE FORA não cria pedido em nome de outra pessoa',
+    setDoc(reqRef('outro', OUTSIDER_UID), goodReq('outro')), 'fail');
+  await seed();
+  await check('Pedido com campo extra é recusado',
+    setDoc(reqRef(OUTSIDER_UID, OUTSIDER_UID), { ...goodReq(OUTSIDER_UID), role: 'admin' }), 'fail');
+  await seed();
+  await check('MEMBRO não precisa (nem pode) criar pedido',
+    setDoc(reqRef(MEMBER_UID, MEMBER_UID), goodReq(MEMBER_UID)), 'fail');
+  await seed();
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'groups', GID, 'joinRequests', OUTSIDER_UID), goodReq(OUTSIDER_UID));
+  });
+  await check('O próprio pedinte lê o pedido (pra saber se foi recusado)',
+    getDoc(reqRef(OUTSIDER_UID, OUTSIDER_UID)), 'succeed');
+  await check('ADMIN lê o pedido',
+    getDoc(reqRef(OUTSIDER_UID, ADMIN_UID)), 'succeed');
+  await check('MEMBRO comum não lê pedidos dos outros',
+    getDoc(reqRef(OUTSIDER_UID, MEMBER_UID)), 'fail');
+  await check('Pedido não pode ser editado',
+    updateDoc(reqRef(OUTSIDER_UID, OUTSIDER_UID), { name: 'Outro' }), 'fail');
+  await check('ADMIN aprova: adiciona a pessoa em members',
+    updateDoc(doc(ctxFor(ADMIN_UID).firestore(), 'groups', GID), { members: arrayUnion(OUTSIDER_UID) }), 'succeed');
+  await check('ADMIN apaga o pedido depois de aprovar',
+    deleteDoc(reqRef(OUTSIDER_UID, ADMIN_UID)), 'succeed');
+  await check('Aprovado passa a ler o grupo',
+    getDoc(doc(ctxFor(OUTSIDER_UID).firestore(), 'groups', GID)), 'succeed');
+  await seed();
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'groups', GID, 'joinRequests', OUTSIDER_UID), goodReq(OUTSIDER_UID));
+  });
+  await check('MEMBRO comum não apaga pedido de outro',
+    deleteDoc(reqRef(OUTSIDER_UID, MEMBER_UID)), 'fail');
+  await check('O pedinte cancela o próprio pedido',
+    deleteDoc(reqRef(OUTSIDER_UID, OUTSIDER_UID)), 'succeed');
   await seed();
   await check(
     'Não-admin não cria /groupCodes apontando pra um grupo que não é dele',
@@ -298,8 +359,38 @@ async function run() {
   );
   await seed();
   await check(
-    '/groupCodes não pode ser editado depois de criado',
+    '/groupCodes não pode trocar o grupo a que aponta',
     updateDoc(doc(ctxFor(ADMIN_UID).firestore(), 'groupCodes', CODE1), { groupId: GID2 }),
+    'fail',
+  );
+  await seed();
+  await check(
+    'Admin atualiza a prévia pública (nome/descrição/visibilidade) do código',
+    updateDoc(doc(ctxFor(ADMIN_UID).firestore(), 'groupCodes', CODE1), { name: 'King BT', description: 'Sábados na praia', visibility: 'privado' }),
+    'succeed',
+  );
+  await seed();
+  await check(
+    'Admin recria o registro de um código que não existia (grupo antigo), com groupId',
+    setDoc(doc(ctxFor(ADMIN_UID).firestore(), 'groupCodes', CODE_NEW), { groupId: GID, name: 'King BT', description: '', visibility: 'privado' }, { merge: true }),
+    'succeed',
+  );
+  await seed();
+  await check(
+    'Admin não toma um código que já aponta para outro grupo',
+    setDoc(doc(ctxFor(ADMIN_UID).firestore(), 'groupCodes', CODE2), { groupId: GID, name: 'X' }, { merge: true }),
+    'fail',
+  );
+  await seed();
+  await check(
+    'Quem não é admin não altera a prévia do código',
+    updateDoc(doc(ctxFor(MEMBER_UID).firestore(), 'groupCodes', CODE1), { name: 'Hackeado' }),
+    'fail',
+  );
+  await seed();
+  await check(
+    'Criar código com campo fora da prévia é recusado',
+    setDoc(doc(ctxFor(ADMIN_UID).firestore(), 'groupCodes', CODE_NEW), { groupId: GID, extra: 1 }),
     'fail',
   );
 
@@ -589,6 +680,105 @@ async function run() {
     getDoc(doc(ctxFor(MEMBER_UID).firestore(), 'users', MEMBER_UID)),
     'succeed',
   );
+
+  // ── Avaliação da comunidade (players/{id}/ratings/{uid}) ───────────────
+  await seed();
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    // jogador "pedro" (id aleatório, vinculado ao MEMBER_UID) e "ana" (sem dono)
+    await setDoc(doc(db, 'groups', GID, 'players', 'pedro'), { name: 'Pedro', uid: MEMBER_UID, guest: false });
+    await setDoc(doc(db, 'groups', GID, 'players', 'ana'), { name: 'Ana', guest: false });
+  });
+  const ratingRef = (uid, playerId, rater) => doc(ctxFor(uid).firestore(), 'groups', GID, 'players', playerId, 'ratings', rater);
+  const okSkills = { smash: 7, lob: 5, defesa: 6 };
+
+  await check('MEMBRO avalia outro jogador com o próprio uid',
+    setDoc(ratingRef(MEMBER_UID, 'ana', MEMBER_UID), { skills: okSkills, updatedAt: Timestamp.now() }), 'succeed');
+  await check('MEMBRO NÃO avalia em nome de outro uid',
+    setDoc(ratingRef(MEMBER_UID, 'ana', ADMIN_UID), { skills: okSkills }), 'fail');
+  await check('MEMBRO NÃO avalia a si mesmo (perfil vinculado ao próprio uid)',
+    setDoc(ratingRef(MEMBER_UID, 'pedro', MEMBER_UID), { skills: okSkills }), 'fail');
+  await check('MEMBRO NÃO avalia a si mesmo (id do doc = próprio uid)',
+    setDoc(ratingRef(MEMBER_UID, MEMBER_UID, MEMBER_UID), { skills: okSkills }), 'fail');
+  await check('Nota acima de 10 é recusada',
+    setDoc(ratingRef(ADMIN_UID, 'ana', ADMIN_UID), { skills: { smash: 11 } }), 'fail');
+  await check('Nota 0 é recusada (mínimo é 1)',
+    setDoc(ratingRef(ADMIN_UID, 'ana', ADMIN_UID), { skills: { smash: 0 } }), 'fail');
+  await check('Nota não inteira é recusada',
+    setDoc(ratingRef(ADMIN_UID, 'ana', ADMIN_UID), { skills: { smash: 6.5 } }), 'fail');
+  await check('Habilidade desconhecida é recusada',
+    setDoc(ratingRef(ADMIN_UID, 'ana', ADMIN_UID), { skills: { forca: 5 } }), 'fail');
+  await check('Avaliação com categoria percebida válida é aceita',
+    setDoc(ratingRef(MEMBER_UID, 'ana', MEMBER_UID), { skills: okSkills, category: 'B', updatedAt: Timestamp.now() }), 'succeed');
+  await check('Categoria percebida inválida é recusada',
+    setDoc(ratingRef(MEMBER_UID, 'ana', MEMBER_UID), { skills: okSkills, category: 'Z' }), 'fail');
+  await check('Campo extra no doc é recusado',
+    setDoc(ratingRef(ADMIN_UID, 'ana', ADMIN_UID), { skills: okSkills, extra: 1 }), 'fail');
+  await check('MEMBRO lê as avaliações do grupo',
+    getDocs(collection(ctxFor(ADMIN_UID).firestore(), 'groups', GID, 'players', 'ana', 'ratings')), 'succeed');
+  await check('DE FORA do grupo não lê as avaliações',
+    getDocs(collection(ctxFor(OUTSIDER_UID).firestore(), 'groups', GID, 'players', 'ana', 'ratings')), 'fail');
+  await check('DE FORA do grupo não avalia',
+    setDoc(ratingRef(OUTSIDER_UID, 'ana', OUTSIDER_UID), { skills: okSkills }), 'fail');
+  await check('MEMBRO apaga a própria avaliação',
+    deleteDoc(ratingRef(MEMBER_UID, 'ana', MEMBER_UID)), 'succeed');
+  await check('MEMBRO não apaga a avaliação de outro',
+    deleteDoc(ratingRef(MEMBER_UID, 'ana', ADMIN_UID)), 'fail');
+
+  // ── Desafios (groups/{gid}/challenges/{id}) ────────────────────────────
+  const chRef = (asUid, id) => doc(ctxFor(asUid).firestore(), 'groups', GID, 'challenges', id);
+  const newCh = { fromId: 'p1', toId: 'p2', fromUid: MEMBER_UID, toUid: MEMBER2_UID, message: 'Bora?', status: 'pending', createdAt: '2026-10-02T12:00:00.000Z' };
+  const seedCh = async (over = {}) => {
+    await seed();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'groups', GID, 'challenges', 'c1'), { ...newCh, ...over });
+    });
+  };
+  await seed();
+  await check('MEMBRO cria um desafio', setDoc(chRef(MEMBER_UID, 'c1'), newCh), 'succeed');
+  await seed();
+  await check('Não cria desafio assinado por outra pessoa', setDoc(chRef(MEMBER2_UID, 'c1'), newCh), 'fail');
+  await seed();
+  await check('Desafio já nasce pendente (aceito é recusado)', setDoc(chRef(MEMBER_UID, 'c1'), { ...newCh, status: 'accepted' }), 'fail');
+  await seed();
+  await check('Desafio com campo extra é recusado', setDoc(chRef(MEMBER_UID, 'c1'), { ...newCh, compId: 'x' }), 'fail');
+  await seed();
+  await check('Não desafia a si mesmo', setDoc(chRef(MEMBER_UID, 'c1'), { ...newCh, toUid: MEMBER_UID }), 'fail');
+  await seed();
+  await check('Mensagem grande demais é recusada', setDoc(chRef(MEMBER_UID, 'c1'), { ...newCh, message: 'x'.repeat(141) }), 'fail');
+  await seed();
+  await check('Desafio de duplas válido', setDoc(chRef(MEMBER_UID, 'c-duplas'), { ...newCh, fromPartnerId: 'p3', toPartnerId: 'p4' }), 'succeed');
+  await seed();
+  await check('Duplas: só um parceiro é recusado', setDoc(chRef(MEMBER_UID, 'c1'), { ...newCh, fromPartnerId: 'p3' }), 'fail');
+  await seed();
+  await check('Duplas: parceiro repetido é recusado', setDoc(chRef(MEMBER_UID, 'c1'), { ...newCh, fromPartnerId: 'p3', toPartnerId: 'p3' }), 'fail');
+  await seed();
+  await check('Duplas: parceiro igual ao adversário é recusado', setDoc(chRef(MEMBER_UID, 'c1'), { ...newCh, fromPartnerId: 'p2', toPartnerId: 'p4' }), 'fail');
+  await seed();
+  await check('DE FORA do grupo não cria desafio', setDoc(chRef(OUTSIDER_UID, 'c1'), { ...newCh, fromUid: OUTSIDER_UID }), 'fail');
+
+  await seedCh();
+  await check('MEMBRO lê os desafios do grupo', getDoc(chRef(MEMBER3_UID, 'c1')), 'succeed');
+  await check('DE FORA não lê desafios', getDoc(chRef(OUTSIDER_UID, 'c1')), 'fail');
+  await check('O desafiado aceita', updateDoc(chRef(MEMBER2_UID, 'c1'), { status: 'accepted', respondedAt: '2026-10-02T13:00:00.000Z' }), 'succeed');
+  await seedCh();
+  await check('O desafiado recusa', updateDoc(chRef(MEMBER2_UID, 'c1'), { status: 'declined', respondedAt: '2026-10-02T13:00:00.000Z' }), 'succeed');
+  await seedCh();
+  await check('O desafiante NÃO aceita o próprio desafio', updateDoc(chRef(MEMBER_UID, 'c1'), { status: 'accepted' }), 'fail');
+  await check('Terceiro (membro) não responde', updateDoc(chRef(MEMBER3_UID, 'c1'), { status: 'accepted' }), 'fail');
+  await check('O desafiado não muda quem desafiou', updateDoc(chRef(MEMBER2_UID, 'c1'), { status: 'accepted', fromUid: MEMBER2_UID }), 'fail');
+  await check('O desafiante cancela', updateDoc(chRef(MEMBER_UID, 'c1'), { status: 'cancelled', respondedAt: '2026-10-02T13:00:00.000Z' }), 'succeed');
+
+  await seedCh({ status: 'accepted' });
+  await check('Um dos dois liga a partida ao desafio aceito', updateDoc(chRef(MEMBER_UID, 'c1'), { compId: 'comp9' }), 'succeed');
+  await check('O jogo já ligado não pode ser trocado', updateDoc(chRef(MEMBER2_UID, 'c1'), { compId: 'outro' }), 'fail');
+  await seedCh({ status: 'accepted' });
+  await check('Terceiro não liga partida ao desafio', updateDoc(chRef(MEMBER3_UID, 'c1'), { compId: 'comp9' }), 'fail');
+  await seedCh();
+  await check('Desafio ainda pendente não aceita partida ligada', updateDoc(chRef(MEMBER_UID, 'c1'), { compId: 'comp9' }), 'fail');
+  await seedCh();
+  await check('O desafiado não apaga o desafio', deleteDoc(chRef(MEMBER2_UID, 'c1')), 'fail');
+  await check('O desafiante apaga o próprio desafio', deleteDoc(chRef(MEMBER_UID, 'c1')), 'succeed');
 
   await testEnv.cleanup();
 

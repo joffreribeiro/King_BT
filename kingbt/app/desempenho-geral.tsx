@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
+import { HexBackground } from '@/components/HexBackground';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEffect, useMemo, useState } from 'react';
 import { collection, query, where, limit, getDocs } from 'firebase/firestore';
@@ -225,6 +226,7 @@ export default function DesempenhoGeralScreen() {
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
+      <HexBackground />
       <ScreenHeader title="Desempenho Geral" />
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>

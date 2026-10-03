@@ -12,6 +12,7 @@ import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { buildRanking } from '@/logic/scoring';
 import { extractPlayerGames } from '@/logic/formats';
 import { useSettings } from '@/store/SettingsContext';
+import { seasonPlacements } from '@/logic/seasons';
 import { computeAchievementStats } from '@/logic/achievementStats';
 import { ACHIEVEMENTS, CATEGORY_LABELS, type AchievementCategory } from '@/constants/achievements';
 import { AchievementCard } from '@/components/AchievementCard';
@@ -27,14 +28,14 @@ export default function AchievementsScreen() {
   const { state } = useCompetitions();
   const { myPlayerId } = useAuth();
   const { groupPlayers } = useGroupPlayers();
-  const { scoringConfig } = useSettings();
+  const { scoringConfig, seasons } = useSettings();
   const MY_ID = myPlayerId ?? '';
 
   const [previewAch, setPreviewAch] = useState<Achievement | null>(null);
 
   // Build stats
   const stats = useMemo(() => {
-    const base = computeAchievementStats(state.competitions, MY_ID, 0, scoringConfig);
+    const base = computeAchievementStats(state.competitions, MY_ID, 0, scoringConfig, { seasonTitles: seasonPlacements(seasons, MY_ID).titles });
     // Inject current rating from ranking
     const allGames = state.competitions.flatMap(extractPlayerGames);
     const ranking  = buildRanking(
@@ -44,7 +45,7 @@ export default function AchievementsScreen() {
     );
     const myRank = ranking.find(r => r.id === MY_ID);
     return { ...base, currentRating: myRank?.points ?? 0 };
-  }, [state.competitions, MY_ID, groupPlayers, scoringConfig]);
+  }, [state.competitions, MY_ID, groupPlayers, scoringConfig, seasons]);
 
   // Group by category
   const grouped = useMemo(() => {
@@ -119,7 +120,7 @@ export default function AchievementsScreen() {
 }
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
+  container: { flex: 1, backgroundColor: 'transparent' },
   title:    { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
   pctBadge: {
     backgroundColor: 'rgba(243,197,68,0.12)', borderWidth: 1,

@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { HexBackground } from '@/components/HexBackground';
 import { Icon } from '@/components/icons';
 import { notify } from '@/services/notify';
 import * as Print from 'expo-print';
@@ -148,6 +149,7 @@ export default function TreinoDetailScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
+      <HexBackground />
       <StatusBar barStyle="light-content" />
 
       <ScreenHeader

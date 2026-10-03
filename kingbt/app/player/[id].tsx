@@ -1,14 +1,24 @@
 import React, { useMemo, useState } from 'react';
+import { HexBackground } from '@/components/HexBackground';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { goToPlayer, goToTrilha } from '@/logic/nav';
 import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Badge, Card, Icon } from '@/components';
+import { Avatar, Card, Icon } from '@/components';
 import { useAuth } from '@/store/AuthContext';
 import { MatchDetailModal, type MatchDetail } from '@/components/MatchDetailModal';
 import { PointsTimeline } from '@/components/profile/PointsTimeline';
+import { SobreTab } from '@/components/profile/SobreTab';
+import { useCategorySuggestion } from '@/hooks/useCategorySuggestion';
+import { useChallenges } from '@/hooks/useChallenges';
+import { ChallengeModal } from '@/components/ChallengeModal';
+import { PlayerHeroCard } from '@/components/profile/ProfileHeroCard';
+import { HonrariasForPlayer } from '@/components/profile/HonrariasTab';
+import { BatalhasTab } from '@/components/profile/BatalhasTab';
+import { RadarReadOnly } from '@/components/profile/RadarTab';
+import { CommunityRadar } from '@/components/profile/CommunityRadar';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { buildRanking } from '@/logic/scoring';
@@ -33,18 +43,24 @@ export default function PlayerDetailScreen() {
   const pship = useMemo(() => makePshipStyles(Colors), [Colors]);
   const ident = useMemo(() => makeIdentStyles(Colors), [Colors]);
   const hist = useMemo(() => makeHistStyles(Colors), [Colors]);
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();
   const { state } = useCompetitions();
   const { groupPlayers, findPlayer } = useGroupPlayers();
-  const { myPlayerId } = useAuth();
+  const { myPlayerId, group } = useAuth();
   const { scoringConfig } = useSettings();
   const [selectedMatch, setSelectedMatch] = useState<MatchDetail | null>(null);
+  const [showChallenge, setShowChallenge] = useState(false);
+  const { challenges } = useChallenges();
+  // Mesmas abas do seu perfil (sem Histórico: aqui ele fica dentro das Estatísticas).
+  const [activeTab, setActiveTab] = useState<'sobre' | 'radar' | 'honrarias' | 'batalhas' | 'resumo'>(tab === 'radar' ? 'radar' : 'sobre');
 
   const player = groupPlayers.find(p => p.id === id);
+  const catSuggestion = useCategorySuggestion(player?.id, player?.skills, player?.about?.category);
   if (!player) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <TouchableOpacity style={styles.backRow} onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/ranking')}>
+      <HexBackground />
+        <TouchableOpacity style={styles.backRow} onPress={() => router.canGoBack() ? router.back() : router.replace({ pathname: '/(app)/arena', params: { tab: 'ranking' } })}>
           <Icon name="chevronLeft" size={15} color={Colors.teal} />
           <Text style={styles.backText}>Ranking</Text>
         </TouchableOpacity>
@@ -57,10 +73,11 @@ export default function PlayerDetailScreen() {
   const ranking = buildRanking(
     groupPlayers.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color, handicap: p.handicap })),
     allGames,
-    scoringConfig
+    scoringConfig,
+    { groupMinimum: true },
   );
   const me = ranking.find(r => r.id === id) ?? ranking[0];
-  const myPos = ranking.findIndex(r => r.id === id) + 1;
+  const myPos = me?.provisional ? 0 : ranking.findIndex(r => r.id === id) + 1;
   const winRate = me.played > 0 ? Math.round((me.wins / me.played) * 100) : 0;
 
   // Match history
@@ -180,10 +197,11 @@ export default function PlayerDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <HexBackground />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
         <View style={styles.topBar}>
-          <TouchableOpacity style={styles.backRow} onPress={() => router.canGoBack() ? router.back() : router.replace('/(app)/ranking')}>
+          <TouchableOpacity style={styles.backRow} onPress={() => router.canGoBack() ? router.back() : router.replace({ pathname: '/(app)/arena', params: { tab: 'ranking' } })}>
             <Icon name="chevronLeft" size={15} color={Colors.teal} />
             <Text style={styles.backText}>Ranking</Text>
           </TouchableOpacity>
@@ -197,26 +215,69 @@ export default function PlayerDetailScreen() {
               <Text style={styles.compareBtnText}>Comparar comigo</Text>
             </TouchableOpacity>
           )}
+          {myPlayerId && myPlayerId !== id && !!player.uid && (
+            <TouchableOpacity style={styles.compareBtn} onPress={() => setShowChallenge(true)} accessibilityRole="button" accessibilityLabel={`Desafiar ${player.name}`}>
+              <Icon name="swap" size={14} color={Colors.gold} />
+              <Text style={styles.compareBtnText}>Desafiar</Text>
+            </TouchableOpacity>
+          )}
+          <ChallengeModal
+            visible={showChallenge}
+            opponent={{ id: player.id, name: player.name, color: player.color, uid: player.uid }}
+            challenges={challenges}
+            onClose={() => setShowChallenge(false)}
+          />
         </View>
 
-        {/* Hero */}
-        <View style={styles.heroBanner}>
-          <View style={[styles.heroBg, { backgroundColor: player.color + '22' }]} />
-          <View style={styles.heroInner}>
-            <Avatar name={player.name} color={player.color} size={88} showCrown={myPos === 1} />
-            <Text style={styles.name}>{player.name}</Text>
-            <View style={styles.badgeRow}>
-              <Badge label={`${myPos}° lugar`} variant="gold" />
-              <Badge label={`${winRate}% aproveit.`} variant="teal" />
-            </View>
-          </View>
-        </View>
+        {/* Topo: o mesmo card do seu perfil */}
+        <PlayerHeroCard
+          playerId={player.id}
+          skills={player.skills}
+          ratedCount={player.ratedIds?.length ?? 0}
+          name={player.name}
+          avatarColor={player.color}
+          position={myPos}
+          points={me.points}
+          winRate={winRate}
+          played={me.played}
+          groupName={group?.name ?? 'King BT'}
+        />
 
-        {/* Pontuação */}
-        <Card elevated style={styles.ptsCard}>
-          <Text style={styles.ptsLabel}>PONTUAÇÃO KING BT</Text>
-          <Text style={styles.ptsVal}>{formatRating(me.points)}</Text>
-        </Card>
+        {/* Abas com sublinhado dourado na ativa */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabBar}>
+          {([['sobre', 'SOBRE'], ['radar', 'AVALIAÇÃO'], ['honrarias', 'CONQUISTAS'], ['batalhas', 'RIVALIDADE'], ['resumo', 'ESTATÍSTICAS']] as const).map(([key, label]) => (
+            <TouchableOpacity key={key} style={[styles.tabItem, activeTab === key && styles.tabItemActive]} onPress={() => setActiveTab(key)}>
+              <Text style={[styles.tabLabel, activeTab === key && styles.tabLabelActive]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {activeTab === 'sobre' && <SobreTab about={player.about} ownerView={false} playerName={player.name} suggestion={catSuggestion} />}
+
+        {activeTab === 'radar' && (
+          <>
+            {/* Autoavaliação do jogador */}
+            <RadarReadOnly skills={player.skills} playerName={player.name} />
+            {/* Média dos colegas + botão para avaliar */}
+            <CommunityRadar playerId={player.id} playerName={player.name} isSelf={player.id === myPlayerId} />
+          </>
+        )}
+
+        {activeTab === 'honrarias' && (
+          <HonrariasForPlayer playerId={player.id} points={me.points} ratedCount={player.ratedIds?.length ?? 0} played={me.played} skills={player.skills} />
+        )}
+
+        {activeTab === 'batalhas' && (
+          <BatalhasTab playerId={id!} competitions={state.competitions} findPlayer={findPlayer} />
+        )}
+
+        {activeTab === 'resumo' && (
+          <>
+            {/* Pontuação */}
+            <Card elevated style={styles.ptsCard}>
+              <Text style={styles.ptsLabel}>PONTUAÇÃO KING BT</Text>
+              <Text style={styles.ptsVal}>{formatRating(me.points)}</Text>
+            </Card>
 
         {/* Últimos 20 jogos por formato */}
         {last20.length > 0 && (
@@ -471,6 +532,9 @@ export default function PlayerDetailScreen() {
           </Card>
         )}
 
+          </>
+        )}
+
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
     </SafeAreaView>
@@ -563,11 +627,12 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: Spacing.sm + 2, paddingVertical: 5,
   },
   compareBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.gold },
-  heroBanner: { position: 'relative', overflow: 'hidden', borderRadius: Radius.lg, marginBottom: Spacing.sm },
-  heroBg: { position: 'absolute', top: 0, left: 0, right: 0, height: 120 },
-  heroInner: { alignItems: 'center', paddingTop: Spacing.xl, paddingBottom: Spacing.lg, gap: Spacing.sm },
-  name: { fontFamily: FontFamily.titleBold, fontSize: 26, color: Colors.text },
-  badgeRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
+  tabScroll: { flexGrow: 0, flexShrink: 0, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  tabBar: { flexGrow: 1 },
+  tabItem: { flexGrow: 1, paddingHorizontal: 14, paddingVertical: 14, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent', marginBottom: -1 },
+  tabItemActive: { borderBottomColor: Colors.gold },
+  tabLabel: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.muted },
+  tabLabelActive: { color: Colors.gold, fontFamily: FontFamily.title },
   ptsCard: { alignItems: 'center', gap: 4 },
   ptsLabel: { fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted, letterSpacing: 2 },
   ptsVal: { fontFamily: FontFamily.titleBold, fontSize: 52, color: Colors.gold, lineHeight: 60 },

@@ -64,7 +64,6 @@ export function PointsTimeline({ data }: { data: { label: string; pts: number; p
         {/* Grid */}
         {[0, 0.5, 1].map((t, i) => {
           const y = PAD.top + chartH * (1 - t);
-          const val = (minPts + range * t).toFixed(0);
           return (
             <Line key={i} x1={PAD.left} y1={y} x2={PAD.left + chartW} y2={y}
               stroke={Colors.line} strokeWidth="1" />

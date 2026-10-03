@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { HexBackground } from '@/components/HexBackground';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -7,13 +8,13 @@ import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
-import { buildCompetition } from '@/logic/formats';
-import type { Match, Unit } from '@/logic/types';
+import { quickGameCompetition, QUICK_GAME_PRESET } from '@/logic/quickGame';
+import type { Unit } from '@/logic/types';
 import { WIN_RULE_PRESETS } from '@/constants/winRulePresets';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 
-const DEFAULT_PRESET = 6; // MD3 · 4 games, com tie e super tiebreak
+const DEFAULT_PRESET = QUICK_GAME_PRESET;
 
 export default function AmistosoScreen() {
   useRequireAuth();
@@ -43,38 +44,11 @@ export default function AmistosoScreen() {
     if (!canCreate) return;
     setBusy(true);
     try {
-      const p = WIN_RULE_PRESETS[preset];
       const nameA = teamA.map(id => findPlayer(id)?.name.split(' ')[0] ?? id).join(' / ');
       const nameB = teamB.map(id => findPlayer(id)?.name.split(' ')[0] ?? id).join(' / ');
-
-      const comp = buildCompetition({
-        name: `Amistoso · ${nameA} x ${nameB}`,
-        format: 'avulso',
-        unit,
-        gender: 'misto',
-        competitors: [],
-        config: {
-          rounds: 'single', groups: 0, qualifiers: 0, thirdPlace: false,
-          winRule: {
-            sets: p.sets, games: p.games, tiebreak: p.tb,
-            tiebreakAt: p.tbAt, superTiebreak: p.stb, superTiebreakPts: p.stbPts,
-          },
-        },
-      });
-
-      const match: Match = {
-        id: 'am_' + Date.now(),
-        stage: 'rotating',
-        teamA, teamB,
-        scoreA: null, scoreB: null,
-      };
-
-      const id = await addCompetition({
-        ...comp,
-        isFriendly: true,
-        matches: [match],
-        createdBy: myPlayerId ?? undefined,
-      });
+      const id = await addCompetition(quickGameCompetition({
+        name: `Jogo rápido · ${nameA} x ${nameB}`, unit, teamA, teamB, presetIndex: preset, creatorId: myPlayerId,
+      }));
 
       router.replace({ pathname: '/competitions/[id]', params: { id } });
     } finally {
@@ -117,7 +91,8 @@ export default function AmistosoScreen() {
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
-      <ScreenHeader title="Jogo Amistoso" />
+      <HexBackground />
+      <ScreenHeader title="Jogo Rápido" />
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
         <Text style={s.hint}>

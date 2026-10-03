@@ -1,11 +1,11 @@
 import { Tabs, router } from 'expo-router';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated,
-  Modal, ScrollView, Pressable, Image, Linking,
+  Modal, ScrollView, Pressable, Image, Linking, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMemo, useRef, useEffect, useState } from 'react';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useSyncQueue } from '@/store/SyncQueueContext';
 import { syncBannerLabel } from '@/store/syncQueue';
@@ -13,19 +13,19 @@ import { useAuth } from '@/store/AuthContext';
 import { useUpdate } from '@/store/UpdateContext';
 import { useNotifications } from '@/hooks/useNotifications';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { Icon, type IconName } from '@/components';
+import { Icon, HexBackground, type IconName } from '@/components';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 const TAB_CONFIG: Record<string, { icon: IconName; label: string }> = {
-  feed:    { icon: 'feed',         label: 'Atividade'    },
+  home:    { icon: 'home',         label: 'Home'         },
+  arena:   { icon: 'users',        label: 'Arena'        },
   index:   { icon: 'competitions', label: 'Competições'  },
-  ranking: { icon: 'ranking',      label: 'Ranking'      },
-  profile: { icon: 'profile',      label: 'Eu'           },
+  profile: { icon: 'profile',      label: 'Perfil'       },
 };
 
 // ── Drawer ────────────────────────────────────────────────────────────────────
 function DrawerMenu({ visible, onClose }: { visible: boolean; onClose: () => void }) {
-  const { logout, group, user } = useAuth();
+  const { logout, group } = useAuth();
   const { colors: Colors } = useTheme();
   const dr = useMemo(() => makeDrStyles(Colors), [Colors]);
   const slideAnim = useRef(new Animated.Value(300)).current;
@@ -168,8 +168,8 @@ function FABMenu({ insetBottom }: { insetBottom: number }) {
   const fabBottom = Math.max(insetBottom, 8) + 68;
 
   const FAB_ITEMS: { icon: IconName; label: string; path: string }[] = [
-    { icon: 'competitions', label: 'Nova Competição', path: '/competitions/new/format' },
-    { icon: 'compare',      label: 'Jogo Amistoso',   path: '/amistoso' },
+    { icon: 'competitions', label: 'Nova Competição', path: '/competitions/new' },
+    { icon: 'compare',      label: 'Jogo Rápido',   path: '/amistoso' },
     { icon: 'ranking',      label: 'Quadra ao Vivo',  path: '/court' },
   ];
 
@@ -294,7 +294,7 @@ function UpdateBanner() {
           <Text style={styles.updateDismiss}>Depois</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => Linking.openURL(apkUrl)}
+          onPress={() => (Platform.OS === 'web' ? window.location.reload() : Linking.openURL(apkUrl))}
           hitSlop={6}
           style={styles.updateBtn}
         >
@@ -322,7 +322,6 @@ function VisitorBanner() {
 
 // ── Header ─────────────────────────────────────────────────────────────────────
 function AppHeader({ onMenuPress }: { onMenuPress: () => void }) {
-  const { group } = useAuth();
   const { colors: Colors } = useTheme();
   const hd = useMemo(() => makeHdStyles(Colors), [Colors]);
   // O padding pra área segura do topo agora é aplicado uma vez só, no
@@ -341,8 +340,7 @@ function AppHeader({ onMenuPress }: { onMenuPress: () => void }) {
             resizeMode="contain"
           />
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={hd.groupLabel}>Grupo</Text>
-            {group && <Text style={hd.groupName} numberOfLines={1}>{group.name}</Text>}
+            <Text style={hd.groupName} numberOfLines={1}>King BT</Text>
           </View>
         </View>
 
@@ -395,6 +393,9 @@ export default function AppLayout() {
 
   return (
     <ErrorBoundary label="AppLayout">
+      {/* Fundo favo de mel, atrás de tudo. As abas têm fundo transparente (sceneStyle) para ele aparecer. */}
+      <HexBackground />
+
       {/* Um padding só pro grupo inteiro (banners + cabeçalho) respeitar a
           barra de status — antes só o AppHeader tinha isso, então quando um
           banner aparecia ACIMA dele (atualização, offline, visitante), o
@@ -409,14 +410,16 @@ export default function AppLayout() {
 
       <Tabs
         tabBar={props => <CustomTabBar {...props} />}
-        screenOptions={{ headerShown: false, animation: 'fade' }}
-        initialRouteName="feed"
+        screenOptions={{ headerShown: false, animation: 'fade', sceneStyle: { backgroundColor: 'transparent' } }}
+        initialRouteName="home"
       >
-        <Tabs.Screen name="feed" />
+        <Tabs.Screen name="home" />
+        <Tabs.Screen name="arena" />
         <Tabs.Screen name="index" />
-        <Tabs.Screen name="ranking" />
         <Tabs.Screen name="profile" />
-        {/* Ocultas da tab bar */}
+        {/* Ocultas da tab bar (Feed e Ranking agora vivem dentro da Arena) */}
+        <Tabs.Screen name="feed"         options={{ href: null }} />
+        <Tabs.Screen name="ranking"      options={{ href: null }} />
         <Tabs.Screen name="dashboard"    options={{ href: null }} />
         <Tabs.Screen name="calendar"     options={{ href: null }} />
         <Tabs.Screen name="fab"          options={{ href: null }} />
@@ -441,11 +444,10 @@ const makeHdStyles = (Colors: ThemeColors) => StyleSheet.create({
   // jogador ao lado do sino, levando à mesma tela da aba "Eu"; agora 56px,
   // só logo+grupo (que também é o controle de troca de grupo) e ações.
   bar: { backgroundColor: Colors.surf, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  inner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, height: 56 },
-  logoGroup: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, marginRight: Spacing.sm },
-  logoImg: { width: 34, height: 34, borderRadius: 10 },
-  groupLabel: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.muted, letterSpacing: 1 },
-  groupName: { fontFamily: FontFamily.titleBold, fontSize: 16, color: Colors.text },
+  inner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, height: 64 },
+  logoGroup: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0, marginRight: Spacing.sm },
+  logoImg: { width: 44, height: 44, borderRadius: 12 },
+  groupName: { fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 25, lineHeight: 30, color: Colors.text, textTransform: 'uppercase' },
   bellBtn: { width: 44, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   // Badge do sino — contorno na cor do fundo para destacar do ícone atrás.
   bellBadge: {

@@ -14,6 +14,29 @@ export interface UserAchievementStats {
   unbeatable: boolean;     // all wins in a month (min 3)
   perfectPartner: boolean; // 80%+ win rate with one partner (min 5)
   sharesCount: number;
+  // ── Extras (Coroas, Favos, Insígnias e Provas). Opcionais: quem monta as
+  // estatísticas sem eles continua funcionando, e valem 0.
+  /** Competições disputadas (fora amistosos). */
+  events?: number;
+  super8Gold?: number;
+  super8Silver?: number;
+  super8Bronze?: number;
+  /** Top 3 em Super 8 + títulos nas outras competições. */
+  podiums?: number;
+  /** Maior sequência de títulos seguidos. */
+  titleStreakMax?: number;
+  invictos?: number;
+  saldoKing?: number;
+  /** Quantos colegas este jogador já avaliou no Radar. */
+  ratingsGiven?: number;
+  /** Quantas pessoas avaliaram este jogador. */
+  communityCount?: number;
+  /** Menor média entre as 10 habilidades na avaliação da comunidade (0 sem avaliações). */
+  communityMin?: number;
+  /** Temporadas encerradas em que terminou em 1º. */
+  seasonTitles?: number;
+  /** Temporadas encerradas em que terminou em 2º. */
+  seasonRunnerUps?: number;
 }
 
 export interface Achievement {
@@ -191,6 +214,206 @@ export const ACHIEVEMENTS: Achievement[] = [
     category: 'social',
     progress: s => Math.min(s.sharesCount / 5, 1),
     progressLabel: s => `${Math.min(s.sharesCount, 5)}/5`,
+  },
+
+  // ══ Novas: Coroas, Insígnias, Favos e Provas da Rainha ════════════════
+  // ── Coroas (resultados em competições) ────────────────────────────────
+  {
+    id: 'super8_gold',
+    icon: '👑',
+    title: 'Coroa do Super 8',
+    description: 'Termine em 1º lugar em um Super 8',
+    color: '#F3C544',
+    category: 'titles',
+    progress: s => Math.min((s.super8Gold ?? 0) / 1, 1),
+    progressLabel: s => `${Math.min(s.super8Gold ?? 0, 1)}/1`,
+  },
+  {
+    id: 'super8_silver',
+    icon: '🥈',
+    title: 'Ferrão de Prata',
+    description: 'Termine em 2º lugar em um Super 8',
+    color: '#9CA3AF',
+    category: 'titles',
+    progress: s => Math.min((s.super8Silver ?? 0) / 1, 1),
+    progressLabel: s => `${Math.min(s.super8Silver ?? 0, 1)}/1`,
+  },
+  {
+    id: 'super8_bronze',
+    icon: '🥉',
+    title: 'Ferrão de Bronze',
+    description: 'Termine em 3º lugar em um Super 8',
+    color: '#C2891A',
+    category: 'titles',
+    progress: s => Math.min((s.super8Bronze ?? 0) / 1, 1),
+    progressLabel: s => `${Math.min(s.super8Bronze ?? 0, 1)}/1`,
+  },
+  {
+    id: 'bi_champion',
+    icon: '🏆',
+    title: 'Bicampeão',
+    description: 'Conquiste 2 títulos',
+    color: '#F3C544',
+    category: 'titles',
+    progress: s => Math.min(s.champCount / 2, 1),
+    progressLabel: s => `${Math.min(s.champCount, 2)}/2`,
+  },
+  // ── Insígnias (a comunidade) ──────────────────────────────────────────
+  {
+    id: 'first_rating',
+    icon: '👁️',
+    title: 'Primeiro Olhar',
+    description: 'Avalie um colega pela primeira vez',
+    color: '#54B981',
+    category: 'social',
+    progress: s => Math.min((s.ratingsGiven ?? 0) / 1, 1),
+    progressLabel: s => `${Math.min(s.ratingsGiven ?? 0, 1)}/1`,
+  },
+  {
+    id: 'ratings_10',
+    icon: '🔍',
+    title: 'Olho de Vespa',
+    description: 'Avalie 10 colegas',
+    color: '#54B981',
+    category: 'social',
+    progress: s => Math.min((s.ratingsGiven ?? 0) / 10, 1),
+    progressLabel: s => `${Math.min(s.ratingsGiven ?? 0, 10)}/10`,
+  },
+  {
+    id: 'hive_shield',
+    icon: '🛡️',
+    title: 'Escudo da Colmeia',
+    description: 'Todas as habilidades da avaliação com nota da comunidade ≥ 7,0 (mín. 3 avaliações)',
+    color: '#C084FC',
+    category: 'social',
+    progress: s => (s.communityCount ?? 0) < 3 ? 0 : Math.min((s.communityMin ?? 0) / 7, 1),
+    progressLabel: s => (s.communityCount ?? 0) < 3
+      ? `${s.communityCount ?? 0}/3 avaliações`
+      : `menor nota ${(s.communityMin ?? 0).toFixed(1).replace('.', ',')}/7`,
+  },
+  // ── Favos (marcos automáticos) ────────────────────────────────────────
+  {
+    id: 'first_match',
+    icon: '🐝',
+    title: 'Primeira Ferroada',
+    description: 'Dispute sua primeira partida',
+    color: '#6B7FD7',
+    category: 'wins',
+    progress: s => Math.min(s.totalMatches / 1, 1),
+    progressLabel: s => `${Math.min(s.totalMatches, 1)}/1`,
+  },
+  {
+    id: 'first_podium',
+    icon: '🏅',
+    title: 'Pódio da Colmeia',
+    description: 'Termine entre os 3 primeiros de uma competição pela primeira vez',
+    color: '#54B981',
+    category: 'titles',
+    progress: s => Math.min((s.podiums ?? 0) / 1, 1),
+    progressLabel: s => `${Math.min(s.podiums ?? 0, 1)}/1`,
+  },
+  {
+    id: 'events_10',
+    icon: '🐝',
+    title: 'Enxame',
+    description: 'Dispute 10 competições',
+    color: '#54B981',
+    category: 'wins',
+    progress: s => Math.min((s.events ?? 0) / 10, 1),
+    progressLabel: s => `${Math.min(s.events ?? 0, 10)}/10`,
+  },
+  {
+    id: 'events_25',
+    icon: '🐝',
+    title: 'Grande Enxame',
+    description: 'Dispute 25 competições',
+    color: '#5AA9FF',
+    category: 'wins',
+    progress: s => Math.min((s.events ?? 0) / 25, 1),
+    progressLabel: s => `${Math.min(s.events ?? 0, 25)}/25`,
+  },
+  {
+    id: 'events_50',
+    icon: '🐝',
+    title: 'Enxame Lendário',
+    description: 'Dispute 50 competições',
+    color: '#C084FC',
+    category: 'wins',
+    progress: s => Math.min((s.events ?? 0) / 50, 1),
+    progressLabel: s => `${Math.min(s.events ?? 0, 50)}/50`,
+  },
+  {
+    id: 'hive_sealed',
+    icon: '🍯',
+    title: 'Colmeia Blindada',
+    description: 'Termine uma competição sem nenhuma derrota (mín. 3 jogos)',
+    color: '#C084FC',
+    category: 'streak',
+    progress: s => Math.min((s.invictos ?? 0) / 1, 1),
+    progressLabel: s => `${Math.min(s.invictos ?? 0, 1)}/1`,
+  },
+  {
+    id: 'saldo_king',
+    icon: '📈',
+    title: 'Rei do Saldo',
+    description: 'Tenha o melhor saldo de games de uma competição (mín. 3 jogos)',
+    color: '#5AA9FF',
+    category: 'rating',
+    progress: s => Math.min((s.saldoKing ?? 0) / 1, 1),
+    progressLabel: s => `${Math.min(s.saldoKing ?? 0, 1)}/1`,
+  },
+  // ── Provas da Rainha (os feitos mais difíceis) ────────────────────────
+  {
+    id: 'streak_10',
+    icon: '⚡',
+    title: 'Fúria da Vespa',
+    description: 'Vença 10 partidas seguidas',
+    color: '#F3C544',
+    category: 'streak',
+    progress: s => Math.min(s.maxStreak / 10, 1),
+    progressLabel: s => `${Math.min(s.maxStreak, 10)}/10`,
+  },
+  {
+    id: 'triple_crown',
+    icon: '👑',
+    title: 'Coroa Tripla',
+    description: 'Seja campeão de 3 competições seguidas',
+    color: '#FF8A3D',
+    category: 'titles',
+    progress: s => Math.min((s.titleStreakMax ?? 0) / 3, 1),
+    progressLabel: s => `${Math.min(s.titleStreakMax ?? 0, 3)}/3`,
+  },
+  {
+    id: 'radar_gold',
+    icon: '✨',
+    title: 'Ferrão de Ouro',
+    description: 'Todas as habilidades da avaliação com nota da comunidade ≥ 9,0 (mín. 3 avaliações)',
+    color: '#F3C544',
+    category: 'social',
+    progress: s => (s.communityCount ?? 0) < 3 ? 0 : Math.min((s.communityMin ?? 0) / 9, 1),
+    progressLabel: s => (s.communityCount ?? 0) < 3
+      ? `${s.communityCount ?? 0}/3 avaliações`
+      : `menor nota ${(s.communityMin ?? 0).toFixed(1).replace('.', ',')}/9`,
+  },
+  {
+    id: 'season_champion',
+    icon: '🏆',
+    title: 'Rei da Colmeia',
+    description: 'Termine uma temporada em 1º lugar no ranking',
+    color: '#F3C544',
+    category: 'titles',
+    progress: s => Math.min((s.seasonTitles ?? 0) / 1, 1),
+    progressLabel: s => `${Math.min(s.seasonTitles ?? 0, 1)}/1`,
+  },
+  {
+    id: 'season_runnerup',
+    icon: '🥈',
+    title: 'Vice da Colmeia',
+    description: 'Termine uma temporada em 2º lugar no ranking',
+    color: '#C0C7D1',
+    category: 'titles',
+    progress: s => Math.min((s.seasonRunnerUps ?? 0) / 1, 1),
+    progressLabel: s => `${Math.min(s.seasonRunnerUps ?? 0, 1)}/1`,
   },
 ];
 

@@ -1,3 +1,4 @@
+import { rankedCompetitions } from './rankingScope';
 import type { Competition } from './types';
 import { classifySet, reachedDecidingSet } from './setOutcome';
 
@@ -21,7 +22,7 @@ export function computeSituationStats(competitions: Competition[], playerId: str
   let dsPlayed = 0, dsWins = 0;
 
   if (playerId) {
-    competitions.forEach(comp => {
+    rankedCompetitions(competitions).forEach(comp => {
       const winRule = comp.config.winRule;
       comp.matches.forEach(m => {
         if (m.scoreA == null || m.scoreB == null || !m.sets?.length) return;

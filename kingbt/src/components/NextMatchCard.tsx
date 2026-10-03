@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { useMemo, useState, useRef, useEffect } from 'react';
-import { Type, Spacing, Radius, formatAccent, type ThemeColors } from '@/theme';
+import { Type, FontFamily, Spacing, Radius, formatAccent, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
@@ -169,20 +169,20 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   dot: { width: 7, height: 7, borderRadius: 4 },
-  label: { ...Type.label },
-  compName: { ...Type.h2, color: Colors.text, marginTop: 2 },
-  meta: { ...Type.caption, color: Colors.muted },
+  label: { ...Type.sectionLabel },
+  compName: { fontFamily: FontFamily.title, fontSize: 18, lineHeight: 24, color: Colors.text, marginTop: 4 },
+  meta: { ...Type.body, color: Colors.muted },
   matchRow: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     marginTop: Spacing.sm, marginBottom: Spacing.sm,
   },
   side: { flex: 1, gap: 4 },
   avatars: { flexDirection: 'row', gap: 3 },
-  sideName: { ...Type.bodyMed, color: Colors.text },
-  vs: { ...Type.caption, color: Colors.faint },
+  sideName: { fontFamily: FontFamily.bodyMed, fontSize: 15, lineHeight: 20, color: Colors.text },
+  vs: { ...Type.body, color: Colors.faint },
   cta: {
     backgroundColor: Colors.gold, borderRadius: Radius.md,
     paddingVertical: Spacing.sm + 4, alignItems: 'center',
   },
-  ctaText: { ...Type.h2, color: Colors.bg },
+  ctaText: { fontFamily: FontFamily.titleBold, fontSize: 15, color: Colors.bg },
 });

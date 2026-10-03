@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { goToPlayer } from '@/logic/nav';
-import { FontFamily, Spacing, Radius, type ThemeColors, PODIUM_COLORS } from '@/theme';
+import { FontFamily, Spacing, type ThemeColors, PODIUM_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card, Icon } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -110,10 +110,9 @@ export default function DashboardScreen() {
   // Stats pessoais do usuário logado
   const myStats = myPlayerId ? ranking.find(r => r.id === myPlayerId) : null;
   const myPos = myPlayerId ? ranking.findIndex(r => r.id === myPlayerId) + 1 : 0;
-  const myPlayer = myPlayerId ? findPlayer(myPlayerId) : null;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['top']}>
       <ScrollView
         contentContainerStyle={{ padding: Spacing.md, gap: Spacing.md }}
         showsVerticalScrollIndicator={false}

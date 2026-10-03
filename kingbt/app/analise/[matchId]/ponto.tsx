@@ -2,6 +2,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   StatusBar, Modal, TextInput,
 } from 'react-native';
+import { HexBackground } from '@/components/HexBackground';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -28,7 +29,7 @@ import { PhaseDivider } from '@/components/analise/PhaseDivider';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import {
-  POSICOES_SIMPLES, DIRECOES_PADRAO, DIRECAO_LOB,
+  POSICOES_SIMPLES, DIRECOES_PADRAO, 
   DIRECAO_DEVOLUCAO,
   TIPOS_FIN, TIPOS_FIN_FORCOU, LADOS, DURACOES, SITUACOES,
   TIPOS_PRIMEIRA_BOLA, DIRECOES_PRIMEIRA_BOLA, QUALIDADE_PRIMEIRA_BOLA,
@@ -54,7 +55,7 @@ export default function PontoScreen() {
   const { QUALIDADE_SAQUE, QUALIDADE_DEVOLUCAO, FINALIZACAO_RALLY } = useMemo(() => makeScoutOptions(Colors), [Colors]);
 
   const { findPlayer } = useGroupPlayers();
-  const { dispatch, state, subscribeLiveMatches } = useCompetitions();
+  const { dispatch, subscribeLiveMatches } = useCompetitions();
   const { group } = useAuth();
   const { keepSacadorAfterSave } = useSettings();
 
@@ -228,7 +229,6 @@ export default function PontoScreen() {
   const pontos    = pontosRef.current;
   const analise   = analiseRef.current;
   const gameScore = formatGameScore(placard);
-  const setScore  = formatSetScore(placard);
 
   const sacadorEhDuplaA = jogadoresA.includes(sacador);
   const opositores      = sacadorEhDuplaA ? jogadoresB : jogadoresA;
@@ -317,8 +317,6 @@ export default function PontoScreen() {
     if (!podeRegistrar || !vencedorDuplaDerived || !finalizacaoDerived) return;
 
     const placardAtual = placardRef.current;
-    const pontosAtuais = pontosRef.current;
-    const analiseAtual = analiseRef.current;
     const gs = formatGameScore(placardAtual);
     const ss = formatSetScore(placardAtual);
 
@@ -530,6 +528,7 @@ export default function PontoScreen() {
     const pf = analise.placarFinal;
     return (
       <SafeAreaView style={s.safe} edges={['top']}>
+      <HexBackground />
         <StatusBar barStyle="light-content" />
         <ScreenHeader
           title="King Scout"
@@ -582,6 +581,7 @@ export default function PontoScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
+      <HexBackground />
       <StatusBar barStyle="light-content" />
 
       <ScreenHeader

@@ -116,7 +116,6 @@ export function HistoricoTab({ matchHistory }: any) {
   const hasMore = visibleCount < matchHistory.length;
   const wins    = matchHistory.filter((m: any) => m.won).length;
   const losses  = matchHistory.filter((m: any) => !m.won).length;
-  const winPct  = matchHistory.length > 0 ? Math.round((wins / matchHistory.length) * 100) : 0;
 
   return (
     <View style={tab.content}>

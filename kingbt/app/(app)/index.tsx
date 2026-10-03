@@ -1,20 +1,19 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, Platform, TextInput, Animated, RefreshControl, type ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Animated, RefreshControl, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { FontFamily, Spacing, centeredContent, Radius, Type, formatAccent, type ThemeColors } from '@/theme';
 import { makeShadows } from '@/theme/shadows';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Card, EmptyState, Skeleton, Icon, OptionModal, BottomSheet, NextMatchCard } from '@/components';
+import { EmptyState, Skeleton, Icon, OptionModal, BottomSheet } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import type { Competition, Format } from '@/logic/types';
 import { competitionChampion as getChampion } from '@/logic/formats';
-import { computeStreak } from '@/logic/streak';
 import { formatRelativeDate, parseStoredDate } from '@/logic/format';
-import { StreakBanner } from '@/components/StreakBanner';
+import { eventView } from '@/logic/eventRegistration';
 import { usePulseAnim } from '@/hooks/usePulseAnim';
 import { FadeScreen } from '@/components/FadeScreen';
 
@@ -23,8 +22,9 @@ const FORMAT_LABEL: Record<string, string> = {
   mata: 'Mata-Mata', super8: 'Super 8',
 };
 const STATUS_FILTERS = [
-  { key: 'all',    label: 'Todas' },
-  { key: 'active', label: 'Em andamento' },
+  { key: 'all',      label: 'Todas' },
+  { key: 'upcoming', label: 'Agendadas' },
+  { key: 'active',   label: 'Em andamento' },
   { key: 'done',   label: 'Encerradas' },
 ] as const;
 type StatusFilter = typeof STATUS_FILTERS[number]['key'];
@@ -42,57 +42,20 @@ function formatDate(iso: string) {
   return formatRelativeDate(parseStoredDate(iso));
 }
 
+/** "25 de jul" — data curta absoluta, como na lista de eventos do Atlas. */
+function shortDate(iso: string) {
+  return parseStoredDate(iso).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }).replace('.', '');
+}
+
 
 function SectionHeader({ label, color }: { label: string; color: string }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14, marginTop: 10 }}>
-      <View style={{ width: 5, height: 20, borderRadius: 2, backgroundColor: color }} />
-      <Text style={{ ...Type.label, color }}>
+      <View style={{ width: 5, height: 22, borderRadius: 2, backgroundColor: color }} />
+      <Text style={{ ...Type.sectionLabel, fontSize: 15, lineHeight: 20, letterSpacing: 1.4, color }}>
         {label.toUpperCase()}
       </Text>
     </View>
-  );
-}
-
-const BUBBLE: ViewStyle = {
-  width: 28, height: 28, borderRadius: 14,
-  alignItems: 'center', justifyContent: 'center',
-  borderWidth: 1.5, borderColor: 'rgba(0,0,0,0.3)',
-};
-
-/**
- * Bolha de inicial do jogador. Só anima no card em destaque: numa lista de 20
- * competições, 8 bolhas por card viravam 160 springs simultâneos — e o
- * FlatList remonta o card a cada reciclagem de scroll, refazendo tudo.
- */
-function AvatarBubble({ color, short, delay, animate }: {
-  color: string; short: string; delay: number; animate: boolean;
-}) {
-  const { colors: Colors } = useTheme();
-  const reduced = useReducedMotion();
-  const shouldAnimate = animate && !reduced;
-  const opacity = useRef(new Animated.Value(shouldAnimate ? 0 : 1)).current;
-  const scale   = useRef(new Animated.Value(shouldAnimate ? 0.6 : 1)).current;
-
-  useEffect(() => {
-    if (!shouldAnimate) return;
-    const anim = Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 300, delay, useNativeDriver: true }),
-      Animated.spring(scale,   { toValue: 1, delay, useNativeDriver: true, tension: 80, friction: 6 }),
-    ]);
-    anim.start();
-    return () => anim.stop();
-  }, [shouldAnimate]);
-
-  const label = <Text style={{ ...Type.caption, fontFamily: FontFamily.numberBold, color: Colors.bg }}>{short}</Text>;
-
-  if (!shouldAnimate) {
-    return <View style={[BUBBLE, { backgroundColor: color }]}>{label}</View>;
-  }
-  return (
-    <Animated.View style={[BUBBLE, { backgroundColor: color, opacity, transform: [{ scale }] }]}>
-      {label}
-    </Animated.View>
   );
 }
 
@@ -109,10 +72,14 @@ function CompCard({ comp, onDelete, onClone, isAdmin, highlight = false }: {
   const done  = comp.matches.filter(m => m.scoreA != null).length;
   const total = comp.matches.length;
   const pct   = total > 0 ? done / total : 0;
-  const isActive = comp.status === 'active';
   const isDone = comp.status === 'done';
+  const isUpcoming = comp.status === 'upcoming';
+  const ev = eventView(comp, null);
+  const pill = isUpcoming
+    ? (ev.full ? { t: 'Lotado', c: Colors.gold } : { t: 'Inscrições abertas', c: Colors.teal })
+    : isDone ? { t: 'Encerrada', c: Colors.faint } : comp.status === 'setup' ? { t: 'Montando', c: Colors.teal } : { t: 'Em andamento', c: Colors.gold };
   const accent = isDone ? Colors.faint : formatAccent(Colors, comp.format);
-  const champRaw = !isActive ? getChampion(comp, id => findPlayer(id)?.name ?? id) : null;
+  const champRaw = isDone ? getChampion(comp, id => findPlayer(id)?.name ?? id) : null;
   const champ = champRaw
     ? { name: (champRaw as any).name ?? findPlayer(champRaw.members[0])?.name ?? champRaw.members[0] }
     : null;
@@ -147,12 +114,6 @@ function CompCard({ comp, onDelete, onClone, isAdmin, highlight = false }: {
   });
   if (usesCompetitors) comp.competitors.forEach(c => c.members.forEach(mid => ids.add(mid)));
   const allPlayerIds = [...ids];
-  const players = allPlayerIds.slice(0, 8).map(id => {
-    const c = comp.competitors.find(x => x.members.includes(id));
-    const p = findPlayer(id);
-    return { id, color: p?.color ?? c?.color ?? Colors.gold, short: p?.name?.slice(0, 2).toUpperCase() ?? c?.short ?? '?' };
-  });
-  const extraPlayers = allPlayerIds.length > 8 ? allPlayerIds.length - 8 : 0;
 
   return (
     <TouchableOpacity
@@ -174,6 +135,9 @@ function CompCard({ comp, onDelete, onClone, isAdmin, highlight = false }: {
         <View style={styles.cardBody}>
           <View style={styles.cardTopRow}>
             <Text style={[styles.formatLabel, { color: accent }]}>{FORMAT_LABEL[comp.format]?.toUpperCase()}</Text>
+            <View style={[styles.statusPill, { borderColor: pill.c + '66', backgroundColor: pill.c + '1A' }]}>
+              <Text style={[styles.statusPillText, { color: pill.c }]}>{pill.t}</Text>
+            </View>
             {/* O selo "ATIVA" saiu do card: toda competição aqui já está
                 dentro da seção "Em andamento" — o selo repetia, em cada
                 card, o que o cabeçalho da seção já diz uma vez. */}
@@ -187,20 +151,12 @@ function CompCard({ comp, onDelete, onClone, isAdmin, highlight = false }: {
           </View>
 
           <Text style={styles.cardName}>{comp.name}</Text>
-          <Text style={styles.cardMetaText}>{formatDate(comp.date)} · {allPlayerIds.length} jogadores</Text>
-
-          {players.length > 0 && (
-            <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap', marginTop: 6, alignItems: 'center' }}>
-              {players.map((p, idx) => (
-                <AvatarBubble key={p.id} color={p.color} short={p.short} delay={idx * 50} animate={animate} />
-              ))}
-              {extraPlayers > 0 && (
-                <View style={[BUBBLE, { backgroundColor: Colors.surf2, borderColor: Colors.line }]}>
-                  <Text style={{ ...Type.caption, fontFamily: FontFamily.numberBold, color: Colors.muted }}>+{extraPlayers}</Text>
-                </View>
-              )}
-            </View>
-          )}
+          <Text style={styles.cardWhen}>{shortDate(comp.date)}{comp.time ? ` · ${comp.time}` : ''}</Text>
+          <Text style={styles.cardMetaText}>
+            {isUpcoming
+              ? (ev.vagas != null ? `${ev.taken}/${ev.vagas} vagas ocupadas` : `${ev.taken} ${ev.taken === 1 ? 'confirmado' : 'confirmados'}`)
+              : `${allPlayerIds.length} jogadores`}
+          </Text>
 
           {champ ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
@@ -211,7 +167,7 @@ function CompCard({ comp, onDelete, onClone, isAdmin, highlight = false }: {
                 <Icon name="clone" size={16} color={Colors.muted} />
               </TouchableOpacity>
             </View>
-          ) : (
+          ) : isUpcoming ? null : (
             /* Progresso: barra + contador. O percentual saiu — dizia a mesma
                coisa que "6/12 jogos", duas vezes na mesma linha. */
             <View style={styles.progressRow}>
@@ -230,11 +186,13 @@ function CompCard({ comp, onDelete, onClone, isAdmin, highlight = false }: {
           message="O que deseja fazer?"
           options={[
             { key: 'clone',  label: 'Criar igual', icon: 'clone' },
+            { key: 'repeat', label: 'Repetir na próxima semana', icon: 'calendar' },
             { key: 'delete', label: 'Apagar',      icon: 'trash', color: Colors.coral },
           ]}
           onSelect={(k) => {
             setShowActions(false);
             if (k === 'clone') onClone(comp.id);
+            else if (k === 'repeat') router.push({ pathname: '/competitions/new', params: { from: comp.id } });
             else setConfirmDelete(true);
           }}
           onClose={() => setShowActions(false)}
@@ -258,9 +216,8 @@ export default function HubScreen() {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const { state, dispatch, refresh } = useCompetitions();
-  const { group, isAdmin, myPlayerId } = useAuth();
+  const { group, isAdmin } = useAuth();
   const { groupPlayers } = useGroupPlayers();
-  const me = groupPlayers.find(p => p.id === myPlayerId);
 
   // Handicap por jogador — usado só pra equilibrar o sorteio ao clonar/revanche um Super 8 duplas rotativas.
   const playerHandicaps: Record<string, number> = {};
@@ -275,8 +232,6 @@ export default function HubScreen() {
     finally { setRefreshing(false); }
   }, [refresh]);
 
-  const myStreak = computeStreak(state.competitions, myPlayerId ?? '');
-
   const [search, setSearch]           = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [formatFilter, setFormatFilter] = useState<Format | 'all'>('all');
@@ -285,15 +240,17 @@ export default function HubScreen() {
 
   const filtered = state.competitions.filter(c => {
     if (c.isFriendly) return false;
-    if (statusFilter !== 'all' && c.status !== statusFilter) return false;
+    if (statusFilter !== 'all' && (statusFilter === 'active' ? c.status !== 'active' && c.status !== 'setup' : c.status !== statusFilter)) return false;
     if (formatFilter !== 'all' && c.format !== formatFilter) return false;
     if (search.trim() && !c.name.toLowerCase().includes(search.trim().toLowerCase())) return false;
     return true;
   });
 
-  const active = filtered.filter(c => c.status === 'active');
+  // Agendadas primeiro (eventos com inscrição aberta), depois as em andamento e as encerradas.
+  const upcomingList = filtered.filter(c => c.status === 'upcoming');
+  const active = filtered.filter(c => c.status === 'active' || c.status === 'setup');
   const done   = filtered.filter(c => c.status === 'done');
-  const listData = [...active, ...done];
+  const listData = [...upcomingList, ...active, ...done];
   // Um único card pulsa: o ativo mais recente. `filtered` já vem ordenado por
   // data desc do CompetitionsContext, então é o primeiro de `active`.
   const highlightId = active[0]?.id;
@@ -313,21 +270,15 @@ export default function HubScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />}
         ListHeaderComponent={
           <View>
+            {!!group?.name && <Text style={styles.groupTitle} numberOfLines={1}>{group.name}</Text>}
+            <Text style={styles.screenTitle}>Competições</Text>
+
             {/* Skeleton loading */}
             {!state.synced && (
               <View style={{ paddingHorizontal: Spacing.md, paddingTop: Spacing.sm }}>
                 {[1,2,3].map(i => <Skeleton key={i} variant="comp" />)}
               </View>
             )}
-
-            {/* Streak banner */}
-            <StreakBanner
-              streak={myStreak}
-              onPress={() => router.push('/(app)/ranking')}
-            />
-
-            {/* Atalho para a ação mais frequente: marcar o próximo placar. */}
-            <NextMatchCard />
 
             {/* Uma linha de controles em vez das duas fileiras de chips + 2
                 botões que ocupavam a tela antes da primeira competição.
@@ -353,6 +304,8 @@ export default function HubScreen() {
                 </View>
               ) : (
                 <View style={styles.segmented}>
+                  {/* Rola na horizontal: com 4 opções e fonte legível, "Em andamento" não cabe em celular estreito. */}
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.segmentedInner}>
                   {STATUS_FILTERS.map(f => (
                     <TouchableOpacity
                       key={f.key}
@@ -364,6 +317,7 @@ export default function HubScreen() {
                       </Text>
                     </TouchableOpacity>
                   ))}
+                  </ScrollView>
                 </View>
               )}
 
@@ -389,14 +343,16 @@ export default function HubScreen() {
               </TouchableOpacity>
             </View>
 
-            {active.length > 0 && <SectionHeader label="Em andamento" color={Colors.gold} />}
           </View>
         }
         renderItem={({ item, index }) => {
-          const isFirstDone = item.status === 'done' && (index === 0 || listData[index - 1]?.status === 'active');
+          const firstOfSection = index === 0 || listData[index - 1]?.status !== item.status;
+          const section = item.status === 'upcoming' ? { label: 'Agendadas', color: Colors.gold }
+            : item.status === 'done' ? { label: 'Encerradas', color: Colors.teal }
+            : { label: 'Em andamento', color: Colors.gold };
           return (
             <View>
-              {isFirstDone && <SectionHeader label="Encerradas" color={Colors.teal} />}
+              {firstOfSection && <SectionHeader label={section.label} color={section.color} />}
               <CompCard
                 comp={item}
                 onDelete={isAdmin ? (id) => dispatch({ type: 'DELETE', compId: id }) : () => {}}
@@ -433,7 +389,7 @@ export default function HubScreen() {
                 ctaLabel={state.competitions.length > 0 ? 'Ver histórico' : '+ Nova Competição'}
                 onCta={() => router.push(state.competitions.length > 0
                   ? '/(app)/history'
-                  : '/competitions/new/format')}
+                  : '/competitions/new')}
               />
             )
           )
@@ -467,8 +423,10 @@ export default function HubScreen() {
 }
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
+  container: { flex: 1, backgroundColor: 'transparent' },
   list: { ...centeredContent, padding: Spacing.md, paddingTop: Spacing.sm },
+  screenTitle: { ...Type.screenTitle, color: Colors.text, marginBottom: Spacing.md, marginLeft: 2 },
+  groupTitle: { fontFamily: FontFamily.bodyMed, fontSize: 14, letterSpacing: 0.4, color: Colors.gold, marginLeft: 2, marginBottom: 16 },
 
   headerLeft: {
     flexDirection: 'row',
@@ -541,16 +499,17 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginBottom: Spacing.md, marginTop: Spacing.xs,
   },
   segmented: {
-    flex: 1, flexDirection: 'row',
+    flex: 1, overflow: 'hidden',
     backgroundColor: Colors.surf, borderRadius: Radius.full,
     borderWidth: 1, borderColor: Colors.line, padding: 3,
   },
+  segmentedInner: { flexGrow: 1, flexDirection: 'row' },
   // Ativo em ouro sólido — era 13% de tinta (Colors.gold + '22'), o único
   // controle da tela com esse peso de seleção mais fraco que os vizinhos.
-  segment: { flex: 1, paddingVertical: 11, borderRadius: Radius.full, alignItems: 'center' },
+  segment: { flexGrow: 1, paddingVertical: 12, paddingHorizontal: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
   segmentActive: { backgroundColor: Colors.gold },
-  segmentText: { ...Type.caption, color: Colors.muted },
-  segmentTextActive: { color: Colors.bg, fontFamily: FontFamily.bodyMed },
+  segmentText: { fontFamily: FontFamily.bodyMed, fontSize: 14, lineHeight: 18, color: Colors.muted },
+  segmentTextActive: { color: Colors.bg, fontFamily: FontFamily.title },
   filterDot: {
     position: 'absolute', top: 6, right: 6,
     width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.gold,
@@ -619,18 +578,21 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginBottom: 6,
   },
   formatLabel: {
-    ...Type.label, flex: 1,
+    ...Type.sectionLabel, fontSize: 11, flex: 1,
   },
   cardBody: {
     flex: 1,
-    padding: 12, paddingHorizontal: 14,
+    padding: 16, paddingHorizontal: 16,
   },
-  cardName: { ...Type.h2, color: Colors.text },
-  cardMetaText: { ...Type.caption, color: Colors.muted, marginTop: 4 },
+  cardName: { fontFamily: FontFamily.titleBold, fontSize: 21, lineHeight: 27, color: Colors.text },
+  cardWhen: { fontFamily: FontFamily.numberBold, fontSize: 15, color: Colors.gold, marginTop: 6 },
+  cardMetaText: { fontFamily: FontFamily.body, fontSize: 14, lineHeight: 20, color: Colors.muted, marginTop: 4 },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full, borderWidth: 1 },
+  statusPillText: { fontFamily: FontFamily.title, fontSize: 12, lineHeight: 16 },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: 8 },
   progressTrack: { flex: 1, height: 6, borderRadius: 4, backgroundColor: Colors.surf2, overflow: 'hidden' },
   progressFill: { height: 6, borderRadius: 4 },
-  dateText: { ...Type.caption, fontFamily: FontFamily.number, color: Colors.faint },
+  dateText: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.faint },
 
   empty: { alignItems: 'center', padding: Spacing.xl, gap: Spacing.sm, marginTop: Spacing.lg },
   emptyText: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.muted },

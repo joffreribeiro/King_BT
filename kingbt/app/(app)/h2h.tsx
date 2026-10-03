@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useMemo, useState, useRef } from 'react';
@@ -111,7 +111,7 @@ export default function H2HScreen() {
     <SafeAreaView style={s.container} edges={['top', 'bottom']}>
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.replace('/(app)/ranking')} style={s.backBtn}>
+        <TouchableOpacity onPress={() => router.replace({ pathname: '/(app)/arena', params: { tab: 'ranking' } })} style={s.backBtn}>
           <Text style={s.backTxt}>← Voltar</Text>
         </TouchableOpacity>
         <Text style={s.headerTitle}>Head-to-Head</Text>
@@ -295,7 +295,7 @@ export default function H2HScreen() {
 }
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
+  container: { flex: 1, backgroundColor: 'transparent' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
   backBtn: { paddingVertical: 4, paddingHorizontal: 2 },
   backTxt: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.teal },

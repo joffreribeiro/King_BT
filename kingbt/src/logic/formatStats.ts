@@ -1,3 +1,4 @@
+import { rankedCompetitions } from './rankingScope';
 import type { Competition, Format } from './types';
 
 export interface FormatStat {
@@ -31,7 +32,7 @@ export function computeFormatStats(
     super8: { played: 0, wins: 0 },
   };
 
-  competitions.forEach(comp => {
+  rankedCompetitions(competitions).forEach(comp => {
     const f = comp.format as Format;
     if (!map[f]) return;
 

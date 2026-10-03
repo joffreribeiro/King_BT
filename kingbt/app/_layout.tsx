@@ -19,6 +19,7 @@ import {
   SpaceGrotesk_600SemiBold,
   SpaceGrotesk_700Bold,
 } from '@expo-google-fonts/space-grotesk';
+import { CormorantGaramond_700Bold } from '@expo-google-fonts/cormorant-garamond';
 import { AuthProvider } from '@/store/AuthContext';
 import { CompetitionsProvider } from '@/store/CompetitionsContext';
 import { GroupPlayersProvider } from '@/store/GroupPlayersContext';
@@ -28,6 +29,9 @@ import { SyncQueueProvider } from '@/store/SyncQueueContext';
 import { UpdateProvider, useUpdate } from '@/store/UpdateContext';
 import { ThemeProvider, useTheme } from '@/store/ThemeContext';
 import { MandatoryUpdateScreen } from '@/components';
+import { initCrashReporting } from '@/services/crashReporting';
+
+initCrashReporting();
 
 SplashScreen.preventAutoHideAsync();
 // Timeout de segurança: esconde a splash em no máximo 5s independente das fontes
@@ -43,6 +47,7 @@ export default function RootLayout() {
     SpaceGrotesk_500Medium,
     SpaceGrotesk_600SemiBold,
     SpaceGrotesk_700Bold,
+    CormorantGaramond_700Bold,
   });
   const [splashDone, setSplashDone] = useState(false);
 

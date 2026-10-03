@@ -1,6 +1,7 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { HexBackground } from '@/components/HexBackground';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
@@ -29,6 +30,7 @@ export default function TrilhaScreen() {
   if (!comp || !myComp || myMatches.length === 0) {
     return (
       <SafeAreaView style={s.container} edges={['top']}>
+      <HexBackground />
         <ScreenHeader title="Trilha no chaveamento" />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.lg }}>
           <Text style={{ fontSize: 32 }}>🗺️</Text>
@@ -42,6 +44,7 @@ export default function TrilhaScreen() {
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
+      <HexBackground />
       <ScreenHeader
         title="Trilha no chaveamento"
         subtitle={comp.name}
@@ -115,10 +118,10 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderRadius: Radius.md, padding: Spacing.sm, marginBottom: Spacing.sm, gap: 6,
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  round:      { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.faint, letterSpacing: 1 },
-  result:     { fontFamily: FontFamily.numberBold, fontSize: 11, letterSpacing: 1 },
+  round:      { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.faint, letterSpacing: 1 },
+  result:     { fontFamily: FontFamily.numberBold, fontSize: 13, letterSpacing: 1 },
   matchup:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   opponentName: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
   score:      { fontFamily: FontFamily.titleBold, fontSize: 17, color: Colors.faint },
-  date:       { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
+  date:       { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint },
 });

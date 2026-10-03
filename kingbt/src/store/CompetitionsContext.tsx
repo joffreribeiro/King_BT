@@ -15,6 +15,7 @@ import { createFeedItem, deleteFeedItemsByMatch } from '@/firebase/feed';
 import { Timestamp } from 'firebase/firestore';
 import { buildRanking } from '@/logic/scoring';
 import { enqueue } from './syncQueue';
+import { applyValidationOp, mustConfirm, type ValidationOp } from '@/logic/scoreValidation';
 import { useAuth } from './AuthContext';
 import { useGroupPlayers } from './GroupPlayersContext';
 import { useSettings } from './SettingsContext';
@@ -34,7 +35,9 @@ type Action =
   | { type: 'SET_SCORING_CONFIG'; cfg: ScoringConfig }
   | { type: 'ADD'; comp: Competition }
   | { type: 'CLONE'; compId: string; playerHandicaps?: Record<string, number> }
-  | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; sets?: { a: number; b: number }[] }
+  // `confirmed`: o placar já foi confirmado (ou lançado por quem decide) — não passa de novo pela confirmação.
+  | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; sets?: { a: number; b: number }[]; confirmed?: boolean }
+  | { type: 'VALIDATE_SCORE'; compId: string; op: ValidationOp }
   | { type: 'CORRECT_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; sets?: { a: number; b: number }[] }
   | { type: 'CLEAR_SCORE'; compId: string; matchId: string }
   | { type: 'UPDATE_LIVE_SCORE'; compId: string; matchId: string; gamesA: number; gamesB: number; setsA: number; setsB: number; scorerUid?: string; scorerName?: string }
@@ -53,7 +56,9 @@ type Action =
   | { type: 'SUBSTITUTE_PLAYER'; compId: string; sub: Substitution }
   | { type: 'SET_STATUS'; compId: string; status: Competition['status'] }
   | { type: 'ADD_MATCH'; compId: string; match: Match }
-  | { type: 'START_UPCOMING'; compId: string; competitors: Competition['competitors'] };
+  | { type: 'START_UPCOMING'; compId: string; competitors: Competition['competitors'] }
+  /** Atualiza campos da competição (fase Montar, fechar inscrições). `onlyIfStatus` protege contra sobrescrever uma competição que já avançou. */
+  | { type: 'PATCH_COMP'; compId: string; patch: Partial<Competition>; onlyIfStatus?: Competition['status'][] };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -66,15 +71,20 @@ function reducer(state: State, action: Action): State {
     case 'CLONE': {
       const src = state.competitions.find(c => c.id === action.compId);
       if (!src) return state;
-      const cloned = buildCompetition({
-        name: src.name,
-        format: src.format,
-        unit: src.unit,
-        competitors: src.competitors,
-        config: src.config,
-        playerHandicaps: action.playerHandicaps,
-        ...(src.location ? { location: src.location } : {}),
-      });
+      const cloned = {
+        ...buildCompetition({
+          name: src.name,
+          format: src.format,
+          unit: src.unit,
+          gender: src.gender,
+          competitors: src.competitors,
+          config: src.config,
+          playerHandicaps: action.playerHandicaps,
+          ...(src.location ? { location: src.location } : {}),
+        }),
+        ...(src.countsForRanking === false ? { countsForRanking: false } : {}),
+        ...(src.levelCategory ? { levelCategory: src.levelCategory } : {}),
+      };
       return { ...state, competitions: [cloned, ...state.competitions] };
     }
     case 'DELETE':
@@ -120,6 +130,11 @@ function reducer(state: State, action: Action): State {
       };
       return { ...state, competitions: state.competitions.map(c => c.id === comp.id ? updated : c) };
     }
+    case 'VALIDATE_SCORE':
+      return {
+        ...state,
+        competitions: state.competitions.map(c => (c.id !== action.compId ? c : applyValidationOp(c, action.op))),
+      };
     case 'CLEAR_SCORE': {
       return {
         ...state,
@@ -191,6 +206,13 @@ function reducer(state: State, action: Action): State {
         ...state,
         competitions: state.competitions.map(c =>
           c.id !== action.compId ? c : { ...c, matches: [...c.matches, action.match], status: 'active' }
+        ),
+      };
+    case 'PATCH_COMP':
+      return {
+        ...state,
+        competitions: state.competitions.map(c =>
+          c.id !== action.compId || (action.onlyIfStatus && !action.onlyIfStatus.includes(c.status)) ? c : { ...c, ...action.patch }
         ),
       };
     case 'START_UPCOMING':
@@ -274,6 +296,27 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
   const wrappedDispatch: React.Dispatch<Action> = async (action) => {
     if (ADMIN_ONLY.includes(action.type) && !isAdmin) return;
 
+    // Competição que exige confirmação: o placar de um jogador vira "pendente" em vez de valer na hora.
+    if (action.type === 'SAVE_SCORE' && !action.confirmed) {
+      const comp = state.competitions.find(c => c.id === action.compId);
+      const myPid = groupPlayers.find(p => p.uid === user?.uid)?.id ?? null;
+      const canManage = isAdmin || (!!myPid && comp?.createdBy === myPid);
+      if (comp && mustConfirm(comp, canManage)) {
+        if (!myPid) return;
+        return wrappedDispatch({
+          type: 'VALIDATE_SCORE', compId: action.compId,
+          op: { kind: 'submit', matchId: action.matchId, scoreA: action.scoreA, scoreB: action.scoreB, ...(action.sets ? { sets: action.sets } : {}), by: myPid, at: new Date().toISOString() },
+        });
+      }
+    }
+    // Descartar um placar pendente: admin/criador, ou quem o lançou.
+    if (action.type === 'VALIDATE_SCORE' && action.op.kind === 'discard') {
+      const comp = state.competitions.find(c => c.id === action.compId);
+      const myPid = groupPlayers.find(p => p.uid === user?.uid)?.id ?? null;
+      const by = comp?.matches.find(m => m.id === (action.op as { matchId: string }).matchId)?.pendingScore?.by;
+      if (!comp || !(isAdmin || (!!myPid && (comp.createdBy === myPid || by === myPid)))) return;
+    }
+
     dispatch(action);
 
     if (!user || !group) return;
@@ -286,18 +329,31 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
     if (action.type === 'CLONE') {
       const src = state.competitions.find(c => c.id === action.compId);
       if (src) {
-        const cloned = buildCompetition({
-          name: src.name,
-          format: src.format,
-          unit: src.unit,
-          competitors: src.competitors,
-          config: src.config,
-          playerHandicaps: action.playerHandicaps,
-          ...(src.location ? { location: src.location } : {}),
-        });
+        const cloned = {
+          ...buildCompetition({
+            name: src.name,
+            format: src.format,
+            unit: src.unit,
+            gender: src.gender,
+            competitors: src.competitors,
+            config: src.config,
+            playerHandicaps: action.playerHandicaps,
+            ...(src.location ? { location: src.location } : {}),
+          }),
+          ...(src.countsForRanking === false ? { countsForRanking: false } : {}),
+          ...(src.levelCategory ? { levelCategory: src.levelCategory } : {}),
+        };
         const { id, ...data } = cloned;
         try { await createCompetition(group.id, data); }
         catch { console.error('[KingBT] Sync error: CLONE'); }
+      }
+    }
+
+    if (action.type === 'VALIDATE_SCORE') {
+      try {
+        await mutateCompetition(group.id, action.compId, (servidor) => applyValidationOp(servidor, action.op));
+      } catch {
+        await enqueue({ type: 'SCORE_VALIDATION', payload: { groupId: group.id, compId: action.compId, op: action.op } });
       }
     }
 
@@ -400,12 +456,12 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
               id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color,
             }));
             const allGamesBefore = state.competitions.flatMap(extractPlayerGames);
-            const rankBefore = buildRanking(rankPlayers, allGamesBefore, scoringConfig);
+            const rankBefore = buildRanking(rankPlayers, allGamesBefore, scoringConfig, { groupMinimum: true });
 
             const updatedComp = applyScore(comp, action.matchId, action.scoreA, action.scoreB, undefined, scoringConfig);
             const compsAfter = state.competitions.map(c => c.id === comp.id ? updatedComp : c);
             const allGamesAfter = compsAfter.flatMap(extractPlayerGames);
-            const rankAfter = buildRanking(rankPlayers, allGamesAfter, scoringConfig);
+            const rankAfter = buildRanking(rankPlayers, allGamesAfter, scoringConfig, { groupMinimum: true });
 
             const involvedIds = [
               ...(match.teamA ?? []),
@@ -618,6 +674,15 @@ export function CompetitionsProvider({ children }: { children: ReactNode }) {
           status: 'active',
         }));
       } catch { console.error('[KingBT] Sync error: ADD_MATCH'); }
+    }
+
+    if (action.type === 'PATCH_COMP') {
+      try {
+        await mutateCompetition(group.id, action.compId, (servidor) =>
+          action.onlyIfStatus && !action.onlyIfStatus.includes(servidor.status)
+            ? null
+            : { ...servidor, ...action.patch });
+      } catch { console.error('[KingBT] Sync error: PATCH_COMP'); }
     }
 
     if (action.type === 'START_UPCOMING') {

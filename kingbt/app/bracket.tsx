@@ -1,6 +1,7 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
 } from 'react-native';
+import { HexBackground } from '@/components/HexBackground';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useMemo } from 'react';
@@ -16,9 +17,9 @@ import { ScreenHeader } from '@/components/ScreenHeader';
 import { Icon } from '@/components';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 
-const BK_CARD_H  = 62;
+const BK_CARD_H  = 68;
 const BK_GAP     = 12;
-const BK_ROUND_W = 140;
+const BK_ROUND_W = 156;
 const BK_CONN_W  = 28;
 
 function getCompetitor(comp: Competition, id: string) {
@@ -90,6 +91,7 @@ export default function BracketScreen() {
   if (!comp) {
     return (
       <SafeAreaView style={s.container} edges={['top']}>
+      <HexBackground />
         <ScreenHeader title="Chaveamento" />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ color: Colors.muted, fontFamily: FontFamily.body }}>Competição não encontrada.</Text>
@@ -142,6 +144,7 @@ export default function BracketScreen() {
   if (rounds.length === 0) {
     return (
       <SafeAreaView style={s.container} edges={['top']}>
+      <HexBackground />
         <ScreenHeader title={comp.name} />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl }}>
           <Icon name="clock" size={30} color={Colors.faint} />
@@ -168,6 +171,7 @@ export default function BracketScreen() {
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
+      <HexBackground />
       {/* Header */}
       <ScreenHeader
         title={comp.name}
@@ -315,8 +319,8 @@ export default function BracketScreen() {
 
 const makeBkStyles = (Colors: ThemeColors) => StyleSheet.create({
   roundLabel: {
-    fontFamily: FontFamily.numberBold, fontSize: 9,
-    color: Colors.faint, letterSpacing: 1.5, textAlign: 'center', marginBottom: 8,
+    fontFamily: FontFamily.titleBold, fontSize: 12,
+    color: Colors.muted, letterSpacing: 1.3, textAlign: 'center', marginBottom: 8,
   },
   card: {
     width: BK_ROUND_W,
@@ -337,8 +341,8 @@ const makeBkStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: 8, height: (BK_CARD_H - 1) / 2,
   },
   div:  { height: 1, backgroundColor: 'rgba(214,175,70,0.1)' },
-  name: { flex: 1, fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
-  score:{ fontFamily: FontFamily.numberBold, fontSize: 13 },
+  name: { flex: 1, fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted },
+  score:{ fontFamily: FontFamily.numberBold, fontSize: 15 },
   liveDot: {
     position: 'absolute', top: 4, right: 4,
     width: 5, height: 5, borderRadius: 3,
@@ -349,10 +353,10 @@ const makeBkStyles = (Colors: ThemeColors) => StyleSheet.create({
     backgroundColor: 'rgba(243,197,68,0.08)',
     borderWidth: 1, borderColor: 'rgba(243,197,68,0.2)',
     borderRadius: 12, padding: 12,
-    width: 80,
+    width: 92,
   },
   champName: {
-    fontFamily: FontFamily.numberBold, fontSize: 9,
+    fontFamily: FontFamily.numberBold, fontSize: 14,
     color: Colors.gold, textAlign: 'center',
   },
 });
@@ -366,10 +370,10 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: Spacing.sm, borderRadius: Radius.full,
     borderWidth: 1, borderColor: Colors.line, backgroundColor: Colors.surf,
   },
-  trilhaBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.gold },
+  trilhaBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.gold },
   statusBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: Radius.full, borderWidth: 1 },
-  statusText:  { fontFamily: FontFamily.numberBold, fontSize: 11 },
-  phaseName:   { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
+  statusText:  { fontFamily: FontFamily.numberBold, fontSize: 13 },
+  phaseName:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   progressWrap: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     paddingHorizontal: Spacing.md, paddingVertical: 8,
@@ -377,22 +381,22 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   progressTrack: { flex: 1, height: 4, backgroundColor: Colors.surf2, borderRadius: 2, overflow: 'hidden' },
   progressFill:  { height: 4, backgroundColor: Colors.gold, borderRadius: 2 },
-  progressText:  { fontFamily: FontFamily.number, fontSize: 11, color: Colors.muted, width: 64, textAlign: 'right' },
+  progressText:  { fontFamily: FontFamily.number, fontSize: 13, color: Colors.muted, width: 76, textAlign: 'right' },
   thirdSection: { paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
-  sectionLabel: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 1.5, marginBottom: 8 },
+  sectionLabel: { fontFamily: FontFamily.titleBold, fontSize: 12, lineHeight: 16, color: Colors.muted, letterSpacing: 1.3, marginBottom: 8, textTransform: 'uppercase' },
   legend: {
     flexDirection: 'row', gap: Spacing.lg,
     paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
   },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendText: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
+  legendText: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   nextCard: {
     margin: Spacing.md,
     backgroundColor: 'rgba(107,127,215,0.12)',
     borderWidth: 1, borderColor: 'rgba(107,127,215,0.25)',
     borderRadius: 12, padding: 14,
   },
-  nextLabel: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.accentGrupos, letterSpacing: 1.5, marginBottom: 4 },
+  nextLabel: { fontFamily: FontFamily.titleBold, fontSize: 12, color: Colors.accentGrupos, letterSpacing: 1.3, marginBottom: 4 },
   nextTitle: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text, fontWeight: '700' },
-  nextSub:   { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, marginTop: 2 },
+  nextSub:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 2 },
 });

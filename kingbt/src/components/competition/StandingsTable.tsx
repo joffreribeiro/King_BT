@@ -1,12 +1,13 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useMemo } from 'react';
-import { FontFamily, Spacing, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, PODIUM_COLORS, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { goToPlayer } from '@/logic/nav';
-import { Avatar, Card } from '@/components';
+import { Card } from '@/components';
 import { standings } from '@/logic/formats';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useSettings } from '@/store/SettingsContext';
+import { withCompetitionScoring } from '@/logic/scoringConfig';
 import type { Match, Competition } from '@/logic/types';
 import { getCompetitor, sgColor } from './helpers';
 
@@ -24,7 +25,6 @@ export function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
   const { findPlayer } = useGroupPlayers();
   const { scoringConfig } = useSettings();
   const { colors: Colors } = useTheme();
-  const stRow = useMemo(() => makeStRow(Colors), [Colors]);
 
   function resolveEntry(id: string): { name: string; color: string } {
     const competitor = getCompetitor(comp, id);
@@ -34,78 +34,115 @@ export function StandingsTable({ comp, ids, matches, highlightTop = 0 }: {
     return { name: id, color: Colors.muted };
   }
 
-  const st = standings(ids, matches, id => resolveEntry(id).name, scoringConfig, comp.config?.winRule);
+  const st = standings(ids, matches, id => resolveEntry(id).name, withCompetitionScoring(scoringConfig, comp.config), comp.config?.winRule);
   return (
     <Card padding={0} style={{ overflow: 'hidden', marginBottom: Spacing.sm }}>
-      {/* Cabeçalho */}
-      <View style={[stRow.row, stRow.header]}>
-        <Text style={[stRow.c0,    stRow.th]}>#</Text>
-        <Text style={[stRow.cName, stRow.th]}>JOGADOR</Text>
-        <Text style={[stRow.cN,    stRow.th]}>V</Text>
-        <Text style={[stRow.cN,    stRow.th]}>D</Text>
-        <Text style={[stRow.cN,    stRow.th]}>GP</Text>
-        <Text style={[stRow.cN,    stRow.th]}>GC</Text>
-        <Text style={[stRow.cN,    stRow.th]}>SG</Text>
-        <Text style={[stRow.cNw,   stRow.th]}>GA</Text>
-        <Text style={[stRow.cPts,  stRow.th]}>PTS</Text>
-      </View>
+      <StandingsHeader />
       {st.map((s, i) => {
         const pl = resolveEntry(s.id);
-        const classified = highlightTop > 0 && i < highlightTop;
-        const winRate = s.played > 0 ? Math.round((s.wins / s.played) * 100) : 0;
         const linkId = resolvePlayerLink(comp, s.id);
         return (
-          <View key={s.id} style={[stRow.row, i < st.length - 1 && stRow.border, classified && stRow.classified]}>
-            <Text style={[stRow.c0, stRow.pos]}>{i + 1}</Text>
-            <TouchableOpacity
-              style={[stRow.cName, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}
-              onPress={() => linkId && goToPlayer(linkId)}
-              disabled={!linkId}
-              activeOpacity={0.7}
-            >
-              <Avatar name={pl.name} color={pl.color} size={22} />
-              <View style={{ flex: 1 }}>
-                <Text style={stRow.name} numberOfLines={1}>{pl.name}</Text>
-                <Text style={stRow.meta}>{s.played}J · {winRate}% aprov.</Text>
-              </View>
-            </TouchableOpacity>
-            <Text style={stRow.cN}>{s.wins}</Text>
-            <Text style={stRow.cN}>{s.losses}</Text>
-            <Text style={stRow.cN}>{s.gf}</Text>
-            <Text style={stRow.cN}>{Math.round(s.gf - s.gd)}</Text>
-            <Text style={[stRow.cN, { color: sgColor(s.gd, Colors) }]}>
-              {s.gd > 0 ? '+' : ''}{s.gd}
-            </Text>
-            <Text style={stRow.cNw} numberOfLines={1}>
-              {Number(s.ga) >= 10 ? Number(s.ga).toFixed(1) : Number(s.ga).toFixed(2)}
-            </Text>
-            <Text style={[stRow.cPts, { color: Colors.gold, fontFamily: FontFamily.numberBold }]}>{Number(s.pts).toFixed(2)}</Text>
-          </View>
+          <StandingRow
+            key={s.id}
+            pos={i + 1}
+            name={pl.name}
+            color={pl.color}
+            played={s.played}
+            wins={s.wins}
+            losses={s.losses}
+            gp={s.gf}
+            gc={Math.round(s.gf - s.gd)}
+            sg={s.gd}
+            ga={Number(s.ga)}
+            pts={Number(s.pts)}
+            classified={highlightTop > 0 && i < highlightTop}
+            last={i === st.length - 1}
+            onPress={linkId ? () => goToPlayer(linkId) : undefined}
+          />
         );
       })}
-      {/* Legenda */}
-      <View style={stRow.legend}>
-        <Text style={stRow.legendText}>V: Vitórias · D: Derrotas · GP: Games Pró · GC: Games Contra · SG: Saldo · GA: Game Average · PTS: Pontuação</Text>
-      </View>
+      <StandingsLegend />
     </Card>
+  );
+}
+
+const MEDALS = ['🥇', '🥈', '🥉'];
+
+/**
+ * Uma linha da classificação, no estilo do Atlas: medalha nos três primeiros
+ * (com a linha tingida na cor do pódio), número nos demais, e só o que decide a
+ * colocação — V, D, GP, SALDO e PTS — em fonte legível.
+ */
+export function StandingRow(p: {
+  pos: number; name: string; color: string;
+  played: number; wins: number; losses: number; gp: number; gc: number; sg: number; ga: number; pts: number;
+  classified?: boolean; last?: boolean; onPress?: () => void;
+}) {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStRow(Colors), [Colors]);
+  const podium = p.pos >= 1 && p.pos <= 3 ? PODIUM_COLORS[p.pos - 1] : null;
+  return (
+    <TouchableOpacity
+      style={[s.row, !p.last && s.border, podium && { backgroundColor: podium + '1F' }, p.classified && s.classified]}
+      onPress={p.onPress}
+      disabled={!p.onPress}
+      activeOpacity={0.75}
+    >
+      <View style={s.posBox}>
+        {podium ? <Text style={s.medal}>{MEDALS[p.pos - 1]}</Text> : <Text style={s.pos}>{p.pos}</Text>}
+      </View>
+      <Text style={s.name} numberOfLines={1}>{p.name}</Text>
+      <Text style={s.cN}>{p.wins}</Text>
+      <Text style={s.cN}>{p.losses}</Text>
+      <Text style={s.cGp}>{p.gp}</Text>
+      <Text style={[s.cSg, { color: sgColor(p.sg, Colors) }]}>{p.sg > 0 ? '+' : ''}{p.sg}</Text>
+      <Text style={s.cPts}>{p.pts.toFixed(2).replace('.', ',')}</Text>
+    </TouchableOpacity>
+  );
+}
+
+/** Cabeçalho das colunas da classificação. */
+export function StandingsHeader() {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStRow(Colors), [Colors]);
+  return (
+    <View style={[s.row, s.header]}>
+      <View style={s.posBox} />
+      <Text style={[s.name, s.th]}>NOME</Text>
+      <Text style={[s.cN, s.th]}>V</Text>
+      <Text style={[s.cN, s.th]}>D</Text>
+      <Text style={[s.cGp, s.th]}>GP</Text>
+      <Text style={[s.cSg, s.th]}>SALDO</Text>
+      <Text style={[s.cPts, s.th]}>PTS</Text>
+    </View>
+  );
+}
+
+export function StandingsLegend() {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStRow(Colors), [Colors]);
+  return (
+    <View style={s.legend}>
+      <Text style={s.legendText}>V vitórias · D derrotas · GP games pró · SALDO saldo de games · PTS pontuação</Text>
+    </View>
   );
 }
 
 // Exportado: outras views (Classificação/Rotating) reutilizam estes estilos
 export const makeStRow = (Colors: ThemeColors) => StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: Spacing.sm, paddingVertical: 7 },
-  header: { backgroundColor: Colors.surf2, paddingVertical: 5 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: Spacing.sm + 4, paddingVertical: 13 },
+  header: { backgroundColor: 'transparent', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.line },
   border: { borderBottomWidth: 1, borderBottomColor: Colors.line },
   classified: { borderLeftWidth: 3, borderLeftColor: Colors.teal },
-  legend: { paddingHorizontal: Spacing.sm, paddingVertical: 6, borderTopWidth: 1, borderTopColor: Colors.line },
-  legendText: { fontFamily: FontFamily.body, fontSize: 9, color: Colors.faint, textAlign: 'center' },
-  c0: { width: 22 },
-  cName: { flex: 1 },
-  cN: { width: 28, textAlign: 'center', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
-  cNw: { width: 44, textAlign: 'center', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
-  cPts: { width: 56, textAlign: 'right', fontFamily: FontFamily.number, fontSize: 11, color: Colors.text },
-  th: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 0.3 },
-  pos: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.muted },
-  name: { fontFamily: FontFamily.bodyMed, fontSize: 11, color: Colors.text },
-  meta: { fontFamily: FontFamily.body, fontSize: 9, color: Colors.faint, marginTop: 1 },
+  th: { fontFamily: FontFamily.titleBold, fontSize: 12, lineHeight: 16, color: Colors.muted, letterSpacing: 0.3 },
+  posBox: { width: 30, alignItems: 'center', justifyContent: 'center' },
+  medal: { fontSize: 20 },
+  pos: { fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.text },
+  name: { flex: 1, minWidth: 0, fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
+  cN: { width: 26, textAlign: 'center', fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.text },
+  cGp: { width: 32, textAlign: 'center', fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.text },
+  cSg: { width: 54, textAlign: 'center', fontFamily: FontFamily.numberBold, fontSize: 16 },
+  cPts: { width: 54, textAlign: 'right', fontFamily: FontFamily.numberBold, fontSize: 18, color: Colors.gold },
+  legend: { paddingHorizontal: Spacing.md, paddingVertical: 10, borderTopWidth: 1, borderTopColor: Colors.line },
+  legendText: { fontFamily: FontFamily.body, fontSize: 12, lineHeight: 16, color: Colors.muted, textAlign: 'center' },
 });

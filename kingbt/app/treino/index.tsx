@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, TextInput } from 'react-native';
+import { HexBackground } from '@/components/HexBackground';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useMemo } from 'react';
 import { goToTreino } from '@/logic/nav';
@@ -95,6 +96,7 @@ export default function TreinoListScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
+      <HexBackground />
       <StatusBar barStyle="light-content" />
 
       <ScreenHeader title="Análise Individual" />

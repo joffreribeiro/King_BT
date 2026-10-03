@@ -2,16 +2,29 @@ import type { Competition } from './types';
 import { computeStreakHistory } from './streak';
 import type { UserAchievementStats } from '@/constants/achievements';
 import { DEFAULT_SCORING, type ScoringConfig } from './scoringConfig';
+import { computeHallStats } from './hallStats';
 import {
   computeChampCount, computeHatTrick, computeUnbeatableMonth,
   computePerfectPartner, computeFormatWins,
 } from './playerAchievements';
+
+/** O que vem da comunidade (avaliações), não das competições. */
+export interface CommunityExtras {
+  ratingsGiven?: number;
+  communityCount?: number;
+  communityMin?: number;
+  /** Quantas temporadas encerradas o jogador venceu (1º do ranking final). */
+  seasonTitles?: number;
+  /** Quantas temporadas encerradas o jogador terminou em 2º. */
+  seasonRunnerUps?: number;
+}
 
 export function computeAchievementStats(
   competitions: Competition[],
   playerId: string,
   sharesCount = 0,
   cfg: ScoringConfig = DEFAULT_SCORING,
+  extras: CommunityExtras = {},
 ): UserAchievementStats {
   if (!playerId) {
     return {
@@ -43,5 +56,7 @@ export function computeAchievementStats(
     currentRating: 0, // filled by caller with ranking points
     champCount, super8Wins, ligaWins, avulsoWins,
     hatTrick, unbeatable, perfectPartner, sharesCount,
+    ...computeHallStats(competitions, playerId, cfg),
+    ...extras,
   };
 }

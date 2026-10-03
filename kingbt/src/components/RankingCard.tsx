@@ -9,11 +9,11 @@ import { formatRating, formatGA } from '@/logic/format';
 import type { PlayerInfo } from '@/logic/types';
 
 /** Formata a fórmula de pontuação real do grupo (inclui eventos só se usado). */
-function formatFormula(cfg: { winCoef: number; playedCoef: number; gaCoef: number; eventCoef?: number }): string {
+function formatFormula(cfg: { winCoef: number; playedCoef: number; gaCoef: number; eventCoef?: number; gaSmoothing?: number }): string {
   const fmt = (n: number) => n.toString().replace('.', ',');
   let f = `PONTUAÇÃO: (V×${fmt(cfg.winCoef)}) + (J×${fmt(cfg.playedCoef)}) + (GA×${fmt(cfg.gaCoef)})`;
   if (cfg.eventCoef) f += ` + (Eventos×${fmt(cfg.eventCoef)})`;
-  return f + '  ·  GA = GP÷GC';
+  return f + (cfg.gaSmoothing ? `  ·  GA = (GP+${cfg.gaSmoothing})÷(GC+${cfg.gaSmoothing})` : '  ·  GA = GP÷GC');
 }
 
 type Props = {

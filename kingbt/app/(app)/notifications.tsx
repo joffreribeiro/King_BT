@@ -1,13 +1,12 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, Animated,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { router } from 'expo-router';
 import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar } from '@/components';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useNotifications, type NotifType, type AppNotif } from '@/hooks/useNotifications';
@@ -30,6 +29,12 @@ const makeNotifMeta = (Colors: ThemeColors): Record<NotifType, { icon: string; c
   achievement_unlock:{ icon: '🏅', color: Colors.teal },
   player_ranked_up:  { icon: '📈', color: Colors.gold },
   invite:            { icon: '📬', color: '#6B91F0' },
+  challenge_in:      { icon: '⚔️', color: Colors.coral },
+  challenge_reply:   { icon: '🤝', color: Colors.teal },
+  challenge_game:    { icon: '🎾', color: Colors.gold },
+  score_confirm:     { icon: '✅', color: Colors.gold },
+  honor:             { icon: '🏅', color: Colors.gold },
+  announcement:      { icon: '📣', color: '#6B91F0' },
 });
 
 // ── Item de Notificação ────────────────────────────────────────────────────────
@@ -67,8 +72,8 @@ type Tab = 'notif' | 'invites';
 export default function NotificationsScreen() {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeNsStyles(Colors), [Colors]);
-  const { myPlayerId } = useAuth();
-  const { findPlayer } = useGroupPlayers();
+  useAuth();
+  useGroupPlayers();
   const [tab, setTab] = useState<Tab>('notif');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -140,6 +145,8 @@ export default function NotificationsScreen() {
                   markRead(n.id);
                   if (n.actionCompId) {
                     router.push({ pathname: '/competitions/[id]', params: { id: n.actionCompId } });
+                  } else if (n.actionRoute) {
+                    router.push(n.actionRoute as never);
                   }
                 }}
               />
@@ -168,7 +175,7 @@ export default function NotificationsScreen() {
 }
 
 const makeNsStyles = (Colors: ThemeColors) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
+  container: { flex: 1, backgroundColor: 'transparent' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

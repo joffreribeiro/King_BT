@@ -2,12 +2,13 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform,
   Animated, TextInput,
 } from 'react-native';
+import { HexBackground } from '@/components/HexBackground';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors, Type, PLAYER_COLORS } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Badge, Card, ScreenHeader, Icon, OptionModal } from '@/components';
+import { Avatar, Badge, ScreenHeader, Icon, OptionModal } from '@/components';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { competitionChampion, groupComplete } from '@/logic/formats';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -16,9 +17,14 @@ import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useSettings } from '@/store/SettingsContext';
 import type { Match, Competition } from '@/logic/types';
 import {
-  confirmParticipation, cancelParticipation,
+  registerForEvent, cancelEventRegistration,
   requestRegistration, cancelRegistrationRequest, approveJoinRequest, rejectJoinRequest,
 } from '@/firebase/competitions';
+import { eventView } from '@/logic/eventRegistration';
+import { registrationGate, canCancelRegistration, closeRegistration } from '@/logic/competitionPlan';
+import { PendingScores } from '@/components/competition/PendingScores';
+import { EventHero, EventTiles } from '@/components/EventInfo';
+import { notify } from '@/services/notify';
 import { addGuestPlayer } from '@/firebase/groupPlayers';
 import { shareText, notifyCopied } from '@/services/share';
 import { buildShareText } from '@/components/competition/helpers';
@@ -48,6 +54,7 @@ export default function CompetitionDetail() {
   const { findPlayer, groupPlayers } = useGroupPlayers();
   const { scoringConfig } = useSettings();
   const comp = state.competitions.find(c => c.id === id);
+  const myCategory = groupPlayers.find(p => p.id === myPlayerId)?.about?.category;
 
   // Placar ao vivo/rascunho (usado por GameRow/ScoreboardCard/ScorerModal
   // abaixo) não vem mais junto do listener geral de competições — precisa
@@ -65,6 +72,7 @@ export default function CompetitionDetail() {
   const [avulsoTeamA, setAvulsoTeamA]     = useState<string[]>([]);
   const [avulsoTeamB, setAvulsoTeamB]     = useState<string[]>([]);
   const [showAddGuest, setShowAddGuest]   = useState(false);
+  const [showAdminAdd, setShowAdminAdd]   = useState(false);
   const [guestName, setGuestName]         = useState('');
   const [guestBusy, setGuestBusy]         = useState(false);
   // Edição de um jogo já registrado — só admin (ver handleMatchLongPress).
@@ -73,7 +81,6 @@ export default function CompetitionDetail() {
   const [editTeamA, setEditTeamA]         = useState<string[]>([]);
   const [editTeamB, setEditTeamB]         = useState<string[]>([]);
   const champAnim  = useRef(new Animated.Value(0)).current;
-  const championShown = useRef(false);
 
   // Para competição tipo "Grupo", inicia na aba correta baseado na fase ativa
   const [activeTab, setActiveTab] = useState<'regras' | 'classificacao' | 'partidas'>(() => {
@@ -83,19 +90,9 @@ export default function CompetitionDetail() {
     return allGroupsComplete ? 'partidas' : 'classificacao';
   });
 
-  function triggerChampion() {
-    if (championShown.current) return;
-    championShown.current = true;
-    setShowChampion(true);
-    champAnim.setValue(0);
-    Animated.spring(champAnim, { toValue: 1, useNativeDriver: true, tension: 60, friction: 7 }).start();
-  }
 
-  useEffect(() => {
-    if (comp?.status !== 'done') return;
-    if (!competitionChampion(comp, id => findPlayer(id)?.name ?? id, scoringConfig)) return;
-    triggerChampion();
-  }, [comp?.status, !!comp]);
+  // O cartão de campeão NÃO abre mais sozinho ao entrar numa competição encerrada:
+  // o campeão já aparece no topo da tela, e o botão do troféu abre o cartão quando se quer.
 
   // Para competição tipo "Grupo", ajusta a aba quando a fase muda (grupos completos → mata-mata)
   useEffect(() => {
@@ -108,6 +105,7 @@ export default function CompetitionDetail() {
   if (!comp) {
     return (
       <SafeAreaView style={main.container}>
+      <HexBackground />
         <ScreenHeader
           title="Competição"
           onBack={() => router.canGoBack() ? router.back() : router.replace('/(app)')}
@@ -283,13 +281,15 @@ export default function CompetitionDetail() {
   async function handleToggleConfirm() {
     if (!group || !myPlayerId || !comp) return;
     setConfirmBusy(true);
-    const already = comp.confirmedIds?.includes(myPlayerId);
-    if (already) {
-      await cancelParticipation(group.id, comp.id, myPlayerId);
-    } else {
-      await confirmParticipation(group.id, comp.id, myPlayerId);
+    try {
+      const inside = comp.confirmedIds?.includes(myPlayerId) || comp.waitlistIds?.includes(myPlayerId);
+      if (inside) await cancelEventRegistration(group.id, comp.id, myPlayerId);
+      else await registerForEvent(group.id, comp.id, myPlayerId, myCategory);
+    } catch {
+      notify('Sem conexão', 'Não foi possível atualizar sua inscrição. Verifique a internet e tente de novo.');
+    } finally {
+      setConfirmBusy(false);
     }
-    setConfirmBusy(false);
   }
 
   // Visitante (não-membro de grupo público) solicita/cancela inscrição
@@ -297,6 +297,7 @@ export default function CompetitionDetail() {
 
   async function handleRequestJoin() {
     if (!group || !user || !comp) return;
+    if (!registrationGate(comp, undefined).ok) return;
     setJoinReqBusy(true);
     await requestRegistration(group.id, comp.id, {
       uid: user.uid,
@@ -351,21 +352,24 @@ export default function CompetitionDetail() {
     setShowAddAvulso(false);
   }
 
-  async function handleStartUpcoming() {
+  /** Fecha a lista: Avulso ativa, Super 8 gera os jogos, Liga/Grupos/Mata passam para a fase de montar. */
+  function handleCloseRegistration() {
     if (!comp || !group) return;
-    // Monta competidores a partir dos jogadores confirmados
-    const confirmedPlayers = (comp.confirmedIds ?? [])
-      .map(pid => findPlayer(pid))
-      .filter(Boolean) as typeof groupPlayers;
-    const competitors = confirmedPlayers.map(p => ({
-      id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(),
-      color: p.color, members: [p.id],
-    }));
+    const closed = closeRegistration(comp, groupPlayers);
     dispatch({
-      type: 'START_UPCOMING',
-      compId: comp.id,
-      competitors,
+      type: 'PATCH_COMP', compId: comp.id, onlyIfStatus: ['upcoming'],
+      patch: { status: closed.status, competitors: closed.competitors, matches: closed.matches },
     });
+    if (closed.status === 'setup') {
+      if (closed.competitors.length === 0) router.push({ pathname: '/competitions/new/participants', params: { compId: comp.id } });
+      else router.push({ pathname: '/competitions/new/montar', params: { id: comp.id } });
+    }
+  }
+
+  async function handleAdminAdd(playerId: string) {
+    if (!group || !comp) return;
+    try { await registerForEvent(group.id, comp.id, playerId, null, true); }
+    catch { notify('Sem conexão', 'Não foi possível adicionar o jogador. Verifique a internet e tente de novo.'); }
   }
 
   function handleSubstitute(match: Match, originalId: string, substituteId: string) {
@@ -382,9 +386,16 @@ export default function CompetitionDetail() {
     });
   }
 
+  const ev = eventView(comp, myPlayerId);
+  const gate = registrationGate(comp, myCategory);
+  const canLeave = canCancelRegistration(comp);
+  const canManage = isAdmin || comp.createdBy === myPlayerId;
+  const addable = groupPlayers.filter(p => !(comp.confirmedIds ?? []).includes(p.id) && !(comp.waitlistIds ?? []).includes(p.id));
+
   return (
     <ErrorBoundary label="CompetitionDetail">
     <SafeAreaView style={main.container} edges={['top']}>
+      <HexBackground />
       {/* Champion banner */}
       {showChampion && champPlayer && (
         <Animated.View style={[main.champBanner, {
@@ -414,8 +425,8 @@ export default function CompetitionDetail() {
         below={
           <View style={{ flexDirection: 'row', marginTop: 3 }}>
             <Badge
-              label={comp.status === 'upcoming' ? 'Agendada' : comp.status === 'done' ? 'Concluída' : 'Ativa'}
-              variant={comp.status === 'upcoming' ? 'gold' : comp.status === 'done' ? 'teal' : 'gold'}
+              label={comp.status === 'upcoming' ? 'Agendada' : comp.status === 'setup' ? 'Montando' : comp.status === 'done' ? 'Concluída' : 'Ativa'}
+              variant={comp.status === 'upcoming' || comp.status === 'setup' ? 'gold' : comp.status === 'done' ? 'teal' : 'gold'}
               small
             />
           </View>
@@ -448,6 +459,9 @@ export default function CompetitionDetail() {
           <TouchableOpacity style={main.adminMenuAction} onPress={() => { setShowAdminMenu(false); setShowEditName(true); }}>
             <Text style={main.adminMenuText}>✏️ Renomear competição</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={main.adminMenuAction} onPress={() => { setShowAdminMenu(false); router.push({ pathname: '/competitions/new', params: { from: comp.id } }); }}>
+            <Text style={main.adminMenuText}>🔁 Repetir na próxima semana</Text>
+          </TouchableOpacity>
           {comp.format === 'avulso' && comp.status !== 'done' && (
             <TouchableOpacity style={main.adminMenuAction} onPress={() => { setShowAdminMenu(false); handleEndAvulso(); }}>
               <Text style={main.adminMenuText}>🏁 Encerrar sessão</Text>
@@ -458,6 +472,12 @@ export default function CompetitionDetail() {
               <Text style={main.adminMenuText}>▶️ Reabrir sessão</Text>
             </TouchableOpacity>
           )}
+          <TouchableOpacity
+            style={main.adminMenuAction}
+            onPress={() => { setShowAdminMenu(false); dispatch({ type: 'PATCH_COMP', compId: comp.id, patch: { config: { ...comp.config, requireConfirmation: !comp.config.requireConfirmation } } }); }}
+          >
+            <Text style={main.adminMenuText}>{comp.config.requireConfirmation ? '✅ Parar de exigir confirmação dos placares' : '✅ Exigir confirmação dos placares'}</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={main.adminMenuAction} onPress={() => { setShowAdminMenu(false); handleDelete(); }}>
             <Text style={main.adminMenuDanger}>🗑️ Excluir competição</Text>
           </TouchableOpacity>
@@ -468,36 +488,60 @@ export default function CompetitionDetail() {
       {comp.status === 'upcoming' && (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ ...centeredContent, padding: Spacing.md, gap: Spacing.md }}>
 
-          {/* Banner info */}
-          <View style={upcoming.infoBanner}>
-            <Text style={upcoming.infoIcon}>📅</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={upcoming.infoTitle}>Competição agendada</Text>
-              <Text style={upcoming.infoSub}>
-                Confirme sua participação. Quando todos estiverem prontos, o criador inicia a competição.
-              </Text>
-            </View>
+          {/* Painel do evento: arte, data/horário/local e inscrição */}
+          <View style={{ borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: Colors.line }}>
+            <EventHero
+              comp={comp}
+              statusLabel={ev.me === 'principal' ? 'Você está dentro' : ev.me === 'espera' ? 'Na lista de espera' : ev.full ? 'Lotado' : 'Inscrições abertas'}
+              statusColor={ev.me === 'principal' || !ev.full ? Colors.teal : Colors.gold}
+              height={220}
+            />
           </View>
+          <EventTiles comp={comp} />
+
+          {/* Categoria de nível, quando a competição não é aberta */}
+          {comp.levelCategory && comp.levelCategory !== 'Aberta' && (
+            <Text style={{ ...Type.caption, fontSize: 14, color: Colors.gold, textAlign: 'center' }}>
+              Categoria {comp.levelCategory}: só jogadores dessa categoria se inscrevem.
+            </Text>
+          )}
 
           {/* Botão confirmar / cancelar — membros do grupo */}
-          {myPlayerId && (
+          {myPlayerId && (ev.me ? canLeave : gate.ok && !ev.closedFull) && (
             <TouchableOpacity
               style={[upcoming.confirmBtn,
-                comp.confirmedIds?.includes(myPlayerId) ? upcoming.confirmBtnCancel : upcoming.confirmBtnJoin,
+                ev.me ? upcoming.confirmBtnCancel : upcoming.confirmBtnJoin,
                 confirmBusy && { opacity: 0.5 },
               ]}
               onPress={handleToggleConfirm}
               disabled={confirmBusy}
               activeOpacity={0.8}
             >
-              <Text style={[upcoming.confirmBtnText, comp.confirmedIds?.includes(myPlayerId) && { color: Colors.muted }]}>
-                {comp.confirmedIds?.includes(myPlayerId) ? '✓ Confirmado — cancelar' : '+ Confirmar participação'}
+              <Text style={[upcoming.confirmBtnText, ev.me && { color: Colors.muted }]}>
+                {ev.action === 'cancel' ? 'Cancelar inscrição'
+                  : ev.action === 'leaveWaitlist' ? `Sair da lista de espera (${ev.waitPos}º na fila)`
+                  : ev.action === 'waitlist' ? 'Entrar na lista de espera'
+                  : 'Inscrever-se'}
               </Text>
             </TouchableOpacity>
           )}
 
+          {myPlayerId && (
+            <Text style={{ ...Type.caption, fontSize: 14, color: ev.me || gate.ok ? Colors.muted : Colors.gold, textAlign: 'center', marginTop: -Spacing.sm }}>
+              {ev.me && !canLeave ? 'O prazo para cancelar já passou. Fale com o organizador.'
+                : !ev.me && !gate.ok ? gate.reason
+                : ev.closedFull ? 'Vagas esgotadas.'
+                : ev.me === 'espera' ? 'Se abrir uma vaga, você entra sozinho.'
+                : ev.full && !ev.me ? 'Sem vagas no momento — você entra na fila e é chamado se alguém cancelar.'
+                : 'Quando todos estiverem prontos, o criador inicia a competição.'}
+            </Text>
+          )}
+
           {/* Botão solicitar / cancelar inscrição — visitante de grupo público */}
-          {!isMember && user && (
+          {!isMember && user && !myJoinRequest && !gate.ok && (
+            <Text style={{ ...Type.caption, fontSize: 14, color: Colors.gold, textAlign: 'center' }}>{gate.reason}</Text>
+          )}
+          {!isMember && user && (myJoinRequest || gate.ok) && (
             <TouchableOpacity
               style={[upcoming.confirmBtn,
                 myJoinRequest ? upcoming.confirmBtnCancel : upcoming.confirmBtnJoin,
@@ -537,7 +581,7 @@ export default function CompetitionDetail() {
           {/* Lista de confirmados */}
           <View style={upcoming.section}>
             <Text style={upcoming.sectionTitle}>
-              CONFIRMADOS ({(comp.confirmedIds ?? []).length})
+              CONFIRMADOS ({ev.vagas != null ? `${ev.taken}/${ev.vagas}` : ev.taken})
             </Text>
             {(comp.confirmedIds ?? []).length === 0 ? (
               <Text style={upcoming.empty}>Nenhum jogador confirmou ainda.</Text>
@@ -555,12 +599,38 @@ export default function CompetitionDetail() {
             )}
           </View>
 
-          {/* Botão iniciar (criador ou admin) */}
-          {(isAdmin || comp.createdBy === myPlayerId) && (comp.confirmedIds ?? []).length >= 2 && (
-            <TouchableOpacity style={upcoming.startBtn} onPress={handleStartUpcoming} activeOpacity={0.85}>
+          {/* Fila de espera — só aparece quando há alguém nela */}
+          {(comp.waitlistIds ?? []).length > 0 && (
+            <View style={upcoming.section}>
+              <Text style={upcoming.sectionTitle}>LISTA DE ESPERA ({(comp.waitlistIds ?? []).length})</Text>
+              {(comp.waitlistIds ?? []).map((pid, i) => {
+                const pl = findPlayer(pid);
+                return (
+                  <View key={pid} style={upcoming.playerRow}>
+                    {pl && <Avatar name={pl.name} color={pl.color} size={30} />}
+                    <Text style={upcoming.playerName}>{pl?.name ?? pid}</Text>
+                    <Text style={upcoming.empty}>{i + 1}º</Text>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Admin adiciona jogadores direto (vale também no modo "só o admin adiciona") */}
+          {canManage && (
+            <TouchableOpacity style={upcoming.addBtn} onPress={() => setShowAdminAdd(true)} activeOpacity={0.85}>
+              <Text style={upcoming.addBtnText}>+ Adicionar jogador à lista</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Fechar a lista (criador ou admin) */}
+          {canManage && (comp.confirmedIds ?? []).length >= 2 && (
+            <TouchableOpacity style={upcoming.startBtn} onPress={handleCloseRegistration} activeOpacity={0.85}>
               <Text style={upcoming.startBtnIcon}>⚡</Text>
               <Text style={upcoming.startBtnText}>
-                Iniciar com {(comp.confirmedIds ?? []).length} jogadores
+                {comp.format === 'avulso' ? `Iniciar com ${(comp.confirmedIds ?? []).length} jogadores`
+                  : comp.format === 'super8' ? 'Fechar inscrições e gerar jogos'
+                  : 'Fechar inscrições e montar'}
               </Text>
             </TouchableOpacity>
           )}
@@ -568,8 +638,42 @@ export default function CompetitionDetail() {
       )}
 
       {/* Abas unificadas */}
-      {comp.status !== 'upcoming' && (
+      {comp.status === 'setup' && (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ ...centeredContent, padding: Spacing.md, gap: Spacing.md }}>
+          <View style={upcoming.section}>
+            <Text style={upcoming.sectionTitle}>MONTANDO A COMPETIÇÃO</Text>
+            <Text style={{ ...Type.body, fontSize: 15, lineHeight: 22, color: Colors.text }}>
+              {comp.competitors.length === 0
+                ? 'Ainda não há jogadores definidos.'
+                : `${comp.competitors.length} ${comp.unit === 'duplas' ? 'duplas' : 'jogadores'} na lista. Falta definir ${comp.format === 'grupos' ? 'grupos, turnos e chaveamento' : comp.format === 'liga' ? 'os turnos' : 'o chaveamento'} para gerar os jogos.`}
+            </Text>
+          </View>
+          {canManage ? (
+            <TouchableOpacity
+              style={upcoming.startBtn} activeOpacity={0.85}
+              onPress={() => comp.competitors.length === 0
+                ? router.push({ pathname: '/competitions/new/participants', params: { compId: comp.id } })
+                : router.push({ pathname: '/competitions/new/montar', params: { id: comp.id } })}
+            >
+              <Text style={upcoming.startBtnText}>
+                {comp.competitors.length === 0 ? (comp.unit === 'duplas' ? 'Montar as duplas' : 'Escolher jogadores')
+                  : comp.format === 'grupos' ? 'Montar grupos' : comp.format === 'liga' ? 'Montar liga' : 'Montar chaveamento'}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={upcoming.empty}>O organizador está montando a competição. Os jogos aparecem aqui assim que forem gerados.</Text>
+          )}
+          {canManage && comp.competitors.length > 0 && (
+            <TouchableOpacity style={upcoming.addBtn} activeOpacity={0.85} onPress={() => router.push({ pathname: '/competitions/new/participants', params: { compId: comp.id } })}>
+              <Text style={upcoming.addBtnText}>Alterar jogadores</Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+      )}
+
+      {comp.status !== 'upcoming' && comp.status !== 'setup' && (
         <View style={{ flex: 1 }}>
+          <PendingScores comp={comp} />
           <View style={main.tabBar}>
             {/* Rótulos sem emoji — o app tem set de ícones próprio, e aqui
                 📋🏆⚔️🎾 conviviam com ícones SVG na mesma tela. */}
@@ -820,6 +924,31 @@ export default function CompetitionDetail() {
         </View>
       </Modal>
 
+      {/* Modal: admin adiciona jogador à lista de inscritos */}
+      <Modal visible={showAdminAdd} transparent animationType="slide" onRequestClose={() => setShowAdminAdd(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.sm, maxHeight: '75%' }}>
+            <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text }}>Adicionar jogador</Text>
+            <ScrollView>
+              {addable.length === 0 && <Text style={upcoming.empty}>Todos os jogadores do grupo já estão na lista.</Text>}
+              {addable.map(p => (
+                <TouchableOpacity key={p.id} style={[upcoming.playerRow, { minHeight: 48 }]} onPress={() => handleAdminAdd(p.id)} activeOpacity={0.7}>
+                  <Avatar name={p.name} color={p.color} size={30} />
+                  <Text style={upcoming.playerName}>{p.name}</Text>
+                  <Text style={{ color: Colors.teal, fontSize: 20 }}>+</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={{ borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}
+              onPress={() => setShowAdminAdd(false)}
+            >
+              <Text style={{ fontFamily: FontFamily.title, fontSize: 15, color: Colors.muted }}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modal: novo convidado (jogador sem cadastro) */}
       <Modal visible={showAddGuest} transparent animationType="slide" onRequestClose={() => setShowAddGuest(false)}>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' }}>
@@ -901,11 +1030,11 @@ const makeMainStyles = (Colors: ThemeColors) => StyleSheet.create({
   adminMenuAction: { paddingVertical: Spacing.xs },
   adminMenuText: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
   adminMenuDanger: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.coral },
-  tabBar: { flexDirection: 'row', backgroundColor: Colors.surf2, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabBar: { flexDirection: 'row', marginHorizontal: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  tab: { flex: 1, paddingVertical: 14, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent', marginBottom: -1 },
   tabActive: { borderBottomColor: Colors.gold },
-  tabLabel: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.faint },
-  tabLabelActive: { color: Colors.gold },
+  tabLabel: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.muted },
+  tabLabelActive: { color: Colors.gold, fontFamily: FontFamily.title },
   // Champion banner
   champBanner: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100,
@@ -931,17 +1060,19 @@ const makeUpcomingStyles = (Colors: ThemeColors) => StyleSheet.create({
   infoBanner: { flexDirection: 'row', gap: Spacing.md, backgroundColor: 'rgba(243,197,68,0.08)', borderRadius: Radius.md, borderWidth: 1, borderColor: 'rgba(243,197,68,0.25)', padding: Spacing.md, alignItems: 'flex-start' },
   infoIcon:   { fontSize: 24 },
   infoTitle:  { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
-  infoSub:    { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 4, lineHeight: 18 },
+  infoSub:    { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, marginTop: 4, lineHeight: 20 },
   confirmBtn: { borderRadius: Radius.md, paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center', minHeight: 50 },
   confirmBtnJoin:   { backgroundColor: Colors.gold },
   confirmBtnCancel: { backgroundColor: Colors.surf2, borderWidth: 1, borderColor: Colors.line },
   confirmBtnText:   { fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg },
   section:     { gap: Spacing.sm },
-  sectionTitle:{ fontFamily: FontFamily.title, fontSize: 13, color: Colors.muted, letterSpacing: 1 },
-  empty:       { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center', paddingVertical: Spacing.md },
+  sectionTitle:{ fontFamily: FontFamily.titleBold, fontSize: 12, lineHeight: 16, color: Colors.muted, letterSpacing: 1.3 },
+  empty:       { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, textAlign: 'center', paddingVertical: Spacing.md },
   playerRow:   { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.line },
-  playerName:  { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
+  playerName:  { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 16, color: Colors.text },
   startBtn:    { backgroundColor: Colors.teal, borderRadius: Radius.md, paddingVertical: Spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, minHeight: 50 },
+  addBtn:      { borderWidth: 1.5, borderColor: Colors.gold, borderRadius: Radius.md, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  addBtnText:  { fontFamily: FontFamily.title, fontSize: 15, color: Colors.gold },
   startBtnIcon:{ fontSize: 18 },
   startBtnText:{ fontFamily: FontFamily.title, fontSize: 17, color: Colors.bg },
 });

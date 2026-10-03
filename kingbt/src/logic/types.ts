@@ -58,6 +58,20 @@ export interface LiveScore {
   scorerName?: string | null;
 }
 
+/** Placar lançado por um jogador que ainda espera a confirmação do outro lado (ver scoreValidation.ts). */
+export interface PendingScore {
+  scoreA: number;
+  scoreB: number;
+  sets?: SetScore[];
+  /** Id do jogador que lançou. */
+  by: string;
+  at: string;
+  disputed?: boolean;
+  disputedBy?: string;
+  disputedAt?: string;
+  reason?: string;
+}
+
 export interface Match {
   id: string;
   stage: Stage;
@@ -70,6 +84,8 @@ export interface Match {
   scoreB: number | null;
   /** Placar ao vivo durante a partida (apagado ao finalizar). */
   liveScore?: LiveScore | null;
+  /** Placar aguardando confirmação (só em competições que exigem). Não vale para ranking até ser confirmado. */
+  pendingScore?: PendingScore | null;
   /** Detalhe set a set (games de cada set), quando o jogo usa sets. */
   sets?: SetScore[] | null;
   /** Placar rascunho — salvo mas não conta no ranking até estar completo. */
@@ -123,6 +139,16 @@ export interface WinRule {
   target?: number;
 }
 
+/** Pontuação própria da competição (escolhida na criação). Ausente = fórmula do grupo. */
+export interface CompetitionScoring {
+  winPts?: number;
+  drawPts?: number;
+  /** Super 8: pontos por saldo de games. */
+  gdPts?: number;
+  /** Critério de desempate / ordenação: 'saldo' | 'confronto' | 'vitorias' | 'pontos'. */
+  tiebreak?: string;
+}
+
 export interface CompetitionConfig {
   rounds: 'single' | 'double';
   groups: number;
@@ -132,6 +158,9 @@ export interface CompetitionConfig {
   thirdPlace: boolean;
   winRule: WinRule;
   useOfficialRules?: boolean;
+  scoring?: CompetitionScoring;
+  /** Placar lançado por jogador só vale depois que o outro lado confirma (admin lança direto). Ausente = não exige. */
+  requireConfirmation?: boolean;
 }
 
 export interface Substitution {
@@ -141,16 +170,31 @@ export interface Substitution {
   timestamp: string;
 }
 
+/** Como as inscrições funcionam, quando o criador liga "Abrir inscrições". */
+export interface RegistrationSettings {
+  /** 'open' = qualquer um se inscreve; 'closed' = ninguém; 'adminOnly' = só o admin adiciona. Ausente = 'open'. */
+  mode?: 'open' | 'closed' | 'adminOnly';
+  /** Abertura agendada, "AAAA-MM-DDTHH:MM" (fuso local). Antes disso as inscrições estão fechadas. */
+  opensAt?: string;
+  /** Fila de espera quando lota. Ausente = sim. */
+  waitlist?: boolean;
+  /** Horas antes do início até quando dá para cancelar. Ausente = sem prazo. */
+  cancelHoursBefore?: number;
+}
+
 export interface Competition {
   id: string;
   name: string;
   format: Format;
   unit: Unit;
   gender: Gender;
+  /** upcoming = inscrições abertas; setup = lista fechada, o admin monta grupos/chave; active; done. */
   status: 'upcoming' | 'setup' | 'active' | 'done';
   date: string;
   /** Local / quadras (opcional). */
   location?: string;
+  /** Horário de início, "HH:MM" (opcional). */
+  time?: string;
   /** Regras / observações gerais (opcional). */
   notes?: string;
   config: CompetitionConfig;
@@ -160,11 +204,20 @@ export interface Competition {
   substitutions?: Substitution[];
   /** IDs dos jogadores que confirmaram participação (status: upcoming) */
   confirmedIds?: string[];
+  /** Limite de vagas na lista principal (confirmedIds). Ausente = sem limite. */
+  vagas?: number;
+  /** Fila de espera, em ordem de chegada. O 1º entra quando uma vaga abre. */
+  waitlistIds?: string[];
   /** UID do criador da competição */
   createdBy?: string;
   /** Solicitações de inscrição de visitantes (não-membros de grupo público) */
   joinRequests?: JoinRequest[];
-  /** Sessão avulsa criada pelo atalho "Jogo Amistoso" — some das listas de competições/hall/calendário, mas conta normalmente em stats/feed/histórico. */
+  /** Vale para ranking, XP, conquistas e avaliação dos colegas. Ausente = vale; false = competição amistosa. */
+  countsForRanking?: boolean;
+  /** 'Aberta' libera todos; uma categoria restringe a inscrição à do perfil (about.category). Ausente = Aberta. */
+  levelCategory?: string;
+  registration?: RegistrationSettings;
+  /** Sessão avulsa criada pelo atalho "Jogo Rápido" — some das listas de competições/hall/calendário, mas conta normalmente em stats/feed/histórico. */
   isFriendly?: boolean;
 }
 
@@ -190,6 +243,8 @@ export interface RankedPlayer extends Player, PlayerStat {
   ga: number;
   winRate: number;
   points: number;
+  /** Jogou menos que o mínimo do grupo: aparece abaixo dos classificados, sem posição. */
+  provisional?: boolean;
 }
 
 export interface Standing {

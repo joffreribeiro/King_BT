@@ -1,13 +1,14 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { CATEGORIES, type Category } from '@/logic/playerAbout';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useRef, useMemo, useCallback } from 'react';
 import ViewShot from 'react-native-view-shot';
 import { router } from 'expo-router';
 import { goToPlayer } from '@/logic/nav';
 import { notify } from '@/services/notify';
-import { FontFamily, Spacing, Radius, Type, type ThemeColors, Colors, PODIUM_COLORS } from '@/theme';
+import { FontFamily, Spacing, Radius, Type, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Card, Icon } from '@/components';
+import { Avatar, Icon } from '@/components';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
 import { SkeletonRanking } from '@/components/SkeletonLoader';
 import { TrendBadge } from '@/components/TrendBadge';
@@ -17,6 +18,7 @@ import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useSettings } from '@/store/SettingsContext';
 import { buildRanking } from '@/logic/scoring';
+import { minGamesOf } from '@/logic/scoringConfig';
 import { formatRating, formatGA } from '@/logic/format';
 import { extractPlayerGames } from '@/logic/formats';
 import { sgColor } from '@/components/competition/helpers';
@@ -25,9 +27,14 @@ import { FadeScreen } from '@/components/FadeScreen';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
 import { generateRankingHtml } from '@/logic/rankingHtml';
-import type { PlayerInfo } from '@/store/GroupPlayersContext';
 import RankingCard from '@/components/RankingCard';
 import { PodiumHQ } from '@/components/PodiumHQ';
+import { SeasonsSheet } from '@/components/SeasonsSheet';
+import { endSeason, undoLastSeason } from '@/firebase/seasons';
+import {
+  competitionsForPeriod, currentSeasonComps, currentSeasonNumber, unfinishedInSeason,
+  type RankingPeriod, type SeasonRow,
+} from '@/logic/seasons';
 
 
 // Formata coeficiente/valor no padrão pt-BR (vírgula), até 2 casas, sem
@@ -80,7 +87,8 @@ function FormBars({ form, Colors }: { form: boolean[]; Colors: ThemeColors }) {
   );
 }
 
-export default function RankingScreen() {
+/** `embedded`: dentro da aba Arena — sem o título "Ranking" (a Arena já mostra a seção) e sem o recuo do topo. */
+export default function RankingScreen({ embedded = false }: { embedded?: boolean } = {}) {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const cmp = useMemo(() => makeCmpStyles(Colors), [Colors]);
@@ -92,14 +100,15 @@ export default function RankingScreen() {
     try { await refresh(); }
     finally { setRefreshing(false); }
   }, [refresh]);
-  const { myPlayerId, group } = useAuth();
+  const { myPlayerId, group, isAdmin } = useAuth();
   const { groupPlayers, findPlayer } = useGroupPlayers();
-  const { scoringConfig } = useSettings();
+  const { scoringConfig, seasons } = useSettings();
   // Dados reais do grupo para PDF/imagem — sem equivalente de "local" no
   // schema do grupo ainda, então fica em branco em vez de mostrar um
   // endereço de outro grupo (era o mock GROUP.location fixo).
   const groupName = group?.name ?? 'King BT';
-  const season = String(new Date().getFullYear());
+  const seasonNo = currentSeasonNumber(seasons);
+  const season = String(seasonNo);
   const roundsDone = state.competitions.filter(c => c.status === 'done').length;
   const groupLocation = '';
   const [showFormula, setShowFormula] = useState(false);
@@ -108,7 +117,9 @@ export default function RankingScreen() {
   const [showCompare, setShowCompare] = useState(false);
 
   const MY_ID = myPlayerId;
-  const [period, setPeriod] = useState<'mes' | 'ano' | 'geral'>('geral');
+  const [period, setPeriod] = useState<RankingPeriod>('temporada');
+  const [category, setCategory] = useState<Category | 'todas'>('todas');
+  const [showSeasons, setShowSeasons] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [sharingImg, setSharingImg] = useState(false);
@@ -120,7 +131,7 @@ export default function RankingScreen() {
       title: '', titleEmoji: '', guest: p.guest ?? false,
     }));
     return generateRankingHtml(
-      ranking, mockPlayers, groupName, season,
+      classified, mockPlayers, groupName, season,
       roundsDone, groupLocation,
       new Date().toLocaleDateString('pt-BR'),
     );
@@ -155,25 +166,53 @@ export default function RankingScreen() {
     }
   }
 
-  const filteredComps = state.competitions.filter(c => {
-    if (period === 'geral') return true;
-    const d = new Date(c.date + 'T12:00:00');
-    const now = new Date();
-    if (period === 'mes') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    return d.getFullYear() === now.getFullYear();
-  });
+  const filteredComps = competitionsForPeriod(state.competitions, period, seasons);
   const allGames = filteredComps.flatMap(extractPlayerGames);
-  const ranking = buildRanking(
+  const fullRanking = buildRanking(
     groupPlayers.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color, handicap: p.handicap })),
     allGames,
-    scoringConfig
+    scoringConfig,
+    // Mínimo de jogos do grupo: no mês todo mundo joga pouco, então só vale na temporada e no acumulado.
+    { groupMinimum: period !== 'mes' },
   );
+  // Ranking por categoria: só quem declarou aquela categoria (o jogador escolhe no perfil);
+  // a posição passa a contar dentro da categoria.
+  const categoryOf = new Map(groupPlayers.map(p => [p.id, p.about?.category]));
+  const categoryCount = (c: Category) => fullRanking.filter(r => categoryOf.get(r.id) === c).length;
+  const shownCategories = CATEGORIES.filter(c => categoryCount(c) > 0 || c === category);
+  const ranking = category === 'todas' ? fullRanking : fullRanking.filter(r => categoryOf.get(r.id) === category);
+
+  const seasonComps = useMemo(() => currentSeasonComps(state.competitions, seasons), [state.competitions, seasons]);
+  const seasonRanking = useMemo(() => buildRanking(
+    groupPlayers.map(p => ({ id: p.id, name: p.name, short: p.name.slice(0, 3).toUpperCase(), color: p.color, handicap: p.handicap })),
+    seasonComps.flatMap(extractPlayerGames),
+    scoringConfig,
+    { groupMinimum: true },
+  ).filter(r => r.played > 0), [groupPlayers, seasonComps, scoringConfig]);
+  const unfinishedCount = useMemo(() => unfinishedInSeason(state.competitions, seasons).length, [state.competitions, seasons]);
+
+  async function handleEndSeason() {
+    if (!group) throw new Error('sem grupo');
+    const rows: SeasonRow[] = seasonRanking.map(r => ({
+      id: r.id, name: findPlayer(r.id)?.name ?? r.id,
+      points: Math.round(r.points * 100) / 100, played: r.played, wins: r.wins, losses: r.losses,
+      gamesPro: r.gamesPro, gamesCon: r.gamesCon,
+    }));
+    await endSeason(group.id, rows, seasonNo);
+    setPeriod('temporada');
+  }
+
+  async function handleUndoSeason() {
+    if (!group || seasons.length === 0) throw new Error('nada a desfazer');
+    const ok = await undoLastSeason(group.id, seasons[seasons.length - 1].number);
+    if (!ok) throw new Error('mudou');
+  }
 
   const deltas = useMemo(
     () => computeRankingDeltas(filteredComps, groupPlayers.map(p => ({
       id: p.id, name: p.name, short: p.name.slice(0,3).toUpperCase(), color: p.color, handicap: p.handicap,
-    })), scoringConfig),
-    [filteredComps, groupPlayers, scoringConfig]
+    })), scoringConfig, period !== 'mes'),
+    [filteredComps, groupPlayers, scoringConfig, period]
   );
 
   // Forma: últimos 5 resultados de cada jogador, em ordem cronológica.
@@ -202,13 +241,16 @@ export default function RankingScreen() {
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const first  = ranking[0];
-  const second = ranking[1];
-  const third  = ranking[2];
+  // Pódio e posições só contam quem atingiu o mínimo de jogos; os demais ficam "em classificação", abaixo.
+  const classified = ranking.filter(r => !r.provisional);
+  const minGames = minGamesOf(scoringConfig);
+  const first  = classified[0];
+  const second = classified[1];
+  const third  = classified[2];
 
   return (
     <FadeScreen>
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={embedded ? [] : ['top']}>
       <ScrollView showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />}
       >
@@ -216,38 +258,68 @@ export default function RankingScreen() {
         {/* Header — título + contexto numa linha só, sem o pódio gigante
             acima disto empurrando a tabela para fora da primeira dobra. */}
         <View style={styles.header}>
-          <Text style={styles.title}>Ranking</Text>
-          <Text style={styles.subtitle}>KING BT · TEMPORADA {season}</Text>
+          {!embedded && <Text style={styles.title}>Ranking</Text>}
+          <Text style={styles.subtitle}>
+            {period === 'acumulado' ? `KING BT · ACUMULADO · ${seasons.length + 1} ${seasons.length === 0 ? 'TEMPORADA' : 'TEMPORADAS'}` : `KING BT · TEMPORADA ${seasonNo}${period === 'mes' ? ' · ESTE MÊS' : ''}`}
+          </Text>
         </View>
 
-        {/* Filtro de período — alvo de 44px */}
-        <View style={{ flexDirection: 'row', backgroundColor: Colors.surf2, borderRadius: Radius.md, marginHorizontal: Spacing.md, padding: 4 }}>
-          {(['mes', 'ano', 'geral'] as const).map(p => (
+        {/* Filtro de período — mesmos botões dos outros filtros do app (Atletas, Conquistas) */}
+        <View style={styles.periodRow}>
+          {(['mes', 'temporada', 'acumulado'] as const).map(p => (
             <TouchableOpacity
               key={p}
-              style={{ flex: 1, paddingVertical: 12, borderRadius: Radius.sm, alignItems: 'center',
-                backgroundColor: period === p ? Colors.gold : 'transparent' }}
+              style={[styles.periodChip, period === p && styles.periodChipOn]}
               onPress={() => setPeriod(p)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ selected: period === p }}
             >
-              <Text style={{ fontFamily: FontFamily.bodyMed, fontSize: 13,
-                color: period === p ? Colors.bg : Colors.faint }}>
-                {{ mes: 'Este mês', ano: 'Este ano', geral: 'Geral' }[p]}
+              <Text style={[styles.periodText, period === p && styles.periodTextOn]}>
+                {{ mes: 'Este mês', temporada: 'Temporada', acumulado: 'Acumulado' }[p]}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
+        {/* Filtro de categoria (A, B, C, D...) — só aparece quando alguém já declarou a categoria no perfil */}
+        {shownCategories.length > 0 && (
+          <View style={styles.catRow}>
+            {(['todas', ...shownCategories] as const).map(c => (
+              <TouchableOpacity
+                key={c}
+                style={[styles.catChip, category === c && styles.periodChipOn]}
+                onPress={() => setCategory(c)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityState={{ selected: category === c }}
+              >
+                <Text style={[styles.periodText, category === c && styles.periodTextOn]}>{c === 'todas' ? 'Todas' : c}</Text>
+                {c !== 'todas' && <Text style={styles.catCount}>{categoryCount(c)}</Text>}
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {category !== 'todas' && ranking.length === 0 && (
+          <Text style={styles.catEmpty}>Ninguém na categoria {category} ainda.</Text>
+        )}
+
         {/* Pódio HQ */}
-        {ranking.length >= 3 && (() => {
+        {classified.length >= 3 && (() => {
           const p1 = findPlayer(first.id);
           const p2 = findPlayer(second.id);
           const p3 = findPlayer(third.id);
           if (!p1 || !p2 || !p3) return null;
+          const trendOf = (id: string) => {
+            const d = deltas[id];
+            return d && d.dir !== 'same' ? { dir: d.dir as 'up' | 'down', diff: d.diff } : undefined;
+          };
           return (
             <PodiumHQ
-              first={{  name: p1.name, points: first.points,  color: p1.color }}
-              second={{ name: p2.name, points: second.points, color: p2.color }}
-              third={{  name: p3.name, points: third.points,  color: p3.color }}
+              first={{  name: p1.name, points: first.points,  color: p1.color, trend: trendOf(first.id) }}
+              second={{ name: p2.name, points: second.points, color: p2.color, trend: trendOf(second.id) }}
+              third={{  name: p3.name, points: third.points,  color: p3.color, trend: trendOf(third.id) }}
             />
           );
         })()}
@@ -270,48 +342,50 @@ export default function RankingScreen() {
             const isDown = trendDir === 'down';
             const aproveitamento = s.played > 0 ? Math.round((s.wins / s.played) * 100) : 0;
             const expanded = expandedId === s.id;
+            const firstProvisional = !!s.provisional && (i === 0 || !ranking[i - 1].provisional);
 
             return (
-              <View key={s.id} style={[styles.rowWrap, isMe && styles.rowMe, expanded && styles.rowWrapExpanded]}>
+              <View key={s.id}>
+              {firstProvisional && (
+                <View style={{ paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: 4 }}>
+                  <Text style={styles.subtitle}>EM CLASSIFICAÇÃO</Text>
+                  <Text style={[styles.playerMeta, { marginTop: 2 }]}>Jogaram menos de {minGames} jogos. Entram na posição ao completar.</Text>
+                </View>
+              )}
+              <View style={[styles.rowWrap, isMe && styles.rowMe, expanded && styles.rowWrapExpanded]}>
                 <TouchableOpacity
                   style={styles.row}
                   onPress={() => setExpandedId(expanded ? null : s.id)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.posText, isMe && { color: Colors.gold }]}>{i + 1}</Text>
+                  <Text style={[styles.posText, isMe && { color: Colors.gold }]}>{s.provisional ? '–' : i + 1}</Text>
 
-                  <Avatar name={pl?.name ?? '?'} color={pl?.color ?? '#888'} size={30} />
+                  <Avatar name={pl?.name ?? '?'} color={pl?.color ?? '#888'} size={40} />
 
                   <View style={styles.nameBlock}>
                     <View style={styles.nameRow}>
                       <Text style={[styles.playerName, isMe && { color: Colors.gold }]} numberOfLines={1}>
                         {pl?.name ?? s.id}
                       </Text>
-                      {(isUp || isDown)
-                        ? <TrendBadge direction={isUp ? 'up' : 'down'} diff={trendDiff} />
-                        : <Text style={styles.trendSmall}>—</Text>
-                      }
                     </View>
-                    <Text style={styles.playerMeta}>{s.played}J · {aproveitamento}% aprov.</Text>
-                    {/* Distância proporcional ao líder — a pontuação sozinha
-                        exigia fazer a conta de cabeça para saber quanto falta. */}
-                    <View style={styles.gapTrack}>
-                      <View style={[styles.gapFill, {
-                        width: `${first.points > 0 ? Math.max(4, Math.round((s.points / first.points) * 100)) : 100}%`,
-                        backgroundColor: isMe ? Colors.gold : Colors.goldDeep,
-                      }]} />
-                    </View>
+                    <Text style={styles.playerMeta}>{s.played} {s.played === 1 ? 'jogo' : 'jogos'} · {aproveitamento}% aprov.{s.provisional ? ` · faltam ${minGames - s.played}` : ''}</Text>
                   </View>
 
                   <FormBars form={formByPlayer[s.id] ?? []} Colors={Colors} />
 
-                  <AnimatedNumber
-                    value={s.points}
-                    decimals={2}
-                    duration={700}
-                    style={styles.ptsText}
-                    color={Colors.gold}
-                  />
+                  <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                    <AnimatedNumber
+                      value={s.points}
+                      decimals={2}
+                      duration={700}
+                      style={styles.ptsText}
+                      color={Colors.gold}
+                    />
+                    {(isUp || isDown)
+                      ? <TrendBadge direction={isUp ? 'up' : 'down'} diff={trendDiff} />
+                      : <Text style={styles.trendSmall}>—</Text>
+                    }
+                  </View>
                 </TouchableOpacity>
 
                 {expanded && (
@@ -320,6 +394,7 @@ export default function RankingScreen() {
                       {([
                         { label: 'VITÓRIAS', value: String(s.wins) },
                         { label: 'DERROTAS', value: String(s.losses) },
+                        { label: 'GP',       value: String(s.gamesPro) },
                         { label: 'SALDO',    value: `${s.sg > 0 ? '+' : ''}${s.sg}`, color: sgColor(s.sg, Colors) },
                         { label: 'GA',       value: formatGA(s.ga) },
                       ] as const).map(st => (
@@ -353,6 +428,7 @@ export default function RankingScreen() {
                   </View>
                 )}
               </View>
+              </View>
             );
           })}
         </View>}
@@ -370,6 +446,10 @@ export default function RankingScreen() {
           <TouchableOpacity style={styles.utilBtn} onPress={() => setShowCompare(true)}>
             <Icon name="compare" size={15} color={Colors.muted} />
             <Text style={styles.utilBtnText}>Comparar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.utilBtn} onPress={() => setShowSeasons(true)}>
+            <Icon name="calendar" size={15} color={Colors.muted} />
+            <Text style={styles.utilBtnText}>Temporadas</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.utilBtn} onPress={() => setShowFormula(true)}>
             <Icon name="chart" size={15} color={Colors.muted} />
@@ -401,7 +481,7 @@ export default function RankingScreen() {
       <View style={{ position: 'absolute', top: -9999, left: -9999 }}>
         <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1.0 }}>
           <RankingCard
-            ranking={ranking}
+            ranking={classified}
             players={groupPlayers.map(p => ({ id: p.id, name: p.name, color: p.color }))}
             groupName={groupName}
             season={season}
@@ -515,6 +595,18 @@ export default function RankingScreen() {
         </View>
       </BottomSheet>
 
+      <SeasonsSheet
+        visible={showSeasons}
+        onClose={() => setShowSeasons(false)}
+        seasons={seasons}
+        currentNumber={seasonNo}
+        isAdmin={isAdmin}
+        currentPlayers={seasonRanking.length}
+        unfinishedCount={unfinishedCount}
+        onEnd={handleEndSeason}
+        onUndo={handleUndoSeason}
+      />
+
       {/* Fórmula BottomSheet */}
       <BottomSheet visible={showFormula} onClose={() => setShowFormula(false)} height={400}>
         <View style={{ paddingHorizontal: Spacing.md, gap: Spacing.sm }}>
@@ -534,7 +626,7 @@ export default function RankingScreen() {
               </>
             )}
           </Text>
-          <Text style={modal.note}>GA = Games Pró ÷ Games Contra</Text>
+          <Text style={modal.note}>{scoringConfig.gaSmoothing ? `GA = (Games Pró + ${scoringConfig.gaSmoothing}) ÷ (Games Contra + ${scoringConfig.gaSmoothing})` : 'GA = Games Pró ÷ Games Contra'}</Text>
           <View style={modal.divider} />
           {(() => {
             const me = ranking.find(r => r.id === MY_ID);
@@ -582,13 +674,22 @@ export default function RankingScreen() {
 }
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
+  container: { flex: 1, backgroundColor: 'transparent' },
 
   // Título em Type.h1 (era 28px, próprio desta tela) + contexto de grupo
   // numa segunda linha só — o resto do cromo saiu daqui.
   header: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm },
-  title: { ...Type.h1, color: Colors.text },
-  subtitle: { fontFamily: FontFamily.numberBold, fontSize: 10, letterSpacing: 1, color: Colors.faint, marginTop: 2 },
+  title: { ...Type.screenTitle, color: Colors.text },
+  subtitle: { ...Type.sectionLabel, color: Colors.gold, marginTop: 2 },
+  catRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginHorizontal: Spacing.md },
+  catChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, minHeight: 40, borderRadius: Radius.full, backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line },
+  catCount: { fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.faint },
+  catEmpty: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, textAlign: 'center', marginHorizontal: Spacing.md },
+  periodRow: { flexDirection: 'row', gap: Spacing.sm, marginHorizontal: Spacing.md },
+  periodChip: { flex: 1, minHeight: 44, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line },
+  periodChipOn: { backgroundColor: Colors.gold + '26', borderColor: Colors.gold },
+  periodText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
+  periodTextOn: { fontFamily: FontFamily.title, color: Colors.gold },
   utilRow: { flexDirection: 'row', gap: Spacing.xs, paddingHorizontal: Spacing.md, marginTop: Spacing.md },
   utilBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
@@ -614,17 +715,17 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   rowMe: { borderColor: Colors.gold, borderWidth: 1.5 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    paddingHorizontal: Spacing.sm + 2, paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm + 4,
   },
 
-  posText: { ...Type.bodyMed, fontFamily: FontFamily.numberBold, color: Colors.muted, width: 18, textAlign: 'center' },
+  posText: { fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.muted, width: 26, textAlign: 'center' },
   nameBlock: { flex: 1, overflow: 'hidden' },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4, overflow: 'hidden' },
-  playerName: { ...Type.bodyMed, color: Colors.text, flexShrink: 1 },
-  playerMeta: { ...Type.caption, fontSize: 11, color: Colors.faint, marginTop: 1 },
-  gapTrack: { height: 3, borderRadius: 2, backgroundColor: Colors.line, marginTop: 5, overflow: 'hidden' },
+  playerName: { fontFamily: FontFamily.title, fontSize: 16, color: Colors.text, flexShrink: 1 },
+  playerMeta: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 2 },
+  gapTrack: { height: 4, borderRadius: 2, backgroundColor: Colors.line, marginTop: 6, overflow: 'hidden' },
   gapFill: { height: '100%', borderRadius: 2 },
-  ptsText: { ...Type.title, fontFamily: FontFamily.numberBold, color: Colors.gold, textAlign: 'right', minWidth: 52 },
+  ptsText: { fontFamily: FontFamily.numberBold, fontSize: 19, color: Colors.gold, textAlign: 'right', minWidth: 64 },
   trendSmall: { ...Type.caption, fontSize: 9, fontFamily: FontFamily.numberBold, color: Colors.faint },
 
   expandPanel: {
@@ -634,8 +735,8 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   statGrid: { flexDirection: 'row' },
   statCell: { flex: 1, alignItems: 'center', gap: 2 },
-  statCellLabel: { ...Type.label, color: Colors.faint },
-  statCellValue: { ...Type.title, fontFamily: FontFamily.numberBold, color: Colors.text },
+  statCellLabel: { ...Type.label, fontSize: 11, lineHeight: 14, color: Colors.muted },
+  statCellValue: { fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.text },
   expandActions: { flexDirection: 'row', gap: Spacing.sm },
   expandBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,

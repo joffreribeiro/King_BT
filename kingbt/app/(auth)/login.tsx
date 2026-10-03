@@ -85,7 +85,7 @@ function PulseRing({ size, delay, borderColor, centerY }: { size: number; delay:
 export default function LoginScreen() {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
-  const { signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, error, clearError, user, groupIds, loading } = useAuth();
+  const { signInWithEmail, signUpWithEmail, resetPassword, error, clearError, user, groupIds, loading } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('options');
 
@@ -149,9 +149,6 @@ export default function LoginScreen() {
 
   function reset(m: Mode) { clearError(); setResetSent(false); setMode(m); }
 
-  async function handleGoogle() {
-    setBusy(true); await signInWithGoogle(); setBusy(false);
-  }
 
   async function handleSignIn() {
     if (!email || !password) return;

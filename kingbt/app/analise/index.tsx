@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { HexBackground } from '@/components/HexBackground';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useMemo } from 'react';
 import { router } from 'expo-router';
@@ -95,6 +96,7 @@ export default function AnaliseListScreen() {
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
+      <HexBackground />
       <StatusBar barStyle="light-content" />
 
       <ScreenHeader title="Histórico de Análises BT" />

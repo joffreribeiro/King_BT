@@ -1,6 +1,6 @@
-import { Animated, View, PanResponder, Dimensions, StyleSheet, Pressable, Platform } from 'react-native';
+import { Animated, View, PanResponder, Dimensions, StyleSheet, Pressable } from 'react-native';
 import { useEffect, useRef, useMemo } from 'react';
-import { Spacing, Radius, type ThemeColors } from '@/theme';
+import { Spacing, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 
 const { height: SCREEN_H } = Dimensions.get('window');

@@ -8,6 +8,8 @@ type Props = {
   color: string;
   size?: number;
   showCrown?: boolean;
+  /** Sobre foto/fundo escuro fixo: iniciais claras em vez da cor de texto do tema. */
+  onDark?: boolean;
 };
 
 function initials(name: string): string {
@@ -22,7 +24,7 @@ function initials(name: string): string {
  * fundo escurecido e iniciais coloridas, o que fazia o mesmo jogador aparecer
  * de dois jeitos diferentes conforme a tela.
  */
-export default function Avatar({ name, color, size = 44, showCrown = false }: Props) {
+export default function Avatar({ name, color, size = 44, showCrown = false, onDark = false }: Props) {
   const { colors: Colors } = useTheme();
   const fontSize = size * 0.4;
   const borderRadius = size / 2;
@@ -35,12 +37,14 @@ export default function Avatar({ name, color, size = 44, showCrown = false }: Pr
             width: size,
             height: size,
             borderRadius,
-            backgroundColor: color,
-            borderColor: 'rgba(0,0,0,0.3)',
+            // Todos os círculos iguais: só a borda dourada, sem preenchimento — a cor por
+            // jogador deixava as telas carregadas. `color` fica na assinatura só por compatibilidade.
+            backgroundColor: 'transparent',
+            borderColor: Colors.gold,
           },
         ]}
       >
-        <Text style={[styles.initials, { fontSize, color: Colors.bg }]}>
+        <Text style={[styles.initials, { fontSize, color: onDark ? '#F6EFDD' : Colors.text }]}>
           {initials(name)}
         </Text>
       </View>

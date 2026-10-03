@@ -4,11 +4,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMemo } from 'react';
 import { router } from 'expo-router';
-import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, Radius, Type, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
-import { computeFormatStats, generateFormatInsight, type FormatStat } from '@/logic/formatStats';
+import { computeFormatStats, generateFormatInsight } from '@/logic/formatStats';
 import { computeSituationStats, type SituationStat } from '@/logic/situationStats';
 import { buildRanking } from '@/logic/scoring';
 import { formatRating } from '@/logic/format';
@@ -30,10 +30,10 @@ function SituationSection({ stats }: { stats: SituationStat[] }) {
         <View key={s.key} style={su.row}>
           <View style={su.rowHeader}>
             <Text style={su.rowLabel}>{s.label}</Text>
-            <Text style={su.rowCount}>{s.played} · {s.wins}V {s.played - s.wins}D</Text>
+            <Text style={su.rowCount}>{s.played} {s.played === 1 ? 'jogo' : 'jogos'} · {s.wins}V {s.played - s.wins}D</Text>
             <Text style={[su.rowPct, { color: Colors.gold }]}>{s.pct}%</Text>
           </View>
-          <ProgressBar pct={s.pct} color={Colors.gold} height={4} />
+          <ProgressBar pct={s.pct} color={Colors.gold} height={6} />
         </View>
       ))}
     </>
@@ -41,15 +41,12 @@ function SituationSection({ stats }: { stats: SituationStat[] }) {
 }
 
 const makeSituationStyles = (Colors: ThemeColors) => StyleSheet.create({
-  sectionLabel: {
-    fontFamily: FontFamily.numberBold, fontSize: 9,
-    color: Colors.faint, letterSpacing: 1.5, marginBottom: 4, marginTop: 4,
-  },
-  row:       { backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line, borderRadius: 11, padding: 10, gap: 6, marginBottom: 6 },
-  rowHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  rowLabel:  { flex: 1, fontFamily: FontFamily.title, fontSize: 13, color: Colors.text, fontWeight: '700' },
-  rowCount:  { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
-  rowPct:    { fontFamily: FontFamily.numberBold, fontSize: 13, fontWeight: '700', width: 40, textAlign: 'right' },
+  sectionLabel: { ...Type.sectionLabel, color: Colors.muted, textTransform: 'uppercase', marginBottom: Spacing.sm, marginTop: Spacing.sm },
+  row:       { backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, padding: Spacing.md, gap: 10, marginBottom: Spacing.sm },
+  rowHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rowLabel:  { flex: 1, fontFamily: FontFamily.title, fontSize: 16, color: Colors.text },
+  rowCount:  { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
+  rowPct:    { fontFamily: FontFamily.numberBold, fontSize: 18, width: 52, textAlign: 'right' },
 });
 
 export default function StatsScreen() {
@@ -137,12 +134,12 @@ export default function StatsScreen() {
         <View style={s.summaryCard}>
           <View style={s.summaryHeader}>
             <Text style={s.summaryLabel}>GERAL</Text>
-            <Text style={s.summaryMatchCount}>{totalPlayed} partidas</Text>
+            <Text style={s.summaryMatchCount}>{totalPlayed} {totalPlayed === 1 ? 'partida' : 'partidas'}</Text>
           </View>
           <View style={s.summaryBody}>
             <View style={{ flex: 1 }}>
               <View style={{ marginBottom: 4 }}>
-                <ProgressBar pct={overallPct * 100} color={overallPct > 0.65 ? Colors.teal : Colors.gold} height={6} />
+                <ProgressBar pct={overallPct * 100} color={overallPct > 0.65 ? Colors.teal : Colors.gold} height={8} />
               </View>
               <Text style={s.progressPercent}>{Math.round(overallPct * 100)}% aproveitamento</Text>
             </View>
@@ -174,14 +171,14 @@ export default function StatsScreen() {
                 <View style={s.formatHeader}>
                   <View style={{ flex: 1 }}>
                     <Text style={s.formatName}>{f.label}</Text>
-                    <Text style={s.formatMatchCount}>{f.played} partidas · {f.wins}V {f.played - f.wins}D</Text>
+                    <Text style={s.formatMatchCount}>{f.played} {f.played === 1 ? 'partida' : 'partidas'} · {f.wins}V {f.played - f.wins}D</Text>
                   </View>
                   <View style={s.formatStats}>
                     <Text style={[s.formatRate, { color: f.color }]}>{f.pct}%</Text>
                     <Text style={[s.formatRecord, { color: f.color }]}>{f.wins}–{f.played - f.wins}</Text>
                   </View>
                 </View>
-                <ProgressBar pct={f.pct} color={f.color} height={4} />
+                <ProgressBar pct={f.pct} color={f.color} height={6} />
               </View>
             ))}
 
@@ -203,7 +200,7 @@ export default function StatsScreen() {
                   <Text style={s.podiumMedal}>{medals[i] ?? '🏅'}</Text>
                   <Text style={[s.podiumFormat, { color: f.color }]}>{f.label}</Text>
                   <View style={{ flex: 1 }}>
-                    <ProgressBar pct={f.pct} color={f.color} height={4} />
+                    <ProgressBar pct={f.pct} color={f.color} height={6} />
                   </View>
                   <Text style={[s.podiumPct, { color: f.color }]}>{f.pct}%</Text>
                 </View>
@@ -219,85 +216,82 @@ export default function StatsScreen() {
 }
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
-  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.sm },
+  // Transparente: o favo de mel é desenhado atrás pelo layout das abas (app/(app)/_layout.tsx).
+  container: { flex: 1, backgroundColor: 'transparent' },
+  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.md },
 
   // Rating card
-  percentileCard: { backgroundColor: Colors.surf, borderRadius: Radius.md, padding: Spacing.md, gap: 8, marginBottom: 4, borderWidth: 1, borderColor: Colors.line },
+  percentileCard: { backgroundColor: Colors.surf, borderRadius: Radius.md, padding: Spacing.md, gap: 10, borderWidth: 1, borderColor: Colors.line },
   percentileHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  percentileTitle: { fontFamily: FontFamily.numberBold, fontSize: 11, color: Colors.faint, letterSpacing: 1.5 },
-  percentileValue: { fontFamily: FontFamily.numberBold, fontSize: 22, color: Colors.gold },
-  percentileDesc: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
-  percentileBar: { height: 8, backgroundColor: Colors.surf2, borderRadius: 4, overflow: 'visible', marginTop: 4, position: 'relative' },
-  percentileFill: { height: '100%', backgroundColor: Colors.gold, borderRadius: 4 },
-  percentileMarker: { position: 'absolute', top: -3, width: 14, height: 14, borderRadius: 7, backgroundColor: Colors.gold, marginLeft: -7, borderWidth: 2, borderColor: Colors.bg },
+  percentileTitle: { ...Type.sectionLabel, color: Colors.muted },
+  percentileValue: { fontFamily: FontFamily.numberBold, fontSize: 28, color: Colors.gold },
+  percentileDesc: { fontFamily: FontFamily.body, fontSize: 15, lineHeight: 21, color: Colors.muted },
+  percentileBar: { height: 10, backgroundColor: Colors.surf2, borderRadius: 5, overflow: 'visible', marginTop: 6, position: 'relative' },
+  percentileFill: { height: '100%', backgroundColor: Colors.gold, borderRadius: 5 },
+  percentileMarker: { position: 'absolute', top: -4, width: 18, height: 18, borderRadius: 9, backgroundColor: Colors.gold, marginLeft: -9, borderWidth: 3, borderColor: Colors.surf },
   percentileFooter: { flexDirection: 'row', justifyContent: 'space-between' },
-  percentileFooterTxt: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
+  percentileFooterTxt: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   ratingCard: {
     flexDirection: 'row',
     backgroundColor: Colors.surf,
     borderWidth: 1, borderColor: Colors.gold + '33',
-    borderRadius: 14, padding: 16,
-    marginBottom: 4,
+    borderRadius: Radius.md, padding: Spacing.md,
   },
   ratingLeft:    { flex: 1 },
-  ratingLabel:   { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 1.5, marginBottom: 4 },
-  ratingValue:   { fontFamily: FontFamily.titleBold, fontSize: 36, color: Colors.gold, letterSpacing: -1 },
+  ratingLabel:   { ...Type.sectionLabel, color: Colors.muted, marginBottom: 6 },
+  ratingValue:   { fontFamily: FontFamily.titleBold, fontSize: 44, lineHeight: 50, color: Colors.gold, letterSpacing: -1 },
   ratingRight:   { alignItems: 'flex-end', justifyContent: 'center' },
-  ratingPosLabel:{ fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, letterSpacing: 1.5, marginBottom: 4 },
-  ratingPos:     { fontFamily: FontFamily.titleBold, fontSize: 28, color: Colors.text },
+  ratingPosLabel:{ ...Type.sectionLabel, color: Colors.muted, marginBottom: 6 },
+  ratingPos:     { fontFamily: FontFamily.titleBold, fontSize: 34, lineHeight: 40, color: Colors.text },
 
   // Summary
   summaryCard: {
     backgroundColor: Colors.surf, borderWidth: 1,
-    borderColor: Colors.gold + '2E', borderRadius: 12, padding: 11,
+    borderColor: Colors.gold + '2E', borderRadius: Radius.md, padding: Spacing.md,
   },
-  summaryHeader:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  summaryLabel:      { fontFamily: FontFamily.numberBold, fontSize: 9, fontWeight: '700', letterSpacing: 1.5, color: Colors.faint },
-  summaryMatchCount: { fontFamily: FontFamily.numberBold, fontSize: 9, fontWeight: '700', color: Colors.gold },
-  summaryBody:       { flexDirection: 'row', gap: 12, alignItems: 'center' },
-  progressPercent:   { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.gold },
+  summaryHeader:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 },
+  summaryLabel:      { ...Type.sectionLabel, color: Colors.muted },
+  summaryMatchCount: { fontFamily: FontFamily.numberBold, fontSize: 15, color: Colors.gold },
+  summaryBody:       { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
+  progressPercent:   { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.gold, marginTop: 4 },
   summaryRecord:     { alignItems: 'flex-end' },
-  recordWins:        { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.teal },
-  recordLabel:       { fontFamily: FontFamily.number, fontSize: 9, color: Colors.faint },
+  recordWins:        { fontFamily: FontFamily.numberBold, fontSize: 24, color: Colors.teal },
+  recordLabel:       { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted },
 
-  sectionLabel: {
-    fontFamily: FontFamily.numberBold, fontSize: 9,
-    color: Colors.faint, letterSpacing: 1.5, marginBottom: 4, marginTop: 4,
-  },
+  sectionLabel: { ...Type.sectionLabel, color: Colors.muted, textTransform: 'uppercase', marginBottom: Spacing.sm, marginTop: Spacing.sm },
 
   // Format card
-  formatCard: { borderWidth: 1, borderRadius: 11, padding: 10 },
+  formatCard: { borderWidth: 1, borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.sm },
   formatHeader: {
     flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 7,
+    alignItems: 'center', marginBottom: 12,
   },
-  formatName:         { fontFamily: FontFamily.title, fontSize: 13, color: Colors.text, fontWeight: '700' },
-  formatMatchCount:   { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted, marginTop: 2 },
+  formatName:         { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text },
+  formatMatchCount:   { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, marginTop: 3 },
   formatStats:        { alignItems: 'flex-end' },
-  formatRate:         { fontFamily: FontFamily.numberBold, fontSize: 13, fontWeight: '700' },
-  formatRecord:       { fontFamily: FontFamily.number, fontSize: 11, fontWeight: '600', marginTop: 1 },
+  formatRate:         { fontFamily: FontFamily.numberBold, fontSize: 24 },
+  formatRecord:       { fontFamily: FontFamily.number, fontSize: 14, marginTop: 2 },
 
   // Insight
   insightCard: {
     backgroundColor: Colors.gold + '14',
     borderWidth: 1, borderColor: Colors.gold + '26',
-    borderRadius: 11, padding: 12, marginTop: 4,
+    borderRadius: Radius.md, padding: Spacing.md, marginTop: Spacing.xs,
   },
-  insightLabel: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.gold, fontWeight: '700', marginBottom: 5, letterSpacing: 0.5 },
-  insightText:  { fontFamily: FontFamily.body, fontSize: 13, color: Colors.text, lineHeight: 18 },
+  insightLabel: { ...Type.sectionLabel, color: Colors.gold, marginBottom: 8 },
+  insightText:  { fontFamily: FontFamily.body, fontSize: 15, color: Colors.text, lineHeight: 22 },
 
   // Podium
   podiumRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingVertical: 6,
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm + 2,
+    paddingVertical: 12,
     borderBottomWidth: 1, borderBottomColor: Colors.line,
   },
-  podiumMedal:  { fontSize: 18, width: 28 },
-  podiumFormat: { fontFamily: FontFamily.bodyMed, fontSize: 13, width: 72 },
-  podiumPct:    { fontFamily: FontFamily.numberBold, fontSize: 13, width: 38, textAlign: 'right' },
+  podiumMedal:  { fontSize: 24, width: 34 },
+  podiumFormat: { fontFamily: FontFamily.bodyMed, fontSize: 16, width: 90 },
+  podiumPct:    { fontFamily: FontFamily.numberBold, fontSize: 17, width: 56, textAlign: 'right' },
 
   empty: { alignItems: 'center', paddingVertical: Spacing.xl, gap: Spacing.sm },
-  emptyTitle: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
-  emptySub:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
+  emptyTitle: { fontFamily: FontFamily.title, fontSize: 18, color: Colors.text },
+  emptySub:   { fontFamily: FontFamily.body, fontSize: 15, lineHeight: 21, color: Colors.muted, textAlign: 'center' },
 });

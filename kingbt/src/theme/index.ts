@@ -1,3 +1,5 @@
+import type { TextStyle } from 'react-native';
+
 export const darkColors = {
   bg:         '#0B0B0D',
   bg2:        '#000000',
@@ -103,11 +105,16 @@ export const FontFamily = {
   bodyMed:    'Sora_500Medium',
   number:     'SpaceGrotesk_500Medium',
   numberBold: 'SpaceGrotesk_700Bold',
+  // Serifada, só para títulos de destaque (nome do grupo, saudação da Início).
+  serif:      'CormorantGaramond_700Bold',
 } as const;
 
 // Escala de tipografia — consolida os tamanhos/pesos que já eram repetidos
 // soltos em cada tela (rótulo de seção, título de card, número de destaque etc.).
 // Uso: `<Text style={Type.label}>` ou espalhado num StyleSheet: `{ ...Type.body, color: Colors.text }`.
+/** Algarismos alinhados à altura das maiúsculas: a Cormorant usa números "de texto" (menores) por padrão. */
+const LINING_NUMS: NonNullable<TextStyle['fontVariant']> = ['lining-nums'];
+
 export const Type = {
   display:  { fontFamily: FontFamily.titleBold, fontSize: 40, lineHeight: 46 },
   numberLg: { fontFamily: FontFamily.titleBold, fontSize: 28, lineHeight: 32 },
@@ -120,6 +127,12 @@ export const Type = {
   caption:  { fontFamily: FontFamily.body,      fontSize: 11, lineHeight: 15 },
   // Rótulo maiúsculo de seção — o padrão "SECTION LABEL" repetido em quase toda tela.
   label:    { fontFamily: FontFamily.numberBold, fontSize: 9, lineHeight: 12, letterSpacing: 1.5 },
+  // Rótulo de seção legível (Início): o `label` de 9px é pequeno demais para títulos de bloco.
+  // Título de tela em serifada (Cormorant é pequena: 28px lê como ~22px de Sora).
+  screenTitle: { fontFamily: FontFamily.serif, fontVariant: LINING_NUMS, fontSize: 28, lineHeight: 32 },
+  // Nome de evento/competição em cartões.
+  cardTitle:   { fontFamily: FontFamily.serif, fontVariant: LINING_NUMS, fontSize: 22, lineHeight: 26 },
+  sectionLabel: { fontFamily: FontFamily.titleBold, fontSize: 12, lineHeight: 16, letterSpacing: 1.3 },
 } as const;
 
 /**

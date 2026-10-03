@@ -1,3 +1,4 @@
+import { rankedCompetitions } from './rankingScope';
 import type { Competition } from './types';
 import { buildRanking } from './scoring';
 import { extractPlayerGames } from './formats';
@@ -12,17 +13,20 @@ export function computeRankingDeltas(
   competitions: Competition[],
   players: { id: string; name: string; short: string; color: string; handicap?: number }[],
   cfg: ScoringConfig = DEFAULT_SCORING,
+  /** Aplica o mínimo de jogos do grupo (mesma regra da lista do ranking). */
+  groupMinimum = false,
 ): Record<string, DeltaInfo> {
+  competitions = rankedCompetitions(competitions);
   if (competitions.length < 2) return {};
 
   const sorted   = [...competitions].sort((a, b) => a.date.localeCompare(b.date));
   const previous = sorted.slice(0, -1);
 
   const allGames  = competitions.flatMap(extractPlayerGames);
-  const current   = buildRanking(players, allGames, cfg);
+  const current   = buildRanking(players, allGames, cfg, { groupMinimum });
 
   const prevGames = previous.flatMap(extractPlayerGames);
-  const prev      = buildRanking(players, prevGames, cfg);
+  const prev      = buildRanking(players, prevGames, cfg, { groupMinimum });
 
   const result: Record<string, DeltaInfo> = {};
   current.forEach((p, i) => {

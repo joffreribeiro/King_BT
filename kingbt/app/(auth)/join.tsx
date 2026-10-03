@@ -32,7 +32,7 @@ export default function JoinGroupScreen() {
     if (loading) return;
     if (user && group && myPlayerId !== null && !showLink) {
       confirmGroup();
-      router.replace('/(app)');
+      router.replace('/(app)/home');
     }
   }, [loading, user, group, myPlayerId, showLink]);
 

@@ -1,3 +1,5 @@
+import { captureError } from './crashReporting';
+
 type LogLevel = 'info' | 'warn' | 'error' | 'event';
 
 interface LogEntry {
@@ -34,6 +36,7 @@ class LoggerService {
       stack: error?.stack,
     });
     if (__DEV__) console.error(`[ERROR] ${message}`, error, meta ?? '');
+    captureError(error ?? new Error(message), { message, ...meta });
   }
 
   event(name: string, meta?: any) {

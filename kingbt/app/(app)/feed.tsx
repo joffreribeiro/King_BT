@@ -8,6 +8,8 @@ import { FontFamily, Spacing, centeredContent, Radius, Type, formatAccent, type 
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card, Icon } from '@/components';
 import { useFeed } from '@/store/FeedContext';
+import { useActivityItems } from '@/hooks/useActivityItems';
+import { ChampionCard, CompDoneCard } from '@/components/DoneCards';
 import { useAuth } from '@/store/AuthContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -284,119 +286,13 @@ const makeCmStyles = (Colors: ThemeColors) => StyleSheet.create({
   sendTxt:     { fontSize: 18, color: Colors.bg },
 });
 
-function MatchResultCard({ item }: { item: FeedItem }) {
-  const { colors: Colors } = useTheme();
-  const mc = useMemo(() => makeMcStyles(Colors), [Colors]);
-  const { user, group } = useAuth();
-  const { findPlayer } = useGroupPlayers();
-  const [showComments, setShowComments] = useState(false);
-  const gameSets = useMatchGames(item);
-
-  const aWon = (item.sideA?.score ?? 0) > (item.sideB?.score ?? 0);
-  const accent = formatAccent(Colors, item.format ?? '');
-
-  // Score glow animado
-  const scoreGlow = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(scoreGlow, { toValue: 1, duration: 1500, useNativeDriver: false }),
-        Animated.timing(scoreGlow, { toValue: 0, duration: 1500, useNativeDriver: false }),
-      ])
-    ).start();
-  }, []);
-  const scoreShadow = scoreGlow.interpolate({ inputRange: [0, 1], outputRange: [4, 16] });
-
-  // Card fade-in ao montar
-  const cardOpacity = useRef(new Animated.Value(0)).current;
-  const cardY       = useRef(new Animated.Value(16)).current;
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(cardOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-      Animated.timing(cardY,       { toValue: 0, duration: 400, useNativeDriver: true }),
-    ]).start();
-  }, []);
-
-  async function handleReaction(emoji: string) {
-    if (!user || !group) return;
-    const has = (item.reactions[emoji] ?? []).includes(user.uid);
-    try { await toggleReaction(group.id, item.id, emoji, user.uid, has); }
-    catch { notify('Não foi possível salvar sua reação. Verifique a conexão.'); }
-  }
-
-  return (
-    <Animated.View style={{ opacity: cardOpacity, transform: [{ translateY: cardY }] }}>
-    <View style={[mc.card, { borderColor: `${accent}33`, overflow: 'hidden' }]}>
-      {/* Gradiente de fundo por formato */}
-      <LinearGradient
-        colors={[`${accent}18`, `${accent}06`]}
-        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      {/* Barra colorida de formato */}
-      <View style={[mc.accentBar, { backgroundColor: accent }]} />
-
-      <View style={mc.body}>
-        {/* Header */}
-        <View style={mc.header}>
-          <Text style={[mc.compName, { color: accent }]} numberOfLines={1}>{item.compName}</Text>
-          <Text style={mc.time}>{timeAgo(item.timestamp)}</Text>
-        </View>
-
-        {/* Placar — cada lado numa linha, games em colunas */}
-        <FeedScoreboard item={item} sets={gameSets} />
-
-        {/* Reações */}
-        <View style={mc.reactRow}>
-          {EMOJIS.map(emoji => {
-            const uids = item.reactions[emoji] ?? [];
-            const hasReacted = user ? uids.includes(user.uid) : false;
-            return (
-              <TouchableOpacity
-                key={emoji}
-                style={[mc.reactBtn, hasReacted && mc.reactBtnActive]}
-                onPress={() => handleReaction(emoji)}
-                activeOpacity={0.7}
-              >
-                <Text style={mc.reactEmoji}>{emoji}</Text>
-                {uids.length > 0 && (
-                  <Text style={[mc.reactCount, hasReacted && mc.reactCountActive]}>
-                    {uids.length}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-
-          <TouchableOpacity
-            style={mc.commentToggle}
-            onPress={() => setShowComments(true)}
-          >
-            <Icon name="comment" size={15} color={Colors.faint} />
-            {item.comments.length > 0 && (
-              <Text style={mc.commentToggleTxt}>{item.comments.length}</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <CommentsModal
-        item={item}
-        visible={showComments}
-        onClose={() => setShowComments(false)}
-      />
-    </View>
-    </Animated.View>
-  );
-}
 
 const makeMcStyles = (Colors: ThemeColors) => StyleSheet.create({
   card:            { padding: 0, overflow: 'hidden', backgroundColor: Colors.surf, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line },
   accentBar:       { height: 3 },
   body:            { padding: Spacing.md, gap: Spacing.sm },
   header:          { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  compName:        { flex: 1, fontFamily: FontFamily.title, fontSize: 13 },
+  compName:        { flex: 1, fontFamily: FontFamily.title, fontSize: 16, lineHeight: 22 },
   time:            { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
   scoreRow:        { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surf2, borderRadius: Radius.md, padding: Spacing.sm, gap: 4 },
   side:            { flex: 1, gap: 4 },
@@ -492,7 +388,7 @@ const makeMilStyles = (Colors: ThemeColors) => StyleSheet.create({
   inner:   { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, padding: Spacing.md },
   emoji:   { fontSize: 28, lineHeight: 34 },
   info:    { flex: 1, gap: 3 },
-  title:   { fontFamily: FontFamily.title, fontSize: 13, color: Colors.gold },
+  title:   { fontFamily: FontFamily.title, fontSize: 15, color: Colors.gold },
   desc:    { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   avatars: { flexDirection: 'row', gap: 4, marginTop: 4 },
   time:    { fontFamily: FontFamily.number, fontSize: 11, color: Colors.faint },
@@ -564,7 +460,7 @@ const makeRcStyles = (Colors: ThemeColors) => StyleSheet.create({
   card:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: Spacing.md, borderRadius: Radius.md, backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line },
   left:  { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
   info:  { flex: 1 },
-  title: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.text },
+  title: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
   sub:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   pos:   { color: Colors.gold },
   badge: { backgroundColor: Colors.teal + '22', borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4 },
@@ -632,10 +528,9 @@ function MatchRow({ item, last }: { item: FeedItem; last: boolean }) {
   const mr = useMemo(() => makeMrStyles(Colors), [Colors]);
   const mc = useMemo(() => makeMcStyles(Colors), [Colors]);
   const { user, group } = useAuth();
-  const { findPlayer } = useGroupPlayers();
+  useGroupPlayers();
   const [showComments, setShowComments] = useState(false);
   const gameSets = useMatchGames(item);
-  const aWon = (item.sideA?.score ?? 0) > (item.sideB?.score ?? 0);
 
   async function handleReaction(emoji: string) {
     if (!user || !group) return;
@@ -709,10 +604,11 @@ function dayLabel(date: Date): string {
   return `${date.getDate()} de ${MONTHS[date.getMonth()]}`;
 }
 
-export default function FeedScreen() {
+/** `embedded`: dentro da aba Arena — sem título próprio e sem o recuo do topo (a Arena já cuida). */
+export default function FeedScreen({ embedded = false }: { embedded?: boolean } = {}) {
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
-  const { items, loaded, error } = useFeed();
+  const { items, loaded, error } = useActivityItems();
 
   // Agrupa match_result da mesma competição E do mesmo dia num card só.
   // Antes agrupava só por compName ao longo do feed inteiro — uma competição
@@ -745,8 +641,10 @@ export default function FeedScreen() {
   function renderRow({ item }: { item: FeedRow }) {
     if (item.kind === 'divider') return <Text style={s.dayDivider}>{item.label}</Text>;
     if (item.kind === 'group') return <CompGroupCard compName={item.compName} matches={item.matches} />;
+    if (item.item.type === 'champion') return <ChampionCard item={item.item} />;
+    if (item.item.type === 'comp_done') return <CompDoneCard item={item.item} />;
     if (item.item.type === 'rank_change') return <RankChangeCard item={item.item} />;
-    if (item.item.type === 'rivalry_milestone') return <MilestoneCard item={item.item} />;
+    if (item.item.type === 'rivalry_milestone' || item.item.type === 'honor') return <MilestoneCard item={item.item} />;
     return null;
   }
 
@@ -760,7 +658,7 @@ export default function FeedScreen() {
   }, [refreshFeed, refreshCompetitions]);
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={s.container} edges={embedded ? [] : ['top']}>
       <FlatList
         data={rows}
         // grupos não têm mais chave única garantida por compName (a mesma
@@ -770,11 +668,11 @@ export default function FeedScreen() {
         contentContainerStyle={s.list}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />}
-        ListHeaderComponent={
+        ListHeaderComponent={embedded ? null : (
           <View style={s.titleRow}>
-            <Text style={s.title}>Atividade</Text>
+            <Text style={s.title}>Feed</Text>
           </View>
-        }
+        )}
         renderItem={renderRow}
         ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
         ListEmptyComponent={
@@ -796,9 +694,9 @@ export default function FeedScreen() {
             : (
               <Card style={s.empty}>
                 <Text style={{ fontSize: 36 }}>🏝️</Text>
-                <Text style={s.emptyTitle}>Nenhum jogo ainda</Text>
+                <Text style={s.emptyTitle}>Nada por aqui ainda</Text>
                 <Text style={s.emptySub}>
-                  Registre o primeiro placar e ele aparece aqui com reações e comentários.
+                  Quando uma competição for encerrada, o campeão aparece aqui com reações e comentários.
                 </Text>
               </Card>
             )
@@ -809,10 +707,10 @@ export default function FeedScreen() {
 }
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
-  container:  { flex: 1, backgroundColor: Colors.bg },
+  container: { flex: 1, backgroundColor: 'transparent' },
   list:       { ...centeredContent, padding: Spacing.md, paddingBottom: 140 },
   titleRow:   { marginBottom: Spacing.md },
-  title:      { ...Type.h1, color: Colors.text },
+  title:      { ...Type.screenTitle, color: Colors.text },
   dayDivider: { fontFamily: FontFamily.numberBold, fontSize: 10, letterSpacing: 1.2, color: Colors.faint, textTransform: 'uppercase', marginBottom: Spacing.xs, marginTop: Spacing.xs },
   empty:      { alignItems: 'center', padding: Spacing.xl, gap: Spacing.sm },
   emptyTitle: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.muted },

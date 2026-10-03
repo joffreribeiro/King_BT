@@ -1,13 +1,15 @@
 import {
   collection, doc, addDoc, updateDoc, arrayUnion, arrayRemove,
-  onSnapshot, query, orderBy, limit, where, getDocs, writeBatch,
+  onSnapshot, query, orderBy, limit, where, getDocs, writeBatch, runTransaction,
   Timestamp, type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './config';
 
 export type FeedItem = {
   id: string;
-  type: 'match_result' | 'rank_change' | 'comp_done' | 'rivalry_milestone';
+  type: 'match_result' | 'rank_change' | 'comp_done' | 'champion' | 'rivalry_milestone' | 'honor';
+  /** Só no cliente: card montado a partir da competição, ainda sem documento no feed. */
+  derived?: boolean;
   compId: string;
   compName: string;
   matchId?: string;
@@ -58,6 +60,21 @@ export async function fetchFeedOnce(groupId: string): Promise<FeedItem[]> {
   const q = query(feedCol(groupId), orderBy('timestamp', 'desc'), limit(50));
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as FeedItem));
+}
+
+/**
+ * Garante que o documento do card existe (id fixo), criando-o se faltar. Os cards
+ * de campeão/finalizado nascem só na tela; o documento é criado quando alguém
+ * reage ou comenta. Transação: dois aparelhos reagindo ao mesmo tempo não
+ * recriam o card nem apagam as reações do outro.
+ */
+export async function ensureFeedItem(groupId: string, item: FeedItem): Promise<void> {
+  const ref = doc(db, 'groups', groupId, 'feed', item.id);
+  const { id, derived, ...data } = item;
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) tx.set(ref, data);
+  });
 }
 
 export async function createFeedItem(

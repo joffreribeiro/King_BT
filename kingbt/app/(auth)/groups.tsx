@@ -8,25 +8,38 @@ import { useRouter } from 'expo-router';
 import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
-import type { Group, UnlinkedPlayer } from '@/store/AuthContext';
+import type { Group, UnlinkedPlayer, PendingJoin } from '@/store/AuthContext';
 import { LinkPlayerModal } from '@/components/LinkPlayerModal';
 import { VisibilityPicker, type GroupVisibility, Icon } from '@/components';
+import { HexBackground } from '@/components/HexBackground';
+import { GroupInvitePreview } from '@/components/GroupInvitePreview';
+import { getGroupPreview, syncGroupPreview, type GroupPreview } from '@/firebase/groupCodes';
 import { DEFAULT_SCORING, isScoringConfigValid, type ScoringConfig } from '@/logic/scoringConfig';
 import { statPoints } from '@/logic/scoring';
 
 type Mode = 'list' | 'create';
 
+const DESC_MAX = 140;
+
+// Grupos antigos podem não ter o registro do código de convite; o admin recria uma vez por sessão.
+const codeBackfilled = new Set<string>();
+
 export default function GroupsScreen() {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
-  const { user, group: currentGroup, loading, joinGroup, createGroup, switchGroup, getMyGroups, clearError, error, confirmGroup } = useAuth();
+  const { user, group: currentGroup, joinGroup, createGroup, switchGroup, getMyGroups, checkPendingJoins, finishApprovedJoin, cancelPendingJoin, clearError, error, confirmGroup } = useAuth();
   const router = useRouter();
   const [mode, setMode]         = useState<Mode>('list');
   const [myGroups, setMyGroups] = useState<Group[]>([]);
+  const [pendingList, setPendingList] = useState<PendingJoin[]>([]);
+  const [approvedList, setApprovedList] = useState<PendingJoin[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(true);
   const [code, setCode]         = useState('');
-  const [groupsExpanded, setGroupsExpanded] = useState(false);
+  const [joinNotice, setJoinNotice] = useState<string | null>(null);
+  const [invite, setInvite] = useState<GroupPreview | null>(null);
+  const [groupsExpanded, setGroupsExpanded] = useState(true);
   const [name, setName]         = useState('');
+  const [description, setDescription] = useState('');
   const [visibility, setVisibility] = useState<GroupVisibility>('privado');
   const [busy, setBusy]         = useState(false);
 
@@ -68,8 +81,18 @@ export default function GroupsScreen() {
 
   async function loadGroups() {
     setLoadingGroups(true);
-    const groups = await getMyGroups();
+    const [groups, check] = await Promise.all([getMyGroups(), checkPendingJoins()]);
     setMyGroups(groups);
+    if (user) {
+      for (const g of groups) {
+        if (!g.code || !(g.admins ?? []).includes(user.uid) || codeBackfilled.has(g.id)) continue;
+        codeBackfilled.add(g.id);
+        syncGroupPreview(g.code, g.id, { name: g.name, description: g.description ?? '', visibility: g.visibility ?? 'privado' }).catch(() => {});
+      }
+    }
+    setPendingList(check.pending.filter(p => !groups.some(g => g.id === p.groupId)));
+    setApprovedList(check.approved.filter(p => !groups.some(g => g.id === p.groupId)));
+    if (check.rejected > 0) setJoinNotice(check.rejected === 1 ? 'Um pedido seu foi recusado pelo administrador.' : `${check.rejected} pedidos seus foram recusados.`);
     setLoadingGroups(false);
   }
 
@@ -99,36 +122,88 @@ export default function GroupsScreen() {
     await switchGroup(groupId);
     setVisitBusy(false);
     confirmGroup();
-    router.replace('/(app)');
+    router.replace('/(app)/home');
   }
 
   async function handleSwitch(groupId: string) {
     // Grupo já ativo — entra direto, sem gravar nada
     if (currentGroup?.id === groupId) {
       confirmGroup();
-      router.replace('/(app)');
+      router.replace('/(app)/home');
       return;
     }
     setBusy(true);
     await switchGroup(groupId);
     setBusy(false);
     confirmGroup();
-    router.replace('/(app)');
+    router.replace('/(app)/home');
   }
 
+  /** Passo 1: abre a prévia do grupo pelo código (nome, descrição), antes de pedir para entrar. */
   async function handleJoin() {
     if (!code.trim()) return;
     setBusy(true);
     clearError();
-    const result = await joinGroup(code.trim());
+    setJoinNotice(null);
+    try {
+      const preview = await getGroupPreview(code);
+      if (!preview) { setJoinNotice('Código do grupo não encontrado.'); return; }
+      setInvite(preview);
+    } catch {
+      setJoinNotice('Não foi possível buscar o código. Verifique a conexão e tente de novo.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Passo 2: pede a entrada (ou entra direto, se já for membro). */
+  async function handleRequestInvite() {
+    if (!invite) return;
+    setBusy(true);
+    clearError();
+    setJoinNotice(null);
+    const result = await joinGroup(invite.code);
     setBusy(false);
+    setInvite(null);
+    if (result.pending) {
+      // O código era válido, mas entrar depende do admin: não abre o grupo.
+      setCode('');
+      setJoinNotice('Pedido enviado! Um administrador precisa aprovar sua entrada. Ele aparece abaixo, em "Pedidos de entrada", até ser aprovado.');
+      loadGroups();
+      return;
+    }
+    if (result.needsLink === undefined) return; // falhou (o erro já aparece na tela)
     if (result.needsLink) {
       setUnlinked(result.unlinkedPlayers);
       setShowLink(true);
       return;
     }
     confirmGroup();
-    router.replace('/(app)');
+    router.replace('/(app)/home');
+  }
+
+  /** Pedido aprovado pelo admin: entra no grupo (e vincula o perfil, se for novo). */
+  async function handleEnterApproved(groupId: string) {
+    setBusy(true);
+    clearError();
+    const result = await finishApprovedJoin(groupId);
+    setBusy(false);
+    if (result.needsLink === undefined) return; // falhou (o erro já aparece na tela)
+    if (result.needsLink) {
+      setUnlinked(result.unlinkedPlayers);
+      setShowLink(true);
+      return;
+    }
+    confirmGroup();
+    router.replace('/(app)/home');
+  }
+
+  async function handleCancelPending(groupId: string) {
+    setBusy(true);
+    await cancelPendingJoin(groupId);
+    setBusy(false);
+    setJoinNotice('Pedido cancelado.');
+    loadGroups();
   }
 
   async function handleCreate() {
@@ -136,10 +211,10 @@ export default function GroupsScreen() {
     if (showScoring && !scoringValid) return;
     setBusy(true);
     clearError();
-    await createGroup(name.trim(), visibility, showScoring ? parsedScoring : undefined);
+    await createGroup(name.trim(), visibility, showScoring ? parsedScoring : undefined, description);
     setBusy(false);
     confirmGroup();
-    router.replace('/(app)');
+    router.replace('/(app)/home');
   }
 
   function switchMode(m: Mode) {
@@ -160,6 +235,7 @@ export default function GroupsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <HexBackground />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
 
         {/* Header — botão voltar só quando veio de dentro do app */}
@@ -169,7 +245,7 @@ export default function GroupsScreen() {
               <Icon name="chevronLeft" size={18} color={Colors.text} />
             </TouchableOpacity>
           )}
-          <Text style={styles.headerTitle}>Escolha seu grupo</Text>
+          <Text style={styles.headerTitle}>Grupos</Text>
         </View>
 
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -181,8 +257,25 @@ export default function GroupsScreen() {
             </View>
           )}
 
+          {!!joinNotice && (
+            <View style={styles.errorBox}>
+              <Text style={[styles.errorText, { color: Colors.gold }]}>{joinNotice}</Text>
+            </View>
+          )}
+
+          {invite && (
+            <GroupInvitePreview
+              preview={invite}
+              status={myGroups.some(g => g.id === invite.groupId) ? 'member' : 'none'}
+              busy={busy}
+              onRequest={handleRequestInvite}
+              onOpen={() => handleSwitch(invite.groupId)}
+              onBack={() => setInvite(null)}
+            />
+          )}
+
           {/* Lista de grupos */}
-          {mode === 'list' && (
+          {mode === 'list' && !invite && (
             <>
               {loadingGroups ? (
                 <ActivityIndicator color={Colors.gold} style={{ marginTop: Spacing.xl }} />
@@ -206,6 +299,7 @@ export default function GroupsScreen() {
                           <View style={styles.groupCardInfo}>
                             <Text style={styles.groupCardName}>{active.name}</Text>
                             <Text style={styles.groupCardCode}>{active.code}</Text>
+                            {!!active.description && <Text style={styles.groupCardDesc} numberOfLines={2}>{active.description}</Text>}
                           </View>
                           {currentGroup?.id === active.id && <Text style={styles.activeBadge}>Ativo</Text>}
                           {others.length > 0 && (
@@ -230,6 +324,7 @@ export default function GroupsScreen() {
                             <View style={styles.groupCardInfo}>
                               <Text style={styles.groupCardName}>{g.name}</Text>
                               <Text style={styles.groupCardCode}>{g.code}</Text>
+                              {!!g.description && <Text style={styles.groupCardDesc} numberOfLines={2}>{g.description}</Text>}
                             </View>
                             <Icon name="chevronRight" size={18} color={Colors.faint} />
                           </TouchableOpacity>
@@ -237,6 +332,33 @@ export default function GroupsScreen() {
                       </View>
                     );
                   })()}
+
+                  {/* Pedidos de entrada: aguardando o admin ou já aprovados */}
+                  {(approvedList.length > 0 || pendingList.length > 0) && (
+                    <View style={styles.section}>
+                      <Text style={styles.sectionTitle}>Pedidos de entrada</Text>
+                      {approvedList.map(p => (
+                        <TouchableOpacity key={p.groupId} style={styles.groupCardSub} onPress={() => handleEnterApproved(p.groupId)} disabled={busy} activeOpacity={0.8}>
+                          <View style={styles.groupCardInfo}>
+                            <Text style={styles.groupCardName}>Grupo {p.code}</Text>
+                            <Text style={styles.groupCardCode}>Seu pedido foi aprovado</Text>
+                          </View>
+                          <Text style={[styles.activeBadge, { color: Colors.teal }]}>Entrar</Text>
+                        </TouchableOpacity>
+                      ))}
+                      {pendingList.map(p => (
+                        <View key={p.groupId} style={styles.groupCardSub}>
+                          <View style={styles.groupCardInfo}>
+                            <Text style={styles.groupCardName}>Grupo {p.code}</Text>
+                            <Text style={styles.groupCardCode}>Aguardando aprovação do administrador</Text>
+                          </View>
+                          <TouchableOpacity onPress={() => handleCancelPending(p.groupId)} disabled={busy} hitSlop={8} accessibilityRole="button" accessibilityLabel="Cancelar pedido">
+                            <Text style={[styles.activeBadge, { color: Colors.muted }]}>Cancelar</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  )}
 
                   {/* Entrar em outro grupo — inline, sem trocar de tela */}
                   <View style={styles.section}>
@@ -296,6 +418,7 @@ export default function GroupsScreen() {
                           <View style={styles.groupCardInfo}>
                             <Text style={styles.groupCardName}>{g.name}</Text>
                             <Text style={styles.groupCardCode}>Público</Text>
+                            {!!g.description && <Text style={styles.groupCardDesc} numberOfLines={2}>{g.description}</Text>}
                           </View>
                           <View style={styles.visitBadge}>
                             <Icon name="eye" size={13} color={Colors.teal} />
@@ -338,6 +461,19 @@ export default function GroupsScreen() {
                   </Text>
                 </View>
               )}
+              <Text style={styles.fieldLabel}>Descrição (opcional)</Text>
+              <View style={styles.inputWrap}>
+                <TextInput
+                  style={styles.inputDesc}
+                  value={description}
+                  onChangeText={t => setDescription(t.slice(0, DESC_MAX))}
+                  placeholder="Conte em uma frase quem joga e onde"
+                  placeholderTextColor={Colors.faint}
+                  multiline
+                  maxLength={DESC_MAX}
+                />
+              </View>
+              <Text style={styles.fieldHint}>{description.length}/{DESC_MAX} · quem receber o convite vê isso antes de entrar</Text>
               <VisibilityPicker value={visibility} onChange={setVisibility} />
 
               {/* Fórmula de pontuação — opcional, pré-preenchida com o padrão */}
@@ -401,7 +537,7 @@ export default function GroupsScreen() {
       <LinkPlayerModal
         visible={showLink}
         unlinkedPlayers={unlinked}
-        onDone={() => { setShowLink(false); confirmGroup(); router.replace('/(app)'); }}
+        onDone={() => { setShowLink(false); confirmGroup(); router.replace('/(app)/home'); }}
       />
     </SafeAreaView>
   );
@@ -411,7 +547,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.line },
   backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
+  headerTitle: { fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 28, lineHeight: 32, color: Colors.text },
   scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.md },
 
   errorBox: { backgroundColor: Colors.coral + '22', borderRadius: Radius.sm, padding: Spacing.sm, borderWidth: 1, borderColor: Colors.coral + '44' },
@@ -431,6 +567,10 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   groupCrest: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.gold + '1a', alignItems: 'center', justifyContent: 'center' },
   groupCardInfo: { flex: 1, gap: 2 },
   groupCardName: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
+  groupCardDesc: { fontFamily: FontFamily.body, fontSize: 13, lineHeight: 18, color: Colors.muted, marginTop: 4 },
+  fieldLabel: { fontFamily: FontFamily.titleBold, fontSize: 12, letterSpacing: 1.3, color: Colors.muted, marginTop: Spacing.sm },
+  fieldHint: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: -4 },
+  inputDesc: { fontFamily: FontFamily.body, fontSize: 15, color: Colors.text, paddingHorizontal: Spacing.md, paddingVertical: Spacing.md, minHeight: 84, textAlignVertical: 'top' },
   groupCardCode: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.muted, letterSpacing: 1 },
   dropdownToggle: { padding: 4 },
   activeBadge: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.gold, backgroundColor: Colors.gold + '22', paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.full },

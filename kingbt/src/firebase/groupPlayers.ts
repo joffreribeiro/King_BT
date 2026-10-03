@@ -1,6 +1,9 @@
 import { collection, onSnapshot, addDoc, deleteDoc, doc, getDoc, updateDoc, writeBatch, getDocs, arrayRemove, type DocumentReference } from 'firebase/firestore';
 import { db } from './config';
 
+import type { PlayerAbout } from '@/logic/playerAbout';
+import type { Skills } from '@/logic/skills';
+
 export type GroupPlayer = {
   id: string;
   name: string;
@@ -8,6 +11,12 @@ export type GroupPlayer = {
   guest: boolean;
   uid?: string | null;
   handicap?: number;
+  /** Ficha do jogador (aba "Sobre" do perfil). */
+  about?: PlayerAbout;
+  /** Autoavaliação do Radar (notas de 0 a 10 por habilidade). */
+  skills?: Skills;
+  /** Ids dos jogadores que ESTE jogador já avaliou no Radar (conta para as conquistas de avaliar). */
+  ratedIds?: string[];
 };
 
 export function subscribeGroupPlayers(
@@ -141,4 +150,26 @@ export async function updatePlayerHandicap(
   handicap: number
 ): Promise<void> {
   await updateDoc(doc(db, 'groups', groupId, 'players', playerId), { handicap });
+}
+
+/**
+ * Grava a ficha do jogador (aba "Sobre"). Substitui o campo inteiro — quem
+ * chama já manda o objeto completo, sem campos vazios (ver cleanAbout).
+ * A regra do Firestore já permite: o dono do perfil pode editar o próprio doc.
+ */
+export async function updatePlayerAbout(
+  groupId: string,
+  playerId: string,
+  about: PlayerAbout
+): Promise<void> {
+  await updateDoc(doc(db, 'groups', groupId, 'players', playerId), { about });
+}
+
+/** Grava a autoavaliação do Radar. O dono do perfil já pode editar o próprio doc (firestore.rules). */
+export async function updatePlayerSkills(
+  groupId: string,
+  playerId: string,
+  skills: Skills
+): Promise<void> {
+  await updateDoc(doc(db, 'groups', groupId, 'players', playerId), { skills });
 }

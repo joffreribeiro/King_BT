@@ -1,8 +1,9 @@
 import type { Match, MatchSource, GroupDef, Competition, Standing, Competitor, WinRule } from './types';
-import { generateSchedule, generateScheduleIndividual, generateScheduleDuplas } from './roundRobin';
+import { generateSchedule, generateScheduleIndividual } from './roundRobin';
 import { gameAverage, statPoints, sortRanking, type PlayerGame } from './scoring';
-import { DEFAULT_SCORING, type ScoringConfig } from './scoringConfig';
+import { DEFAULT_SCORING, withCompetitionScoring, type ScoringConfig } from './scoringConfig';
 import { matchGames } from './setOutcome';
+import { countsForRanking } from './rankingScope';
 
 // ─── Liga (round-robin Circle method) ────────────────────────────────────────
 
@@ -167,7 +168,7 @@ export function standings(
 
   const rows: Standing[] = ids.map(id => {
     const s = acc[id];
-    const ga = gameAverage({ gamesPro: s.gf, gamesCon: s.gc });
+    const ga = gameAverage({ gamesPro: s.gf, gamesCon: s.gc }, cfg.gaSmoothing);
     const pts = statPoints({ played: s.played, wins: s.wins, gamesPro: s.gf, gamesCon: s.gc }, cfg);
     return { id, played: s.played, wins: s.wins, losses: s.losses, gf: s.gf, ga, gd: s.gf - s.gc, pts };
   });
@@ -221,7 +222,8 @@ export function matchLoser(m: Match): string | null {
 
 // ─── resolveCompetition (fixpoint) ────────────────────────────────────────────
 
-export function resolveCompetition(comp: Competition, cfg: ScoringConfig = DEFAULT_SCORING): Competition {
+export function resolveCompetition(comp: Competition, baseCfg: ScoringConfig = DEFAULT_SCORING): Competition {
+  const cfg = withCompetitionScoring(baseCfg, comp.config);
   const { matches, groupDefs } = comp;
   const byId: Record<string, Match> = Object.fromEntries(matches.map(m => [m.id, m]));
 
@@ -292,11 +294,14 @@ export function resolveCompetition(comp: Competition, cfg: ScoringConfig = DEFAU
 
 export type AvulsoChampion = { id: string; members: string[]; name?: string };
 
-export function competitionChampion(comp: Competition, nameOf?: (id: string) => string, cfg: ScoringConfig = DEFAULT_SCORING): Competitor | AvulsoChampion | null {
-  // Avulso / Super8: calcula ranking dos teamA/teamB diretos
-  if (comp.format === 'avulso' || comp.format === 'super8') {
+/**
+ * Classificação individual de uma competição Avulso/Super 8: ids dos jogadores
+ * do 1º ao último, no mesmo critério do campeão (pontos → confronto direto →
+ * saldo → média → vitórias → nome). Vazia se ainda não há jogo com placar.
+ */
+export function avulsoRanking(comp: Competition, nameOf?: (id: string) => string, cfg: ScoringConfig = DEFAULT_SCORING): string[] {
     const scored = comp.matches.filter(m => m.scoreA != null && m.scoreB != null && m.scoreA !== m.scoreB && m.teamA?.length && m.teamB?.length);
-    if (!scored.length) return null;
+    if (!scored.length) return [];
     const stats: Record<string, { wins: number; played: number; pro: number; con: number }> = {};
     for (const m of scored) {
       const aWin = m.scoreA! > m.scoreB!;
@@ -330,14 +335,21 @@ export function competitionChampion(comp: Competition, nameOf?: (id: string) => 
       id,
       points: statPoints({ played: s.played, wins: s.wins, gamesPro: s.pro, gamesCon: s.con }, cfg),
       sg: s.pro - s.con,
-      ga: gameAverage({ gamesPro: s.pro, gamesCon: s.con }),
+      ga: gameAverage({ gamesPro: s.pro, gamesCon: s.con }, cfg.gaSmoothing),
       wins: s.wins,
     });
     const entries = Object.entries(stats).map(([id, s]) => rankRow(id, s));
     const sorted = sortRanking(entries, h2hAvulso, resolveNameOf);
-    if (!sorted.length) return null;
-    const champId = sorted[0].id;
-    return { id: champId, members: [champId] };
+    return sorted.map(r => r.id);
+}
+
+export function competitionChampion(comp: Competition, nameOf?: (id: string) => string, baseCfg: ScoringConfig = DEFAULT_SCORING): Competitor | AvulsoChampion | null {
+  const cfg = withCompetitionScoring(baseCfg, comp.config);
+  // Avulso / Super8: o 1º da classificação individual
+  if (comp.format === 'avulso' || comp.format === 'super8') {
+    const ranked = avulsoRanking(comp, nameOf, cfg);
+    if (!ranked.length) return null;
+    return { id: ranked[0], members: [ranked[0]] };
   }
   if (comp.format === 'liga') {
     const st = standings(comp.competitors.map(c => c.id), comp.matches, nameOf, cfg, comp.config?.winRule);
@@ -358,7 +370,8 @@ function membersOf(comp: Competition, id: string): string[] {
   return c ? (c.members.length > 0 ? c.members : [c.id]) : [id];
 }
 
-export function extractPlayerGames(comp: Competition): PlayerGame[] {
+/** Jogos de UMA competição, sem olhar se ela vale para o ranking (a classificação interna usa isto). */
+export function extractCompetitionGames(comp: Competition): PlayerGame[] {
   const out: PlayerGame[] = [];
   comp.matches.forEach(m => {
     if (m.scoreA == null || m.scoreB == null) return;
@@ -402,13 +415,18 @@ export function extractPlayerGames(comp: Competition): PlayerGame[] {
   return out;
 }
 
+/** Jogos que contam para o ranking geral: competição amistosa fica de fora. */
+export function extractPlayerGames(comp: Competition): PlayerGame[] {
+  return countsForRanking(comp) ? extractCompetitionGames(comp) : [];
+}
+
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
 import type { Format, Unit, Gender, CompetitionConfig } from './types';
 
 // ─── Grupos com distribuição manual ──────────────────────────────────────────
 
-function genGroupsManual(
+export function genGroupsManual(
   groupArrays: string[][],
   dbl: boolean,
   qualifiers: number,

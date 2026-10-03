@@ -1,7 +1,13 @@
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, Alert, Platform, TextInput,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, Alert, Platform, TextInput, Modal,
 } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { JoinRequestsCard } from '@/components/JoinRequestsCard';
+import { XpConfigCard } from '@/components/XpConfigCard';
+import { CategoryCutsCard } from '@/components/CategoryCutsCard';
+import { HonorsAdminCard } from '@/components/HonorsAdminCard';
+import { AnnouncementsAdminCard } from '@/components/AnnouncementsAdminCard';
 import { useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
@@ -16,7 +22,11 @@ import { addGuestPlayer, removeGuestPlayer, updatePlayerHandicap, deleteGroup } 
 import { searchUsers, type AppUser } from '@/firebase/users';
 import { EditNameModal } from '@/components/competition/EditNameModal';
 import { setScoringConfig } from '@/firebase/scoringConfig';
-import { DEFAULT_SCORING, isScoringConfigValid, type ScoringConfig } from '@/logic/scoringConfig';
+import {
+  DEFAULT_SCORING, DEFAULT_GA_SMOOTHING, GA_SMOOTHING_MAX, MIN_GAMES_MAX, minGamesOf, gaSmoothingFor, planWithChange, isScoringConfigValid, type ScoringConfig,
+} from '@/logic/scoringConfig';
+import { currentSeasonNumber } from '@/logic/seasons';
+import { StepperRow, ToggleRow } from '@/components/competition/FormKit';
 import { statPoints } from '@/logic/scoring';
 import { getMinRequiredBuildTime, setMinRequiredBuildTime } from '@/firebase/appVersion';
 import { CURRENT_BUILD_TIME } from '@/store/UpdateContext';
@@ -33,6 +43,7 @@ export default function SettingsScreen() {
   const [showAddGuest, setShowAddGuest] = useState(false);
   const [guestName, setGuestName]       = useState('');
   const [guestColor, setGuestColor]     = useState(PLAYER_COLORS[0]);
+  const [showQR, setShowQR]             = useState(false);
   const [copied, setCopied]             = useState<'code' | 'invite' | null>(null);
   const [showAddMember, setShowAddMember] = useState(false);
   const [memberSearch, setMemberSearch]   = useState('');
@@ -67,8 +78,21 @@ export default function SettingsScreen() {
     setMemberSearch(''); setMemberResults([]); setShowAddMember(false);
   }
   const {
-    scoringConfig,
+    scoringConfig, scoringConfigRaw, seasons,
   } = useSettings();
+
+  // Suavização do GA: mudanças entram só na PRÓXIMA temporada; a atual segue como está.
+  const currentSeason = currentSeasonNumber(seasons);
+  const nextSeason = currentSeason + 1;
+  const gaPlan = scoringConfigRaw.gaSmoothingPlan;
+  const gaNow = gaSmoothingFor(gaPlan, currentSeason);
+  const gaScheduled = gaSmoothingFor(gaPlan, nextSeason);
+  const [gaK, setGaK] = useState(gaScheduled);
+  const [gaImmediate, setGaImmediate] = useState(false);
+  // Mínimo de jogos para entrar na classificação do ranking (vale na hora).
+  const [minGames, setMinGames] = useState(minGamesOf(scoringConfig));
+  useEffect(() => { setMinGames(minGamesOf(scoringConfig)); }, [scoringConfig.minGames]);
+  useEffect(() => { setGaK(gaScheduled); setGaImmediate(false); }, [gaScheduled, gaNow]);
 
   // ── Fórmula de pontuação (admin do grupo) ──────────────────────────────
   // Guarda os coeficientes como texto para permitir edição livre (incl. vírgula
@@ -101,6 +125,7 @@ export default function SettingsScreen() {
     playedCoef: parseCoef(scoreForm.playedCoef),
     gaCoef:     parseCoef(scoreForm.gaCoef),
     eventCoef:  parseCoef(scoreForm.eventCoef),
+    minGames,
   };
   const scoringValid = isScoringConfigValid(parsedScoring);
   // Preview em tempo real: exemplo fixo (5V, 8J, GA 1.5, 3 eventos) recalculado
@@ -122,7 +147,7 @@ export default function SettingsScreen() {
     }
     setSavingScore(true);
     try {
-      await setScoringConfig(group.id, parsedScoring);
+      await setScoringConfig(group.id, { ...parsedScoring, gaSmoothingPlan: planWithChange(gaPlan, currentSeason, gaK, gaImmediate) });
       notify('Fórmula salva', 'A nova pontuação já vale para este grupo.');
     } catch (e: any) {
       // Loga a causa real (ex.: permission-denied das regras do Firestore) —
@@ -147,6 +172,7 @@ export default function SettingsScreen() {
       gaCoef:     String(DEFAULT_SCORING.gaCoef),
       eventCoef:  String(DEFAULT_SCORING.eventCoef ?? 0),
     });
+    setGaK(0);
   }
 
   // Na web o Share.share abre o painel de compartilhamento do sistema, que
@@ -332,6 +358,10 @@ export default function SettingsScreen() {
                   {copied === 'invite' ? 'Convite copiado! Cole no WhatsApp' : 'Convidar para o grupo'}
                 </Text>
               </TouchableOpacity>
+              <TouchableOpacity style={s.inviteBtn} onPress={() => setShowQR(true)} accessibilityRole="button">
+                <Icon name="qr" size={15} color={Colors.gold} />
+                <Text style={s.inviteBtnText}>Mostrar QR do convite</Text>
+              </TouchableOpacity>
             </Card>
           </View>
         )}
@@ -391,6 +421,34 @@ export default function SettingsScreen() {
                 ))}
               </View>
 
+              <View style={{ gap: 4 }}>
+                <StepperRow
+                  label="Suavizar o GA (valor K)"
+                  sub={gaK > 0 ? 'GA = (games a favor + K) ÷ (games contra + K)' : 'Desligado: GA = games a favor ÷ games contra'}
+                  value={gaK} min={0} max={GA_SMOOTHING_MAX} onChange={setGaK}
+                />
+                <Text style={s.sectionHint}>
+                  Quem jogou uma partida só e ganhou de 6×0 deixa de disparar no ranking; quem jogou muito quase não muda.
+                  {gaK === 0 ? ` Sugestão: ${DEFAULT_GA_SMOOTHING}.` : ''} Por padrão, mudanças valem a partir da próxima temporada (Temporada {nextSeason}); ligue "Valer já" para aplicar na atual.
+                </Text>
+                {gaK !== gaNow && (
+                  <ToggleRow
+                    title={`Valer já na Temporada ${currentSeason}`}
+                    subtitle="Recalcula agora os pontos e o ranking de todos. As temporadas encerradas não mudam."
+                    value={gaImmediate} onChange={setGaImmediate}
+                  />
+                )}
+                <StepperRow
+                  label="Mínimo de jogos para ranquear"
+                  sub={minGames > 0 ? `Quem jogou menos de ${minGames} jogos aparece "em classificação", sem posição` : 'Desligado: todos têm posição desde o primeiro jogo'}
+                  value={minGames} min={0} max={MIN_GAMES_MAX} onChange={setMinGames}
+                />
+                <Text style={s.sectionHint}>Vale na hora para o ranking do grupo. Evita que quem jogou uma partida só apareça no topo.</Text>
+                <Text style={s.sectionHint}>
+                  Agora (Temporada {currentSeason}): {gaNow > 0 ? `K = ${gaNow}` : 'desligado'} · Temporada {nextSeason}: {gaScheduled > 0 ? `K = ${gaScheduled}` : 'desligado'}
+                </Text>
+              </View>
+
               <View style={s.previewBox}>
                 {scoringValid ? (
                   <Text style={s.previewText}>
@@ -426,6 +484,21 @@ export default function SettingsScreen() {
 
         {/* ── ABA ADMIN ── */}
         {activeTab === 'admin' && <>
+
+        {/* Pedidos de entrada no grupo (aprovar/recusar) */}
+        <JoinRequestsCard />
+
+        {/* Avisos para o grupo todo, no topo da Home */}
+        <AnnouncementsAdminCard />
+
+        {/* Quanto XP cada ação rende (decide o nível) */}
+        <XpConfigCard />
+
+        {/* Nota mínima de cada categoria na sugestão pela avaliação */}
+        <CategoryCutsCard />
+
+        {/* Troféus manuais para jogadores */}
+        <HonorsAdminCard />
 
         {/* Visibilidade do grupo */}
         {group && (
@@ -621,6 +694,23 @@ export default function SettingsScreen() {
         <View style={{ height: Spacing.xl }} />
       </ScrollView>
 
+      {/* QR do convite: quem escaneia recebe o código do grupo */}
+      <Modal visible={showQR} transparent animationType="fade" onRequestClose={() => setShowQR(false)}>
+        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', alignItems: 'center', justifyContent: 'center' }} onPress={() => setShowQR(false)} activeOpacity={1}>
+          <View style={{ backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.xl, alignItems: 'center', gap: Spacing.md, margin: Spacing.xl }}>
+            <Text style={{ fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.text }}>Convidar para o grupo</Text>
+            <View style={{ backgroundColor: '#fff', padding: 16, borderRadius: 12 }}>
+              <QRCode value={group?.code ?? ''} size={200} color="#0B0B0D" backgroundColor="#ffffff" />
+            </View>
+            <Text style={{ fontFamily: FontFamily.numberBold, fontSize: 26, color: Colors.gold, letterSpacing: 6 }}>{group?.code}</Text>
+            <Text style={{ fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' }}>Quem usar o código pede para entrar e você aprova.</Text>
+            <TouchableOpacity style={{ paddingVertical: Spacing.sm, paddingHorizontal: Spacing.xl }} onPress={() => setShowQR(false)}>
+              <Text style={{ fontFamily: FontFamily.bodyMed, color: Colors.coral }}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Modal editar nome do grupo (admin) */}
       {showEditGroupName && group && (
         <EditNameModal
@@ -635,7 +725,7 @@ export default function SettingsScreen() {
 }
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
+  container: { flex: 1, backgroundColor: 'transparent' },
   tabBar: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: Colors.line, backgroundColor: Colors.bg, paddingHorizontal: Spacing.md },
   tabItem: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', position: 'relative' },
   tabItemActive: {},

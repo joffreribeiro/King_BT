@@ -3,6 +3,8 @@ import {
   query, orderBy, arrayUnion, arrayRemove, runTransaction, type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './config';
+import { applyRegister, applyCancel, registrationOf, type RegisterOutcome } from '@/logic/eventRegistration';
+import { registrationGate, canCancelRegistration } from '@/logic/competitionPlan';
 import type { Competition, Match, JoinRequest, LiveScore, SetScore } from '@/logic/types';
 
 const compsCol = (groupId: string) =>
@@ -161,25 +163,54 @@ export function subscribeLiveMatches(
   });
 }
 
-/** Confirma participação de um jogador em competição upcoming */
-export async function confirmParticipation(
+/**
+ * Inscreve o jogador numa competição agendada: lista principal se há vaga,
+ * senão fila de espera. Roda em transação sobre o documento do servidor — dois
+ * celulares tocando "Inscrever-se" na última vaga ao mesmo tempo não passam de
+ * `vagas`. Só mexe em confirmedIds/waitlistIds. Exige rede (transações falham
+ * offline).
+ */
+export async function registerForEvent(
   groupId: string,
   compId: string,
-  playerId: string
-): Promise<void> {
-  await updateDoc(compDoc(groupId, compId), {
-    confirmedIds: arrayUnion(playerId),
+  playerId: string,
+  /** Categoria do perfil de quem se inscreve (about.category) — vale para competições com categoria de nível. */
+  playerCategory?: string | null,
+  /** Admin adicionando outro jogador pula as travas de modo/abertura/categoria. */
+  asAdmin = false,
+): Promise<RegisterOutcome> {
+  return runTransaction(db, async (tx) => {
+    const ref = compDoc(groupId, compId);
+    const snap = await tx.get(ref);
+    if (!snap.exists()) return 'already';
+    const comp = snap.data() as Competition;
+    if (comp.status !== 'upcoming') return 'already';
+    if (!asAdmin && !registrationGate(comp, playerCategory).ok) return 'blocked';
+    const next = applyRegister(registrationOf(comp), playerId, { waitlist: comp.registration?.waitlist });
+    if (next.outcome !== 'already') {
+      tx.update(ref, { confirmedIds: next.confirmedIds, waitlistIds: next.waitlistIds });
+    }
+    return next.outcome;
   });
 }
 
-/** Cancela participação de um jogador em competição upcoming */
-export async function cancelParticipation(
+/** Cancela a inscrição (principal ou espera) e promove o 1º da fila se abriu vaga. */
+export async function cancelEventRegistration(
   groupId: string,
   compId: string,
-  playerId: string
-): Promise<void> {
-  await updateDoc(compDoc(groupId, compId), {
-    confirmedIds: arrayRemove(playerId),
+  playerId: string,
+  asAdmin = false,
+): Promise<{ promotedId: string | null }> {
+  return runTransaction(db, async (tx) => {
+    const ref = compDoc(groupId, compId);
+    const snap = await tx.get(ref);
+    if (!snap.exists()) return { promotedId: null };
+    const comp = snap.data() as Competition;
+    if (comp.status !== 'upcoming') return { promotedId: null };
+    if (!asAdmin && !canCancelRegistration(comp)) return { promotedId: null };
+    const next = applyCancel(registrationOf(comp), playerId);
+    tx.update(ref, { confirmedIds: next.confirmedIds, waitlistIds: next.waitlistIds });
+    return { promotedId: next.promotedId };
   });
 }
 
