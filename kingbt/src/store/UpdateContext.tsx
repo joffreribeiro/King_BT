@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Platform } from 'react-native';
-import { entryHashFrom, isNewerBuild } from '@/logic/webVersion';
+import { AppState, Platform } from 'react-native';
+import { entryHashFrom, isNewerBuild, shaFromVersionJson } from '@/logic/webVersion';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
-import app, { db } from '@/firebase/config';
+import { db } from '@/firebase/config';
 import { useAuth } from './AuthContext';
 
 interface UpdateContextType {
@@ -21,6 +20,9 @@ const UpdateContext = createContext<UpdateContextType>({
   updateAvailable: false,
   updateRequired: false,
 });
+
+/** Versão publicada, gerada a cada deploy do site (ver .github/workflows/deploy-web.yml). */
+const VERSION_URL = 'https://kingbt.web.app/version.json';
 
 /** Link de download do APK mais recente, publicado pelo workflow de build. */
 export const APK_URL = 'https://github.com/joffreribeiro/King_BT/releases/download/latest-apk/kingbt.apk';
@@ -88,31 +90,27 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
     return () => { alive = false; clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
   }, [user]);
 
-  // App instalado (APK): continua comparando o commit embutido com o mais recente
-  // via Cloud Function (precisa do plano Blaze e do segredo GITHUB_TOKEN).
+  // App instalado (APK): compara o commit embutido no build com o publicado em /version.json.
+  // (Antes usava uma Cloud Function, que exige o plano Blaze e nunca foi publicada: a checagem
+  // falhava em silêncio e ninguém era avisado.) Checa ao entrar e quando o app volta ao primeiro plano.
   useEffect(() => {
     if (!user || !CURRENT_SHA || Platform.OS === 'web') return;
-
+    let alive = true;
+    let last = 0;
     async function checkForUpdates() {
+      last = Date.now();
       try {
-        // Roda numa Cloud Function (functions/src/index.ts), não direto na
-        // API pública do GitHub: sem token, o limite é 60 req/hora POR IP —
-        // numa rede compartilhada (clube, quadra), várias pessoas checando
-        // pelo mesmo IP esgotavam a cota e a checagem parava de funcionar
-        // silenciosamente pra todo mundo ali. Um token daria mais fôlego,
-        // mas só é seguro guardado no servidor — no bundle do cliente,
-        // qualquer pessoa consegue extrair.
-        const getLatestCommitSha = httpsCallable<void, { sha: string }>(getFunctions(app), 'getLatestCommitSha');
-        const result = await getLatestCommitSha();
-        const latestSha = result.data.sha;
-        if (latestSha && latestSha !== CURRENT_SHA) setUpdateAvailable(true);
-      } catch (e) {
-        // Silenciosamente falha se não conseguir checar
-      }
+        const res = await fetch(`${VERSION_URL}?_=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const live = shaFromVersionJson(await res.json());
+        if (alive && isNewerBuild(CURRENT_SHA, live)) setUpdateAvailable(true);
+      } catch { /* sem rede: tenta de novo depois */ }
     }
-
-    // Checa na primeira vez que o usuário loga
     checkForUpdates();
+    const sub = AppState.addEventListener('change', st => {
+      if (st === 'active' && Date.now() - last > WEB_CHECK_MIN_GAP_MS) checkForUpdates();
+    });
+    return () => { alive = false; sub.remove(); };
   }, [user]);
 
   // Assinatura ao vivo da versão mínima obrigatória — se o Super Admin marcar

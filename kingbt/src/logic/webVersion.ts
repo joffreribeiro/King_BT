@@ -13,6 +13,16 @@ export function entryHashFrom(text: string | null | undefined): string | null {
   return m ? m[1] : null;
 }
 
+/**
+ * App instalado (APK): o site publica `/version.json` ({ "sha": "<commit>" }) a cada deploy (ver
+ * deploy-web.yml). O APK compara o commit embutido no build com esse. Sem Cloud Function, sem token
+ * do GitHub e sem limite por IP.
+ */
+export function shaFromVersionJson(raw: unknown): string | null {
+  const sha = raw && typeof raw === 'object' ? (raw as { sha?: unknown }).sha : null;
+  return typeof sha === 'string' && /^[a-f0-9]{7,40}$/i.test(sha) ? sha : null;
+}
+
 /** Há versão mais nova? Só se os dois hashes existem e diferem. */
 export function isNewerBuild(running: string | null, latest: string | null): boolean {
   return !!running && !!latest && running !== latest;

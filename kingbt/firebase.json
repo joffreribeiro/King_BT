@@ -53,6 +53,15 @@
               "value": "no-cache, max-age=0"
             }
           ]
+        },
+        {
+          "source": "/version.json",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache, max-age=0"
+            }
+          ]
         }
       ]
     },

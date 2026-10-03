@@ -1,4 +1,14 @@
-import { entryHashFrom, isNewerBuild } from '@/logic/webVersion';
+import { entryHashFrom, isNewerBuild, shaFromVersionJson } from '@/logic/webVersion';
+
+describe('version.json do APK', () => {
+  it('lê o commit publicado e ignora lixo', () => {
+    expect(shaFromVersionJson({ sha: 'e8bfaac0123456789abcdef0123456789abcdef0' })).toBe('e8bfaac0123456789abcdef0123456789abcdef0');
+    expect(shaFromVersionJson({ sha: 'zzz' })).toBeNull();
+    expect(shaFromVersionJson({})).toBeNull();
+    expect(shaFromVersionJson(null)).toBeNull();
+    expect(shaFromVersionJson('texto')).toBeNull();
+  });
+});
 
 describe('webVersion', () => {
   it('lê o hash do pacote principal no HTML publicado', () => {

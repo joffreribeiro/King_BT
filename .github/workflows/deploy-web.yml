@@ -96,6 +96,11 @@ jobs:
       - name: Exportar build web
         run: npx expo export --platform web
 
+      # Versão publicada, lida pelo app instalado (APK) para avisar de atualização: sem token do GitHub,
+      # sem Cloud Function (plano Blaze) e sem limite por IP. Ver src/store/UpdateContext.tsx.
+      - name: Gerar version.json
+        run: echo "{\"sha\":\"${{ github.sha }}\",\"buildTime\":${EXPO_PUBLIC_BUILD_TIME}}" > dist/version.json
+
       # firestore:rules vai junto: antes só o hosting era publicado aqui, então
       # uma correção em firestore.rules só ia ao ar se alguém lembrasse de
       # rodar `firebase deploy --only firestore:rules` manualmente. Os jobs
