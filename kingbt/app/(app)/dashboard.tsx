@@ -112,7 +112,7 @@ export default function DashboardScreen() {
   const myPos = myPlayerId ? ranking.findIndex(r => r.id === myPlayerId) + 1 : 0;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: 'transparent' }} edges={[]}>
       <ScrollView
         contentContainerStyle={{ padding: Spacing.md, gap: Spacing.md }}
         showsVerticalScrollIndicator={false}

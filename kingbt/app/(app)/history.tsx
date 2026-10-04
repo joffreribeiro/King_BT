@@ -292,7 +292,7 @@ export default function HistoryScreen() {
   const winPct   = entries.length > 0 ? Math.round((wins / entries.length) * 100) : 0;
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={s.container} edges={[]}>
       {/* Header */}
       <ScreenHeader
         title="Histórico"

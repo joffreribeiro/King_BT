@@ -298,7 +298,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={s.container} edges={[]}>
       <ScreenHeader
         title="Configurações"
         onBack={() => router.canGoBack() ? router.back() : router.replace('/(app)/profile')}

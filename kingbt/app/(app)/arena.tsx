@@ -36,7 +36,7 @@ export default function ArenaScreen() {
   }, [tab]);
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={s.container} edges={[]}>
       {/* Computador: título e abas alinhados com o conteúdo (mesma largura das colunas). */}
       <View style={wide ? s.headWide : undefined}>
       {!!group?.name && <Text style={s.groupTitle} numberOfLines={1}>{group.name}</Text>}
@@ -59,7 +59,7 @@ export default function ArenaScreen() {
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
   headWide: { ...wideContent, paddingHorizontal: Spacing.md },
-  groupTitle: { fontFamily: FontFamily.bodyMed, fontSize: 14, letterSpacing: 0.4, color: Colors.gold, marginHorizontal: Spacing.md, marginTop: Spacing.sm, marginBottom: 16 },
+  groupTitle: { fontFamily: FontFamily.bodyMed, fontSize: 14, letterSpacing: 0.4, color: Colors.gold, marginHorizontal: Spacing.md, marginTop: 0, marginBottom: Spacing.sm },
   screenTitle: { ...Type.screenTitle, color: Colors.text, marginHorizontal: Spacing.md, marginBottom: Spacing.md },
   tabBar: { flexDirection: 'row', marginHorizontal: Spacing.md, marginBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.line },
   tabItem: { flex: 1, paddingVertical: 14, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent', marginBottom: -1 },

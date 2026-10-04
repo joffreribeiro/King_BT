@@ -7,7 +7,7 @@ import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
 import { todayLocal } from '@/logic/eventDateTime';
 import { eventView, nextUpcoming, type EventView } from '@/logic/eventRegistration';
-import { EventHero, EventTiles } from './EventInfo';
+import { EventHero } from './EventInfo';
 
 function infoText(ev: EventView): string | null {
   if (ev.me === 'principal') return 'Você está inscrito.';
@@ -44,12 +44,10 @@ export function EventCard() {
       <Text style={s.label}>PRÓXIMO EVENTO</Text>
       <View style={s.card}>
         <TouchableOpacity activeOpacity={0.92} onPress={open} accessibilityRole="button" accessibilityLabel={`Abrir ${comp.name}`}>
-          <EventHero comp={comp} statusLabel={status.t} statusColor={status.c} />
+          <EventHero comp={comp} statusLabel={status.t} statusColor={status.c} height={210} showMeta />
         </TouchableOpacity>
 
         <View style={s.body}>
-          <EventTiles comp={comp} />
-
           {ev.lastSpot && <View style={s.alert}><Text style={s.alertText}>🔥 Última vaga</Text></View>}
           {!!info && <Text style={s.info}>{info}</Text>}
 

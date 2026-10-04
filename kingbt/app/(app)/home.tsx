@@ -65,7 +65,7 @@ export default function HomeScreen() {
 
   return (
     <FadeScreen>
-      <SafeAreaView style={s.container} edges={['top']}>
+      <SafeAreaView style={s.container} edges={[]}>
         <ScrollView
           contentContainerStyle={[s.content, wide && s.contentWide]}
           showsVerticalScrollIndicator={false}
@@ -132,14 +132,14 @@ export default function HomeScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
-  content: { ...centeredContent, padding: Spacing.md, paddingBottom: Spacing.xl },
+  content: { ...centeredContent, padding: Spacing.md, paddingTop: Spacing.sm, paddingBottom: Spacing.xl },
 
-  contentWide: { maxWidth: wideContent.maxWidth, padding: Spacing.lg },
+  contentWide: { maxWidth: wideContent.maxWidth, padding: Spacing.lg, paddingTop: Spacing.md },
   cols: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.lg },
   colMain: { flex: 3, minWidth: 0 },
   colSide: { flex: 2, minWidth: 0 },
 
-  hello: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginBottom: Spacing.lg, paddingHorizontal: 2 },
+  hello: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginBottom: Spacing.md, paddingHorizontal: 2 },
   date: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'right' },
   greeting: { fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 26, lineHeight: 31, color: Colors.text, marginTop: 1 },
   group: { fontFamily: FontFamily.bodyMed, fontSize: 15, lineHeight: 20, color: Colors.text, marginTop: 3 },

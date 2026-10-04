@@ -25,12 +25,15 @@ export function eventWhen(c: Pick<Competition, 'date' | 'time'>) {
  * é escura, para nunca cobrir o mascote. Cores fixas — a arte é escura nos
  * dois temas.
  */
-export function EventHero({ comp, statusLabel, statusColor, height = 240, top }: {
+export function EventHero({ comp, statusLabel, statusColor, height = 240, top, showMeta = false }: {
   comp: Competition; statusLabel: string; statusColor: string; height?: number; top?: ReactNode;
+  /** Mostra data, dia da semana, horário e local sobre a imagem, abaixo do título (no lugar das caixas EventTiles). */
+  showMeta?: boolean;
 }) {
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const accent = formatAccent(Colors, comp.format);
+  const w = eventWhen(comp);
   return (
     <View style={[s.hero, { height }]}>
       <Image source={require('../../assets/kingbt-mascote-fogo.jpg')} style={s.img} resizeMode="cover" accessibilityIgnoresInvertColors />
@@ -46,7 +49,19 @@ export function EventHero({ comp, statusLabel, statusColor, height = 240, top }:
       </View>
       {top}
       <View style={s.titleBox}>
-        <Text style={s.title} numberOfLines={2}>{comp.name}</Text>
+        <Text style={[s.title, showMeta && s.titleCompact]} numberOfLines={2}>{comp.name}</Text>
+        {showMeta && (
+          <View style={s.meta}>
+            <View style={s.metaItem}>
+              <Icon name="calendar" size={15} color={Colors.gold} />
+              <Text style={s.metaText} numberOfLines={1}>{w.day} · {w.weekday}{w.time ? ` · ${w.time}` : ''}</Text>
+            </View>
+            <View style={s.metaItem}>
+              <Text style={s.metaEmoji}>📍</Text>
+              <Text style={s.metaText} numberOfLines={1}>{comp.location?.trim() || 'Local a definir'}</Text>
+            </View>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -85,6 +100,12 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   pillText: { ...Type.label, fontSize: 11, lineHeight: 14 },
   titleBox: { paddingHorizontal: 16, paddingBottom: 14 },
   title: { fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 32, lineHeight: 36, color: '#F6EFDD', textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 8, textShadowOffset: { width: 0, height: 1 } },
+
+  titleCompact: { fontSize: 28, lineHeight: 32 },
+  meta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 16, rowGap: 4, marginTop: 6 },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  metaEmoji: { fontSize: 14 },
+  metaText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: '#F6EFDD', textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 } },
 
   tiles: { flexDirection: 'row', gap: Spacing.sm },
   tile: {

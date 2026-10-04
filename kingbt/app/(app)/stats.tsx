@@ -91,7 +91,7 @@ export default function StatsScreen() {
   const insight = generateFormatInsight(formatStats);
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={s.container} edges={[]}>
       <ScreenHeader title="Análise por Formato" onBack={() => router.navigate("/(app)/profile")} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scroll}>

@@ -58,7 +58,7 @@ export function ProfileHeroCard({ name, avatarColor, position, points, winRate, 
         </TouchableOpacity>
       )}
 
-      <Avatar name={name} color={avatarColor} size={88} showCrown={position === 1} />
+      <Avatar name={name} color={avatarColor} size={64} showCrown={position === 1} />
       <View style={s.nameRow}>
         <Text style={s.name}>{name.toUpperCase()}</Text>
         {onEdit && (
@@ -85,7 +85,7 @@ export function ProfileHeroCard({ name, avatarColor, position, points, winRate, 
           <Text style={s.levelLabel}>NÍVEL</Text>
           <Text style={s.levelName}>{level.name}</Text>
         </View>
-        <ProgressBar pct={level.progress * 100} height={10} />
+        <ProgressBar pct={level.progress * 100} height={8} />
         <Text style={s.levelHint}>
           {level.next ? (
             <>
@@ -139,9 +139,9 @@ export function ProfileHeroCard({ name, avatarColor, position, points, winRate, 
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   card: {
-    alignItems: 'center', marginTop: Spacing.sm, marginBottom: Spacing.sm,
-    paddingHorizontal: Spacing.md, paddingTop: Spacing.lg, paddingBottom: Spacing.lg,
-    borderRadius: 22, borderWidth: 1, borderColor: Colors.gold + '55',
+    alignItems: 'center', marginTop: 0, marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.md,
+    borderRadius: 20, borderWidth: 1, borderColor: Colors.gold + '55',
     backgroundColor: Colors.surf, position: 'relative', overflow: 'hidden',
   },
   img: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
@@ -150,19 +150,20 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: Colors.gold + '55', backgroundColor: Colors.gold + '11',
   },
-  nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: Spacing.sm },
-  name: { fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 26, lineHeight: 30, color: Colors.text, textAlign: 'center', letterSpacing: 0.5 },
-  sub: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.muted, marginTop: 6, textAlign: 'center' },
-  groupRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: Spacing.md },
-  group: { flexShrink: 1, fontFamily: FontFamily.titleBold, fontSize: 19, lineHeight: 24, color: Colors.text },
-  addBtn: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.gold, backgroundColor: Colors.gold + '1F' },
-  addPlus: { fontFamily: FontFamily.titleBold, fontSize: 20, lineHeight: 22, color: Colors.gold, marginTop: -1 },
-  levelBox: { alignSelf: 'stretch', marginTop: Spacing.md, gap: 8, padding: Spacing.md, borderRadius: Radius.md, backgroundColor: Colors.bg + 'B3', borderWidth: 1, borderColor: Colors.gold + '33' },
+  // minWidth/flexShrink: o nome encolhe e quebra de linha em vez de ser cortado pelo card (lápis ao lado).
+  nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: Spacing.xs, maxWidth: '100%' },
+  name: { flexShrink: 1, fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 22, lineHeight: 26, color: Colors.text, textAlign: 'center', letterSpacing: 0.4 },
+  sub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 4, textAlign: 'center' },
+  groupRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: Spacing.sm },
+  group: { flexShrink: 1, fontFamily: FontFamily.titleBold, fontSize: 16, lineHeight: 20, color: Colors.text },
+  addBtn: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.gold, backgroundColor: Colors.gold + '1F' },
+  addPlus: { fontFamily: FontFamily.titleBold, fontSize: 18, lineHeight: 20, color: Colors.gold, marginTop: -1 },
+  levelBox: { alignSelf: 'stretch', marginTop: Spacing.sm, gap: 6, padding: Spacing.sm + 2, borderRadius: Radius.md, backgroundColor: Colors.bg + 'B3', borderWidth: 1, borderColor: Colors.gold + '33' },
   levelTop: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  levelLabel: { fontFamily: FontFamily.titleBold, fontSize: 13, letterSpacing: 1.6, color: Colors.muted },
-  levelName: { fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 26, lineHeight: 30, color: Colors.gold },
-  levelHint: { fontFamily: FontFamily.body, fontSize: 14, color: Colors.text },
-  levelMore: { fontFamily: FontFamily.body, fontSize: 12, color: Colors.muted, marginTop: 2 },
+  levelLabel: { fontFamily: FontFamily.titleBold, fontSize: 12, letterSpacing: 1.4, color: Colors.muted },
+  levelName: { fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 22, lineHeight: 26, color: Colors.gold },
+  levelHint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.text },
+  levelMore: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
   xpOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', padding: Spacing.lg },
   xpSheet: { backgroundColor: Colors.surf, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.gold + '55', padding: Spacing.md, maxHeight: '88%', maxWidth: 480, width: '100%', alignSelf: 'center' },
   xpClose: { minHeight: 48, borderRadius: Radius.full, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center', marginTop: Spacing.sm },

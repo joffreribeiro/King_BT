@@ -62,7 +62,7 @@ export default function AchievementsScreen() {
   const overallPct    = Math.round((unlockedCount / totalCount) * 100);
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={s.container} edges={[]}>
       <ScreenHeader
         title="Conquistas"
         subtitle={`${unlockedCount}/${totalCount} desbloqueadas`}

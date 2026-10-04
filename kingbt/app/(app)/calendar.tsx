@@ -82,7 +82,7 @@ export default function CalendarScreen() {
   }, [compsByDate]);
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={s.container} edges={[]}>
       <ScrollView showsVerticalScrollIndicator={false}>
 
         <View style={s.header}>

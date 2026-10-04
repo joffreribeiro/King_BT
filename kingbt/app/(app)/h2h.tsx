@@ -108,7 +108,7 @@ export default function H2HScreen() {
   ];
 
   return (
-    <SafeAreaView style={s.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={s.container} edges={['bottom']}>
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.replace({ pathname: '/(app)/arena', params: { tab: 'ranking' } })} style={s.backBtn}>

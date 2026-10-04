@@ -230,7 +230,7 @@ export default function ProfileScreen() {
   if (!me) return null;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={[]}>
       {/* Topo: o mesmo card do perfil dos outros jogadores */}
       <View style={{ marginHorizontal: Spacing.md }}>
         <PlayerHeroCard
@@ -353,7 +353,7 @@ export default function ProfileScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
-  scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.md },
+  scroll: { ...centeredContent, padding: Spacing.md, paddingTop: Spacing.xs, gap: Spacing.md },
 
   // Rola na horizontal: com 4 abas em 15px, "RIVALIDADES" não cabe em celular estreito.
   tabScroll: { flexGrow: 0, flexShrink: 0, marginHorizontal: Spacing.md, marginBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.line },

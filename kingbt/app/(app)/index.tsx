@@ -270,7 +270,7 @@ export default function HubScreen() {
 
   return (
     <FadeScreen>
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={[]}>
       <FlatList
         data={(wide ? sectionRows : listData) as any[]}
         keyExtractor={(c: any) => c.id}
@@ -456,11 +456,11 @@ export default function HubScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
-  list: { ...centeredContent, padding: Spacing.md, paddingTop: Spacing.sm },
+  list: { ...centeredContent, padding: Spacing.md, paddingTop: 0 },
   listWide: { maxWidth: wideContent.maxWidth, padding: Spacing.lg },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   screenTitle: { ...Type.screenTitle, color: Colors.text, marginBottom: Spacing.md, marginLeft: 2 },
-  groupTitle: { fontFamily: FontFamily.bodyMed, fontSize: 14, letterSpacing: 0.4, color: Colors.gold, marginLeft: 2, marginBottom: 16 },
+  groupTitle: { fontFamily: FontFamily.bodyMed, fontSize: 14, letterSpacing: 0.4, color: Colors.gold, marginLeft: 2, marginBottom: Spacing.xs },
 
   headerLeft: {
     flexDirection: 'row',
