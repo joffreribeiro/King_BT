@@ -1,8 +1,9 @@
 import { currentSeasonComps } from '@/logic/seasons';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, FlatList, useWindowDimensions } from 'react-native';
 import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
-import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, wideContent, SIDEBAR_WIDTH, type ThemeColors } from '@/theme';
+import { useIsWide } from '@/hooks/useIsWide';
 import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -24,6 +25,10 @@ import { Icon } from './icons';
 
 export function AtletasSection() {
   const { colors: Colors } = useTheme();
+  const wide = useIsWide();
+  const { width: winWidth } = useWindowDimensions();
+  // Colunas no computador: 3 quando há espaço ao lado do menu, senão 2 (celular: 1).
+  const cols = !wide ? 1 : winWidth - SIDEBAR_WIDTH >= 1200 ? 3 : 2;
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { myPlayerId } = useAuth();
   const { state } = useCompetitions();
@@ -95,8 +100,12 @@ export function AtletasSection() {
   return (
     <FlatList
       data={list}
+      // Computador: grade de 2 colunas. numColumns não muda em uso, por isso a `key` remonta a lista.
+      key={`cols-${cols}`}
+      numColumns={cols}
+      columnWrapperStyle={wide ? { gap: Spacing.sm } : undefined}
       keyExtractor={r => r.id}
-      contentContainerStyle={s.list}
+      contentContainerStyle={[s.list, wide && s.listWide]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={header}
@@ -105,7 +114,7 @@ export function AtletasSection() {
       renderItem={({ item }) => {
         const mine = item.id === myPlayerId;
         return (
-          <TouchableOpacity style={s.row} onPress={() => openProfile(item.id)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Abrir perfil de ${item.name}`}>
+          <TouchableOpacity style={[s.row, wide && { flex: 1 }]} onPress={() => openProfile(item.id)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={`Abrir perfil de ${item.name}`}>
             <Text style={[s.pos, item.position === 0 && { color: Colors.faint }]}>{item.position > 0 ? `#${item.position}` : '#—'}</Text>
             <Avatar name={item.name} color={item.color} size={44} />
             <View style={{ flex: 1, gap: 2 }}>
@@ -129,6 +138,7 @@ export function AtletasSection() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   list: { paddingHorizontal: Spacing.md, paddingBottom: 140 },
+  listWide: { ...wideContent, paddingHorizontal: Spacing.lg },
   header: { gap: Spacing.sm + 2, marginBottom: Spacing.md },
   searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 46, paddingHorizontal: Spacing.md, borderRadius: Radius.full, backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line },
   search: { flex: 1, fontFamily: FontFamily.body, fontSize: 15, color: Colors.text, paddingVertical: 8 },

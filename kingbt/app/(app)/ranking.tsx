@@ -6,7 +6,8 @@ import ViewShot from 'react-native-view-shot';
 import { router } from 'expo-router';
 import { goToPlayer } from '@/logic/nav';
 import { notify } from '@/services/notify';
-import { FontFamily, Spacing, Radius, Type, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, Type, wideContent, type ThemeColors } from '@/theme';
+import { useIsWide } from '@/hooks/useIsWide';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Icon } from '@/components';
 import { AnimatedNumber } from '@/components/AnimatedNumber';
@@ -247,13 +248,18 @@ export default function RankingScreen({ embedded = false }: { embedded?: boolean
   const first  = classified[0];
   const second = classified[1];
   const third  = classified[2];
+  const wide = useIsWide();
 
   return (
     <FadeScreen>
     <SafeAreaView style={styles.container} edges={embedded ? [] : ['top']}>
       <ScrollView showsVerticalScrollIndicator={false}
+        contentContainerStyle={wide ? styles.wideContent : undefined}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />}
       >
+        {/* Computador: filtros e pódio à esquerda, tabela à direita. */}
+        <View style={wide ? styles.cols : undefined}>
+        <View style={wide ? styles.colLeft : undefined}>
 
         {/* Header — título + contexto numa linha só, sem o pódio gigante
             acima disto empurrando a tabela para fora da primeira dobra. */}
@@ -324,6 +330,8 @@ export default function RankingScreen({ embedded = false }: { embedded?: boolean
           );
         })()}
 
+        </View>
+        <View style={wide ? styles.colRight : undefined}>
         {/* Skeleton enquanto carrega */}
         {!state.synced && <SkeletonRanking />}
 
@@ -475,6 +483,8 @@ export default function RankingScreen({ embedded = false }: { embedded?: boolean
         </View>
 
         <View style={{ height: 140 }} />
+        </View>
+        </View>
       </ScrollView>
 
       {/* Card oculto para captura de imagem */}
@@ -678,6 +688,10 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
 
   // Título em Type.h1 (era 28px, próprio desta tela) + contexto de grupo
   // numa segunda linha só — o resto do cromo saiu daqui.
+  wideContent: { ...wideContent, padding: Spacing.lg },
+  cols: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.lg },
+  colLeft: { width: 420 },
+  colRight: { flex: 1, minWidth: 0 },
   header: { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.sm },
   title: { ...Type.screenTitle, color: Colors.text },
   subtitle: { ...Type.sectionLabel, color: Colors.gold, marginTop: 2 },

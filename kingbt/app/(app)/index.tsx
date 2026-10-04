@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Animated, RefreshControl, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Animated, RefreshControl, useWindowDimensions, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useState, useMemo, useCallback } from 'react';
-import { FontFamily, Spacing, centeredContent, Radius, Type, formatAccent, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, wideContent, SIDEBAR_WIDTH, Radius, Type, formatAccent, type ThemeColors } from '@/theme';
+import { useIsWide } from '@/hooks/useIsWide';
 import { makeShadows } from '@/theme/shadows';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/store/ThemeContext';
@@ -218,6 +219,10 @@ export default function HubScreen() {
   const { state, dispatch, refresh } = useCompetitions();
   const { group, isAdmin } = useAuth();
   const { groupPlayers } = useGroupPlayers();
+  const wide = useIsWide();
+  const { width: winWidth } = useWindowDimensions();
+  // Colunas de cards no computador: 3 quando há espaço (conteúdo ≥ ~1150px ao lado do menu), senão 2.
+  const gridCols = winWidth - SIDEBAR_WIDTH >= 1200 ? 3 : 2;
 
   // Handicap por jogador — usado só pra equilibrar o sorteio ao clonar/revanche um Super 8 duplas rotativas.
   const playerHandicaps: Record<string, number> = {};
@@ -251,6 +256,12 @@ export default function HubScreen() {
   const active = filtered.filter(c => c.status === 'active' || c.status === 'setup');
   const done   = filtered.filter(c => c.status === 'done');
   const listData = [...upcomingList, ...active, ...done];
+  // Computador: cada seção vira UMA linha da lista, com os cards em grade de 2 colunas.
+  const sectionRows = ([
+    { label: 'Agendadas', color: Colors.gold, items: upcomingList },
+    { label: 'Em andamento', color: Colors.gold, items: active },
+    { label: 'Encerradas', color: Colors.teal, items: done },
+  ] as const).filter(sec => sec.items.length > 0).map(sec => ({ ...sec, id: 'sec_' + sec.label }));
   // Um único card pulsa: o ativo mais recente. `filtered` já vem ordenado por
   // data desc do CompetitionsContext, então é o primeiro de `active`.
   const highlightId = active[0]?.id;
@@ -261,9 +272,9 @@ export default function HubScreen() {
     <FadeScreen>
     <SafeAreaView style={styles.container} edges={['top']}>
       <FlatList
-        data={listData}
-        keyExtractor={c => c.id}
-        contentContainerStyle={styles.list}
+        data={(wide ? sectionRows : listData) as any[]}
+        keyExtractor={(c: any) => c.id}
+        contentContainerStyle={[styles.list, wide && styles.listWide]}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews
         windowSize={7}
@@ -345,7 +356,28 @@ export default function HubScreen() {
 
           </View>
         }
-        renderItem={({ item, index }) => {
+        renderItem={({ item, index }: { item: any; index: number }) => {
+          if (wide) {
+            const sec = item as (typeof sectionRows)[number];
+            return (
+              <View>
+                <SectionHeader label={sec.label} color={sec.color} />
+                <View style={styles.grid}>
+                  {sec.items.map(c => (
+                    <View key={c.id} style={{ width: gridCols === 3 ? '32.4%' : '49.2%' }}>
+                      <CompCard
+                        comp={c}
+                        onDelete={isAdmin ? (id) => dispatch({ type: 'DELETE', compId: id }) : () => {}}
+                        onClone={isAdmin ? (id) => dispatch({ type: 'CLONE', compId: id, playerHandicaps }) : () => {}}
+                        isAdmin={isAdmin}
+                        highlight={c.id === highlightId}
+                      />
+                    </View>
+                  ))}
+                </View>
+              </View>
+            );
+          }
           const firstOfSection = index === 0 || listData[index - 1]?.status !== item.status;
           const section = item.status === 'upcoming' ? { label: 'Agendadas', color: Colors.gold }
             : item.status === 'done' ? { label: 'Encerradas', color: Colors.teal }
@@ -425,6 +457,8 @@ export default function HubScreen() {
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
   list: { ...centeredContent, padding: Spacing.md, paddingTop: Spacing.sm },
+  listWide: { maxWidth: wideContent.maxWidth, padding: Spacing.lg },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   screenTitle: { ...Type.screenTitle, color: Colors.text, marginBottom: Spacing.md, marginLeft: 2 },
   groupTitle: { fontFamily: FontFamily.bodyMed, fontSize: 14, letterSpacing: 0.4, color: Colors.gold, marginLeft: 2, marginBottom: 16 },
 

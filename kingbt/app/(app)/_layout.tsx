@@ -1,11 +1,11 @@
 import { Tabs, router } from 'expo-router';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated,
-  Modal, ScrollView, Pressable, Image, Linking, Platform,
+  Modal, ScrollView, Pressable, Image, Linking, Platform, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMemo, useRef, useEffect, useState } from 'react';
-import { FontFamily, Spacing, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, WIDE_BREAKPOINT, SIDEBAR_WIDTH, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useSyncQueue } from '@/store/SyncQueueContext';
 import { syncBannerLabel } from '@/store/syncQueue';
@@ -134,7 +134,7 @@ function DrawerMenu({ visible, onClose }: { visible: boolean; onClose: () => voi
 }
 
 // ── FAB ───────────────────────────────────────────────────────────────────────
-function FABMenu({ insetBottom }: { insetBottom: number }) {
+function FABMenu({ insetBottom, wide = false }: { insetBottom: number; wide?: boolean }) {
   const { colors: Colors } = useTheme();
   const fab = useMemo(() => makeFabStyles(Colors), [Colors]);
   const [open, setOpen] = useState(false);
@@ -165,7 +165,8 @@ function FABMenu({ insetBottom }: { insetBottom: number }) {
     transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [offset, 0] }) }],
   });
 
-  const fabBottom = Math.max(insetBottom, 8) + 68;
+  // Com o menu lateral não há barra embaixo, então o botão fica mais perto do canto.
+  const fabBottom = wide ? 28 : Math.max(insetBottom, 8) + 68;
 
   const FAB_ITEMS: { icon: IconName; label: string; path: string }[] = [
     { icon: 'competitions', label: 'Nova Competição', path: '/competitions/new' },
@@ -233,6 +234,28 @@ function TabItem({ route, isFocused, onPress }: {
   );
 }
 
+// ── Item do menu lateral (computador) ─────────────────────────────────────────
+function SideNavItem({ route, isFocused, onPress }: {
+  route: { name: string; key: string };
+  isFocused: boolean;
+  onPress: () => void;
+}) {
+  const config = TAB_CONFIG[route.name];
+  const { colors: Colors } = useTheme();
+  const tb = useMemo(() => makeTbStyles(Colors), [Colors]);
+  if (!config) return null;
+  const color = isFocused ? Colors.gold : Colors.muted;
+  return (
+    <TouchableOpacity
+      onPress={onPress} activeOpacity={0.75} style={[tb.sideItem, isFocused && tb.sideItemOn]}
+      accessibilityRole="button" accessibilityState={{ selected: isFocused }} accessibilityLabel={config.label}
+    >
+      <Icon name={config.icon} color={color} size={20} />
+      <Text style={[tb.sideLabel, { color: isFocused ? Colors.text : Colors.muted }]}>{config.label}</Text>
+    </TouchableOpacity>
+  );
+}
+
 // ── Custom Tab Bar ─────────────────────────────────────────────────────────────
 function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -242,6 +265,24 @@ function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     const opts = descriptors[r.key].options as any;
     return opts.href !== null && opts.href !== false;
   });
+  const side = (descriptors[state.routes[state.index].key].options as any).tabBarPosition === 'left';
+
+  // Computador: menu lateral à esquerda (mesmo desenho do King Scout).
+  if (side) {
+    return (
+      <View style={tb.side}>
+        <Text style={tb.sideSection}>MENU</Text>
+        {visibleRoutes.map(route => {
+          const isFocused = state.routes[state.index].key === route.key;
+          const onPress = () => {
+            const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+            if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
+          };
+          return <SideNavItem key={route.key} route={route} isFocused={isFocused} onPress={onPress} />;
+        })}
+      </View>
+    );
+  }
 
   return (
     <View style={[tb.bar, { paddingBottom: Math.max(insets.bottom, 8), height: 60 + Math.max(insets.bottom, 8) }]}>
@@ -380,6 +421,9 @@ export default function AppLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const { isMember, loading, user, groupConfirmed } = useAuth();
+  const { width } = useWindowDimensions();
+  // Computador (web larga): menu lateral no lugar da barra de baixo.
+  const wide = Platform.OS === 'web' && width >= WIDE_BREAKPOINT;
 
   // Sem isso, uma URL/aba salva apontando direto pra dentro do app (comum na
   // versão web/PWA, que restaura a última rota visitada) entrava direto sem
@@ -410,7 +454,7 @@ export default function AppLayout() {
 
       <Tabs
         tabBar={props => <CustomTabBar {...props} />}
-        screenOptions={{ headerShown: false, animation: 'fade', sceneStyle: { backgroundColor: 'transparent' } }}
+        screenOptions={{ headerShown: false, animation: 'fade', sceneStyle: { backgroundColor: 'transparent' }, tabBarPosition: wide ? 'left' : 'bottom' }}
         initialRouteName="home"
       >
         <Tabs.Screen name="home" />
@@ -431,7 +475,7 @@ export default function AppLayout() {
         <Tabs.Screen name="notifications" options={{ href: null }} />
       </Tabs>
 
-      {isMember && <FABMenu insetBottom={insets.bottom} />}
+      {isMember && <FABMenu insetBottom={insets.bottom} wide={wide} />}
       <DrawerMenu visible={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </ErrorBoundary>
   );
@@ -465,6 +509,18 @@ const makeTbStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderTopWidth: 1, borderTopColor: Colors.line,
   },
   tabItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 8, gap: 3 },
+  // Menu lateral (computador): 232px, mesma cor do cabeçalho, linha fina na direita.
+  side: {
+    width: SIDEBAR_WIDTH, backgroundColor: Colors.surf, borderRightWidth: 1, borderRightColor: Colors.line,
+    paddingTop: 14, paddingHorizontal: 8, gap: 2,
+  },
+  sideSection: { fontFamily: FontFamily.bodyMed, fontSize: 11, letterSpacing: 1.4, color: Colors.faint, paddingHorizontal: 12, paddingTop: 4, paddingBottom: 8 },
+  sideItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, height: 42, paddingHorizontal: 12, borderRadius: 10,
+    borderWidth: 1, borderColor: 'transparent',
+  },
+  sideItemOn: { backgroundColor: Colors.gold + '1A', borderColor: Colors.gold + '55' },
+  sideLabel: { fontFamily: FontFamily.bodyMed, fontSize: 15 },
   indicator: { position: 'absolute', top: 0, left: '20%', right: '20%', height: 2, borderRadius: 1 },
   label: { fontFamily: FontFamily.bodyMed, fontSize: 11, fontWeight: '600' },
 });

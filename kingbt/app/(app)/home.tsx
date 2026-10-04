@@ -2,7 +2,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useMemo, useState, useCallback } from 'react';
-import { FontFamily, Spacing, Radius, Type, centeredContent, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Radius, Type, centeredContent, wideContent, type ThemeColors } from '@/theme';
+import { useIsWide } from '@/hooks/useIsWide';
 import { useTheme } from '@/store/ThemeContext';
 import { useAuth } from '@/store/AuthContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
@@ -47,6 +48,7 @@ export default function HomeScreen() {
   const { groupPlayers } = useGroupPlayers();
   const { refresh: refreshFeed } = useFeed();
   const { items, loaded } = useActivityItems();
+  const wide = useIsWide();
 
   const me = groupPlayers.find(p => p.id === myPlayerId);
   const firstName = (me?.name ?? user?.displayName ?? '').trim().split(/\s+/)[0];
@@ -65,7 +67,7 @@ export default function HomeScreen() {
     <FadeScreen>
       <SafeAreaView style={s.container} edges={['top']}>
         <ScrollView
-          contentContainerStyle={s.content}
+          contentContainerStyle={[s.content, wide && s.contentWide]}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />}
         >
@@ -78,9 +80,14 @@ export default function HomeScreen() {
             </View>
           </View>
 
+          {/* Computador: duas colunas (o que pede ação à esquerda; sequência e atividade à direita). */}
+          <View style={wide ? s.cols : undefined}>
+          <View style={wide ? s.colMain : undefined}>
           <AnnouncementsBanner />
           <EventCard />
           <HomeSummary />
+          </View>
+          <View style={wide ? s.colSide : undefined}>
           <StreakBanner streak={streak} onPress={() => router.push({ pathname: '/(app)/arena', params: { tab: 'ranking' } })} />
 
           {recent.length > 0 && (
@@ -115,6 +122,8 @@ export default function HomeScreen() {
             </>
           )}
           {!loaded && recent.length === 0 && <Text style={s.hint}>Carregando atividade…</Text>}
+          </View>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </FadeScreen>
@@ -124,6 +133,11 @@ export default function HomeScreen() {
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
   content: { ...centeredContent, padding: Spacing.md, paddingBottom: Spacing.xl },
+
+  contentWide: { maxWidth: wideContent.maxWidth, padding: Spacing.lg },
+  cols: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.lg },
+  colMain: { flex: 3, minWidth: 0 },
+  colSide: { flex: 2, minWidth: 0 },
 
   hello: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginBottom: Spacing.lg, paddingHorizontal: 2 },
   date: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'right' },

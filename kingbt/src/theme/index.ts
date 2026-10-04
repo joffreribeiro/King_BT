@@ -1,4 +1,4 @@
-import type { TextStyle } from 'react-native';
+import { Platform, type TextStyle } from 'react-native';
 
 export const darkColors = {
   bg:         '#0B0B0D',
@@ -88,7 +88,26 @@ export const Spacing = {
  * distância um do outro em telas largas. Não afeta nativo/mobile: a tela
  * sempre é mais estreita que isto, então o `maxWidth` nunca entra em jogo.
  */
-export const MAX_CONTENT_WIDTH = 640;
+/** A partir desta largura (web) o app troca a barra de baixo pelo menu lateral e usa a página mais larga. */
+export const WIDE_BREAKPOINT = 1024;
+/** Largura de cada menu lateral (igual ao do King Scout). */
+export const SIDEBAR_WIDTH = 232;
+
+/**
+ * Lido uma vez ao abrir o app: o conteúdo é mais largo em telas grandes (computador) e continua em
+ * 640 no celular. Trocar o tamanho da janela depois só afeta o menu lateral (reativo); a largura do
+ * conteúdo se ajusta ao recarregar a página.
+ */
+const WIDE_AT_LOAD = Platform.OS === 'web' && typeof window !== 'undefined' && window.innerWidth >= WIDE_BREAKPOINT;
+export const MAX_CONTENT_WIDTH = WIDE_AT_LOAD ? 960 : 640;
+
+/** Telas que se abrem em colunas no computador usam esta largura (o resto fica em MAX_CONTENT_WIDTH). */
+export const WIDE_CONTENT_WIDTH = 1280;
+export const wideContent = {
+  width: '100%',
+  maxWidth: WIDE_CONTENT_WIDTH,
+  alignSelf: 'center',
+} as const;
 
 /** Spread no `contentContainerStyle` (ou estilo equivalente) do scroll
  * principal de cada tela, junto do padding/gap que a tela já define. */

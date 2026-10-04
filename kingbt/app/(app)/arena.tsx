@@ -2,7 +2,8 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { FontFamily, Spacing, Type, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, Type, wideContent, type ThemeColors } from '@/theme';
+import { useIsWide } from '@/hooks/useIsWide';
 import { useAuth } from '@/store/AuthContext';
 import { useTheme } from '@/store/ThemeContext';
 import FeedScreen from './feed';
@@ -25,6 +26,7 @@ export default function ArenaScreen() {
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { group } = useAuth();
+  const wide = useIsWide();
   const { tab } = useLocalSearchParams<{ tab?: string }>();
   const [active, setActive] = useState<Section>(tab === 'ranking' || tab === 'atletas' ? tab : 'feed');
 
@@ -35,6 +37,8 @@ export default function ArenaScreen() {
 
   return (
     <SafeAreaView style={s.container} edges={['top']}>
+      {/* Computador: título e abas alinhados com o conteúdo (mesma largura das colunas). */}
+      <View style={wide ? s.headWide : undefined}>
       {!!group?.name && <Text style={s.groupTitle} numberOfLines={1}>{group.name}</Text>}
       <Text style={s.screenTitle}>Arena</Text>
       <View style={s.tabBar}>
@@ -43,6 +47,7 @@ export default function ArenaScreen() {
             <Text style={[s.tabLabel, active === t.key && s.tabLabelActive]}>{t.label}</Text>
           </TouchableOpacity>
         ))}
+      </View>
       </View>
       <View style={{ flex: 1 }}>
         {active === 'feed' ? <FeedScreen embedded /> : active === 'ranking' ? <RankingScreen embedded /> : <AtletasSection />}
@@ -53,6 +58,7 @@ export default function ArenaScreen() {
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
+  headWide: { ...wideContent, paddingHorizontal: Spacing.md },
   groupTitle: { fontFamily: FontFamily.bodyMed, fontSize: 14, letterSpacing: 0.4, color: Colors.gold, marginHorizontal: Spacing.md, marginTop: Spacing.sm, marginBottom: 16 },
   screenTitle: { ...Type.screenTitle, color: Colors.text, marginHorizontal: Spacing.md, marginBottom: Spacing.md },
   tabBar: { flexDirection: 'row', marginHorizontal: Spacing.md, marginBottom: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.line },
