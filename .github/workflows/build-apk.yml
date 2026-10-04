@@ -136,11 +136,18 @@ jobs:
       - name: Renomear APK
         run: cp android/app/build/outputs/apk/release/app-release.apk kingbt.apk
 
+      # Versão deste APK, publicada junto com ele: o app compara o commit embutido no build com este
+      # arquivo para avisar de atualização (ver src/store/UpdateContext.tsx).
+      - name: Gerar apk-version.json
+        run: echo "{\"sha\":\"${{ github.sha }}\",\"build\":${{ github.run_number }}}" > kingbt/apk-version.json
+
       - name: Publicar release no GitHub
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest-apk
           name: "King BT (build ${{ github.run_number }})"
           body: "Build automático gerado a partir do commit ${{ github.sha }}."
-          files: kingbt/kingbt.apk
+          files: |
+            kingbt/kingbt.apk
+            kingbt/apk-version.json
           make_latest: true

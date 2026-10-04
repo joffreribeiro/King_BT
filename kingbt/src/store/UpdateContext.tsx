@@ -21,8 +21,13 @@ const UpdateContext = createContext<UpdateContextType>({
   updateRequired: false,
 });
 
-/** Versão publicada, gerada a cada deploy do site (ver .github/workflows/deploy-web.yml). */
-const VERSION_URL = 'https://kingbt.web.app/version.json';
+/**
+ * Versão do APK mais recente: o workflow do APK publica este arquivo na release `latest-apk` JUNTO com o
+ * kingbt.apk (ver .github/workflows/build-apk.yml). Assim o aviso só aparece quando já existe APK novo para
+ * baixar. (Antes comparava com o site, que publica em ~4 min, enquanto o APK leva ~16: o aviso aparecia
+ * cedo e o link entregava o APK antigo.)
+ */
+const VERSION_URL = 'https://github.com/joffreribeiro/King_BT/releases/download/latest-apk/apk-version.json';
 
 /** Link de download do APK mais recente, publicado pelo workflow de build. */
 export const APK_URL = 'https://github.com/joffreribeiro/King_BT/releases/download/latest-apk/kingbt.apk';
@@ -100,7 +105,7 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
     async function checkForUpdates() {
       last = Date.now();
       try {
-        const res = await fetch(`${VERSION_URL}?_=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetch(`${VERSION_URL}?_=${Date.now()}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
         if (!res.ok) return;
         const live = shaFromVersionJson(await res.json());
         if (alive && isNewerBuild(CURRENT_SHA, live)) setUpdateAvailable(true);
