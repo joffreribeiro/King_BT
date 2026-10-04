@@ -9,7 +9,7 @@
 // Para restaurar: restore-firestore.mjs.
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore, Timestamp, GeoPoint, DocumentReference } from 'firebase-admin/firestore';
-import { readFileSync, mkdirSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, mkdirSync, writeFileSync, existsSync, readdirSync, unlinkSync } from 'fs';
 import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -56,6 +56,11 @@ writeFileSync(file, JSON.stringify({
   meta: { projectId: key.project_id, createdAt: now.toISOString(), totalDocs: Object.keys(docs).length, perCollection },
   docs,
 }));
+// Guarda só os KEEP mais recentes (backup semanal: ~5 meses) para a pasta não crescer sem limite.
+const KEEP = 20;
+const old = readdirSync(outDir).filter(f => /^backup-.*\.json$/.test(f)).sort().reverse().slice(KEEP);
+for (const f of old) { unlinkSync(join(outDir, f)); console.log('Removido backup antigo:', f); }
+
 console.log(`OK: ${Object.keys(docs).length} documentos em ${((Date.now() - started) / 1000).toFixed(1)}s`);
 console.log('Por coleção:', JSON.stringify(perCollection));
 console.log('Arquivo:', file);
