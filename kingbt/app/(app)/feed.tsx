@@ -4,7 +4,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FontFamily, Spacing, centeredContent, Radius, Type, formatAccent, type ThemeColors } from '@/theme';
+import { FontFamily, Spacing, centeredContent, wideContent, Radius, Type, formatAccent, type ThemeColors } from '@/theme';
+import { useIsWide } from '@/hooks/useIsWide';
 import { useTheme } from '@/store/ThemeContext';
 import { Avatar, Card, Icon } from '@/components';
 import { useFeed } from '@/store/FeedContext';
@@ -609,6 +610,7 @@ export default function FeedScreen({ embedded = false }: { embedded?: boolean } 
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { items, loaded, error } = useActivityItems();
+  const wide = useIsWide();
 
   // Agrupa match_result da mesma competição E do mesmo dia num card só.
   // Antes agrupava só por compName ao longo do feed inteiro — uma competição
@@ -657,15 +659,29 @@ export default function FeedScreen({ embedded = false }: { embedded?: boolean } 
     finally { setRefreshing(false); }
   }, [refreshFeed, refreshCompetitions]);
 
+  const rowKey = (r: FeedRow, i: number) => (r.kind === 'group' ? r.matches[0].id : r.kind === 'divider' ? `divider-${i}-${r.label}` : r.item.id);
+
+  // Computador: duas colunas. Os cards têm alturas diferentes, então alternam entre a coluna da esquerda e a da direita
+  // (cada coluna empilha os seus). A FlatList recebe UM item, que desenha as duas colunas.
+  const renderColumns = () => (
+    <View style={s.cols}>
+      {[0, 1].map(c => (
+        <View key={c} style={s.col}>
+          {rows.map((r, i) => (i % 2 === c ? <View key={rowKey(r, i)} style={{ marginBottom: Spacing.sm }}>{renderRow({ item: r })}</View> : null))}
+        </View>
+      ))}
+    </View>
+  );
+
   return (
     <SafeAreaView style={s.container} edges={embedded ? [] : ['top']}>
       <FlatList
-        data={rows}
+        data={(wide && rows.length > 0 ? [{ kind: 'columns' }] : rows) as any[]}
         // grupos não têm mais chave única garantida por compName (a mesma
         // competição pode virar mais de um card, um por dia) — usa o id do
         // primeiro jogo do grupo, que é sempre único.
-        keyExtractor={(r, i) => r.kind === 'group' ? r.matches[0].id : r.kind === 'divider' ? `divider-${i}-${r.label}` : r.item.id}
-        contentContainerStyle={s.list}
+        keyExtractor={(r: any, i) => (r.kind === 'columns' ? 'columns' : rowKey(r, i))}
+        contentContainerStyle={[s.list, wide && s.listWide]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.gold} />}
         ListHeaderComponent={embedded ? null : (
@@ -673,8 +689,8 @@ export default function FeedScreen({ embedded = false }: { embedded?: boolean } 
             <Text style={s.title}>Feed</Text>
           </View>
         )}
-        renderItem={renderRow}
-        ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
+        renderItem={({ item }: { item: any }) => (item.kind === 'columns' ? renderColumns() : renderRow({ item }))}
+        ItemSeparatorComponent={() => <View style={{ height: wide ? 0 : Spacing.sm }} />}
         ListEmptyComponent={
           !loaded
             ? <FeedSkeleton />
@@ -709,6 +725,9 @@ export default function FeedScreen({ embedded = false }: { embedded?: boolean } 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
   list:       { ...centeredContent, padding: Spacing.md, paddingBottom: 140 },
+  listWide:   { maxWidth: wideContent.maxWidth, paddingHorizontal: Spacing.lg },
+  cols:       { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  col:        { flex: 1, minWidth: 0 },
   titleRow:   { marginBottom: Spacing.md },
   title:      { ...Type.screenTitle, color: Colors.text },
   dayDivider: { fontFamily: FontFamily.numberBold, fontSize: 10, letterSpacing: 1.2, color: Colors.faint, textTransform: 'uppercase', marginBottom: Spacing.xs, marginTop: Spacing.xs },

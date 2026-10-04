@@ -12,6 +12,7 @@ import { syncBannerLabel } from '@/store/syncQueue';
 import { useAuth } from '@/store/AuthContext';
 import { useUpdate } from '@/store/UpdateContext';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useInstallPrompt, IOS_INSTALL_STEPS } from '@/hooks/useInstallPrompt';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Icon, HexBackground, type IconName } from '@/components';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -28,6 +29,7 @@ function DrawerMenu({ visible, onClose }: { visible: boolean; onClose: () => voi
   const { logout, group } = useAuth();
   const { colors: Colors } = useTheme();
   const dr = useMemo(() => makeDrStyles(Colors), [Colors]);
+  const { canInstall, needsIosSteps, install } = useInstallPrompt();
   const slideAnim = useRef(new Animated.Value(300)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
@@ -119,6 +121,17 @@ function DrawerMenu({ visible, onClose }: { visible: boolean; onClose: () => voi
             <View style={dr.menuBtnIcon}><Icon name="settings" size={18} color={Colors.muted} /></View>
             <Text style={dr.menuBtnTxt}>Configurações</Text>
           </TouchableOpacity>
+          {/* Web: instalar o site como app (ícone próprio, abre em janela/tela cheia). Só aparece quando dá. */}
+          {(canInstall || needsIosSteps) && (
+            <TouchableOpacity
+              style={dr.menuBtn}
+              onPress={() => { if (canInstall) { onClose(); install(); } else { window.alert(IOS_INSTALL_STEPS); } }}
+              accessibilityRole="button"
+            >
+              <View style={dr.menuBtnIcon}><Icon name="share" size={18} color={Colors.gold} /></View>
+              <Text style={[dr.menuBtnTxt, { color: Colors.gold }]}>Instalar o app</Text>
+            </TouchableOpacity>
+          )}
 
         </ScrollView>
 

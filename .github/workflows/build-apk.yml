@@ -1,5 +1,10 @@
 name: Build e publicar APK
 
+# O APK leva ~16 min e cada APK novo faz os celulares mostrarem o aviso de atualização, então ele NÃO sai a cada
+# envio. Sai quando:
+#   1) você roda manualmente: aba Ações > "Build e publicar APK" > Run workflow; ou
+#   2) a mensagem do commit tem "[apk]" (ex.: "Corrige placar [apk]").
+# O site continua publicando sozinho a cada envio (deploy-web.yml).
 on:
   push:
     branches: [main]
@@ -16,6 +21,7 @@ jobs:
   # separado e não bloqueia este. Sem este gate, um commit que quebra
   # typecheck/testes ainda gerava e publicava um APK normalmente.
   check:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[apk]')
     runs-on: ubuntu-latest
     defaults:
       run:

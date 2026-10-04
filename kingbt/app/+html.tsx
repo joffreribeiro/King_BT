@@ -27,6 +27,12 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <meta name="description" content="Placar, ranking e competições de beach tennis do seu grupo." />
         <meta name="theme-color" content="#0B0B0D" />
 
+        {/* iPhone/iPad: abre em tela cheia quando adicionado à Tela de Início, com a barra de status escura. */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="King BT" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <link rel="manifest" href="/manifest.json" />
 

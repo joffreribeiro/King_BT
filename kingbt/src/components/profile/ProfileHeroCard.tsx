@@ -58,14 +58,17 @@ export function ProfileHeroCard({ name, avatarColor, position, points, winRate, 
         </TouchableOpacity>
       )}
 
-      <Avatar name={name} color={avatarColor} size={64} showCrown={position === 1} />
-      <View style={s.nameRow}>
-        <Text style={s.name}>{name.toUpperCase()}</Text>
+      {/* Lápis de editar ao lado do círculo do avatar (não disputa espaço com o nome). */}
+      <View style={s.avatarWrap}>
+        <Avatar name={name} color={avatarColor} size={64} showCrown={position === 1} />
         {onEdit && (
-          <TouchableOpacity onPress={onEdit} hitSlop={10} accessibilityRole="button" accessibilityLabel="Editar perfil" {...hoverTip('Editar perfil')}>
-            <Icon name="edit" size={16} color={Colors.muted} />
+          <TouchableOpacity style={s.editBtn} onPress={onEdit} hitSlop={8} accessibilityRole="button" accessibilityLabel="Editar perfil" {...hoverTip('Editar perfil')}>
+            <Icon name="edit" size={14} color={Colors.gold} />
           </TouchableOpacity>
         )}
+      </View>
+      <View style={s.nameRow}>
+        <Text style={s.name}>{name.toUpperCase()}</Text>
       </View>
       <Text style={s.sub}>
         {position > 0 ? `#${position}` : '#—'} no ranking · {formatRating(points)} pts · <Text style={{ color: Colors.teal, fontFamily: FontFamily.title }}>{winRate}%</Text> aproveit.
@@ -144,15 +147,23 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderRadius: 20, borderWidth: 1, borderColor: Colors.gold + '55',
     backgroundColor: Colors.surf, position: 'relative', overflow: 'hidden',
   },
-  img: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  // Só as bordas (top/left/right/bottom = 0), sem width/height em %: assim a imagem cobre o card inteiro,
+  // mesmo quando a altura do card só é conhecida depois que o conteúdo é desenhado.
+  img: { ...StyleSheet.absoluteFillObject },
   shareBtn: {
     position: 'absolute', top: 12, right: 12, zIndex: 2,
     width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: Colors.gold + '55', backgroundColor: Colors.gold + '11',
   },
   // minWidth/flexShrink: o nome encolhe e quebra de linha em vez de ser cortado pelo card (lápis ao lado).
-  nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: Spacing.xs, maxWidth: '100%' },
-  name: { flexShrink: 1, fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 22, lineHeight: 26, color: Colors.text, textAlign: 'center', letterSpacing: 0.4 },
+  avatarWrap: { position: 'relative' },
+  editBtn: {
+    position: 'absolute', right: -34, bottom: 6, width: 28, height: 28, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.gold, backgroundColor: Colors.surf,
+  },
+  // O nome ocupa a largura toda do card e quebra de linha se for comprido (nunca é cortado).
+  nameRow: { alignSelf: 'stretch', alignItems: 'center', marginTop: Spacing.xs },
+  name: { fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 22, lineHeight: 26, color: Colors.text, textAlign: 'center' },
   sub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 4, textAlign: 'center' },
   groupRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: Spacing.sm },
   group: { flexShrink: 1, fontFamily: FontFamily.titleBold, fontSize: 16, lineHeight: 20, color: Colors.text },

@@ -7,7 +7,8 @@ import { useState, useRef, useMemo, useCallback } from 'react';
 import { router } from 'expo-router';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors, PLAYER_COLORS } from '@/theme';
+import { FontFamily, Spacing, centeredContent, wideContent, Radius, type ThemeColors, PLAYER_COLORS } from '@/theme';
+import { useIsWide } from '@/hooks/useIsWide';
 import { useTheme } from '@/store/ThemeContext';
 import { ShareStatsCard, Icon } from '@/components';
 import { computeStreakHistory } from '@/logic/streak';
@@ -38,6 +39,7 @@ type Tab = 'resumo' | 'historico' | 'batalhas' | 'honrarias' | 'sobre' | 'radar'
 export default function ProfileScreen() {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
+  const wide = useIsWide();
   const { state, refresh } = useCompetitions();
   const { logout, group, user, myPlayerId, updateProfileName } = useAuth();
   const { groupPlayers, findPlayer } = useGroupPlayers();
@@ -230,9 +232,9 @@ export default function ProfileScreen() {
   if (!me) return null;
 
   return (
-    <SafeAreaView style={styles.container} edges={[]}>
-      {/* Topo: o mesmo card do perfil dos outros jogadores */}
-      <View style={{ marginHorizontal: Spacing.md }}>
+    <SafeAreaView style={[styles.container, wide && styles.containerWide]} edges={[]}>
+      {/* Topo: o mesmo card do perfil dos outros jogadores. Computador: coluna da esquerda. */}
+      <View style={wide ? styles.colLeft : { marginHorizontal: Spacing.md }}>
         <PlayerHeroCard
           playerId={player?.id ?? ''}
           skills={player?.skills}
@@ -251,6 +253,8 @@ export default function ProfileScreen() {
         />
       </View>
 
+      {/* Abas e conteúdo. Computador: coluna da direita. */}
+      <View style={wide ? styles.colRight : { flex: 1 }}>
       {/* Abas com sublinhado dourado na ativa, como no Atlas. */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll} contentContainerStyle={styles.tabBar}>
         {TABS.map(t => (
@@ -321,6 +325,7 @@ export default function ProfileScreen() {
 
         <View style={{ height: 140 }} />
       </ScrollView>
+      </View>
 
       {/* Share card fora da tela */}
       <View style={{ position: 'absolute', left: -9999, top: 0 }} pointerEvents="none">
@@ -353,6 +358,9 @@ export default function ProfileScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
+  containerWide: { flexDirection: 'row', alignItems: 'flex-start', width: '100%', maxWidth: wideContent.maxWidth, alignSelf: 'center', gap: Spacing.lg, paddingHorizontal: Spacing.lg },
+  colLeft: { width: 400 },
+  colRight: { flex: 1, minWidth: 0, alignSelf: 'stretch' },
   scroll: { ...centeredContent, padding: Spacing.md, paddingTop: Spacing.xs, gap: Spacing.md },
 
   // Rola na horizontal: com 4 abas em 15px, "RIVALIDADES" não cabe em celular estreito.
