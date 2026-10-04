@@ -144,8 +144,10 @@ jobs:
 
       # Versão deste APK, publicada junto com ele: o app compara o commit embutido no build com este
       # arquivo para avisar de atualização (ver src/store/UpdateContext.tsx).
+      # O job roda DENTRO de kingbt/ (defaults.run.working-directory): aqui o caminho é relativo a ela
+      # (apk-version.json), enquanto `files:` abaixo é relativo à raiz do repositório (kingbt/apk-version.json).
       - name: Gerar apk-version.json
-        run: echo "{\"sha\":\"${{ github.sha }}\",\"build\":${{ github.run_number }}}" > kingbt/apk-version.json
+        run: echo "{\"sha\":\"${{ github.sha }}\",\"build\":${{ github.run_number }}}" > apk-version.json
 
       - name: Publicar release no GitHub
         uses: softprops/action-gh-release@v2
