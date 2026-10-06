@@ -50,7 +50,8 @@ export function ProfileHeroCard({ name, avatarColor, position, points, winRate, 
 
   return (
     <View style={s.card}>
-      <Image source={require('../../../assets/kingbt-mascote-fogo.jpg')} style={[s.img, { opacity: mode === 'dark' ? 0.2 : 0.24 }]} resizeMode="cover" />
+      {/* Versão quadrada da arte, recortada em volta do rosto da vespa: a original é larga (4:3) e, no card quase quadrado, o corte automático deixava só a bola. */}
+      <Image source={require('../../../assets/kingbt-mascote-card.jpg')} style={[s.img, { opacity: mode === 'dark' ? 0.28 : 0.32 }]} resizeMode="cover" />
 
       {onShare && (
         <TouchableOpacity style={[s.shareBtn, sharing && { opacity: 0.5 }]} onPress={onShare} activeOpacity={0.75} disabled={sharing} accessibilityRole="button" accessibilityLabel="Compartilhar">
