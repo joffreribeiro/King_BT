@@ -13,6 +13,8 @@ import { listarAnalises, placardInicial, avancaPonto, formatGameScore, calcularE
 import { GamesComTb } from '@/components/analise/GamesComTb';
 import { tiebreaksDosSets } from '@/logic/btPlacarPonto';
 import { useAuth } from '@/store/AuthContext';
+import { useCompetitions } from '@/store/CompetitionsContext';
+import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { listAnalisesFs } from '@/firebase/analises';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
@@ -27,7 +29,8 @@ function AnaliseCard({ analise, onPdf }: { analise: BtAnalise; onPdf: (a: BtAnal
   const { colors: Colors } = useTheme();
   const card = useMemo(() => makeCardStyles(Colors), [Colors]);
   const { jogadores, nomes, placarFinal, criadaEm, matchId, competitionId } = analise;
-  const primeiro = (id: string) => nomes[id]?.split(' ')[0] ?? id;
+  const { findPlayer } = useGroupPlayers();
+  const primeiro = (id: string) => (findPlayer(id)?.name ?? nomes[id])?.split(' ')[0] ?? id;
   const nA = [jogadores.a1, jogadores.a2].filter(Boolean).map(primeiro).join(' / ');
   const nB = [jogadores.b1, jogadores.b2].filter(Boolean).map(primeiro).join(' / ');
 
@@ -132,6 +135,7 @@ export default function AnaliseListScreen() {
   const [analises, setAnalises] = useState<BtAnalise[]>([]);
   const [loading, setLoading] = useState(true);
   const [exportando, setExportando] = useState(false);
+  const { state: { competitions } } = useCompetitions();
 
   /** Gera o PDF e abre o compartilhamento (mesmo caminho do relatório de uma partida). */
   async function compartilharPdf(html: string, titulo: string) {
@@ -150,7 +154,10 @@ export default function AnaliseListScreen() {
 
   useEffect(() => {
     async function load() {
-      let list = await listarAnalises();
+      // O aparelho guarda as análises de TODOS os grupos; aqui entram só as de competições do grupo atual
+      // (as da nuvem já são do grupo). Antes a lista misturava jogos de outros grupos.
+      const idsComp = new Set(competitions.map(c => c.id));
+      let list = (await listarAnalises()).filter(a => idsComp.has(a.competitionId));
       // Complementa com Firebase se estiver online
       if (group?.id) {
         try {
@@ -166,7 +173,7 @@ export default function AnaliseListScreen() {
       setLoading(false);
     }
     load();
-  }, [group?.id]);
+  }, [group?.id, competitions]);
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -176,11 +183,12 @@ export default function AnaliseListScreen() {
       <ScreenHeader
         title="King Scout"
         subtitle="Jogos gravados ponto a ponto"
-        right={
-          <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+        below={
+          // Linha própria: no cabeçalho os botões ocupavam o espaço e cortavam o título ("King Sc…")
+          <View style={{ flexDirection: 'row', gap: Spacing.xs, marginTop: Spacing.xs }}>
             {analises.length > 0 && (
               <TouchableOpacity style={s.atletaBtn} onPress={pdfDosJogos} disabled={exportando}>
-                <Text style={s.atletaTxt}>{exportando ? '...' : '⬇ Relatório'}</Text>
+                <Text style={s.atletaTxt}>{exportando ? '...' : '⬇ Relatório dos jogos'}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity style={s.atletaBtn} onPress={() => router.push('/analise/atleta' as never)}>

@@ -1,4 +1,4 @@
-import { Tabs, router } from 'expo-router';
+import { Tabs, router, usePathname } from 'expo-router';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated,
   Modal, ScrollView, Pressable, Image, Linking, Platform, useWindowDimensions,
@@ -156,19 +156,26 @@ function FABMenu({ insetBottom, wide = false }: { insetBottom: number; wide?: bo
   const item2Anim = useRef(new Animated.Value(0)).current;
   const item3Anim = useRef(new Animated.Value(0)).current;
 
-  function toggle() {
-    const toValue = open ? 0 : 1;
+  // A animação segue SEMPRE o estado `open`: antes ela era disparada junto com o setOpen, e um toque duplo deixava
+  // o estado "fechado" com o botão ainda girado (o "+" ficava parecendo um "×" com o menu fechado).
+  useEffect(() => {
+    const toValue = open ? 1 : 0;
     Animated.parallel([
       Animated.timing(rotateAnim, { toValue, duration: 200, useNativeDriver: true }),
-      Animated.timing(item1Anim,  { toValue, duration: 180, delay: open ? 0 : 20,  useNativeDriver: true }),
-      Animated.timing(item2Anim,  { toValue, duration: 180, delay: open ? 0 : 60,  useNativeDriver: true }),
-      Animated.timing(item3Anim,  { toValue, duration: 180, delay: open ? 0 : 100, useNativeDriver: true }),
+      Animated.timing(item1Anim,  { toValue, duration: 180, delay: open ? 20 : 0,  useNativeDriver: true }),
+      Animated.timing(item2Anim,  { toValue, duration: 180, delay: open ? 60 : 0,  useNativeDriver: true }),
+      Animated.timing(item3Anim,  { toValue, duration: 180, delay: open ? 100 : 0, useNativeDriver: true }),
     ]).start();
-    setOpen(v => !v);
-  }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toggle() { setOpen(v => !v); }
+
+  // O menu (e o "×" do botão) não pode ficar aberto depois de trocar de tela: ao mudar a rota, fecha sozinho.
+  const pathname = usePathname();
+  useEffect(() => { setOpen(false); }, [pathname]);
 
   function action(path: string) {
-    toggle();
+    setOpen(false);
     setTimeout(() => router.push(path as any), 200);
   }
 

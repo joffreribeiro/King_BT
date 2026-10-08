@@ -16,6 +16,7 @@ import {
   adversariosDe, analisesContra, campanhasDoAtleta, dicasContra, evolucaoDoAtleta, sugestoesDoAtleta, MINIMO_PARTIDAS_EVOLUCAO,
 } from '@/logic/btAtletaAnalise';
 import { useCompetitions } from '@/store/CompetitionsContext';
+import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
 import { listAnalisesFs } from '@/firebase/analises';
 import { Chip } from '@/components/analise/Chip';
@@ -47,6 +48,8 @@ export default function AtletaScreen() {
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { group } = useAuth();
   const { state: { competitions } } = useCompetitions();
+  const { findPlayer } = useGroupPlayers();
+  const nomeDe = (id: string, salvo: string) => findPlayer(id)?.name ?? salvo;
   const [advId, setAdvId] = useState<string | null>(null);
   const [todas, setTodas] = useState<BtAnalise[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +58,9 @@ export default function AtletaScreen() {
 
   useEffect(() => {
     async function load() {
-      let list = await listarAnalises();
+      // Só as análises de competições do grupo atual (o aparelho guarda as de todos os grupos)
+      const idsComp = new Set(competitions.map(c => c.id));
+      let list = (await listarAnalises()).filter(a => idsComp.has(a.competitionId));
       if (group?.id) {
         try {
           const remote = await listAnalisesFs(group.id);
@@ -67,7 +72,7 @@ export default function AtletaScreen() {
       setLoading(false);
     }
     load();
-  }, [group?.id]);
+  }, [group?.id, competitions]);
 
   const analises = useMemo(() => analisesDoPeriodo(todas, periodo), [todas, periodo]);
   const atletas = useMemo(() => atletasConhecidos(analises), [analises]);
@@ -144,13 +149,13 @@ export default function AtletaScreen() {
             <>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
                 {atletas.map(a => (
-                  <Chip key={a.id} label={`${a.nome.split(' ')[0]} · ${a.partidas}`} selected={escolhido === a.id} onPress={() => setAtletaId(a.id)} color={Colors.teal} />
+                  <Chip key={a.id} label={`${nomeDe(a.id, a.nome).split(' ')[0]} · ${a.partidas}`} selected={escolhido === a.id} onPress={() => setAtletaId(a.id)} color={Colors.teal} />
                 ))}
               </ScrollView>
 
               {resumo && (
                 <>
-                  <Text style={s.nome}>{resumo.nome}</Text>
+                  <Text style={s.nome}>{nomeDe(resumo.id, resumo.nome)}</Text>
                   <View style={s.grade}>
                     <Numero rotulo="Partidas" valor={resumo.partidas} sub={`${resumo.vitorias}V · ${resumo.derrotas}D`} />
                     <Numero rotulo="Nota média" valor={resumo.notaMedia.toFixed(1)} cor={Colors.gold} />
@@ -229,12 +234,12 @@ export default function AtletaScreen() {
                       <Text style={s.hint}>Toque em um adversário para ver como jogar contra ele</Text>
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
                         {adversarios.map(a => (
-                          <Chip key={a.id} small label={`${a.nome.split(' ')[0]} · ${a.vitorias}V ${a.derrotas}D`} selected={advId === a.id} onPress={() => setAdvId(advId === a.id ? null : a.id)} color={Colors.coral} />
+                          <Chip key={a.id} small label={`${nomeDe(a.id, a.nome).split(' ')[0]} · ${a.vitorias}V ${a.derrotas}D`} selected={advId === a.id} onPress={() => setAdvId(advId === a.id ? null : a.id)} color={Colors.coral} />
                         ))}
                       </ScrollView>
                       {adv && contra && (
                         <View style={{ gap: Spacing.xs }}>
-                          <Text style={s.sugestaoTit}>Como jogar contra {adv.nome.split(' ')[0]} ({contra.partidas} {contra.partidas === 1 ? 'partida' : 'partidas'})</Text>
+                          <Text style={s.sugestaoTit}>Como jogar contra {nomeDe(adv.id, adv.nome).split(' ')[0]} ({contra.partidas} {contra.partidas === 1 ? 'partida' : 'partidas'})</Text>
                           {dicasContra(contra).map((d, i) => <Text key={i} style={s.sugestaoTxt}>• {d}</Text>)}
                         </View>
                       )}

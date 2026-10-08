@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><title>King BT — Manual do Usuário</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+@page { size: A4; margin: 0; }
+:root { --bg:#070500; --gold:#F3C544; --gold2:#C2891A; --text:#F6EFDD; --muted:#A99B7C; --faint:#6E6452; --line:rgba(243,197,68,.2); --surf:#121008; --surf2:#1C1810; --teal:#54C98A; --coral:#E5483D; }
+* { box-sizing:border-box; margin:0; padding:0; }
+html, body { background:#030200; }
+body { font-family:'Sora', 'Segoe UI', Arial, sans-serif; color:var(--text); -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+.page { width:210mm; height:296mm; margin:0 auto; background:var(--bg); page-break-after:always; position:relative; overflow:hidden; padding:13mm 15mm 16mm; display:flex; flex-direction:column; gap:4.5mm; }
+.page::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse 100% 40% at 50% -5%, rgba(243,197,68,.12), transparent 60%); pointer-events:none; }
+.page > * { position:relative; z-index:1; }
+header { display:flex; align-items:center; gap:3.5mm; padding-bottom:3.5mm; border-bottom:.3mm solid var(--line); }
+.chip { font-family:'Space Grotesk', sans-serif; font-size:7.5pt; font-weight:700; letter-spacing:.35mm; text-transform:uppercase; color:var(--gold); border:.25mm solid var(--line); border-radius:1.5mm; padding:.8mm 2.5mm; background:rgba(243,197,68,.08); }
+h2 { font-size:17pt; font-weight:800; letter-spacing:-.2mm; }
+.intro { font-size:9.6pt; line-height:1.55; color:var(--muted); }
+.passos { list-style:none; counter-reset:p; display:flex; flex-direction:column; gap:2.6mm; }
+.passos li { counter-increment:p; position:relative; padding-left:8mm; font-size:9.3pt; line-height:1.5; color:#E9E0C8; }
+.passos li::before { content:counter(p); position:absolute; left:0; top:.2mm; width:5.6mm; height:5.6mm; border-radius:50%; border:.3mm solid var(--gold); color:var(--gold); font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:7.5pt; display:flex; align-items:center; justify-content:center; background:rgba(243,197,68,.07); }
+b { color:#fff; font-weight:700; }
+code { font-family:'Space Grotesk', monospace; color:var(--gold); background:rgba(243,197,68,.1); padding:.2mm 1.2mm; border-radius:1mm; font-size:8.6pt; }
+.nota { border-left:.9mm solid var(--gold); background:var(--surf); padding:3mm 4mm; font-size:8.9pt; line-height:1.5; color:#E9E0C8; border-radius:0 2mm 2mm 0; }
+.tab { width:100%; border-collapse:collapse; font-size:8.8pt; }
+.tab th { text-align:left; color:var(--gold); font-size:7.5pt; letter-spacing:.25mm; text-transform:uppercase; padding:1.6mm 2.4mm; border-bottom:.3mm solid var(--line); }
+.tab td { padding:2mm 2.4mm; border-bottom:.2mm solid rgba(243,197,68,.08); line-height:1.45; color:#E9E0C8; vertical-align:top; }
+.tab .modo { width:23mm; font-weight:800; color:var(--gold); }
+.figs { margin-top:auto; display:flex; justify-content:center; align-items:flex-start; gap:6mm; }
+figure { display:flex; flex-direction:column; align-items:center; gap:1.8mm; }
+figure img { display:block; border-radius:3.4mm; border:.35mm solid rgba(243,197,68,.35); box-shadow:0 1.5mm 5mm rgba(0,0,0,.6); background:#0b0905; }
+.n1 img { width:60mm; } .n2 img { width:58mm; } .n3 img { width:52mm; }
+figcaption { font-size:7.4pt; line-height:1.35; color:var(--muted); text-align:center; max-width:56mm; }
+.faq { border-bottom:.2mm solid rgba(243,197,68,.12); padding:2.4mm 0; }
+.faq .q { font-weight:700; font-size:9.6pt; color:var(--gold); margin-bottom:1mm; }
+.faq .r { font-size:9pt; line-height:1.5; color:#E9E0C8; }
+footer { position:absolute !important; left:15mm; right:15mm; bottom:7mm; display:flex; justify-content:space-between; font-size:7pt; color:var(--faint); border-top:.2mm solid var(--line); padding-top:2mm; }
+.cover { padding:0; justify-content:center; align-items:center; }
+.capa-in { width:100%; display:flex; flex-direction:column; align-items:center; gap:4.2mm; padding:16mm 24mm; text-align:center; }
+.logo { width:44mm; height:44mm; object-fit:contain; filter:drop-shadow(0 0 8mm rgba(243,197,68,.5)); }
+.capa-titulo { font-size:44pt; font-weight:900; letter-spacing:-1.4mm; line-height:.9; background:linear-gradient(155deg,#FFE880 0%,#F3C544 45%,#9A6200 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+.capa-sub { font-size:8.5pt; font-weight:700; letter-spacing:2.2mm; color:var(--muted); }
+.regua { width:30mm; height:.3mm; background:linear-gradient(90deg,transparent,var(--gold),transparent); }
+.doc { font-size:19pt; font-weight:800; }
+.doc-sub { font-size:9.6pt; color:var(--muted); }
+.toc { width:100%; max-width:118mm; margin-top:4mm; background:var(--surf); border:.3mm solid var(--line); border-radius:4mm; padding:5mm 6.5mm; text-align:left; }
+.toc-h { font-size:7.5pt; font-weight:700; letter-spacing:.7mm; color:var(--gold); padding-bottom:2.6mm; margin-bottom:1.6mm; border-bottom:.3mm solid var(--line); }
+.toc-r { display:flex; gap:3mm; padding:1.25mm 0; font-size:9pt; border-bottom:.2mm solid rgba(243,197,68,.06); }
+.toc-n { width:6mm; text-align:right; color:var(--gold2); font-family:'Space Grotesk', sans-serif; font-weight:700; }
+.toc-t { font-weight:600; }
+.capa-rod { margin-top:6mm; width:100%; display:flex; justify-content:space-between; font-size:7.6pt; color:var(--faint); border-top:.25mm solid var(--line); padding-top:3mm; }
+@media screen { body { padding:6mm 0; } .page { margin-bottom:6mm; } }
+</style></head>
+<body><section class="page cover">
+  <div class="capa-in">
+    <img class="logo" src="img/icon.png" alt="KING BT">
+    <div class="capa-titulo">KING BT</div>
+    <div class="capa-sub">BEACH TENNIS</div>
+    <div class="regua"></div>
+    <div class="doc">Manual do Usuário</div>
+    <div class="doc-sub">Passo a passo, com imagens das telas</div>
+    <div class="toc">
+      <div class="toc-h">ÍNDICE</div>
+      <div class="toc-r"><span class="toc-n">1</span><span class="toc-t">Primeiros passos</span></div><div class="toc-r"><span class="toc-n">2</span><span class="toc-t">Início</span></div><div class="toc-r"><span class="toc-n">3</span><span class="toc-t">Arena: Feed, Ranking e Atletas</span></div><div class="toc-r"><span class="toc-n">4</span><span class="toc-t">Competições</span></div><div class="toc-r"><span class="toc-n">5</span><span class="toc-t">Criar uma competição</span></div><div class="toc-r"><span class="toc-n">6</span><span class="toc-t">Registrar o placar à mão</span></div><div class="toc-r"><span class="toc-n">7</span><span class="toc-t">Competição Avulsa</span></div><div class="toc-r"><span class="toc-n">8</span><span class="toc-t">Marcação ponto a ponto</span></div><div class="toc-r"><span class="toc-n">9</span><span class="toc-t">King Scout: marcar um jogo</span></div><div class="toc-r"><span class="toc-n">10</span><span class="toc-t">King Scout: o relatório</span></div><div class="toc-r"><span class="toc-n">11</span><span class="toc-t">King Scout: histórico, atletas e PDF</span></div><div class="toc-r"><span class="toc-n">12</span><span class="toc-t">Perfil</span></div><div class="toc-r"><span class="toc-n">13</span><span class="toc-t">Dúvidas frequentes</span></div>
+    </div>
+    <div class="capa-rod"><span>Versão de outubro de 2026</span><span>As telas são do grupo de teste</span></div>
+  </div></section>
+<section class="page">
+    <header><span class="chip">Capítulo 1</span><h2>Primeiros passos</h2></header>
+    <p class="intro">O KING BT é o app do grupo de beach tennis: competições, placares, ranking e a análise de jogo ponto a ponto (King Scout). Funciona no navegador do celular e como aplicativo Android.</p>
+    <ol class="passos"><li><b>Abra o app</b> pelo endereço do grupo (<code>kingbt.web.app</code>) ou pelo aplicativo instalado. A abertura mostra a vespa do KING BT e, em seguida, a tela de entrada.</li><li>Toque em <b>Entrar com e-mail</b> e use o seu e-mail e senha. Quem ainda não tem conta toca em <b>Criar conta</b>.</li><li>Escolha o <b>grupo</b>. Você pode participar de mais de um; o grupo ativo aparece em destaque e dá para trocar a qualquer momento. Para entrar em outro grupo, digite o <b>código de convite</b> e toque em <b>Entrar</b>.</li><li><b>Instale o app.</b> No celular, use o menu do navegador e escolha <b>Adicionar à tela inicial</b>; no Android também há o aplicativo (APK) do grupo. O app avisa quando existe uma versão nova: toque na barra de atualização.</li></ol>
+    <div class="nota">As telas deste manual foram capturadas em um <b>grupo de teste</b>, por isso os jogadores têm nomes como A, B, C e Joffre.</div>
+    <footer><span>King BT · Manual do Usuário</span><span>2</span></footer></section>
+<section class="page">
+    <header><span class="chip">Capítulo 2</span><h2>Início</h2></header>
+    <p class="intro">A tela Início resume o que importa para você no grupo.</p>
+    <ol class="passos"><li><b>Pendências</b> mostra o que espera por você: jogos sem placar, colegas para avaliar e pedidos de inscrição. Toque numa linha para ir direto ao assunto.</li><li><b>Sua posição</b> mostra onde você está no ranking do grupo e quantos pontos tem.</li><li><b>Acontecendo no grupo</b> lista as novidades: primeiras vitórias, subidas no ranking e resultados. “Ver tudo” abre o Feed completo.</li><li>A <b>barra de baixo</b> leva às quatro áreas: Home, Arena, Competições e Perfil. O botão amarelo <b>+</b> abre os atalhos (veja o capítulo 5).</li></ol>
+    
+    <div class="figs n1"><figure><img src="img/01-home.png" alt="Início: pendências, posição e novidades."><figcaption>Início: pendências, posição e novidades.</figcaption></figure></div><footer><span>King BT · Manual do Usuário</span><span>3</span></footer></section>
+<section class="page">
+    <header><span class="chip">Capítulo 3</span><h2>Arena: Feed, Ranking e Atletas</h2></header>
+    <p class="intro">A Arena reúne a vida do grupo em três abas.</p>
+    <ol class="passos"><li><b>Feed</b>: as conquistas e os resultados do grupo. Dá para reagir (👑 🔥 💪) e comentar. O placar dos jogos usa o mesmo desenho do resto do app: nomes brancos e o game ganho em verde.</li><li><b>Ranking</b>: pódio dos três primeiros e a tabela completa. Os filtros <b>Este mês</b>, <b>Temporada</b> e <b>Acumulado</b> mudam o período.</li><li><b>Atletas</b>: a lista dos jogadores do grupo. Toque num nome para abrir o perfil dele.</li></ol>
+    
+    <div class="figs n2"><figure><img src="img/35-feed.jpg" alt="Feed do grupo."><figcaption>Feed do grupo.</figcaption></figure><figure><img src="img/02-arena.png" alt="Ranking, com o pódio."><figcaption>Ranking, com o pódio.</figcaption></figure></div><footer><span>King BT · Manual do Usuário</span><span>4</span></footer></section>
+<section class="page">
+    <header><span class="chip">Capítulo 4</span><h2>Competições</h2></header>
+    <p class="intro">Todas as disputas do grupo ficam na aba Competições.</p>
+    <ol class="passos"><li>Na <b>lista</b>, cada competição mostra o tipo (Super 8, Avulso, Liga…), a data, o número de jogadores e uma barra com os jogos já registrados. Use <b>Todas</b>, <b>Agendadas</b> e <b>Em andamento</b> para filtrar, e a lupa para buscar.</li><li>Ao abrir uma competição, a aba <b>Partidas</b> mostra a <b>classificação</b> (V vitórias, D derrotas, GP games pró, SALDO e PTS) e o <b>progresso</b> (por exemplo, 8/14 jogos).</li><li>Mais abaixo ficam os <b>jogos</b>. Cada cartão tem uma linha por dupla e uma coluna por set (“SET 1”). O <b>game ganho aparece em verde</b>. O jogo seguinte vem destacado com o selo <b>PRÓXIMO</b>.</li><li>A aba <b>Regras</b> explica o formato de disputa (sets, games, tie-break).</li></ol>
+    
+    <div class="figs n3"><figure><img src="img/03-competicoes.png" alt="Lista de competições."><figcaption>Lista de competições.</figcaption></figure><figure><img src="img/10-competicao-classificacao.png" alt="Classificação e progresso."><figcaption>Classificação e progresso.</figcaption></figure><figure><img src="img/11-jogos-placar.png" alt="Jogos: SET 1, verde no game ganho, selo PRÓXIMO."><figcaption>Jogos: SET 1, verde no game ganho, selo PRÓXIMO.</figcaption></figure></div><footer><span>King BT · Manual do Usuário</span><span>5</span></footer></section>
+<section class="page">
+    <header><span class="chip">Capítulo 5</span><h2>Criar uma competição</h2></header>
+    <p class="intro">Quem administra o grupo cria as competições pelo botão amarelo <b>+</b>.</p>
+    <ol class="passos"><li>Toque no <b>+</b> e escolha <b>Nova Competição</b>. Os outros atalhos do menu são <b>Jogo Rápido</b> e <b>Marcação ponto a ponto</b>.</li><li>Preencha as <b>Informações gerais</b>: nome, tipo (Liga, Grupos + Eliminatórias, Mata-mata, Avulso ou Super 8), “Competem em” (duplas ou individual), gênero, categoria de nível, data e horário. Local e descrição são opcionais.</li><li>Escolha o <b>formato de disputa</b> (por exemplo, melhor de 1 set com 4 games e tie-break a 7). É ele que define quando o set termina e quando entra o tie-break.</li><li>Opções extras: <b>Repetir toda semana</b> cria uma série; <b>Abrir inscrições</b> deixa os jogadores pedirem para entrar.</li><li>Confira o <b>Resumo antes de criar</b>. O botão <b>Criar competição</b> só habilita quando tudo obrigatório está preenchido; o aviso em vermelho diz o que falta.</li></ol>
+    
+    <div class="figs n3"><figure><img src="img/06-menu-mais.png" alt="O botão + e seus atalhos."><figcaption>O botão + e seus atalhos.</figcaption></figure><figure><img src="img/07-nova-competicao-1.png" alt="Informações gerais."><figcaption>Informações gerais.</figcaption></figure><figure><img src="img/09-nova-competicao-3.png" alt="Resumo antes de criar."><figcaption>Resumo antes de criar.</figcaption></figure></div><footer><span>King BT · Manual do Usuário</span><span>6</span></footer></section>
+<section class="page">
+    <header><span class="chip">Capítulo 6</span><h2>Registrar o placar à mão</h2></header>
+    <p class="intro">Quando o jogo acabou e você só quer lançar o resultado, toque no jogo para abrir o <b>Registrar Placar</b>.</p>
+    <ol class="passos"><li>Use <b>−</b> e <b>+</b> para os <b>games de cada dupla em cada set</b>. O sistema respeita o formato: ele não deixa passar do limite do set.</li><li>Se o formato tem mais de um set, toque em <b>+ Adicionar set</b>. O placar de sets (por exemplo, 1 × 0) é calculado sozinho.</li><li><b>Tie-break obrigatório.</b> Quando um set termina como termina um set decidido no tie-break (4×3 num formato de 4 games, por exemplo), aparece a linha <b>Tie-break</b>. Informe os pontos dos dois lados (ex.: 7–5). O tie-break vai a 7 pontos, com 2 de diferença, e o vencedor do set precisa ganhar o tie-break. Enquanto estiver vazio ou inválido, o botão <b>Salvar</b> fica desabilitado.</li><li>O tie-break aparece depois como número pequeno ao lado dos games (4³ – 3⁷) no cartão do jogo, no Feed e nos relatórios.</li><li><b>Rascunho</b> guarda um placar incompleto sem valer para o ranking. Administradores podem <b>Corrigir</b> ou <b>Apagar placar</b> de um jogo já salvo.</li></ol>
+    <div class="nota">Os botões <b>Marcação ponto a ponto</b> e <b>Usar King Scout</b> no mesmo quadro levam aos capítulos 8 e 9. Este último só aparece para o super admin.</div>
+    <div class="figs n3"><figure><img src="img/12-registrar-placar-scout.jpg" alt="Registrar Placar de um jogo ainda sem placar."><figcaption>Registrar Placar de um jogo ainda sem placar.</figcaption></figure><figure><img src="img/13-placar-tiebreak-vazio.png" alt="Set 4×3: o tie-break é obrigatório e o Salvar espera."><figcaption>Set 4×3: o tie-break é obrigatório e o Salvar espera.</figcaption></figure><figure><img src="img/14-placar-tiebreak-ok.png" alt="Tie-break 7–5 informado: Salvar liberado."><figcaption>Tie-break 7–5 informado: Salvar liberado.</figcaption></figure></div><footer><span>King BT · Manual do Usuário</span><span>7</span></footer></section>
+<section class="page">
+    <header><span class="chip">Capítulo 7</span><h2>Competição Avulsa</h2></header>
+    <p class="intro">O formato <b>Avulso</b> é uma sessão livre: você lança cada jogo que aconteceu, sem tabela pré-definida.</p>
+    <ol class="passos"><li>Abra a competição e toque em <b>Registrar jogo</b> (ou toque num jogo “Aguardando placar”).</li><li>Informe os <b>games de cada dupla</b>: toque no número e digite, ou use <b>−</b> e <b>+</b>. Cada linha é um set (“Set 1”, “Set 2”…); use <b>+ Adicionar set</b> para mais.</li><li>No Avulso o formato não é definido, então o app <b>não adivinha o tie-break</b>. Se o set teve tie-break, marque a caixa <b>Tie-break</b> abaixo do set e informe os <b>Pts</b> de cada dupla, cada um embaixo dos games dela. Marcado, os pontos são obrigatórios.</li><li>O placar <b>pode terminar empatado</b>: o Salvar não exige vencedor.</li></ol>
+    
+    <div class="figs n3"><figure><img src="img/15-avulso.png" alt="Competição Avulsa: “Registrar jogo” e jogos aguardando placar."><figcaption>Competição Avulsa: “Registrar jogo” e jogos aguardando placar.</figcaption></figure><figure><img src="img/17-avulso-tiebreak-vazio.jpg" alt="Caixa Tie-break marcada: Pts pendentes."><figcaption>Caixa Tie-break marcada: Pts pendentes.</figcaption></figure><figure><img src="img/18-avulso-tiebreak-ok.jpg" alt="Tie-break 7–5 informado."><figcaption>Tie-break 7–5 informado.</figcaption></figure></div><footer><span>King BT · Manual do Usuário</span><span>8</span></footer></section>
+<section class="page">
+    <header><span class="chip">Capítulo 8</span><h2>Marcação ponto a ponto</h2></header>
+    <p class="intro">Para marcar o jogo enquanto ele acontece, ponto por ponto, sem as estatísticas detalhadas do scout.</p>
+    <ol class="passos"><li>Toque no <b>+</b> e em <b>Marcação ponto a ponto</b>. A tela lista as competições com jogos pendentes (“8/14 jogos · Próximo disponível”).</li><li>Toque na competição: o app abre o <b>próximo jogo</b>. Ele aparece como cartão <b>PRÓXIMO</b>; toque nele para começar.</li><li>No <b>placar ao vivo</b>, cada dupla tem uma linha com o <b>SET</b> em andamento e os <b>PONTOS</b> do game (0, 15, 30, 40). Toque em <b>+</b> na dupla que fez o ponto; o <b>−</b> desfaz. O game, o set e o tie-break avançam sozinhos.</li><li><b>Pontos</b> (canto superior) mostra o histórico de pontos do jogo. <b>Sair</b> volta sem perder o que foi marcado.</li><li>No Avulso, o botão <b>Fechar set</b> encerra o set atual (quem tem mais games vence) e <b>Registrar placar</b> grava o resultado.</li></ol>
+    
+    <div class="figs n3"><figure><img src="img/19-marcacao-lista.png" alt="Competições com jogos para marcar."><figcaption>Competições com jogos para marcar.</figcaption></figure><figure><img src="img/21-marcacao-proximo.png" alt="Próximo jogo da competição."><figcaption>Próximo jogo da competição.</figcaption></figure><figure><img src="img/20-marcacao-ao-vivo.jpg" alt="Placar ao vivo."><figcaption>Placar ao vivo.</figcaption></figure></div><footer><span>King BT · Manual do Usuário</span><span>9</span></footer></section>
+<section class="page">
+    <header><span class="chip">Capítulo 9</span><h2>King Scout: marcar um jogo</h2></header>
+    <p class="intro">O King Scout registra cada ponto com detalhe (quem sacou, como o ponto terminou, golpe, lado, posição na quadra). Para marcar, é preciso ser <b>super admin</b>; todos os membros podem consultar o resultado (capítulo 11).</p>
+    <ol class="passos"><li>Abra o jogo (ainda sem placar) e toque em <b>👑 Usar King Scout</b>. Se já existe análise do jogo, aparecem <b>Continuar King Scout</b> ou <b>Ver análise do King Scout</b>.</li><li>No topo, o selo mostra o <b>modo</b> (Simples, Padrão ou Avançado) e o botão <b>Encerrar</b> fecha a análise. O modo só pode ser trocado antes do primeiro ponto.</li><li>O placar tem uma linha por dupla, a coluna do set e os <b>PONTOS</b> do game. A dupla que está sacando recebe a marca “● sacando”.</li><li><b>Ponto rápido</b>, embaixo do placar, soma o ponto de uma dupla sem detalhar a jogada.</li></ol><table class="tab"><tr><th>Modo</th><th>O que registra</th></tr><tr><td class="modo">Simples</td><td>Sacador, finalização (Ace, Winner, Forçou Erro, Erro não forçado, Erro de saque, Erro de devolução), golpe, quem fez e lado. Sem dados do saque nem duração.</td></tr><tr><td class="modo">Padrão</td><td>Tudo do Simples + posição e direção do saque + duração do ponto.</td></tr><tr><td class="modo">Avançado</td><td>Tudo do Padrão + qualidade do saque, devolução, primeira bola, situações e comentário.</td></tr></table>
+    
+    <div class="figs n2"><figure><img src="img/29-scout-inicio.jpg" alt="Início do King Scout (modo Avançado)."><figcaption>Início do King Scout (modo Avançado).</figcaption></figure><figure><img src="img/31-scout-simples-1.jpg" alt="Modo Simples: sacador e finalização."><figcaption>Modo Simples: sacador e finalização.</figcaption></figure></div><footer><span>King BT · Manual do Usuário</span><span>10</span></footer></section>
+<section class="page">
+    <header><span class="chip">Capítulo 9</span><h2>King Scout: registrar um ponto</h2></header>
+    <p class="intro">O mesmo caminho vale para os três modos; cada modo só acrescenta informação.</p>
+    <ol class="passos"><li>Escolha o <b>sacador</b>. A rotação é automática: em duplas, os dois primeiros games são manuais e dali em diante o sacador é sugerido; no tie-break o primeiro saca 1 ponto e depois cada jogador saca 2.</li><li>Escolha a <b>Finalização</b>. Os chips têm borda colorida (verde: ponto ganho com jogada; vermelho: erro; dourado: Ace).</li><li>Responda, nesta ordem: <b>Como o Winner foi feito?</b> (o golpe), <b>Quem fez</b> e <b>De que lado</b> (Forehand ou Backhand, opcional). Nos erros, “quem fez” é quem errou.</li><li><b>Mapa de Calor (opcional)</b>: nos Winners, Forçou Erro e Erros não forçados, marque no primeiro grid onde estava quem fez o lance e no segundo para onde a bola foi (no erro não forçado vale a bola fora). Use <b>Inverter lados do mapa</b> se precisar.</li><li>Toque em <b>Registrar Ponto</b>. Os últimos pontos aparecem embaixo e podem ser editados (toque neles) ou desfeitos (<b>↩ Desfazer</b>).</li></ol>
+    <div class="nota"><b>A partida já começou?</b> Se você abriu o scout no meio do jogo, toque nessa opção antes do primeiro ponto, informe os sets já jogados e os games do set atual e toque em <b>Começar deste placar</b>. O app confere se o placar é possível no formato da competição.</div>
+    <div class="figs n3"><figure><img src="img/32-scout-simples-winner.jpg" alt="Golpe, quem fez e lado."><figcaption>Golpe, quem fez e lado.</figcaption></figure><figure><img src="img/33-scout-mapa-1.jpg" alt="Mapa de calor: posição de quem fez."><figcaption>Mapa de calor: posição de quem fez.</figcaption></figure><figure><img src="img/30-scout-semente.jpg" alt="A partida já começou?"><figcaption>A partida já começou?</figcaption></figure></div><footer><span>King BT · Manual do Usuário</span><span>11</span></footer></section>
+<section class="page">
+    <header><span class="chip">Capítulo 10</span><h2>King Scout: o relatório</h2></header>
+    <p class="intro">Ao encerrar, o relatório da partida abre sozinho. Ele também fica no histórico (capítulo 11).</p>
+    <ol class="passos"><li><b>Resumo</b>: placar em sets, games por set (com tie-break em número pequeno), pontos ganhos, 40×40, winners, aces, erros, confirmação de saque e break points.</li><li><b>Stats</b>: tabela por atleta. A estrela <b>★</b> marca o melhor da coluna (o menor, nos erros).</li><li><b>Qualidade</b>, <b>Saques</b> e <b>Finalizações</b>: gráficos por jogador. A aba <b>Mapa</b> só aparece quando algum lance teve posição marcada: escolha a dupla, o tipo de finalização e, se quiser, o jogador.</li><li><b>Dinâmica</b>: gráfico de momento do jogo e os <b>Momentos da partida</b> (sequências de 3 ou mais pontos seguidos e viradas).</li><li><b>Log</b>: todos os pontos, do mais recente ao primeiro, com o placar <b>depois</b> de cada ponto (“3x2 40x0”, “Set 1 encerrado”, “Fim · 1x0 em sets”).</li><li>No topo: <b>⬇ PDF</b> gera o relatório da partida; <b>Excluir</b> apaga a análise (pede confirmação e <b>não muda</b> o placar da competição).</li></ol>
+    
+    <div class="figs n3"><figure><img src="img/23-relatorio-resumo.jpg" alt="Resumo."><figcaption>Resumo.</figcaption></figure><figure><img src="img/25-relatorio-dinamica.jpg" alt="Dinâmica e momentos."><figcaption>Dinâmica e momentos.</figcaption></figure><figure><img src="img/26-relatorio-log.jpg" alt="Log: placar depois do ponto."><figcaption>Log: placar depois do ponto.</figcaption></figure></div><footer><span>King BT · Manual do Usuário</span><span>12</span></footer></section>
+<section class="page">
+    <header><span class="chip">Capítulo 11</span><h2>King Scout: histórico, atletas e PDF</h2></header>
+    <p class="intro">Qualquer membro do grupo pode consultar os jogos gravados pelo scout.</p>
+    <ol class="passos"><li>Abra o <b>Perfil</b>, entre na aba <b>ESTATÍSTICAS</b> e role até o atalho <b>King Scout</b> (“Jogos gravados ponto a ponto, relatórios em PDF e análise por atleta”).</li><li>O <b>histórico</b> lista os jogos do grupo atual, do mais recente ao mais antigo, com a tabela de sets (tie-break em número pequeno). Toque num jogo para abrir o relatório, ou em <b>⬇ PDF</b> para gerar o PDF só desse jogo.</li><li><b>⬇ Relatório dos jogos</b> gera um PDF com todos os jogos gravados: data, duplas, placar por set, pontos e situação.</li><li><b>📈 Atletas</b> abre a análise de um atleta ao longo de várias partidas. Escolha o período (7, 30, 90 dias ou tudo) e o atleta.</li></ol>
+    
+    <div class="figs n2"><figure><img src="img/05-perfil-king-scout.jpg" alt="Atalho King Scout no perfil."><figcaption>Atalho King Scout no perfil.</figcaption></figure><figure><img src="img/22-king-scout-historico.jpg" alt="Histórico de jogos gravados."><figcaption>Histórico de jogos gravados.</figcaption></figure></div><footer><span>King BT · Manual do Usuário</span><span>13</span></footer></section>
+<section class="page">
+    <header><span class="chip">Capítulo 11</span><h2>Análise do atleta</h2></header>
+    <p class="intro">Soma o que o scout registrou do atleta em todas as partidas do período.</p>
+    <ol class="passos"><li><b>Números</b>: partidas (com vitórias e derrotas), nota média, confirmação de saque, winners, aces, forçou erro e os erros de saque, devolução e não forçados.</li><li><b>Evolução recente</b> compara as últimas 3 partidas com as anteriores (precisa de pelo menos 4 partidas). <b>Evolução da nota</b> é o gráfico partida a partida: verde para vitória, vermelho para derrota.</li><li><b>O que treinar</b> traz sugestões baseadas nos números (só aparecem quando há dados suficientes).</li><li><b>Adversários</b>: toque num adversário para ver <b>como jogar contra</b> ele. <b>Por competição</b> mostra o saldo em cada uma.</li><li><b>⬇ PDF</b>, no topo, gera o relatório do atleta.</li></ol>
+    
+    <div class="figs n2"><figure><img src="img/27-atleta-1.jpg" alt="Números do atleta e evolução recente."><figcaption>Números do atleta e evolução recente.</figcaption></figure><figure><img src="img/28-atleta-2.jpg" alt="Evolução da nota e adversários."><figcaption>Evolução da nota e adversários.</figcaption></figure></div><footer><span>King BT · Manual do Usuário</span><span>14</span></footer></section>
+<section class="page">
+    <header><span class="chip">Capítulo 12</span><h2>Perfil</h2></header>
+    <p class="intro">O seu cartão no grupo, com nível, conquistas e estatísticas.</p>
+    <ol class="passos"><li>No topo, o <b>cartão</b> mostra seu círculo com as iniciais, o nome, a posição no ranking, os pontos e o aproveitamento. O <b>lápis</b> ao lado do círculo edita o perfil; o botão no canto envia o cartão para compartilhar.</li><li>O nome do grupo traz o <b>+</b> para trocar ou entrar em outro grupo.</li><li>O <b>Nível</b> sobe com o XP. Toque no quadro do nível para ver <b>como o XP é calculado</b> (jogos, vitórias, competições, avaliações, honrarias e conquistas).</li><li>As abas: <b>SOBRE</b> (seus dados), <b>AVALIAÇÃO</b> (autoavaliação e colegas), <b>CONQUISTAS</b>, <b>RIVALIDADE</b>, <b>ESTATÍSTICAS</b> e <b>HISTÓRICO</b>.</li></ol>
+    
+    <div class="figs n2"><figure><img src="img/04-perfil.png" alt="Cartão do perfil."><figcaption>Cartão do perfil.</figcaption></figure><figure><img src="img/05b-perfil-xp.jpg" alt="Como o XP é calculado."><figcaption>Como o XP é calculado.</figcaption></figure></div><footer><span>King BT · Manual do Usuário</span><span>15</span></footer></section>
+<section class="page">
+    <header><span class="chip">Capítulo 13</span><h2>Dúvidas frequentes</h2></header>
+    
+    <div class="faq"><div class="q">Não vejo o botão “Usar King Scout”.</div><div class="r">Marcar jogos no scout é exclusivo do super admin. Os demais membros consultam o histórico, os relatórios e as análises de atleta pelo Perfil.</div></div><div class="faq"><div class="q">Por que o Salvar está desabilitado?</div><div class="r">Provavelmente o set terminou em tie-break e faltam os pontos dele (ou estão inválidos), ou o placar ainda não define um vencedor. A mensagem embaixo do set diz o que falta.</div></div><div class="faq"><div class="q">O tie-break não aparece no registro à mão.</div><div class="r">Ele só aparece quando o set termina como termina um set decidido no tie-break no formato da competição (por exemplo, 4×3 em 4 games). No Avulso, marque a caixa “Tie-break” no set.</div></div><div class="faq"><div class="q">Posso empatar um jogo?</div><div class="r">No Avulso, sim. Nas demais competições o jogo precisa ter um vencedor.</div></div><div class="faq"><div class="q">Apaguei uma análise do scout sem querer.</div><div class="r">Ela não tem como ser desfeita pelo app. O placar da competição não muda ao excluir a análise; só os pontos detalhados e o relatório se perdem.</div></div><div class="faq"><div class="q">O botão + ficou “travado” em X.</div><div class="r">O menu fecha sozinho ao trocar de tela. Se ainda assim ficar aberto, toque no botão de novo.</div></div><div class="faq"><div class="q">Como atualizo o app?</div><div class="r">Quando há versão nova, uma barra de atualização aparece no app; toque nela. No navegador, basta recarregar a página.</div></div>
+    
+    <footer><span>King BT · Manual do Usuário</span><span>16</span></footer></section></body></html>

@@ -140,7 +140,11 @@ jobs:
           KINGBT_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
 
       - name: Renomear APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk kingbt.apk
+        # kingbt.apk (nome fixo) é o que o app baixa na atualização; KINGBT_<versão>.apk é a cópia com a versão no nome.
+        run: |
+          APP_VERSION=$(node -p "require('./app.json').expo.version")
+          cp android/app/build/outputs/apk/release/app-release.apk kingbt.apk
+          cp kingbt.apk "KINGBT_${APP_VERSION}-${{ github.run_number }}.apk"
 
       # Versão deste APK, publicada junto com ele: o app compara o commit embutido no build com este
       # arquivo para avisar de atualização (ver src/store/UpdateContext.tsx).
@@ -157,5 +161,6 @@ jobs:
           body: "Build automático gerado a partir do commit ${{ github.sha }}."
           files: |
             kingbt/kingbt.apk
+            kingbt/KINGBT_*.apk
             kingbt/apk-version.json
           make_latest: true
