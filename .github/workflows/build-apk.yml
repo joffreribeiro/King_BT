@@ -66,6 +66,10 @@ jobs:
       - name: Definir timestamp do build
         run: echo "EXPO_PUBLIC_BUILD_TIME=$(date -u +%s%3N)" >> "$GITHUB_ENV"
 
+      # Versão mostrada em Configurações (igual à do nome do arquivo KINGBT_<versão>.apk).
+      - name: Definir versão do app
+        run: echo "EXPO_PUBLIC_APP_VERSION=$(node -p "require('./app.json').expo.version")-${{ github.run_number }}" >> "$GITHUB_ENV"
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -151,7 +155,7 @@ jobs:
       # O job roda DENTRO de kingbt/ (defaults.run.working-directory): aqui o caminho é relativo a ela
       # (apk-version.json), enquanto `files:` abaixo é relativo à raiz do repositório (kingbt/apk-version.json).
       - name: Gerar apk-version.json
-        run: echo "{\"sha\":\"${{ github.sha }}\",\"build\":${{ github.run_number }}}" > apk-version.json
+        run: echo "{\"sha\":\"${{ github.sha }}\",\"build\":${{ github.run_number }},\"versao\":\"${EXPO_PUBLIC_APP_VERSION}\"}" > apk-version.json
 
       - name: Publicar release no GitHub
         uses: softprops/action-gh-release@v2

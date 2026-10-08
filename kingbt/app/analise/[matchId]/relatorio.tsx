@@ -27,6 +27,8 @@ import {
 } from '@/logic/btMapaCalor';
 import { placaresAposPontos, tiebreaksDosSets } from '@/logic/btPlacarPonto';
 import { useAuth } from '@/store/AuthContext';
+import { useGroupPlayers } from '@/store/GroupPlayersContext';
+import { resolverNomes } from '@/logic/btNomes';
 import { makeScoutOptions } from '@/components/analise/scoutOptions';
 import { BarChart, PieChart, LineChart } from 'react-native-gifted-charts';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -639,6 +641,7 @@ export default function RelatorioScreen() {
   const p = useMemo(() => makePStyles(Colors), [Colors]);
   const { matchId, compId } = useLocalSearchParams<{ matchId: string; compId: string }>();
   const { group } = useAuth();
+  const { findPlayer } = useGroupPlayers();
   const [analise, setAnalise] = useState<BtAnalise | null>(null);
   const [stats, setStats] = useState<BtEstatisticas | null>(null);
   const [aba, setAba] = useState<Aba>('Resumo');
@@ -714,6 +717,7 @@ export default function RelatorioScreen() {
           };
         }
       }
+      a = resolverNomes(a, id => findPlayer(id)?.name);
       setAnalise(a);
       setStats(calcularEstatisticas(a));
     }

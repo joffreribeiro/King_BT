@@ -16,6 +16,7 @@ import { useAuth } from '@/store/AuthContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { listAnalisesFs } from '@/firebase/analises';
+import { resolverNomes } from '@/logic/btNomes';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 
@@ -132,10 +133,16 @@ export default function AnaliseListScreen() {
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { group } = useAuth();
-  const [analises, setAnalises] = useState<BtAnalise[]>([]);
+  const [bruto, setBruto] = useState<BtAnalise[]>([]);
   const [loading, setLoading] = useState(true);
   const [exportando, setExportando] = useState(false);
   const { state: { competitions } } = useCompetitions();
+  const { groupPlayers, findPlayer } = useGroupPlayers();
+  // Nomes atuais do grupo (ou "Jogador removido" no lugar de id cru)
+  const analises = useMemo(() => bruto.map(a => resolverNomes(a, id => findPlayer(id)?.name)), [bruto, groupPlayers]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Quantas análises da nuvem buscar; "Ver mais jogos" soma 50 e o resto da tela segue igual
+  const [qtd, setQtd] = useState(50);
+  const [temMais, setTemMais] = useState(false);
 
   /** Gera o PDF e abre o compartilhamento (mesmo caminho do relatório de uma partida). */
   async function compartilharPdf(html: string, titulo: string) {
@@ -161,7 +168,8 @@ export default function AnaliseListScreen() {
       // Complementa com Firebase se estiver online
       if (group?.id) {
         try {
-          const remote = await listAnalisesFs(group.id);
+          const remote = await listAnalisesFs(group.id, qtd);
+          setTemMais(remote.length >= qtd);
           const localIds = new Set(list.map(a => a.matchId));
           const novos = remote.filter(a => !localIds.has(a.matchId));
           list = [...list, ...novos];
@@ -169,11 +177,11 @@ export default function AnaliseListScreen() {
       }
       // Ordena por mais recente primeiro
       list.sort((a, b) => b.criadaEm - a.criadaEm);
-      setAnalises(list);
+      setBruto(list);
       setLoading(false);
     }
     load();
-  }, [group?.id, competitions]);
+  }, [group?.id, competitions, qtd]);
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -217,6 +225,11 @@ export default function AnaliseListScreen() {
       {!loading && analises.length > 0 && (
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
           {analises.map(a => <AnaliseCard key={a.matchId} analise={a} onPdf={pdfDoJogo} />)}
+          {temMais && (
+            <TouchableOpacity style={[s.atletaBtn, { alignSelf: 'center' }]} onPress={() => setQtd(q => q + 50)}>
+              <Text style={s.atletaTxt}>Ver mais jogos</Text>
+            </TouchableOpacity>
+          )}
           <View style={{ height: Spacing.xl }} />
         </ScrollView>
       )}

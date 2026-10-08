@@ -1,8 +1,9 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl,
+  RefreshControl, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MANUAL_URL } from '@/constants/manual';
 import { useState, useRef, useMemo, useCallback } from 'react';
 import { router } from 'expo-router';
 import { captureRef } from 'react-native-view-shot';
@@ -327,6 +328,10 @@ export default function ProfileScreen() {
           <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/desempenho-geral')} activeOpacity={0.8}>
             <Icon name="chart" size={16} color={Colors.text} />
             <Text style={styles.settingsBtnText}>Desempenho em todos os grupos</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.settingsBtn} onPress={() => Linking.openURL(MANUAL_URL)} activeOpacity={0.8}>
+            <Icon name="share" size={16} color={Colors.text} />
+            <Text style={styles.settingsBtnText}>Manual do usuário (PDF)</Text>
           </TouchableOpacity>
           </>
         )}

@@ -1,5 +1,5 @@
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, Alert, Platform, TextInput, Modal,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, Alert, Platform, TextInput, Modal, Linking,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,9 +29,11 @@ import { currentSeasonNumber } from '@/logic/seasons';
 import { StepperRow, ToggleRow } from '@/components/competition/FormKit';
 import { statPoints } from '@/logic/scoring';
 import { getMinRequiredBuildTime, setMinRequiredBuildTime } from '@/firebase/appVersion';
+import { MANUAL_URL } from '@/constants/manual';
 import { CURRENT_BUILD_TIME } from '@/store/UpdateContext';
 
-const version = Constants.expoConfig?.version ?? '1.0.0';
+// Nos APKs o workflow define EXPO_PUBLIC_APP_VERSION = versão + número do build (a mesma do nome do arquivo .apk).
+const version = process.env.EXPO_PUBLIC_APP_VERSION ?? Constants.expoConfig?.version ?? '1.0.0';
 
 export default function SettingsScreen() {
   const { group, isAdmin, isSuperAdmin, leaveGroup, user, removeFromGroup, promoteToAdmin, addExistingUserToGroup, setGroupVisibility, updateGroupName } = useAuth();
@@ -389,6 +391,15 @@ export default function SettingsScreen() {
                 ))}
               </View>
             </View>
+          </Card>
+        </View>
+
+        <View>
+          <Text style={s.sectionTitle}>Ajuda</Text>
+          <Card style={s.prefCard}>
+            <TouchableOpacity style={s.chip} onPress={() => Linking.openURL(MANUAL_URL)}>
+              <Text style={s.chipText}>📘 Manual do usuário (PDF)</Text>
+            </TouchableOpacity>
           </Card>
         </View>
 

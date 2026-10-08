@@ -102,7 +102,7 @@ export default function PontoScreen() {
   function nome(id: string) { return id ? (findPlayer(id)?.name.split(' ')[0] ?? id) : ''; }
 
   const nomes: Record<string, string> = {};
-  [ids.a1, ids.a2, ids.b1, ids.b2].filter(Boolean).forEach(id => { nomes[id] = findPlayer(id)?.name ?? id; });
+  [ids.a1, ids.a2, ids.b1, ids.b2].filter(Boolean).forEach(id => { const n = findPlayer(id)?.name; if (n) nomes[id] = n; }); // sem nome encontrado, não grava o id como se fosse nome (o histórico mostra "Jogador removido")
 
   const jogadoresA = [ids.a1, ids.a2].filter(Boolean);
   const jogadoresB = [ids.b1, ids.b2].filter(Boolean);

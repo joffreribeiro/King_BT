@@ -335,7 +335,7 @@ function OfflineBanner() {
 
 // Banner de atualização disponível
 function UpdateBanner() {
-  const { updateAvailable } = useUpdate();
+  const { updateAvailable, latestVersion } = useUpdate();
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const [dismissed, setDismissed] = useState(false);
@@ -348,7 +348,7 @@ function UpdateBanner() {
     <View style={styles.updateBanner}>
       <View style={styles.updateContent}>
         <Text style={{ fontSize: 12 }}>⬆️</Text>
-        <Text style={styles.updateText}>Versão atualizada disponível</Text>
+        <Text style={styles.updateText}>{latestVersion ? `Nova versão disponível: v${latestVersion}` : 'Versão atualizada disponível'}</Text>
       </View>
       <View style={styles.updateActions}>
         <TouchableOpacity onPress={() => setDismissed(true)} hitSlop={6}>

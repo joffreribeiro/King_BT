@@ -19,6 +19,7 @@ import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
 import { listAnalisesFs } from '@/firebase/analises';
+import { resolverNomes } from '@/logic/btNomes';
 import { Chip } from '@/components/analise/Chip';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
@@ -48,10 +49,11 @@ export default function AtletaScreen() {
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const { group } = useAuth();
   const { state: { competitions } } = useCompetitions();
-  const { findPlayer } = useGroupPlayers();
+  const { groupPlayers, findPlayer } = useGroupPlayers();
   const nomeDe = (id: string, salvo: string) => findPlayer(id)?.name ?? salvo;
   const [advId, setAdvId] = useState<string | null>(null);
-  const [todas, setTodas] = useState<BtAnalise[]>([]);
+  const [bruto, setBruto] = useState<BtAnalise[]>([]);
+  const todas = useMemo(() => bruto.map(a => resolverNomes(a, id => findPlayer(id)?.name)), [bruto, groupPlayers]); // eslint-disable-line react-hooks/exhaustive-deps
   const [loading, setLoading] = useState(true);
   const [periodo, setPeriodo] = useState<Periodo>('tudo');
   const [atletaId, setAtletaId] = useState<string | null>(null);
@@ -63,12 +65,12 @@ export default function AtletaScreen() {
       let list = (await listarAnalises()).filter(a => idsComp.has(a.competitionId));
       if (group?.id) {
         try {
-          const remote = await listAnalisesFs(group.id);
+          const remote = await listAnalisesFs(group.id, 200);
           const locais = new Set(list.map(a => a.matchId));
           list = [...list, ...remote.filter(a => !locais.has(a.matchId))];
         } catch { /* offline ou sem permissão: segue só com as do aparelho */ }
       }
-      setTodas(list);
+      setBruto(list);
       setLoading(false);
     }
     load();
