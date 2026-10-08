@@ -36,6 +36,13 @@ export type BtTipoFinalizacao =
 
 export type BtLado = 'Forehand' | 'Backhand';
 
+/** Índice de casa do mapa de calor: 0–2 dentro da quadra; -1 e 3 são a faixa de fora. */
+export type BtIndiceComFora = -1 | 0 | 1 | 2 | 3;
+/** Posição de quem fez o lance, na quadra (3×3). Linha 0 = fundo, 2 = rede. */
+export interface BtCelulaCalor { linha: 0 | 1 | 2; coluna: 0 | 1 | 2 }
+/** Destino da bola (ou posição do adversário no Forçou Erro); pode ser fora da quadra. */
+export interface BtCelulaBola { linha: BtIndiceComFora; coluna: BtIndiceComFora }
+
 export type BtDuracaoPonto = 'Curto' | 'Médio' | 'Longo';
 
 export type BtSituacao =
@@ -96,6 +103,9 @@ export interface BtPonto {
   tipoFinalizacao?: BtTipoFinalizacao;
   ladoFinalizacao?: BtLado;           // Forehand ou Backhand
   direcaoFinalizacao?: BtDirecao;
+  // ── MAPA DE CALOR (opcional; Winner, Forçou Erro e Erro Não Forçado) ──
+  calorJogador?: BtCelulaCalor;       // onde estava quem fez o winner / forçou / errou
+  calorBola?: BtCelulaBola;           // onde a bola caiu (ou onde estava o adversário, no Forçou Erro)
   // ── EXTRAS ──
   duracaoPonto?: BtDuracaoPonto;      // Curto / Médio / Longo
   situacoes?: BtSituacao[];           // eventos especiais
@@ -103,6 +113,18 @@ export interface BtPonto {
   // legado
   bolaNaFita?: boolean;
   bolaNaLinha?: boolean;
+}
+
+/**
+ * Placar com que a análise começa quando o scout é aberto no meio da partida ("a partida já começou?").
+ * Os sets já fechados entram no histórico do placar e do relatório; os games são os do set em andamento.
+ */
+export interface BtPlacarSeed {
+  /** Placar em games de cada set já fechado antes do scout, na ordem jogada. */
+  setsFechados?: SetScore[];
+  /** Games do set em andamento quando o scout começa. */
+  gamesA: number;
+  gamesB: number;
 }
 
 export interface BtAnalise {
@@ -116,6 +138,8 @@ export interface BtAnalise {
     b1: string; b2: string;   // player ids dupla B
   };
   nomes: Record<string, string>; // id → nome
+  /** Placar de partida: ausente = partida registrada desde o 0x0. */
+  inicial?: BtPlacarSeed;
   pontos: BtPonto[];
   placarFinal?: { setsA: number; setsB: number; gamesA: number[]; gamesB: number[]; stb?: boolean[] };
 }
@@ -176,21 +200,38 @@ export interface BtPlacardState {
   historicStb: boolean[];
 }
 
-export function placardInicial(rule: BtWinRule = BT_WIN_RULE_DEFAULT): BtPlacardState {
+/** Um set com `mine` games contra `theirs` já está fechado nesta regra? (mesma conta do fechamento ao vivo) */
+export function setFoiFechado(mine: number, theirs: number, rule: BtWinRule): boolean {
+  const T = tieAtGames(rule.games, rule.tiebreakAt);
+  return (mine >= T + 1 && mine > theirs) || (mine >= rule.games && mine - theirs >= 2);
+}
+
+export function placardInicial(rule: BtWinRule = BT_WIN_RULE_DEFAULT, seed?: BtPlacarSeed): BtPlacardState {
+  const fechados = seed?.setsFechados ?? [];
+  const setsA = fechados.filter(x => x.a > x.b).length;
+  const setsB = fechados.filter(x => x.b > x.a).length;
+  const gamesA = seed?.gamesA ?? 0;
+  const gamesB = seed?.gamesB ?? 0;
+  const T = tieAtGames(rule.games, rule.tiebreakAt);
+  const setsParaVencer = Math.ceil(rule.sets / 2);
+  // Semeado direto no set decisivo (sets empatados a um do título, set atual 0x0) com super tie-break:
+  // o próximo ponto já é do super tie-break — no jogo normal isso só liga ao fechar um set.
+  const superTiebreakAtivo = fechados.length > 0 && !!rule.superTiebreak && setsA === setsParaVencer - 1 && setsB === setsParaVencer - 1 && gamesA === 0 && gamesB === 0;
   return {
     rule,
-    setsA: 0, setsB: 0,
-    gamesA: 0, gamesB: 0,
+    setsA, setsB,
+    gamesA, gamesB,
     pontosA: 0, pontosB: 0,
-    tiebreak: false,
-    superTiebreakAtivo: false,
+    // Placar semeado já no ponto de tie-break do set: o próximo ponto entra direto em tie-break
+    tiebreak: superTiebreakAtivo || (gamesA === T && gamesB === T && gamesA > 0),
+    superTiebreakAtivo,
     pontosJogadosNoTiebreak: 0,
     sacadorInicioTiebreak: null,
     encerrada: false,
     winnerDupla: null,
-    historicGamesA: [],
-    historicGamesB: [],
-    historicStb: [],
+    historicGamesA: fechados.map(x => x.a),
+    historicGamesB: fechados.map(x => x.b),
+    historicStb: fechados.map(x => !!x.stb),
   };
 }
 
@@ -378,6 +419,9 @@ export interface BtEstatisticas {
   jogadores: Record<string, BtEstatJogador>;
   finalizacoesPorJogador: Record<string, Record<string, number>>;
   tiposFinalizacaoPorJogador: Record<string, Record<string, number>>;
+  /** Tipos de golpe só dos winners / só dos erros não forçados de cada jogador (o mapa acima mistura os dois). */
+  tiposWinnerPorJogador: Record<string, Record<string, number>>;
+  tiposErroPorJogador: Record<string, Record<string, number>>;
   dinamica: { placar: string; diff: number }[];
 }
 
@@ -433,9 +477,13 @@ export function calcularEstatisticas(analise: BtAnalise): BtEstatisticas {
 
   const finalizacoesPorJogador: Record<string, Record<string, number>> = {};
   const tiposFinalizacaoPorJogador: Record<string, Record<string, number>> = {};
+  const tiposWinnerPorJogador: Record<string, Record<string, number>> = {};
+  const tiposErroPorJogador: Record<string, Record<string, number>> = {};
   todosIds.forEach(id => {
     finalizacoesPorJogador[id] = {};
     tiposFinalizacaoPorJogador[id] = {};
+    tiposWinnerPorJogador[id] = {};
+    tiposErroPorJogador[id] = {};
   });
 
   const dinamica: BtEstatisticas['dinamica'] = [];
@@ -444,7 +492,7 @@ export function calcularEstatisticas(analise: BtAnalise): BtEstatisticas {
   // Replay do placar em paralelo ao loop de pontos — usado só para detectar
   // "chance de quebra" (break point) e fechamento de game (hold), reaproveitando
   // as mesmas funções de placar usadas ao vivo em ponto.tsx.
-  let placardReplay = placardInicial(analise.rule);
+  let placardReplay = placardInicial(analise.rule, analise.inicial);
   let sacadorDuplaGameAtual: 'A' | 'B' | null = null;
 
   for (const ponto of pontos) {
@@ -540,11 +588,14 @@ export function calcularEstatisticas(analise: BtAnalise): BtEstatisticas {
     // Para erros → crédito de erro vai para quem errou (adversário)
     const duplaVencedoraIds = venceuA ? duplaA : duplaB;
     const duplaAdversariaIds = venceuA ? duplaB : duplaA;
+    // Autor do lance: o jogador marcado no ponto (vencedorJogador; nos erros, quem errou).
+    // Sem marcação (ponto rápido, dados antigos), cai no 1º da dupla correspondente.
+    const autorVencedor = ponto.vencedorJogador && duplaVencedoraIds.includes(ponto.vencedorJogador) ? ponto.vencedorJogador : duplaVencedoraIds[0];
+    const autorErro = [ponto.vencedorJogador, ponto.devolvedor].find((id): id is string => !!id && duplaAdversariaIds.includes(id)) ?? duplaAdversariaIds[0];
 
     if (finalizacao === 'Winner') {
       dV.winners += 1;
-      // Atribuir o winner ao sacador se foi saque-winner, senão ao jogador genérico da dupla
-      const autorId = duplaVencedoraIds[0]; // simplificado: primeiro da dupla
+      const autorId = autorVencedor;
       jogadoresEstat[autorId] && (jogadoresEstat[autorId].winners += 1);
       jogadoresEstat[autorId] && (jogadoresEstat[autorId].pontosGanhos += 1);
       finalizacoesPorJogador[autorId] = finalizacoesPorJogador[autorId] ?? {};
@@ -552,6 +603,8 @@ export function calcularEstatisticas(analise: BtAnalise): BtEstatisticas {
       if (tipo) {
         tiposFinalizacaoPorJogador[autorId] = tiposFinalizacaoPorJogador[autorId] ?? {};
         tiposFinalizacaoPorJogador[autorId][tipo] = (tiposFinalizacaoPorJogador[autorId][tipo] ?? 0) + 1;
+        tiposWinnerPorJogador[autorId] = tiposWinnerPorJogador[autorId] ?? {};
+        tiposWinnerPorJogador[autorId][tipo] = (tiposWinnerPorJogador[autorId][tipo] ?? 0) + 1;
       }
     } else if (finalizacao === 'Ace') {
       dV.aces += 1;
@@ -562,7 +615,7 @@ export function calcularEstatisticas(analise: BtAnalise): BtEstatisticas {
       finalizacoesPorJogador[sacId]['Ace'] = (finalizacoesPorJogador[sacId]['Ace'] ?? 0) + 1;
     } else if (finalizacao === 'ForçouErro') {
       dV.forcouErro += 1;
-      const autorId = duplaVencedoraIds[0];
+      const autorId = autorVencedor;
       jogadoresEstat[autorId] && (jogadoresEstat[autorId].forcouErro += 1);
       jogadoresEstat[autorId] && (jogadoresEstat[autorId].pontosGanhos += 1);
       finalizacoesPorJogador[autorId] = finalizacoesPorJogador[autorId] ?? {};
@@ -576,19 +629,21 @@ export function calcularEstatisticas(analise: BtAnalise): BtEstatisticas {
     } else if (finalizacao === 'ErroDevolucao') {
       dP.errosDevolucao += 1;
       // Erro de devolução: o devolvedor errou (adversário do sacador)
-      const devolvedorId = duplaAdversariaIds[0];
+      const devolvedorId = autorErro;
       jogadoresEstat[devolvedorId] && (jogadoresEstat[devolvedorId].errosDevolucao += 1);
       finalizacoesPorJogador[devolvedorId] = finalizacoesPorJogador[devolvedorId] ?? {};
       finalizacoesPorJogador[devolvedorId]['ErroDevolucao'] = (finalizacoesPorJogador[devolvedorId]['ErroDevolucao'] ?? 0) + 1;
     } else if (finalizacao === 'ErroNaoForcado') {
       dP.errosNaoForcados += 1;
-      const erranteId = duplaAdversariaIds[0];
+      const erranteId = autorErro;
       jogadoresEstat[erranteId] && (jogadoresEstat[erranteId].errosNaoForcados += 1);
       finalizacoesPorJogador[erranteId] = finalizacoesPorJogador[erranteId] ?? {};
       finalizacoesPorJogador[erranteId]['ErroNaoForcado'] = (finalizacoesPorJogador[erranteId]['ErroNaoForcado'] ?? 0) + 1;
       if (tipo) {
         tiposFinalizacaoPorJogador[erranteId] = tiposFinalizacaoPorJogador[erranteId] ?? {};
         tiposFinalizacaoPorJogador[erranteId][tipo] = (tiposFinalizacaoPorJogador[erranteId][tipo] ?? 0) + 1;
+        tiposErroPorJogador[erranteId] = tiposErroPorJogador[erranteId] ?? {};
+        tiposErroPorJogador[erranteId][tipo] = (tiposErroPorJogador[erranteId][tipo] ?? 0) + 1;
       }
     }
 
@@ -600,7 +655,7 @@ export function calcularEstatisticas(analise: BtAnalise): BtEstatisticas {
 
   todosIds.forEach(id => { jogadoresEstat[id].nota = calcularNota(jogadoresEstat[id]); });
 
-  return { dupla, jogadores: jogadoresEstat, finalizacoesPorJogador, tiposFinalizacaoPorJogador, dinamica };
+  return { dupla, jogadores: jogadoresEstat, finalizacoesPorJogador, tiposFinalizacaoPorJogador, tiposWinnerPorJogador, tiposErroPorJogador, dinamica };
 }
 
 // ─── Persistência (AsyncStorage) ─────────────────────────────────────────────

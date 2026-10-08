@@ -13,7 +13,7 @@ export function Chip({
   const tc = selected ? Colors.bg : Colors.muted;
   return (
     <TouchableOpacity
-      style={[styles.base, small && styles.small, { backgroundColor: bg, borderColor: selected ? (color ?? Colors.gold) : Colors.line }]}
+      style={[styles.base, small && styles.small, { backgroundColor: bg, borderColor: selected ? (color ?? Colors.gold) : (color ? color + '80' : Colors.line) }]}
       onPress={onPress} activeOpacity={0.75}
     >
       <Text style={[styles.txt, small && styles.smallTxt, { color: tc }]}>{label}</Text>

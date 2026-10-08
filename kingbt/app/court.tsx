@@ -4,12 +4,15 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, ScreenHeader, Icon } from '@/components';
+import { ScreenHeader, Icon } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
 import { saveAnaliseFs, loadAnaliseFs } from '@/firebase/analises';
 import { PointLogModal } from '@/components/analise/PointLogModal';
+import { GamesComTb } from '@/components/analise/GamesComTb';
+import { ScoreboardCard } from '@/components/competition/ScoreboardCard';
+import { tiebreaksDosSets, setsDoPlacardComTiebreak } from '@/logic/btPlacarPonto';
 import {
   carregarAnalise, salvarAnalise, placardInicial, avancaPonto, formatGameScore, formatSetScore,
   winRuleFromComp, setsDoPlacard, type BtAnalise, type BtPlacardState, type BtPonto,
@@ -26,9 +29,8 @@ function firstUnscored(matches: Match[]): Match | undefined {
 const GAMES_LIVRE = 9999;
 
 
-function NextMatchPreview({ comp, match }: { comp: Competition; match: Match }) {
+function NextMatchPreview({ comp, match, onPress }: { comp: Competition; match: Match; onPress: () => void }) {
   const { colors: Colors } = useTheme();
-  const nxt = useMemo(() => makeNxtStyles(Colors), [Colors]);
   const { findPlayer } = useGroupPlayers();
   const teamA = match.teamA ?? (match.aId ? [match.aId] : []);
   const teamB = match.teamB ?? (match.bId ? [match.bId] : []);
@@ -47,24 +49,13 @@ function NextMatchPreview({ comp, match }: { comp: Competition; match: Match }) 
   const pB = teamB.map(id => resolveName(id, useComp));
 
   return (
-    <View style={nxt.card}>
-      <Text style={nxt.title}>Próximo jogo</Text>
-      <View style={nxt.teams}>
-        <View style={nxt.team}>
-          <View style={nxt.avatars}>
-            {pA.map((p, i) => <Avatar key={i} name={p.name} color={p.color} size={36} />)}
-          </View>
-          <Text style={nxt.teamName} numberOfLines={1}>{pA.map(p => p.name).join(' / ')}</Text>
-        </View>
-        <Text style={nxt.vs}>VS</Text>
-        <View style={nxt.team}>
-          <View style={nxt.avatars}>
-            {pB.map((p, i) => <Avatar key={i} name={p.name} color={p.color} size={36} />)}
-          </View>
-          <Text style={nxt.teamName} numberOfLines={1}>{pB.map(p => p.name).join(' / ')}</Text>
-        </View>
-      </View>
-    </View>
+    <ScoreboardCard
+      sideA={{ label: pA.map(p => p.name).join(' / ') }}
+      sideB={{ label: pB.map(p => p.name).join(' / ') }}
+      match={match}
+      isNext
+      onPress={onPress}
+    />
   );
 }
 
@@ -244,7 +235,7 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
     // No Avulso o set normal nunca fecha sozinho (games livres) — só o super
     // tie-break decisivo encerra por conta própria.
     if (next.encerrada) {
-      const sets = setsDoPlacard(next);
+      const sets = setsParaSalvar(novosPontos, next);
       persistAnalise(novosPontos, {
         setsA: next.setsA, setsB: next.setsB,
         gamesA: next.historicGamesA, gamesB: next.historicGamesB, stb: next.historicStb,
@@ -253,6 +244,15 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
     } else {
       persistAnalise(novosPontos);
     }
+  }
+
+  /** Sets para salvar: com o tie-break de cada um quando os pontos registrados reconstroem o placar; senão só os games. */
+  function setsParaSalvar(ps: BtPonto[], st: BtPlacardState) {
+    if (isAvulso) return setsDoPlacard(st); // games livres: não há tie-break automático
+    let pl = placardInicial(st.rule);
+    for (const p of ps) pl = avancaPonto(pl, p.vencedorDupla, p.sacador);
+    const confere = JSON.stringify([pl.historicGamesA, pl.historicGamesB]) === JSON.stringify([st.historicGamesA, st.historicGamesB]);
+    return confere ? setsDoPlacardComTiebreak({ pontos: ps, rule: st.rule }, st) : setsDoPlacard(st);
   }
 
   function removePoint() {
@@ -336,6 +336,7 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
   }
 
   const isTiebreak = placard.tiebreak;
+  const tiebreaks = tiebreaksDosSets({ pontos, rule: placard.rule });
   const scoreLabel = placard.superTiebreakAtivo
     ? `SUPER TIE · primeiro a ${rule.superTiebreakPts ?? 10}`
     : isTiebreak ? 'TIEBREAK' : null;
@@ -377,68 +378,41 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
         </View>
       )}
 
-      {/* Placar estilo scoreboard — 2 linhas */}
+      {/* Placar — mesmo padrão do scout: uma linha por dupla, uma coluna por set */}
       <View style={live.board}>
 
-        {/* Cabeçalho de colunas */}
+        {/* Cabeçalho de colunas: SET n (um por set, o último é o set em andamento) e PONTOS — igual ao scout */}
         <View style={live.boardHeader}>
           <View style={{ flex: 1 }} />
-          {/* Colunas de sets anteriores */}
-          {placard.historicGamesA.map((_, i) => (
-            <Text key={i} style={live.boardColHdr}>{i + 1}º S</Text>
+          {[...placard.historicGamesA, 0].map((_, i) => (
+            <Text key={i} style={live.boardColHdr}>{'SET ' + (i + 1)}</Text>
           ))}
-          <Text style={live.boardColHdr}>G</Text>
-          <Text style={[live.boardColHdr, { width: 56 }]}>PTS</Text>
+          <Text style={[live.boardColHdr, { width: 56 }]}>PONTOS</Text>
         </View>
 
-        {/* Linha A */}
-        <View style={[live.boardRow, { backgroundColor: Colors.gold + '0F' }]}>
-          {/* Indicador de serviço (futuro) */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 }}>
-            {playersA.map((p, i) => (
-              <Avatar key={i} name={p.name} color={p.color} size={28} />
-            ))}
-            <Text style={live.boardName} numberOfLines={1}>{nameA}</Text>
-          </View>
-          {/* Sets anteriores */}
-          {placard.historicGamesA.map((gA, i) => (
-            <Text key={i} style={[live.boardCell, { color: gA > (placard.historicGamesB[i] ?? 0) ? Colors.gold : Colors.faint }]}>
-              {gA}
-            </Text>
-          ))}
-          {/* Games atual */}
-          <Text style={[live.boardCell, { color: placard.gamesA >= placard.gamesB ? Colors.gold : Colors.text }]}>
-            {placard.gamesA}
-          </Text>
-          {/* Pontos */}
-          <Text style={[live.boardPts, { color: placard.pontosA > placard.pontosB ? Colors.gold : Colors.text, width: 56 }]}>
-            {isTiebreak ? placard.pontosA : pontosALabel(placard.pontosA)}
-          </Text>
-        </View>
-
-        {/* Divisor */}
-        <View style={live.boardDiv} />
-
-        {/* Linha B */}
-        <View style={[live.boardRow, { backgroundColor: Colors.teal + '0F' }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8 }}>
-            {playersB.map((p, i) => (
-              <Avatar key={i} name={p.name} color={p.color} size={28} />
-            ))}
-            <Text style={live.boardName} numberOfLines={1}>{nameB}</Text>
-          </View>
-          {placard.historicGamesA.map((_, i) => (
-            <Text key={i} style={[live.boardCell, { color: (placard.historicGamesB[i] ?? 0) > placard.historicGamesA[i] ? Colors.teal : Colors.faint }]}>
-              {placard.historicGamesB[i] ?? 0}
-            </Text>
-          ))}
-          <Text style={[live.boardCell, { color: placard.gamesB >= placard.gamesA ? Colors.teal : Colors.text }]}>
-            {placard.gamesB}
-          </Text>
-          <Text style={[live.boardPts, { color: placard.pontosB > placard.pontosA ? Colors.teal : Colors.text, width: 56 }]}>
-            {isTiebreak ? placard.pontosB : pontosALabel(placard.pontosB)}
-          </Text>
-        </View>
+        {(['A', 'B'] as const).map(d => {
+          const hist = d === 'A' ? placard.historicGamesA : placard.historicGamesB;
+          const outro = d === 'A' ? placard.historicGamesB : placard.historicGamesA;
+          const gamesAtual = d === 'A' ? placard.gamesA : placard.gamesB;
+          const pts = d === 'A' ? placard.pontosA : placard.pontosB;
+          return (
+            <View key={d}>
+              {d === 'B' && <View style={live.boardDiv} />}
+              <View style={live.boardRow}>
+                <Text style={live.boardName} numberOfLines={1}>{d === 'A' ? nameA : nameB}</Text>
+                {hist.map((g, i) => {
+                  const tb = tiebreaks[i];
+                  const tbMeu = tb && !placard.historicStb[i] ? (d === 'A' ? tb.a : tb.b) : undefined;
+                  return <GamesComTb key={i} games={g} tb={tbMeu} style={[live.boardCell, { color: g > (outro[i] ?? 0) ? Colors.teal : Colors.text }]} />;
+                })}
+                <Text style={[live.boardCell, { color: Colors.text }]}>{gamesAtual}</Text>
+                <Text style={[live.boardPts, { color: Colors.text, width: 56 }]}>
+                  {isTiebreak ? pts : pontosALabel(pts)}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
 
         {/* Rodapé: regra */}
         <Text style={live.ruleHint}>
@@ -734,10 +708,10 @@ export default function CourtScreen() {
             // Análise encerrada
             <>
               <TouchableOpacity style={md.btnRelatorio} onPress={verRelatorio}>
-                <Text style={md.btnRelatorioTxt}>📊 Ver Análise BT Salva</Text>
+                <Text style={md.btnRelatorioTxt}>📊 Ver análise do King Scout</Text>
               </TouchableOpacity>
               <TouchableOpacity style={md.btnBt} onPress={escolherBtTracker}>
-                <Text style={md.btnBtTxt}>🎾 Nova análise BT</Text>
+                <Text style={md.btnBtTxt}>🎾 Nova análise do King Scout</Text>
               </TouchableOpacity>
             </>
           ) : (
@@ -906,9 +880,7 @@ export default function CourtScreen() {
 
           <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
             {compViewNext ? (
-              <TouchableOpacity activeOpacity={0.85} onPress={() => abrirMatch(compViewNext)}>
-                <NextMatchPreview comp={selectedComp} match={compViewNext} />
-              </TouchableOpacity>
+              <NextMatchPreview comp={selectedComp} match={compViewNext} onPress={() => abrirMatch(compViewNext)} />
             ) : (
               <View style={s.empty}>
                 <Text style={{ fontSize: 40 }}>✅</Text>
@@ -917,10 +889,10 @@ export default function CourtScreen() {
               </View>
             )}
 
-            {/* Partidas com análise BT salva — exclusivo do Super Admin */}
+            {/* Partidas com análise do King Scout salva — exclusivo do Super Admin */}
             {isSuperAdmin && analiseIds.size > 0 && (
               <View style={{ gap: Spacing.xs }}>
-                <Text style={s.sectionLabel}>Análises BT salvas</Text>
+                <Text style={s.sectionLabel}>Análises do King Scout</Text>
                 {selectedComp.matches
                   .filter(m => analiseIds.has(m.id))
                   .map(m => (
@@ -951,14 +923,14 @@ export default function CourtScreen() {
   return (
     <>
       <SafeAreaView style={s.container} edges={['top']}>
-        <ScreenHeader title="Modo Quadra ao Vivo" />
+        <ScreenHeader title="Marcação ponto a ponto" />
 
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
           {activeComps.length === 0 && (
             <View style={s.empty}>
               <Text style={{ fontSize: 40 }}>🏓</Text>
               <Text style={s.emptyTitle}>Nenhuma competição ativa</Text>
-              <Text style={s.emptySub}>Crie uma competição para usar o Modo Quadra.</Text>
+              <Text style={s.emptySub}>Crie uma competição para marcar os jogos ponto a ponto.</Text>
             </View>
           )}
 
@@ -986,12 +958,6 @@ export default function CourtScreen() {
             );
           })}
 
-          {isSuperAdmin && (
-            <TouchableOpacity style={s.historico} onPress={() => router.push('/analise')} activeOpacity={0.8}>
-              <Text style={s.historicoTxt}>📊 Histórico de análises BT</Text>
-            </TouchableOpacity>
-          )}
-
           <View style={{ height: Spacing.xl }} />
         </ScrollView>
       </SafeAreaView>
@@ -1011,8 +977,6 @@ const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   sectionLabel: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted, marginTop: Spacing.sm, marginBottom: 4 },
   analiseRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   analiseIcon: { fontSize: 18 },
-  historico: { borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, padding: Spacing.sm, alignItems: 'center', marginTop: Spacing.sm },
-  historicoTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
   compCard: {
     backgroundColor: Colors.surf, borderRadius: Radius.lg, padding: Spacing.md,
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
@@ -1022,23 +986,6 @@ const makeSStyles = (Colors: ThemeColors) => StyleSheet.create({
   compName: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
   compMeta: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   arrow: { fontFamily: FontFamily.titleBold, fontSize: 18, color: Colors.gold },
-});
-
-const makeNxtStyles = (Colors: ThemeColors) => StyleSheet.create({
-  card: {
-    backgroundColor: Colors.surf,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.gold + '44',
-    gap: Spacing.sm,
-  },
-  title: { fontFamily: FontFamily.title, fontSize: 13, color: Colors.gold, letterSpacing: 1 },
-  teams: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  team: { flex: 1, alignItems: 'center', gap: 6 },
-  avatars: { flexDirection: 'row', gap: -8 },
-  teamName: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.text, textAlign: 'center' },
-  vs: { fontFamily: FontFamily.number, fontSize: 13, color: Colors.faint, paddingHorizontal: 4 },
 });
 
 const makeLiveStyles = (Colors: ThemeColors) => StyleSheet.create({

@@ -16,6 +16,8 @@ import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { toggleReaction, addComment, deleteComment, type FeedItem } from '@/firebase/feed';
 import { goToPlayer } from '@/logic/nav';
+import { GamesComTb } from '@/components/analise/GamesComTb';
+import type { SetScore } from '@/logic/types';
 
 const EMOJIS = ['👑', '🔥', '💪'] as const;
 
@@ -37,7 +39,7 @@ function timeAgo(ts: any): string {
 
 // O feed guarda só o placar em sets (ex.: 1–0); os games por set vivem no jogo
 // original da competição — busca via compId/matchId (funciona para posts antigos).
-function useMatchGames(item: FeedItem): { a: number; b: number }[] | null {
+function useMatchGames(item: FeedItem): SetScore[] | null {
   const { state } = useCompetitions();
   // Prioridade 1: games gravados direto no post (sobrevive à exclusão da competição)
   if (item.sets?.length) return item.sets;
@@ -50,7 +52,7 @@ function useMatchGames(item: FeedItem): { a: number; b: number }[] | null {
 
 // Placar estilo painel de TV: cada lado numa linha, games por set em colunas
 // alinhadas da esquerda (mesmo visual do ScoreboardCard das competições)
-function FeedScoreboard({ item, sets }: { item: FeedItem; sets: { a: number; b: number }[] | null }) {
+function FeedScoreboard({ item, sets }: { item: FeedItem; sets: SetScore[] | null }) {
   const { colors: Colors } = useTheme();
   const fsb = useMemo(() => makeFsbStyles(Colors), [Colors]);
   const { findPlayer } = useGroupPlayers();
@@ -63,14 +65,6 @@ function FeedScoreboard({ item, sets }: { item: FeedItem; sets: { a: number; b: 
     const ids = info?.ids ?? [];
     return (
       <View style={fsb.row}>
-        {ids.slice(0, 2).map(id => {
-          const pl = findPlayer(id);
-          return pl
-            ? <TouchableOpacity key={id} onPress={() => goToPlayer(id)} hitSlop={4}>
-                <Avatar name={pl.name} color={pl.color} size={24} />
-              </TouchableOpacity>
-            : null;
-        })}
         {ids.length > 0 ? (
           <Text style={[fsb.name, won && fsb.nameWin, fsb.nameWrap]} numberOfLines={1}>
             {ids.map((id, i) => {
@@ -89,10 +83,10 @@ function FeedScoreboard({ item, sets }: { item: FeedItem; sets: { a: number; b: 
           {sets
             ? sets.map((s, i) => {
                 const win = side === 'a' ? s.a > s.b : s.b > s.a;
+                // Pontos do tie-break do set como expoente (4³ / 3⁷), quando o jogo foi marcado no scout
+                const tb = s.tb && !s.stb ? s.tb[side] : undefined;
                 return (
-                  <Text key={i} style={[fsb.col, win && fsb.colWin]}>
-                    {side === 'a' ? s.a : s.b}
-                  </Text>
+                  <GamesComTb key={i} games={side === 'a' ? s.a : s.b} tb={tb} style={[fsb.col, win && fsb.colWin]} />
                 );
               })
             // Sem games por set (placar livre/Avulso, ou jogo antigo/corrigido sem
@@ -136,15 +130,15 @@ const makeFsbStyles = (Colors: ThemeColors) => StyleSheet.create({
   name: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
   // Um sinal só para vitória — nome e placar em ouro. Antes o nome ficava em
   // ouro e o placar em teal ao mesmo tempo, dois sinais para o mesmo fato.
-  nameWin: { color: Colors.gold, fontFamily: FontFamily.title },
+  nameWin: { color: Colors.text },
   scoreZone: {
     width: 100, alignSelf: 'stretch',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start',
     borderLeftWidth: 1, borderLeftColor: Colors.line,
     paddingLeft: 6, backgroundColor: Colors.surf2,
   },
-  col: { width: 30, textAlign: 'center', fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.muted },
-  colWin: { color: Colors.gold },
+  col: { width: 30, textAlign: 'center', fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.text },
+  colWin: { color: Colors.teal },
   trophy: { fontSize: 15, paddingLeft: 4 },
   div: { height: 1, backgroundColor: Colors.line, marginHorizontal: Spacing.sm },
 
@@ -450,7 +444,8 @@ function RankChangeCard({ item }: { item: FeedItem }) {
         </View>
       </TouchableOpacity>
       <Animated.View style={[rc.badge, { transform: [{ scale: badgePulse }] }]}>
-        <Text style={rc.arrow}>↑{climbed}</Text>
+        <Icon name="arrowUp" size={14} color={Colors.teal} />
+        <Text style={rc.arrow}>{climbed}</Text>
       </Animated.View>
     </View>
     </Animated.View>
@@ -464,8 +459,8 @@ const makeRcStyles = (Colors: ThemeColors) => StyleSheet.create({
   title: { fontFamily: FontFamily.title, fontSize: 15, color: Colors.text },
   sub:   { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted },
   pos:   { color: Colors.gold },
-  badge: { backgroundColor: Colors.teal + '22', borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4 },
-  arrow: { fontFamily: FontFamily.titleBold, fontSize: 17, color: Colors.teal },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.teal + '22', borderRadius: Radius.full, paddingHorizontal: 10, paddingVertical: 4 },
+  arrow: { fontFamily: FontFamily.numberBold, fontSize: 16, lineHeight: 20, color: Colors.teal },
 });
 
 // ─── Skeleton loader ──────────────────────────────────────────────────────────

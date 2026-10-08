@@ -2,7 +2,8 @@ import { View, Text, StyleSheet, TouchableOpacity, type ViewStyle } from 'react-
 import { useMemo } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { Avatar, Card } from '@/components';
+import { Card } from '@/components';
+import { GamesComTb } from '@/components/analise/GamesComTb';
 import type { Match } from '@/logic/types';
 
 export interface ScoreSide {
@@ -12,7 +13,7 @@ export interface ScoreSide {
   bye?: boolean;
 }
 
-type Col = { v: string | number; win?: boolean; live?: boolean; draft?: boolean; trophy?: boolean };
+type Col = { v: string | number; win?: boolean; live?: boolean; draft?: boolean; trophy?: boolean; tb?: number };
 
 /**
  * Card de jogo estilo placar de TV: cada lado numa linha,
@@ -34,7 +35,10 @@ export function ScoreboardCard({ sideA, sideB, match: m, isNext = false, pending
   function cols(side: 'a' | 'b'): Col[] {
     if (sets) return sets.map(s => {
       const v = side === 'a' ? s.a : s.b;
-      return { v, win: side === 'a' ? s.a > s.b : s.b > s.a };
+      // Pontos do tie-break do set (só quando o jogo foi marcado ponto a ponto no scout); o super tie-break
+      // já guarda os próprios pontos como placar do set
+      const tb = s.tb && !s.stb ? s.tb[side] : undefined;
+      return { v, win: side === 'a' ? s.a > s.b : s.b > s.a, tb };
     });
     // Placar livre (ex: Avulso) ou jogo antigo/migrado sem sets gravados:
     // mostra o placar final direto (scoreA/scoreB) em vez de sets.
@@ -45,12 +49,10 @@ export function ScoreboardCard({ sideA, sideB, match: m, isNext = false, pending
   }
 
   function TeamRow({ side, info }: { side: 'a' | 'b'; info: ScoreSide }) {
-    const won = has && (side === 'a' ? aWon : !aWon);
     return (
       <View style={sb.teamRow}>
-        {info.players?.map((p, i) => <Avatar key={i} name={p.name} color={p.color} size={24} />)}
         <Text
-          style={[sb.name, won && sb.nameWin, info.placeholder && sb.placeholder, info.bye && sb.bye]}
+          style={[sb.name, info.placeholder && sb.placeholder, info.bye && sb.bye]}
           numberOfLines={1}
         >
           {info.label}
@@ -58,17 +60,21 @@ export function ScoreboardCard({ sideA, sideB, match: m, isNext = false, pending
         {/* Zona de placar fixa: colunas alinhadas da esquerda p/ direita,
             mesma posição do set 1 em todos os cards */}
         <View style={sb.scoreZone}>
-          {cols(side).map((c, i) => (
-            <Text key={i} style={[sb.col, c.win && sb.colWin, c.live && sb.colLive, c.draft && sb.colDraft]}>
-              {c.v}
-            </Text>
-          ))}
+          {cols(side).map((c, i) => {
+            const estilo = [sb.col, c.win && sb.colWin, c.live && sb.colLive, c.draft && sb.colDraft];
+            return c.tb !== undefined && typeof c.v === 'number'
+              ? <GamesComTb key={i} games={c.v} tb={c.tb} style={estilo} />
+              : <Text key={i} style={estilo}>{c.v}</Text>;
+          })}
         </View>
       </View>
     );
   }
 
   const showBadges = isNext || !!live || !!draft;
+  // Cabeçalho das colunas (SET 1, SET 2...) quando há games por set — sem ele "4 5 10" não diz se são sets, games ou pontos
+  const nCols = sets ? sets.length : live ? 1 : draft ? draft.length : 0;
+  const showHeader = showBadges || nCols > 0;
 
   return (
     <TouchableOpacity onPress={onPress} onLongPress={onLongPress} disabled={pending} activeOpacity={0.8}>
@@ -77,8 +83,9 @@ export function ScoreboardCard({ sideA, sideB, match: m, isNext = false, pending
         ...(isNext ? sb.nextCard : {}),
         ...(pending ? { opacity: 0.9 } : {}),
       } as ViewStyle}>
-        {showBadges && (
+        {showHeader && (
           <View style={sb.badgeRow}>
+            <View style={sb.badges}>
             {isNext && (
               <View style={sb.nextBadge}><Text style={sb.nextBadgeTxt}>PRÓXIMO</Text></View>
             )}
@@ -90,6 +97,12 @@ export function ScoreboardCard({ sideA, sideB, match: m, isNext = false, pending
             )}
             {draft && (
               <View style={sb.draftBadge}><Text style={sb.draftBadgeTxt}>📝 RASCUNHO</Text></View>
+            )}
+            </View>
+            {nCols > 0 && (
+              <View style={sb.headerZone}>
+                {Array.from({ length: nCols }, (_, i) => <Text key={i} style={sb.headerCol}>{'SET ' + (i + 1)}</Text>)}
+              </View>
             )}
           </View>
         )}
@@ -104,7 +117,11 @@ export function ScoreboardCard({ sideA, sideB, match: m, isNext = false, pending
 
 const makeSb = (Colors: ThemeColors) => StyleSheet.create({
   nextCard: { borderColor: Colors.gold, borderWidth: 1.5 },
-  badgeRow: { flexDirection: 'row', gap: 6, paddingHorizontal: Spacing.sm + 2, paddingTop: 8 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: Spacing.sm + 2, paddingTop: 8 },
+  badges: { flex: 1, flexDirection: 'row', gap: 6 },
+  // mesma largura/recuo da zona de placar, para os rótulos caírem em cima das colunas
+  headerZone: { width: 100, flexDirection: 'row', paddingLeft: 6 },
+  headerCol: { width: 30, textAlign: 'center', fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint },
   nextBadge: { backgroundColor: Colors.gold + '22', borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
   nextBadgeTxt: { fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.gold, letterSpacing: 1 },
   liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.coral + '22', borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 2 },
@@ -114,7 +131,6 @@ const makeSb = (Colors: ThemeColors) => StyleSheet.create({
   draftBadgeTxt: { fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.muted, letterSpacing: 1 },
   teamRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingLeft: Spacing.sm + 2, height: 44 },
   name: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.text },
-  nameWin: { color: Colors.gold, fontFamily: FontFamily.title },
   placeholder: { fontStyle: 'italic' },
   bye: { fontFamily: FontFamily.numberBold, fontSize: 13, letterSpacing: 1 },
   scoreZone: {
@@ -123,10 +139,10 @@ const makeSb = (Colors: ThemeColors) => StyleSheet.create({
     borderLeftWidth: 1, borderLeftColor: Colors.line,
     paddingLeft: 6, backgroundColor: Colors.surf2,
   },
-  col: { width: 30, textAlign: 'center', fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.muted },
+  col: { width: 30, textAlign: 'center', fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.text },
   colWin: { color: Colors.teal },
-  colLive: { color: Colors.coral },
-  colDraft: { color: Colors.faint },
+  colLive: { color: Colors.text },
+  colDraft: { color: Colors.text },
   div: { height: 1, backgroundColor: Colors.line, marginHorizontal: Spacing.sm },
   hint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center', paddingVertical: 6, borderTopWidth: 1, borderTopColor: Colors.line },
 });

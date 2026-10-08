@@ -1,6 +1,6 @@
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Dimensions, StatusBar,
+  Dimensions, StatusBar, Platform, Alert,
 } from 'react-native';
 import { HexBackground } from '@/components/HexBackground';
 import * as Print from 'expo-print';
@@ -13,11 +13,19 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import {
-  carregarAnalise, calcularEstatisticas, salvarAnalise,
+  carregarAnalise, calcularEstatisticas, salvarAnalise, deletarAnalise,
   placardInicial, avancaPonto,
   type BtAnalise, type BtEstatisticas,
 } from '@/logic/btTracker';
-import { loadAnaliseFs } from '@/firebase/analises';
+import { loadAnaliseFs, deleteAnaliseFs } from '@/firebase/analises';
+import { melhoresPorColuna, sequenciasDePontos, viradasDoJogo } from '@/logic/btMomentos';
+import { GamesComTb } from '@/components/analise/GamesComTb';
+import { Chip } from '@/components/analise/Chip';
+import { MapaCalorResumo } from '@/components/analise/MapaCalorGrid';
+import {
+  agregarMapaCalor, destinoAceitaFora, FINALIZACOES_COM_CALOR, jogoTemMapaCalor, rotulosMapaCalor, type FinalizacaoComCalor,
+} from '@/logic/btMapaCalor';
+import { placaresAposPontos, tiebreaksDosSets } from '@/logic/btPlacarPonto';
 import { useAuth } from '@/store/AuthContext';
 import { makeScoutOptions } from '@/components/analise/scoutOptions';
 import { BarChart, PieChart, LineChart } from 'react-native-gifted-charts';
@@ -29,17 +37,17 @@ const CHART_W = SW - Spacing.md * 2 - 2;
 
 // ─── Abas ────────────────────────────────────────────────────────────────────
 
-const ABAS = ['Resumo', 'Stats', 'Qualidade', 'Saques', 'Finalizações', 'Dinâmica', 'Log'] as const;
+const ABAS = ['Resumo', 'Stats', 'Qualidade', 'Saques', 'Finalizações', 'Mapa', 'Dinâmica', 'Log'] as const;
 type Aba = typeof ABAS[number];
 
 // ─── Componentes auxiliares ───────────────────────────────────────────────────
 
-function TabBar({ aba, onSelect }: { aba: Aba; onSelect: (a: Aba) => void }) {
+function TabBar({ aba, abas, onSelect }: { aba: Aba; abas: readonly Aba[]; onSelect: (a: Aba) => void }) {
   const { colors: Colors } = useTheme();
   const tb = useMemo(() => makeTbStyles(Colors), [Colors]);
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={tb.scroll} contentContainerStyle={tb.content}>
-      {ABAS.map(a => (
+      {abas.map(a => (
         <TouchableOpacity key={a} style={[tb.tab, aba === a && tb.tabActive]} onPress={() => onSelect(a)}>
           <Text style={[tb.txt, aba === a && tb.txtActive]}>{a}</Text>
         </TouchableOpacity>
@@ -102,8 +110,12 @@ function AbaResumo({ analise, stats }: { analise: BtAnalise; stats: BtEstatistic
   const pA = totalPontos > 0 ? Math.round((dupla.A.pontosGanhos / totalPontos) * 100) : 0;
   const pB = 100 - pA;
 
-  const nA = `${analise.nomes[analise.jogadores.a1] ?? 'A1'} / ${analise.nomes[analise.jogadores.a2] ?? 'A2'}`;
-  const nB = `${analise.nomes[analise.jogadores.b1] ?? 'B1'} / ${analise.nomes[analise.jogadores.b2] ?? 'B2'}`;
+  // Jogo individual (1x1) não tem parceiro: só os nomes que existem, sem "Ana / A2"
+  const nomeDe = (id: string) => analise.nomes[id] ?? id;
+  const nA = [analise.jogadores.a1, analise.jogadores.a2].filter(Boolean).map(nomeDe).join(' / ');
+  const nB = [analise.jogadores.b1, analise.jogadores.b2].filter(Boolean).map(nomeDe).join(' / ');
+
+  const tbs = useMemo(() => tiebreaksDosSets({ pontos: analise.pontos, rule: analise.rule, inicial: analise.inicial }), [analise]);
 
   const holdA = dupla.A.gamesSacando > 0 ? Math.round((dupla.A.gamesSacandoVencidos / dupla.A.gamesSacando) * 100) : 0;
   const holdB = dupla.B.gamesSacando > 0 ? Math.round((dupla.B.gamesSacandoVencidos / dupla.B.gamesSacando) * 100) : 0;
@@ -133,13 +145,17 @@ function AbaResumo({ analise, stats }: { analise: BtAnalise; stats: BtEstatistic
       {/* Games por set */}
       {analise.placarFinal?.gamesA && (
         <View style={rs.setsRow}>
-          {analise.placarFinal.gamesA.map((g, i) => (
-            <View key={i} style={rs.setChip}>
-              <Text style={[rs.setScore, { color: Colors.gold }]}>{g}</Text>
-              <Text style={rs.setSlash}>-</Text>
-              <Text style={[rs.setScore, { color: Colors.teal }]}>{analise.placarFinal!.gamesB[i]}</Text>
-            </View>
-          ))}
+          {analise.placarFinal.gamesA.map((g, i) => {
+            // Pontos do tie-break como expoente (ex.: 6-7⁵); super tie-break já guarda os pontos como placar
+            const tb = !analise.placarFinal!.stb?.[i] ? tbs[i] : undefined;
+            return (
+              <View key={i} style={rs.setChip}>
+                <GamesComTb games={g} tb={tb?.a} style={[rs.setScore, { color: Colors.gold }]} />
+                <Text style={rs.setSlash}>-</Text>
+                <GamesComTb games={analise.placarFinal!.gamesB[i]} tb={tb?.b} style={[rs.setScore, { color: Colors.teal }]} />
+              </View>
+            );
+          })}
         </View>
       )}
 
@@ -220,6 +236,8 @@ function AbaStats({ analise, stats }: { analise: BtAnalise; stats: BtEstatistica
   const sr = useMemo(() => makeSrStyles(Colors), [Colors]);
   const jogs = analise.jogadores;
   const ids = [jogs.a1, jogs.a2, jogs.b1, jogs.b2].filter(Boolean);
+  const melhores = useMemo(() => melhoresPorColuna(ids.map(id => stats.jogadores[id]).filter(Boolean)), [stats]); // eslint-disable-line react-hooks/exhaustive-deps
+  const estrela = (col: string, id: string) => (melhores[col]?.includes(id) ? ' ★' : '');
 
   return (
     <ScrollView contentContainerStyle={p.scroll}>
@@ -241,18 +259,18 @@ function AbaStats({ analise, stats }: { analise: BtAnalise; stats: BtEstatistica
           const notaCor = e.nota >= 7 ? Colors.teal : e.nota >= 4 ? Colors.gold : Colors.coral;
           return (
             <View key={id} style={sr.row}>
-              <Text style={[sr.val, { color: cor }]}>{e.pontosGanhos}</Text>
+              <Text style={[sr.val, { color: cor }]}>{e.pontosGanhos}{estrela('Pts', id)}</Text>
               <Text style={[sr.label, { color: Colors.text }]} numberOfLines={1}>
                 {analise.nomes[id]?.split(' ')[0] ?? id}
               </Text>
-              <Text style={[sr.val, { color: Colors.text, fontSize: 13 }]}>{e.winners}</Text>
-              <Text style={[sr.val, { color: Colors.text, fontSize: 13 }]}>{e.aces}</Text>
-              <Text style={[sr.val, { color: Colors.coral, fontSize: 13 }]}>{e.errosNaoForcados}</Text>
-              <Text style={[sr.val, { color: notaCor, fontSize: 13, fontFamily: FontFamily.numberBold }]}>{e.nota.toFixed(1)}</Text>
+              <Text style={[sr.val, { color: Colors.text, fontSize: 13 }]}>{e.winners}{estrela('Winner', id)}</Text>
+              <Text style={[sr.val, { color: Colors.text, fontSize: 13 }]}>{e.aces}{estrela('Ace', id)}</Text>
+              <Text style={[sr.val, { color: Colors.coral, fontSize: 13 }]}>{e.errosNaoForcados}{estrela('Erro N.F.', id)}</Text>
+              <Text style={[sr.val, { color: notaCor, fontSize: 13, fontFamily: FontFamily.numberBold }]}>{e.nota.toFixed(1)}{estrela('Nota', id)}</Text>
             </View>
           );
         })}
-        <Text style={p.hint}>W = Winners · Ace = Aces · ENF = Erros Não Forçados</Text>
+        <Text style={p.hint}>★ = melhor da coluna (menor, nos erros) · W = Winners · Ace = Aces · ENF = Erros Não Forçados</Text>
         <Text style={p.hint}>Nota: resumo heurístico de desempenho (0-10), não é uma métrica oficial.</Text>
       </Section>
     </ScrollView>
@@ -449,10 +467,65 @@ const makeFinStyles = (Colors: ThemeColors) => StyleSheet.create({
   lbl: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
 });
 
-function AbaDinamica({ stats }: { stats: BtEstatisticas }) {
+const ROTULO_FIN: Record<FinalizacaoComCalor, string> = { Winner: 'Winner', 'ForçouErro': 'Forçou erro', ErroNaoForcado: 'Erro não forçado' };
+
+function AbaMapa({ analise }: { analise: BtAnalise }) {
+  const { colors: Colors } = useTheme();
+  const p = useMemo(() => makePStyles(Colors), [Colors]);
+  const [dupla, setDupla] = useState<'A' | 'B'>('A');
+  const [fin, setFin] = useState<FinalizacaoComCalor>('Winner');
+  const [jogador, setJogador] = useState<string | null>(null);
+  const jogs = analise.jogadores;
+  const doLado = (dupla === 'A' ? [jogs.a1, jogs.a2] : [jogs.b1, jogs.b2]).filter(Boolean);
+  const nome = (id: string) => analise.nomes[id]?.split(' ')[0] ?? id;
+  const agg = useMemo(
+    () => agregarMapaCalor(analise.pontos, dupla, fin, jogador && doLado.includes(jogador) ? { jogador } : {}),
+    [analise.pontos, dupla, fin, jogador], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const cor = dupla === 'A' ? Colors.gold : Colors.teal;
+  const rot = rotulosMapaCalor(fin);
+
+  return (
+    <ScrollView contentContainerStyle={p.scroll}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs }}>
+        <Chip small label={`Dupla A · ${[jogs.a1, jogs.a2].filter(Boolean).map(nome).join(' / ')}`} selected={dupla === 'A'} onPress={() => { setDupla('A'); setJogador(null); }} color={Colors.gold} />
+        <Chip small label={`Dupla B · ${[jogs.b1, jogs.b2].filter(Boolean).map(nome).join(' / ')}`} selected={dupla === 'B'} onPress={() => { setDupla('B'); setJogador(null); }} color={Colors.teal} />
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs }}>
+        {FINALIZACOES_COM_CALOR.map(f => (
+          <Chip key={f} small label={ROTULO_FIN[f]} selected={fin === f} onPress={() => setFin(f)} />
+        ))}
+      </View>
+      {doLado.length > 1 && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs }}>
+          <Chip small label="Dupla toda" selected={!jogador} onPress={() => setJogador(null)} />
+          {doLado.map(id => <Chip key={id} small label={nome(id)} selected={jogador === id} onPress={() => setJogador(id)} />)}
+        </View>
+      )}
+
+      {agg.total === 0 ? (
+        <View style={p.empty}><Text style={p.emptyTxt}>Nenhum lance marcado no mapa para esta seleção.</Text></View>
+      ) : (
+        <View style={{ alignItems: 'center', gap: Spacing.md }}>
+          <Text style={p.hint}>{agg.total} {agg.total === 1 ? 'lance marcado' : 'lances marcados'}</Text>
+          <Text style={p.hint}>{rot.jogador}</Text>
+          <MapaCalorResumo cima="Fundo" baixo="Rede" esquerda="D" direita="E" quenteEmCima contagens={agg.jogador} cor={cor} />
+          <Text style={p.hint}>{rot.bola}</Text>
+          <MapaCalorResumo cima="Rede" baixo="Fundo" esquerda="E" direita="D" quenteEmCima={false} comFora={destinoAceitaFora(fin)} contagens={agg.bola} cor={cor} />
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+function AbaDinamica({ analise, stats }: { analise: BtAnalise; stats: BtEstatisticas }) {
   const { colors: Colors } = useTheme();
   const p = useMemo(() => makePStyles(Colors), [Colors]);
   const { dinamica } = stats;
+  const sequencias = useMemo(() => sequenciasDePontos(analise.pontos), [analise.pontos]);
+  const viradas = useMemo(() => viradasDoJogo({ pontos: analise.pontos, rule: analise.rule, inicial: analise.inicial }), [analise]);
+  const nomeDupla = (d: 'A' | 'B') => (d === 'A' ? [analise.jogadores.a1, analise.jogadores.a2] : [analise.jogadores.b1, analise.jogadores.b2])
+    .filter(Boolean).map(id => analise.nomes[id]?.split(' ')[0] ?? id).join(' / ');
   if (dinamica.length === 0) {
     return (
       <View style={p.empty}>
@@ -492,6 +565,23 @@ function AbaDinamica({ stats }: { stats: BtEstatisticas }) {
           />
         </ScrollView>
       </Section>
+
+      <Section title="Momentos da partida">
+        <Text style={p.hint}>Sequências: 3 ou mais pontos seguidos da mesma dupla · Viradas: a liderança no saldo de pontos trocou de lado</Text>
+        {sequencias.length === 0 && viradas.length === 0 && (
+          <Text style={p.emptyTxt}>Sem sequências nem viradas nesta partida.</Text>
+        )}
+        {sequencias.map((q, i) => (
+          <Text key={'s' + i} style={[p.hint, { color: q.dupla === 'A' ? Colors.gold : Colors.teal, fontSize: 13 }]}>
+            {q.tamanho} pontos seguidos de {nomeDupla(q.dupla)} (pontos {q.inicio} a {q.fim})
+          </Text>
+        ))}
+        {viradas.map((v, i) => (
+          <Text key={'v' + i} style={[p.hint, { color: v.dupla === 'A' ? Colors.gold : Colors.teal, fontSize: 13 }]}>
+            Virada no ponto {v.numero}: {nomeDupla(v.dupla)} passou à frente ({v.placar})
+          </Text>
+        ))}
+      </Section>
     </ScrollView>
   );
 }
@@ -500,6 +590,8 @@ function AbaLog({ analise }: { analise: BtAnalise }) {
   const { colors: Colors } = useTheme();
   const p = useMemo(() => makePStyles(Colors), [Colors]);
   const log = useMemo(() => makeLogStyles(Colors), [Colors]);
+  // Placar DEPOIS de cada ponto (o salvo em gameScore/setScore é o de antes)
+  const placaresApos = useMemo(() => placaresAposPontos({ pontos: analise.pontos, rule: analise.rule, inicial: analise.inicial }), [analise]);
   return (
     <ScrollView contentContainerStyle={p.scroll}>
       {analise.pontos.length === 0 && (
@@ -508,6 +600,7 @@ function AbaLog({ analise }: { analise: BtAnalise }) {
         </View>
       )}
       {[...analise.pontos].reverse().map((pt, i) => {
+        const placarApos = placaresApos[analise.pontos.length - 1 - i];
         const dupla = pt.vencedorDupla;
         const cor = dupla === 'A' ? Colors.gold : Colors.teal;
         const sacNome = analise.nomes[pt.sacador]?.split(' ')[0] ?? pt.sacador;
@@ -515,7 +608,7 @@ function AbaLog({ analise }: { analise: BtAnalise }) {
           <View key={pt.id} style={log.row}>
             <View style={[log.dot, { backgroundColor: cor }]} />
             <View style={{ flex: 1, gap: 2 }}>
-              <Text style={log.placar}>{pt.setScore} · {pt.gameScore}</Text>
+              <Text style={log.placar}>{placarApos}</Text>
               <Text style={log.detalhe}>
                 Saque: {sacNome} ({pt.posicaoSaque}) · {pt.finalizacao}
                 {pt.tipoFinalizacao ? ` · ${pt.tipoFinalizacao}` : ''}
@@ -552,6 +645,12 @@ export default function RelatorioScreen() {
   const [loading, setLoading] = useState(true);
   const [exportando, setExportando] = useState(false);
 
+  // A aba do mapa de calor só aparece quando algum lance foi marcado
+  const abasVisiveis = useMemo(
+    () => ABAS.filter(a => a !== 'Mapa' || (analise && jogoTemMapaCalor(analise.pontos))),
+    [analise],
+  );
+
   async function exportarPdf() {
     if (!analise || !stats) return;
     try {
@@ -568,6 +667,30 @@ export default function RelatorioScreen() {
     }
   }
 
+  // Apaga a análise (aparelho + nuvem). O placar da partida na competição NÃO é alterado.
+  function pedirExcluir() {
+    if (!analise) return;
+    const aviso = 'Isso apaga todos os pontos registrados desta análise. O placar da partida na competição não muda. Não dá para desfazer.';
+    const excluir = async () => {
+      try {
+        await deletarAnalise(analise.matchId, analise.competitionId);
+        if (group?.id) await deleteAnaliseFs(group.id, analise.matchId);
+        if (router.canGoBack()) router.back();
+        else router.replace('/analise');
+      } catch {
+        notify('Erro', 'Não foi possível excluir a análise na nuvem. Verifique a conexão e tente de novo.');
+      }
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Excluir esta análise?\n\n${aviso}`)) excluir();
+    } else {
+      Alert.alert('Excluir análise', aviso, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Excluir', style: 'destructive', onPress: excluir },
+      ]);
+    }
+  }
+
   useEffect(() => {
     async function load() {
       let a = await carregarAnalise(matchId, compId ?? '');
@@ -579,7 +702,7 @@ export default function RelatorioScreen() {
       if (!a) return;
       // Garante placarFinal calculado a partir dos pontos se ausente
       if (!a.placarFinal && a.pontos.length > 0) {
-        let pl = placardInicial(a.rule);
+        let pl = placardInicial(a.rule, a.inicial);
         for (const pt of a.pontos) pl = avancaPonto(pl, pt.vencedorDupla);
         if (pl.setsA > 0 || pl.setsB > 0 || pl.historicGamesA.length > 0) {
           a = {
@@ -604,15 +727,20 @@ export default function RelatorioScreen() {
 
       {/* Header */}
       <ScreenHeader
-        title="Análise BT"
+        title="King Scout"
         onBack={() => {
           if (router.canGoBack()) router.back();
           else router.replace({ pathname: '/competitions/[id]', params: { id: compId ?? '' } });
         }}
         right={analise && stats ? (
-          <TouchableOpacity style={r.exportBtn} onPress={exportarPdf} disabled={exportando}>
-            <Text style={r.exportTxt}>{exportando ? '...' : '⬇ PDF'}</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+            <TouchableOpacity style={r.exportBtn} onPress={exportarPdf} disabled={exportando}>
+              <Text style={r.exportTxt}>{exportando ? '...' : '⬇ PDF'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={r.exportBtn} onPress={pedirExcluir}>
+              <Text style={[r.exportTxt, { color: Colors.coral }]}>Excluir</Text>
+            </TouchableOpacity>
+          </View>
         ) : undefined}
       />
 
@@ -633,13 +761,14 @@ export default function RelatorioScreen() {
 
       {analise && stats && (
         <>
-          <TabBar aba={aba} onSelect={setAba} />
+          <TabBar aba={aba} abas={abasVisiveis} onSelect={setAba} />
           {aba === 'Resumo' && <AbaResumo analise={analise} stats={stats} />}
           {aba === 'Stats' && <AbaStats analise={analise} stats={stats} />}
           {aba === 'Qualidade' && <AbaQualidade analise={analise} stats={stats} />}
           {aba === 'Saques' && <AbaSaques analise={analise} stats={stats} />}
           {aba === 'Finalizações' && <AbaFinalizacoes analise={analise} stats={stats} />}
-          {aba === 'Dinâmica' && <AbaDinamica stats={stats} />}
+          {aba === 'Mapa' && <AbaMapa analise={analise} />}
+          {aba === 'Dinâmica' && <AbaDinamica analise={analise} stats={stats} />}
           {aba === 'Log' && <AbaLog analise={analise} />}
         </>
       )}

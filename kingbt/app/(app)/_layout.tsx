@@ -184,7 +184,7 @@ function FABMenu({ insetBottom, wide = false }: { insetBottom: number; wide?: bo
   const FAB_ITEMS: { icon: IconName; label: string; path: string }[] = [
     { icon: 'competitions', label: 'Nova Competição', path: '/competitions/new' },
     { icon: 'compare',      label: 'Jogo Rápido',   path: '/amistoso' },
-    { icon: 'ranking',      label: 'Quadra ao Vivo',  path: '/court' },
+    { icon: 'ranking',      label: 'Marcação ponto a ponto',  path: '/court' },
   ];
 
   return (

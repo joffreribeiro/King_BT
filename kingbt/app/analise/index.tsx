@@ -1,11 +1,17 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { notify } from '@/services/notify';
+import { gerarRelatorioJogosHtml, gerarRelatorioPartidaHtml } from '@/logic/exportRelatorio';
 import { HexBackground } from '@/components/HexBackground';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useMemo } from 'react';
 import { router } from 'expo-router';
 import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { listarAnalises, type BtAnalise } from '@/logic/btTracker';
+import { listarAnalises, placardInicial, avancaPonto, formatGameScore, calcularEstatisticas, type BtAnalise } from '@/logic/btTracker';
+import { GamesComTb } from '@/components/analise/GamesComTb';
+import { tiebreaksDosSets } from '@/logic/btPlacarPonto';
 import { useAuth } from '@/store/AuthContext';
 import { listAnalisesFs } from '@/firebase/analises';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -17,16 +23,26 @@ function formatDate(ts: number): string {
   });
 }
 
-function AnaliseCard({ analise }: { analise: BtAnalise }) {
+function AnaliseCard({ analise, onPdf }: { analise: BtAnalise; onPdf: (a: BtAnalise) => void }) {
   const { colors: Colors } = useTheme();
   const card = useMemo(() => makeCardStyles(Colors), [Colors]);
   const { jogadores, nomes, placarFinal, criadaEm, matchId, competitionId } = analise;
-  const nA = `${nomes[jogadores.a1]?.split(' ')[0] ?? jogadores.a1} / ${nomes[jogadores.a2]?.split(' ')[0] ?? jogadores.a2}`.replace('/ ', '').trimEnd();
-  const nB = `${nomes[jogadores.b1]?.split(' ')[0] ?? jogadores.b1} / ${nomes[jogadores.b2]?.split(' ')[0] ?? jogadores.b2}`.replace('/ ', '').trimEnd();
+  const primeiro = (id: string) => nomes[id]?.split(' ')[0] ?? id;
+  const nA = [jogadores.a1, jogadores.a2].filter(Boolean).map(primeiro).join(' / ');
+  const nB = [jogadores.b1, jogadores.b2].filter(Boolean).map(primeiro).join(' / ');
 
-  const scoreLabel = placarFinal
-    ? `${placarFinal.setsA} × ${placarFinal.setsB} sets`
-    : `${analise.pontos.length} pontos`;
+  // Placar: finalizada usa o placar salvo; em andamento recalcula pelos pontos (inclui os pontos do game)
+  const tbs = useMemo(() => tiebreaksDosSets({ pontos: analise.pontos, rule: analise.rule, inicial: analise.inicial }), [analise]);
+  const vivo = useMemo(() => {
+    if (placarFinal || analise.pontos.length === 0) return null;
+    let pl = placardInicial(analise.rule, analise.inicial);
+    for (const p of analise.pontos) pl = avancaPonto(pl, p.vencedorDupla, p.sacador);
+    return pl;
+  }, [analise, placarFinal]);
+  const histA = placarFinal ? placarFinal.gamesA : vivo ? [...vivo.historicGamesA, vivo.gamesA] : [];
+  const histB = placarFinal ? placarFinal.gamesB : vivo ? [...vivo.historicGamesB, vivo.gamesB] : [];
+  const stbs = placarFinal ? placarFinal.stb : vivo?.historicStb;
+  const ptsVivo = vivo ? formatGameScore(vivo).split('x') : null;
 
   return (
     <TouchableOpacity
@@ -38,14 +54,48 @@ function AnaliseCard({ analise }: { analise: BtAnalise }) {
       })}
     >
       <View style={card.header}>
-        <Text style={card.score}>{scoreLabel}</Text>
-        <Text style={card.date}>{formatDate(criadaEm)}</Text>
+        <Text style={card.status}>{placarFinal ? 'Finalizada' : `Em andamento · ${analise.pontos.length} pontos`}</Text>
+        <View style={card.headerDir}>
+          <Text style={card.date}>{formatDate(criadaEm)}</Text>
+          {analise.pontos.length > 0 && (
+            <TouchableOpacity onPress={() => onPdf(analise)} hitSlop={8} accessibilityLabel="Gerar PDF deste jogo">
+              <Text style={card.pdf}>⬇ PDF</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-      <View style={card.teams}>
-        <Text style={[card.team, { color: Colors.gold }]} numberOfLines={1}>{nA}</Text>
-        <Text style={card.vs}>×</Text>
-        <Text style={[card.team, { color: Colors.teal }]} numberOfLines={1}>{nB}</Text>
-      </View>
+      {histA.length > 0 ? (
+        <View>
+          <View style={card.linha}>
+            <View style={{ flex: 1 }} />
+            {histA.map((_, i) => <Text key={i} style={card.cab}>SET {i + 1}</Text>)}
+            {ptsVivo && <Text style={[card.cab, { width: 52 }]}>PONTOS</Text>}
+          </View>
+          {(['A', 'B'] as const).map(d => {
+            const meus = d === 'A' ? histA : histB;
+            const outros = d === 'A' ? histB : histA;
+            const cor = d === 'A' ? Colors.gold : Colors.teal;
+            return (
+              <View key={d} style={[card.linha, card.linhaDupla, { borderLeftColor: cor }]}>
+                <Text style={card.nome} numberOfLines={1}>{d === 'A' ? nA : nB}</Text>
+                {meus.map((g, i) => {
+                  const tb = tbs[i];
+                  const fechado = !vivo || i < vivo.historicGamesA.length;
+                  const tbMeu = fechado && tb && !stbs?.[i] ? (d === 'A' ? tb.a : tb.b) : undefined;
+                  return <GamesComTb key={i} games={g} tb={tbMeu} style={[card.game, fechado && g > (outros[i] ?? 0) && { color: cor }]} />;
+                })}
+                {ptsVivo && <Text style={card.pts}>{ptsVivo[d === 'A' ? 0 : 1]}</Text>}
+              </View>
+            );
+          })}
+        </View>
+      ) : (
+        <View style={card.teams}>
+          <Text style={[card.team, { color: Colors.gold }]} numberOfLines={1}>{nA}</Text>
+          <Text style={card.vs}>×</Text>
+          <Text style={[card.team, { color: Colors.teal }]} numberOfLines={1}>{nB}</Text>
+        </View>
+      )}
       <Text style={card.hint}>📊 Ver relatório completo</Text>
     </TouchableOpacity>
   );
@@ -58,7 +108,15 @@ const makeCardStyles = (Colors: ThemeColors) => StyleSheet.create({
     padding: Spacing.md, gap: Spacing.xs,
   },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  score: { fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.text },
+  status: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
+  headerDir: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  pdf: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.teal },
+  linha: { flexDirection: 'row', alignItems: 'center' },
+  linhaDupla: { backgroundColor: Colors.surf2, borderRadius: Radius.md, borderLeftWidth: 3, marginTop: 5, paddingLeft: 10, paddingRight: 4, paddingVertical: 8 },
+  cab: { fontFamily: FontFamily.numberBold, fontSize: 9, color: Colors.faint, width: 44, textAlign: 'center' },
+  nome: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.text },
+  game: { fontFamily: FontFamily.numberBold, fontSize: 18, color: Colors.text, width: 44, textAlign: 'center' },
+  pts: { fontFamily: FontFamily.numberBold, fontSize: 22, width: 52, textAlign: 'center', color: Colors.text },
   date: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.faint },
   teams: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   team: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 13 },
@@ -73,6 +131,22 @@ export default function AnaliseListScreen() {
   const { group } = useAuth();
   const [analises, setAnalises] = useState<BtAnalise[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exportando, setExportando] = useState(false);
+
+  /** Gera o PDF e abre o compartilhamento (mesmo caminho do relatório de uma partida). */
+  async function compartilharPdf(html: string, titulo: string) {
+    try {
+      setExportando(true);
+      const { uri } = await Print.printToFileAsync({ html, base64: false });
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: titulo });
+    } catch {
+      notify('Erro', 'Não foi possível gerar o PDF.');
+    } finally {
+      setExportando(false);
+    }
+  }
+  const pdfDoJogo = (a: BtAnalise) => compartilharPdf(gerarRelatorioPartidaHtml(a, calcularEstatisticas(a)), 'Relatório de Partida — King BT');
+  const pdfDosJogos = () => compartilharPdf(gerarRelatorioJogosHtml(analises, group?.name ?? 'Grupo'), 'Jogos gravados pelo King Scout');
 
   useEffect(() => {
     async function load() {
@@ -99,7 +173,22 @@ export default function AnaliseListScreen() {
       <HexBackground />
       <StatusBar barStyle="light-content" />
 
-      <ScreenHeader title="Histórico de Análises BT" />
+      <ScreenHeader
+        title="King Scout"
+        subtitle="Jogos gravados ponto a ponto"
+        right={
+          <View style={{ flexDirection: 'row', gap: Spacing.xs }}>
+            {analises.length > 0 && (
+              <TouchableOpacity style={s.atletaBtn} onPress={pdfDosJogos} disabled={exportando}>
+                <Text style={s.atletaTxt}>{exportando ? '...' : '⬇ Relatório'}</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={s.atletaBtn} onPress={() => router.push('/analise/atleta' as never)}>
+              <Text style={s.atletaTxt}>📈 Atletas</Text>
+            </TouchableOpacity>
+          </View>
+        }
+      />
 
       {loading && (
         <View style={s.center}>
@@ -110,16 +199,16 @@ export default function AnaliseListScreen() {
       {!loading && analises.length === 0 && (
         <View style={s.center}>
           <Text style={{ fontSize: 40, textAlign: 'center' }}>📊</Text>
-          <Text style={s.emptyTitle}>Nenhuma análise salva</Text>
+          <Text style={s.emptyTitle}>Nenhum jogo gravado ainda</Text>
           <Text style={s.hint}>
-            Registre uma partida com "Analisar ponto a ponto" para criar sua primeira análise.
+            Os jogos marcados ponto a ponto no King Scout aparecem aqui, com relatório e análise por atleta.
           </Text>
         </View>
       )}
 
       {!loading && analises.length > 0 && (
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-          {analises.map(a => <AnaliseCard key={a.matchId} analise={a} />)}
+          {analises.map(a => <AnaliseCard key={a.matchId} analise={a} onPdf={pdfDoJogo} />)}
           <View style={{ height: Spacing.xl }} />
         </ScrollView>
       )}
@@ -134,6 +223,8 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     padding: Spacing.md, borderBottomWidth: 1, borderBottomColor: Colors.line,
   },
   title: { fontFamily: FontFamily.title, fontSize: 17, color: Colors.text },
+  atletaBtn: { backgroundColor: Colors.surf2, borderRadius: Radius.full, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: Colors.line },
+  atletaTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.teal },
   scroll: { ...centeredContent, padding: Spacing.md, gap: Spacing.sm },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.xl, gap: Spacing.sm },
   emptyTitle: { fontFamily: FontFamily.title, fontSize: 18, color: Colors.text, textAlign: 'center' },

@@ -18,9 +18,15 @@ import {
   type BtAnalise, type BtPonto, type BtFinalizacao,
   type BtTipoFinalizacao, type BtPosicaoSaque, type BtPlacardState, type BtWinRule,
   type BtDirecao, type BtQualidadeSaque, type BtQualidadeDevolucao, type BtDirecaoDevolucao,
-  type BtLado, type BtDuracaoPonto, type BtSituacao,
+  type BtLado, type BtDuracaoPonto, type BtSituacao, type BtCelulaCalor, type BtCelulaBola, type BtPlacarSeed,
   type BtTipoPrimeiraBola, type BtDirecaoPrimeiraBola, type BtQualidadePrimeiraBola,
 } from '@/logic/btTracker';
+import { BtPlacar } from '@/components/analise/BtPlacar';
+import { PlacarInicial } from '@/components/analise/PlacarInicial';
+import { MapaCalorGrid } from '@/components/analise/MapaCalorGrid';
+import { temMapaCalor, destinoAceitaFora, rotulosMapaCalor } from '@/logic/btMapaCalor';
+import { placaresAposPontos, setsDoPlacardComTiebreak } from '@/logic/btPlacarPonto';
+import { proximoSacadorAutomatico as proximoSacadorRotacao, deriveSeqSacadores, sacadorNoTiebreak } from '@/logic/btRotacao';
 import { saveAnaliseSynced, loadAnaliseFs } from '@/firebase/analises';
 import { useAuth } from '@/store/AuthContext';
 import { Chip } from '@/components/analise/Chip';
@@ -105,6 +111,8 @@ export default function PontoScreen() {
   // ── Estado da análise ────────────────────────────────────────────────────
   const placardRef = useRef<BtPlacardState>(placardInicial(rule));
   const pontosRef  = useRef<BtPonto[]>([]);
+  // Placar com que a análise começou ("a partida já começou?"); ausente = desde o 0x0
+  const inicialRef = useRef<BtPlacarSeed | undefined>(undefined);
   const analiseRef = useRef<BtAnalise | null>(null);
   const [, forceUpdate] = useState(0);
 
@@ -116,24 +124,23 @@ export default function PontoScreen() {
   // ── Rotação de saque por game ────────────────────────────────────────────
   // Sequência de sacadores por game no set atual (state para forçar re-render)
   const [seqSacadores, setSeqSacadores] = useState<string[]>([]);
-  const sacadorPrimeiroRef = useRef<string | null>(null);
 
   const isDuplas = jogadoresA.length > 1 || jogadoresB.length > 1;
 
+  // Duplas: games 1 e 2 manuais, a partir do 3º automático. Simples: game 1 manual, depois alterna.
+  // A lógica vive em btRotacao.ts (testada); aqui só fixa os jogadores da partida.
   function proximoSacadorAutomatico(seq: string[]): string | null {
-    if (isDuplas) {
-      // Duplas: games 1 e 2 manuais, a partir do 3 automático (parceiro de 2 atrás)
-      if (seq.length < 2) return null;
-      const ref = seq[seq.length - 2];
-      const equipe = jogadoresA.includes(ref) ? jogadoresA : jogadoresB;
-      return equipe.find(id => id !== ref) ?? null;
-    } else {
-      // Simples: game 1 manual, a partir do game 2 sempre automático (alterna)
-      if (seq.length === 0) return null;
-      const ultimo = seq[seq.length - 1];
-      const todos = [...jogadoresA, ...jogadoresB];
-      return todos.find(id => id !== ultimo) ?? null;
-    }
+    return proximoSacadorRotacao(seq, jogadoresA, jogadoresB, isDuplas);
+  }
+
+  // "A partida já começou?": só antes do primeiro ponto. Reinicia o placar e a rotação a partir do placar informado.
+  function aplicarPlacarInicial(seed: BtPlacarSeed | undefined) {
+    if (pontosRef.current.length > 0) return;
+    inicialRef.current = seed;
+    placardRef.current = placardInicial(rule, seed);
+    setSeqSacadores([]);
+    setSacador('');
+    commit();
   }
 
   function snapState(pl: BtPlacardState) {
@@ -164,6 +171,11 @@ export default function PontoScreen() {
   const [situacoes,          setSituacoes]          = useState<BtSituacao[]>([]);
   const [comentario,         setComentario]         = useState('');
   const [showExtras,         setShowExtras]         = useState(false);
+  // Mapa de calor (opcional): onde estava quem fez o lance e para onde a bola foi
+  const [calorJogador,        setCalorJogador]       = useState<BtCelulaCalor | undefined>(undefined);
+  const [calorBola,           setCalorBola]          = useState<BtCelulaBola | undefined>(undefined);
+  const [calorInvertido,      setCalorInvertido]     = useState(false);
+  const [showCalor,           setShowCalor]          = useState(false);
 
   const [modalEncerrar, setModalEncerrar] = useState(false);
   const [editPonto, setEditPonto]         = useState<BtPonto | null>(null);
@@ -181,40 +193,16 @@ export default function PontoScreen() {
         pontosRef.current  = a.pontos;
         const r = a.rule ?? rule;
 
-        // Reconstrói sequência de sacadores por game
-        // Estratégia: registrar o sacador do 1º ponto de cada game
-        let pl = placardInicial(r);
-        let seq: string[] = [];
-        let currentGameSacador: string | null = null;
-        let lastSets  = 0;
-        let lastGames = 0;
-
-        for (const p of a.pontos) {
-          const curSets  = pl.setsA + pl.setsB;
-          const curGames = pl.gamesA + pl.gamesB; // games dentro do set atual
-
-          // Detecta início de novo game ou novo set
-          const isNewGame = curGames !== lastGames || curSets !== lastSets;
-          if (isNewGame) {
-            if (currentGameSacador !== null) {
-              if (curSets > lastSets) seq = []; // novo set — reinicia
-              seq.push(currentGameSacador);
-            }
-            currentGameSacador = p.sacador;
-            lastGames = curGames;
-            lastSets  = curSets;
-          }
-          if (currentGameSacador === null) currentGameSacador = p.sacador;
-
-          pl = avancaPonto(pl, p.vencedorDupla, p.sacador);
-        }
-        // Não registra o game atual (ainda em andamento)
-
-        sacadorPrimeiroRef.current = currentGameSacador;
+        // Reconstrói o placar e a sequência de sacadores por game (btRotacao.ts)
+        inicialRef.current = a.inicial;
+        let pl = placardInicial(r, a.inicial);
+        for (const p of a.pontos) pl = avancaPonto(pl, p.vencedorDupla, p.sacador);
         placardRef.current = pl;
 
-        // Sugere próximo sacador
-        const sugerido = proximoSacadorAutomatico(seq);
+        const seq = deriveSeqSacadores(a.pontos, r, a.inicial);
+        // Tie-break tem rotação própria (2 pontos para cada um); fora dele vale a de games
+        const sugerido = sacadorNoTiebreak(a.pontos, r, seq, jogadoresA, jogadoresB, isDuplas, a.inicial)
+          ?? proximoSacadorAutomatico(seq);
         setSeqSacadores(seq);
         setSacador(sugerido ?? '');
 
@@ -232,21 +220,14 @@ export default function PontoScreen() {
 
   const sacadorEhDuplaA = jogadoresA.includes(sacador);
   const opositores      = sacadorEhDuplaA ? jogadoresB : jogadoresA;
-  // No modo Ao Vivo não há qualidade de saque — o saque sempre "entrou" para mostrar a finalização
+  // No modo Simples (aovivo) não há qualidade de saque — o saque sempre "entrou" para mostrar a finalização
   const saqueIn = isAoVivo
     ? true
     : qualidadeSaque !== null && qualidadeSaque !== 'ace' && qualidadeSaque !== 'erroSaque';
   const devolucaoIn     = qualidadeDevolucao === 'boa' || qualidadeDevolucao === 'regular' || qualidadeDevolucao === 'ruim';
 
-  // Rotação de saque no tie-break
-  const sacadorSugerido: string | null = (() => {
-    if (!placard.tiebreak || !placard.sacadorInicioTiebreak) return null;
-    const inicio = placard.sacadorInicioTiebreak;
-    const n = placard.pontosJogadosNoTiebreak;
-    const inicioEmA = jogadoresA.includes(inicio);
-    const aServe = (n % 4 === 0 || n % 4 === 3) ? inicioEmA : !inicioEmA;
-    return (aServe ? jogadoresA : jogadoresB)[0] ?? null;
-  })();
+  // Sacador sugerido no tie-break (2 pontos para cada um, entre os 4 jogadores)
+  const sacadorSugerido: string | null = sacadorNoTiebreak(pontos, placard.rule, seqSacadores, jogadoresA, jogadoresB, isDuplas, inicialRef.current);
 
   const finalizacaoDerived: BtFinalizacao | null =
     finalizacaoRally === 'Ace'       ? 'Ace' :
@@ -281,6 +262,15 @@ export default function PontoScreen() {
     qualidadeSaque === 'ace'        ? sacador :
     qualidadeDevolucao === 'winner' ? devolvedor :
     vencedorJogador;
+
+  // Quando a seção "PONTO" (finalização, golpe, quem fez...) aparece:
+  //  Simples: com o sacador escolhido | Padrão: com sacador e posição do saque (não há qualidade nem devolução)
+  //  Avançado: depois do saque que entrou e da devolução.
+  const mostrarPonto = isAoVivo
+    ? !!sacador
+    : isPadrao
+      ? !!sacador && !!posicaoSaque
+      : (saqueIn && devolucaoIn);
 
   const podeRegistrar = !!(
     sacador &&
@@ -337,6 +327,8 @@ export default function PontoScreen() {
       ...(tipoFin             ? { tipoFinalizacao: tipoFin }  : {}),
       ...(ladoFinalizacao     ? { ladoFinalizacao }           : {}),
       ...(direcaoFinalizacao  ? { direcaoFinalizacao }        : {}),
+      ...(temMapaCalor(finalizacaoDerived) && calorJogador ? { calorJogador } : {}),
+      ...(temMapaCalor(finalizacaoDerived) && calorBola    ? { calorBola }    : {}),
       ...(primeiraBola          ? { primeiraBola }                           : {}),
       ...(tipoPrimeiraBola      ? { tipoPrimeiraBola }                       : {}),
       ...(direcaoPrimeiraBola   ? { direcaoPrimeiraBola }                    : {}),
@@ -382,6 +374,7 @@ export default function PontoScreen() {
       criadaEm: Date.now(), rule,
       jogadores: { a1: ids.a1, a2: ids.a2, b1: ids.b1, b2: ids.b2 },
       nomes, pontos: [],
+      ...(inicialRef.current ? { inicial: inicialRef.current } : {}),
     };
     const analiseAtualizada = { ...baseAnalise, pontos: novosPontos };
 
@@ -391,31 +384,21 @@ export default function PontoScreen() {
     // Detecta mudança de game ou set ANTES de atualizar o ref
     const snapAntes  = snapState(placardAtual);
     const snapDepois = snapState(novoPlaycard);
-    const novoSet    = novoPlaycard.setsA + novoPlaycard.setsB > placardAtual.setsA + placardAtual.setsB;
     const novoGame   = snapDepois !== snapAntes;
 
-    // Rastreia sacador do 1º ponto do game atual
-    if (sacadorPrimeiroRef.current === null) {
-      sacadorPrimeiroRef.current = novoPonto.sacador;
-    }
+    // Sequência recalculada dos pontos: o game que fecha um set não entra no set seguinte
+    const novaSeq = deriveSeqSacadores(novosPontos, placardAtual.rule, inicialRef.current);
+    const sugeridoTb = sacadorNoTiebreak(novosPontos, placardAtual.rule, novaSeq, jogadoresA, jogadoresB, isDuplas, inicialRef.current);
 
-    if (novoGame) {
-      const sacadorDoGame = sacadorPrimeiroRef.current ?? novoPonto.sacador;
-      const novaSeq = novoSet ? [sacadorDoGame] : [...seqSacadores, sacadorDoGame];
-      sacadorPrimeiroRef.current = null;
-      const sugerido = proximoSacadorAutomatico(novaSeq);
+    atualizarPlacard(novoPlaycard);
+    atualizarPontos(novosPontos);
+    atualizarAnalise(analiseAtualizada);
 
-      atualizarPlacard(novoPlaycard);
-      atualizarPontos(novosPontos);
-      atualizarAnalise(analiseAtualizada);
+    if (novoGame || sugeridoTb) {
       setSeqSacadores(novaSeq);
-
-      // Reseta formulário e define próximo sacador explicitamente
-      resetFormulario(sugerido ?? '');
+      // Reseta formulário e define próximo sacador explicitamente (tie-break: troca a cada 2 pontos)
+      resetFormulario(sugeridoTb ?? proximoSacadorAutomatico(novaSeq) ?? '');
     } else {
-      atualizarPlacard(novoPlaycard);
-      atualizarPontos(novosPontos);
-      atualizarAnalise(analiseAtualizada);
       resetFormulario(novoPonto.sacador);
     }
 
@@ -450,13 +433,14 @@ export default function PontoScreen() {
     setDirecaoPrimeiraBola(null); setQualidadePrimeiraBola(null);
     setDuracaoPonto(null); setSituacoes([]); setComentario('');
     setShowExtras(false);
+    setCalorJogador(undefined); setCalorBola(undefined); setShowCalor(false);
   }
 
   // ── Desfazer ─────────────────────────────────────────────────────────────
   function desfazer() {
     if (pontosRef.current.length === 0) return;
     const novosPontos = pontosRef.current.slice(0, -1);
-    let pl = placardInicial(placardRef.current.rule);
+    let pl = placardInicial(placardRef.current.rule, inicialRef.current);
     for (const p of novosPontos) pl = avancaPonto(pl, p.vencedorDupla, p.sacador);
     const base = (analiseRef.current ?? {
       id: matchId, competitionId: compId, matchId,
@@ -467,6 +451,10 @@ export default function PontoScreen() {
     atualizarPlacard(pl); atualizarPontos(novosPontos); atualizarAnalise(atualizada);
     salvarAnalise(atualizada);
     if (group?.id) saveAnaliseSynced(group.id, atualizada);
+    // Sequência e sacador sugerido voltam ao estado anterior ao ponto desfeito
+    const seq = deriveSeqSacadores(novosPontos, pl.rule, inicialRef.current);
+    setSeqSacadores(seq);
+    setSacador(sacadorNoTiebreak(novosPontos, pl.rule, seq, jogadoresA, jogadoresB, isDuplas, inicialRef.current) ?? proximoSacadorAutomatico(seq) ?? novosPontos[novosPontos.length - 1]?.sacador ?? '');
     commit();
   }
 
@@ -481,7 +469,8 @@ export default function PontoScreen() {
     };
     await salvarAnalise(analiseComPlacar);
     if (group?.id) saveAnaliseSynced(group.id, analiseComPlacar);
-    const sets = setsDoPlacard(pl);
+    // Sets com o tie-break de cada um (a partida da competição só guarda games; sem isso o tie-break se perde)
+    const sets = setsDoPlacardComTiebreak({ pontos: a.pontos, rule: a.rule ?? pl.rule, inicial: a.inicial ?? inicialRef.current }, pl);
     dispatch({ type: 'SAVE_SCORE', compId, matchId, scoreA: pl.setsA, scoreB: pl.setsB, sets });
     router.replace({ pathname: '/analise/[matchId]/relatorio', params: { matchId, compId } });
   }
@@ -489,7 +478,7 @@ export default function PontoScreen() {
   async function salvarEdicaoPonto(pontoEditado: BtPonto) {
     const novosPontos = pontosRef.current.map(p => p.id === pontoEditado.id ? pontoEditado : p);
     // Reconstrói placar do zero com a edição aplicada
-    let pl = placardInicial(placardRef.current.rule);
+    let pl = placardInicial(placardRef.current.rule, inicialRef.current);
     for (const p of novosPontos) pl = avancaPonto(pl, p.vencedorDupla, p.sacador);
     const base = (analiseRef.current ?? {
       id: matchId, competitionId: compId, matchId,
@@ -513,11 +502,13 @@ export default function PontoScreen() {
 
   function confirmarEncerrar() {
     setModalEncerrar(false);
-    const a = (analise ?? { id: matchId, competitionId: compId, matchId, criadaEm: Date.now(), jogadores: ids as BtAnalise['jogadores'], nomes, pontos, rule: placard.rule }) as BtAnalise;
+    const a = (analise ?? { id: matchId, competitionId: compId, matchId, criadaEm: Date.now(), jogadores: ids as BtAnalise['jogadores'], nomes, pontos, rule: placard.rule, ...(inicialRef.current ? { inicial: inicialRef.current } : {}) }) as BtAnalise;
     encerrarPartida({ ...a, pontos }, placard);
   }
 
   const ultimos = pontos.slice(-3).reverse();
+  // Placar DEPOIS de cada ponto (o salvo em gameScore/setScore é o de antes, usado nas contas de 40×40)
+  const placaresApos = placaresAposPontos({ pontos, rule: placard.rule, inicial: inicialRef.current });
   const tiebreakLabel = placard.superTiebreakAtivo
     ? `SUPER TIE-BREAK — primeiro a ${rule.superTiebreakPts ?? 10} pts`
     : 'TIEBREAK';
@@ -600,7 +591,7 @@ export default function PontoScreen() {
             <Text style={[s.modeBadgeTxt, {
               color: isAoVivo ? Colors.teal : isPadrao ? Colors.accentGrupos : Colors.accentSuper8,
             }]}>
-              {isAoVivo ? 'Ao Vivo' : isPadrao ? 'Padrão' : 'Avançado'}
+              {isAoVivo ? 'Simples' : isPadrao ? 'Padrão' : 'Avançado'}
             </Text>
           </View>
         }
@@ -611,68 +602,22 @@ export default function PontoScreen() {
         }
       />
 
-      <View style={s.scoreboard}>
-        {/* Times e placar atual */}
-        <View style={s.scoreRow}>
-          <View style={s.scoreTeam}>
-            <Text style={s.scoreTeamName} numberOfLines={1}>{jogadoresA.map(nome).join(' / ')}</Text>
-            <Text style={[s.scoreNum, { color: placard.gamesA >= placard.gamesB ? Colors.gold : Colors.muted }]}>
-              {placard.gamesA}
-            </Text>
-            <Text style={s.setsLabel}>Sets: {placard.setsA}</Text>
-          </View>
-          <View style={s.scoreCenter}>
-            <Text style={s.gameScore}>{gameScore}</Text>
-            <Text style={s.setScoreLabel}>MD{rule.sets} · {rule.games} games</Text>
-            {placard.tiebreak && <Text style={s.tiebreakLabel}>{tiebreakLabel}</Text>}
-          </View>
-          <View style={s.scoreTeam}>
-            <Text style={s.scoreTeamName} numberOfLines={1}>{jogadoresB.map(nome).join(' / ')}</Text>
-            <Text style={[s.scoreNum, { color: placard.gamesB >= placard.gamesA ? Colors.gold : Colors.muted }]}>
-              {placard.gamesB}
-            </Text>
-            <Text style={s.setsLabel}>Sets: {placard.setsB}</Text>
-          </View>
-        </View>
-
-        {/* Ponto rápido: credita o placar sem abrir o formulário completo */}
-        <View style={s.quickRow}>
-          <TouchableOpacity style={[s.quickBtn, { borderColor: Colors.gold + '66' }]} onPress={() => pontoRapido('A')} activeOpacity={0.75}>
-            <Text style={[s.quickTxt, { color: Colors.gold }]}>⚡ Ponto rápido</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[s.quickBtn, { borderColor: Colors.teal + '66' }]} onPress={() => pontoRapido('B')} activeOpacity={0.75}>
-            <Text style={[s.quickTxt, { color: Colors.teal }]}>⚡ Ponto rápido</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Sets encerrados + set atual sempre visível */}
-        <View style={s.setsHistoryRow}>
-          {placard.historicGamesA.map((gA, i) => {
-            const gB = placard.historicGamesB[i] ?? 0;
-            const aWon = gA > gB;
-            const isSuperTb = rule.superTiebreak && i === rule.sets - 1;
-            return (
-              <View key={i} style={[s.setHistChip, { borderColor: aWon ? Colors.teal + '66' : Colors.coral + '66' }]}>
-                <Text style={s.setHistLabel}>{isSuperTb ? 'STB' : `S${i + 1}`}</Text>
-                <Text style={[s.setHistScore, aWon && { color: Colors.teal }]}>{gA}</Text>
-                <Text style={s.setHistDash}>–</Text>
-                <Text style={[s.setHistScore, !aWon && { color: Colors.teal }]}>{gB}</Text>
-              </View>
-            );
-          })}
-          {/* Set atual em andamento */}
-          <View style={[s.setHistChip, { borderColor: Colors.gold + '66', backgroundColor: Colors.gold + '0A' }]}>
-            <Text style={[s.setHistLabel, { color: Colors.gold }]}>
-              {rule.superTiebreak && placard.historicGamesA.length === rule.sets - 1 ? 'STB' : `S${placard.historicGamesA.length + 1}`}
-            </Text>
-            <Text style={[s.setHistScore, { color: Colors.gold }]}>{placard.gamesA}</Text>
-            <Text style={[s.setHistDash, { color: Colors.gold }]}>–</Text>
-            <Text style={[s.setHistScore, { color: Colors.gold }]}>{placard.gamesB}</Text>
-          </View>
-        </View>
-      </View>
+      <BtPlacar
+        placard={placard}
+        pontos={pontos}
+        inicial={inicialRef.current}
+        nomeA={jogadoresA.map(nome).join(' / ')}
+        nomeB={jogadoresB.map(nome).join(' / ')}
+        sacadorDupla={sacador ? (sacadorEhDuplaA ? 'A' : 'B') : null}
+        onPontoRapido={pontoRapido}
+      />
 
       <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
+        {/* ── PLACAR INICIAL (partida já em andamento) — só antes do 1º ponto ── */}
+        {pontos.length === 0 && (
+          <PlacarInicial rule={rule} aplicado={inicialRef.current} onAplicar={aplicarPlacarInicial} />
+        )}
 
         {/* ── MODO DE SCOUT ─────────────────────────────────────────────── */}
         <View style={s.modeBar}>
@@ -682,12 +627,12 @@ export default function PontoScreen() {
               borderColor: isAoVivo ? Colors.teal + '44' : isPadrao ? Colors.accentGrupos + '44' : Colors.accentSuper8 + '44',
             }]}>
               <Text style={[s.modeLockedTxt, { color: isAoVivo ? Colors.teal : isPadrao ? Colors.accentGrupos : Colors.accentSuper8 }]}>
-                🔒 {isAoVivo ? 'Ao Vivo' : isPadrao ? 'Padrão' : 'Avançado'} — modo travado
+                🔒 {isAoVivo ? 'Simples' : isPadrao ? 'Padrão' : 'Avançado'} — modo travado
               </Text>
             </View>
           )}
           {pontos.length === 0 && ([
-            { key: 'aovivo',   label: 'Ao Vivo',   color: Colors.teal },
+            { key: 'aovivo',   label: 'Simples',   color: Colors.teal },
             { key: 'padrao',   label: 'Padrão',    color: Colors.accentGrupos  },
             { key: 'avancado', label: 'Avançado',  color: Colors.accentSuper8  },
           ] as { key: ScoutMode; label: string; color: string }[]).map(m => (
@@ -757,7 +702,8 @@ export default function PontoScreen() {
         <View style={s.row}>
           {todosJogadores.map(id => {
             // Jogadores que já sacaram neste set não podem ser selecionados novamente
-            const jaUsado = seqSacadores.includes(id);
+            // (no tie-break todos já constam na sequência e se revezam, então não bloqueia)
+            const jaUsado = !placard.tiebreak && seqSacadores.includes(id);
             return (
               <View key={id} style={{ opacity: jaUsado ? 0.35 : 1 }}>
                 <Chip
@@ -909,8 +855,8 @@ export default function PontoScreen() {
         )}
 
         {/* ── PONTO (rali) ──────────────────────────────────────────────── */}
-        {/* AoVivo: mostra quando sacador selecionado | Padrão/Avançado: após devolução */}
-        {(isAoVivo ? !!sacador : (saqueIn && devolucaoIn)) && (
+        {/* Simples: após o sacador | Padrão: após a posição do saque | Avançado: após a devolução */}
+        {mostrarPonto && (
           <>
             <PhaseDivider label="PONTO" />
 
@@ -922,13 +868,27 @@ export default function PontoScreen() {
                     setFinalizacaoRally(f.key);
                     setTipoFin(null); setLadoFinalizacao(null);
                     setVencedorJogador(null); // sempre limpa — vencedorDuplaDerived calcula automaticamente
+                    if (f.key !== finalizacaoRally) { setCalorJogador(undefined); setCalorBola(undefined); }
                   }} color={f.cor} small />
               ))}
             </View>
 
-            {/* ── AO VIVO: Quem fez/errou — simples ──────────────────── */}
-            {isAoVivo && finalizacaoRally && finalizacaoRally !== 'Ace' && finalizacaoRally !== 'ErroSaque' && (
+            {/* ── Ponto: golpe → quem fez → lado → duração → mapa. Igual nos 3 modos; cada modo só acrescenta informação
+                (Padrão/Avançado: duração e dados do saque · Avançado: devolução, primeira bola e extras) ── */}
+            {finalizacaoRally && finalizacaoRally !== 'Ace' && finalizacaoRally !== 'ErroSaque' && (
               <>
+                <Text style={s.label}>
+                  {finalizacaoRally === 'Winner'         ? 'Como o Winner foi feito?' :
+                   finalizacaoRally === 'ForçouErro'     ? 'Como o jogador forçou o erro do adversário?' :
+                   finalizacaoRally === 'ErroNaoForcado' ? 'Como o Erro não forçado ocorreu?' :
+                   'Como o Erro de devolução ocorreu?'}
+                </Text>
+                <View style={s.row}>
+                  {(finalizacaoRally === 'ForçouErro' ? TIPOS_FIN_FORCOU : TIPOS_FIN).map(t => (
+                    <Chip key={t} label={t} selected={tipoFin === t}
+                      onPress={() => setTipoFin(tipoFin === t ? null : t)} small />
+                  ))}
+                </View>
                 <Text style={s.label}>
                   {finalizacaoRally === 'Winner'         ? 'Quem fez o Winner?' :
                    finalizacaoRally === 'ForçouErro'     ? 'Quem forçou o erro do adversário?' :
@@ -939,154 +899,15 @@ export default function PontoScreen() {
                   {(finalizacaoRally === 'ErroDevolucao' ? opositores : todosJogadores).map(id => (
                     <Chip key={id} label={nome(id)} selected={vencedorJogador === id}
                       onPress={() => setVencedorJogador(id)}
-                      color={Colors.coral} />
+                      color={erroFinalizacao ? Colors.coral : (jogadoresA.includes(id) ? Colors.gold : Colors.teal)} />
                   ))}
                 </View>
-              </>
-            )}
-
-            {/* ── PADRÃO: campos contextuais expandidos por finalização ── */}
-            {isPadrao && finalizacaoRally === 'Winner' && (
-              <>
-                <Text style={s.label}>O Winner foi de?</Text>
-                <View style={s.row}>
-                  {LADOS.map(l => (
-                    <Chip key={l} label={l} selected={ladoFinalizacao === l}
-                      onPress={() => setLadoFinalizacao(ladoFinalizacao === l ? null : l)} small />
-                  ))}
-                </View>
-                <Text style={s.label}>Quem fez o Winner?</Text>
-                <View style={s.row}>
-                  {todosJogadores.map(id => (
-                    <Chip key={id} label={nome(id)} selected={vencedorJogador === id}
-                      onPress={() => setVencedorJogador(id)}
-                      color={jogadoresA.includes(id) ? Colors.gold : Colors.teal} />
-                  ))}
-                </View>
-                <Text style={s.label}>Duração do Ponto</Text>
-                <View style={s.row}>
-                  {DURACOES.map(d => (
-                    <Chip key={d.key} label={d.key} selected={duracaoPonto === d.key}
-                      onPress={() => setDuracaoPonto(duracaoPonto === d.key ? null : d.key)} small />
-                  ))}
-                </View>
-              </>
-            )}
-
-            {isPadrao && finalizacaoRally === 'ForçouErro' && (
-              <>
-                <Text style={s.label}>Como o jogador forçou o erro do adversário?</Text>
-                <View style={s.row}>
-                  {TIPOS_FIN_FORCOU.map(t => (
-                    <Chip key={t} label={t} selected={tipoFin === t}
-                      onPress={() => setTipoFin(tipoFin === t ? null : t)} small />
-                  ))}
-                </View>
-                <Text style={s.label}>O Forçou Erro foi de?</Text>
-                <View style={s.row}>
-                  {LADOS.map(l => (
-                    <Chip key={l} label={l} selected={ladoFinalizacao === l}
-                      onPress={() => setLadoFinalizacao(ladoFinalizacao === l ? null : l)} small />
-                  ))}
-                </View>
-                <Text style={s.label}>Quem forçou o erro do adversário?</Text>
-                <View style={s.row}>
-                  {todosJogadores.map(id => (
-                    <Chip key={id} label={nome(id)} selected={vencedorJogador === id}
-                      onPress={() => setVencedorJogador(id)}
-                      color={jogadoresA.includes(id) ? Colors.gold : Colors.teal} />
-                  ))}
-                </View>
-                <Text style={s.label}>Duração do Ponto</Text>
-                <View style={s.row}>
-                  {DURACOES.map(d => (
-                    <Chip key={d.key} label={d.key} selected={duracaoPonto === d.key}
-                      onPress={() => setDuracaoPonto(duracaoPonto === d.key ? null : d.key)} small />
-                  ))}
-                </View>
-              </>
-            )}
-
-            {isPadrao && finalizacaoRally === 'ErroNaoForcado' && (
-              <>
-                <Text style={s.label}>Como o Erro não forçado ocorreu?</Text>
-                <View style={s.row}>
-                  {TIPOS_FIN.map(t => (
-                    <Chip key={t} label={t} selected={tipoFin === t}
-                      onPress={() => setTipoFin(tipoFin === t ? null : t)} small />
-                  ))}
-                </View>
-                <Text style={s.label}>O Erro não forçado foi de?</Text>
-                <View style={s.row}>
-                  {LADOS.map(l => (
-                    <Chip key={l} label={l} selected={ladoFinalizacao === l}
-                      onPress={() => setLadoFinalizacao(ladoFinalizacao === l ? null : l)} small />
-                  ))}
-                </View>
-                <Text style={s.label}>Quem cometeu o Erro não forçado?</Text>
-                <View style={s.row}>
-                  {todosJogadores.map(id => (
-                    <Chip key={id} label={nome(id)} selected={vencedorJogador === id}
-                      onPress={() => setVencedorJogador(id)}
-                      color={Colors.coral} />
-                  ))}
-                </View>
-                <Text style={s.label}>Duração do Ponto</Text>
-                <View style={s.row}>
-                  {DURACOES.map(d => (
-                    <Chip key={d.key} label={d.key} selected={duracaoPonto === d.key}
-                      onPress={() => setDuracaoPonto(duracaoPonto === d.key ? null : d.key)} small />
-                  ))}
-                </View>
-              </>
-            )}
-
-            {isPadrao && finalizacaoRally === 'ErroDevolucao' && (
-              <>
-                <Text style={s.label}>O Erro de devolução foi de?</Text>
-                <View style={s.row}>
-                  {LADOS.map(l => (
-                    <Chip key={l} label={l} selected={ladoFinalizacao === l}
-                      onPress={() => setLadoFinalizacao(ladoFinalizacao === l ? null : l)} small />
-                  ))}
-                </View>
-                <Text style={s.label}>Quem cometeu o Erro de devolução?</Text>
-                <View style={s.row}>
-                  {opositores.map(id => (
-                    <Chip key={id} label={nome(id)} selected={vencedorJogador === id}
-                      onPress={() => setVencedorJogador(id)}
-                      color={Colors.coral} />
-                  ))}
-                </View>
-              </>
-            )}
-
-            {/* Avançado: Vencedor do Ponto separado (Padrão usa campos contextuais acima) */}
-            {isAvancado && (
-              <>
-                <Text style={s.label}>Vencedor do Ponto</Text>
-                <View style={s.row}>
-                  {todosJogadores.map(id => (
-                    <Chip key={id} label={nome(id)} selected={vencedorJogador === id}
-                      onPress={() => setVencedorJogador(id)}
-                      color={jogadoresA.includes(id) ? Colors.gold : Colors.teal} />
-                  ))}
-                </View>
-              </>
-            )}
-
-            {/* Golpe + Lado — só Avançado */}
-            {isAvancado && finalizacaoRally && (
-              <>
-                <Text style={s.label}>Golpe <Text style={s.opt}>(opcional)</Text></Text>
-                <View style={s.row}>
-                  {(finalizacaoRally === 'ForçouErro' ? TIPOS_FIN_FORCOU : TIPOS_FIN).map(t => (
-                    <Chip key={t} label={t} selected={tipoFin === t}
-                      onPress={() => setTipoFin(tipoFin === t ? null : t)} small />
-                  ))}
-                </View>
-
-                <Text style={s.label}>Lado <Text style={s.opt}>(opcional)</Text></Text>
+                <Text style={s.label}>
+                  {finalizacaoRally === 'Winner'         ? 'O Winner foi de?' :
+                   finalizacaoRally === 'ForçouErro'     ? 'O Forçou Erro foi de?' :
+                   finalizacaoRally === 'ErroNaoForcado' ? 'O Erro não forçado foi de?' :
+                   'O Erro de devolução foi de?'} <Text style={s.opt}>(opcional)</Text>
+                </Text>
                 <View style={s.row}>
                   {LADOS.map(l => (
                     <Chip key={l} label={l} selected={ladoFinalizacao === l}
@@ -1096,7 +917,7 @@ export default function PontoScreen() {
               </>
             )}
 
-            {/* Duração — Padrão + Avançado (Ao Vivo já inclui nos blocos acima) */}
+            {/* Duração — Padrão + Avançado (o Simples não tem) */}
             {showDuracao && !isAoVivo && (
               <>
                 <Text style={s.label}>Duração do Ponto <Text style={s.opt}>(opcional)</Text></Text>
@@ -1106,6 +927,34 @@ export default function PontoScreen() {
                       onPress={() => setDuracaoPonto(duracaoPonto === d.key ? null : d.key)} small />
                   ))}
                 </View>
+              </>
+            )}
+
+            {/* Mapa de calor — opcional, em Winner / Forçou Erro / Erro Não Forçado */}
+            {temMapaCalor(finalizacaoRally) && (
+              <>
+                <TouchableOpacity style={s.extrasToggle} onPress={() => setShowCalor(v => !v)} activeOpacity={0.75}>
+                  <Text style={s.extrasToggleTxt}>{showCalor ? '▲ Ocultar mapa de calor' : '▼ Mapa de Calor (opcional)'}</Text>
+                </TouchableOpacity>
+                {showCalor && (
+                  <View style={{ alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.sm }}>
+                    <Text style={s.sublabel}>{rotulosMapaCalor(finalizacaoRally).jogador}</Text>
+                    <MapaCalorGrid
+                      cima="Fundo" baixo="Rede" esquerda="D" direita="E"
+                      quenteEmCima value={calorJogador} onChange={setCalorJogador}
+                      invertido={calorInvertido}
+                    />
+                    <Text style={[s.sublabel, { marginTop: Spacing.sm }]}>{rotulosMapaCalor(finalizacaoRally).bola}</Text>
+                    <MapaCalorGrid
+                      cima="Rede" baixo="Fundo" esquerda="E" direita="D"
+                      quenteEmCima={false} value={calorBola} onChange={setCalorBola}
+                      invertido={calorInvertido} comFora={destinoAceitaFora(finalizacaoRally)}
+                    />
+                    <TouchableOpacity onPress={() => setCalorInvertido(v => !v)}>
+                      <Text style={s.extrasToggleTxt}>↕ Inverter lados do mapa</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </>
             )}
           </>
@@ -1178,7 +1027,7 @@ export default function PontoScreen() {
                 onPress={() => setEditPonto(p)} activeOpacity={0.7}>
                 <View style={[s.logDot, { backgroundColor: p.vencedorDupla === 'A' ? Colors.gold : Colors.teal }]} />
                 <Text style={s.logTxt}>
-                  {p.setScore} · {p.gameScore} · {nomes[p.sacador] ?? p.sacador} · {p.finalizacao}
+                  {placaresApos[pontos.length - 1 - i]} · {nomes[p.sacador] ?? p.sacador} · {p.finalizacao}
                   {p.tipoFinalizacao ? ` (${p.tipoFinalizacao})` : ''}
                 </Text>
                 <Text style={{ fontSize: 14, color: Colors.faint }}>✏️</Text>

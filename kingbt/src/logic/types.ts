@@ -45,6 +45,11 @@ export interface SetScore {
    * desta marca existir.
    */
   stb?: boolean;
+  /**
+   * Pontos do tie-break comum que decidiu o set (ex.: 4-3 com tb {a: 3, b: 7}), para mostrar como expoente
+   * (4³ 3⁷). Só existe quando o jogo foi marcado ponto a ponto no scout; ausente nos demais.
+   */
+  tb?: { a: number; b: number };
 }
 
 export interface LiveScore {

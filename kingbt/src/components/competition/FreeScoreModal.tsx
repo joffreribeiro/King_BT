@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, Platform, TextInput } from 'react-native';
 import { Icon } from '@/components/icons';
 import { router } from 'expo-router';
 import { useState, useEffect, useMemo } from 'react';
@@ -6,17 +6,21 @@ import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
-import type { Match, Competition } from '@/logic/types';
+import type { Match, Competition, SetScore } from '@/logic/types';
+import { erroTiebreakLivre } from '@/logic/tiebreakManual';
 import { carregarAnalise, type BtAnalise } from '@/logic/btTracker';
 import { loadAnaliseFs } from '@/firebase/analises';
 import { PointLogModal } from '@/components/analise/PointLogModal';
 
 // Placar livre do formato Avulso: games sem limite dentro de cada set. Pode ter
 // mais de um set — vence quem ganhar mais sets (o set é de quem fez mais games).
+/** Um set no formulário: games de cada lado e, se marcado "Teve tie-break", os pontos dele (obrigatórios). */
+type SetRow = { a: string; b: string; comTb?: boolean; tbA?: string; tbB?: string };
+
 export function FreeScoreModal({ match, comp, onClose, onSave, onClear, isAdmin = false }: {
   match: Match | null; comp: Competition;
   onClose: () => void;
-  onSave: (id: string, a: number, b: number, sets?: { a: number; b: number }[]) => void;
+  onSave: (id: string, a: number, b: number, sets?: SetScore[]) => void;
   onClear: (matchId: string) => void;
   isAdmin?: boolean;
 }) {
@@ -24,7 +28,7 @@ export function FreeScoreModal({ match, comp, onClose, onSave, onClear, isAdmin 
   const { group } = useAuth();
   const { colors: Colors } = useTheme();
   const sc = useMemo(() => makeSc(Colors), [Colors]);
-  const [sets, setSets] = useState<{ a: string; b: string }[]>([{ a: '', b: '' }]);
+  const [sets, setSets] = useState<SetRow[]>([{ a: '', b: '' }]);
   const [analise, setAnalise] = useState<BtAnalise | null>(null);
   const [showPointLog, setShowPointLog] = useState(false);
 
@@ -33,7 +37,7 @@ export function FreeScoreModal({ match, comp, onClose, onSave, onClear, isAdmin 
   useEffect(() => {
     if (!match) return;
     if (match.sets?.length) {
-      setSets(match.sets.map(s => ({ a: String(s.a), b: String(s.b) })));
+      setSets(match.sets.map(s => ({ a: String(s.a), b: String(s.b), ...(s.tb ? { comTb: true, tbA: String(s.tb.a), tbB: String(s.tb.b) } : {}) })));
     } else if (match.scoreA != null && match.scoreB != null) {
       // Avulso antigo: placar guardado como um único número de games
       setSets([{ a: String(match.scoreA), b: String(match.scoreB) }]);
@@ -51,18 +55,35 @@ export function FreeScoreModal({ match, comp, onClose, onSave, onClear, isAdmin 
   const nameB = match.teamB?.map(id => findPlayer(id)?.name.split(' ')[0]).join(' / ') ?? '?';
 
   const num = (v: string) => parseInt(v) || 0;
-  const validSets = sets
-    .map(s => ({ a: num(s.a), b: num(s.b) }))
-    .filter(s => s.a > 0 || s.b > 0);
+  // O Avulso não tem formato definido, então não dá para saber pelo placar quando houve tie-break: quem registra
+  // marca "Teve tie-break" no set e, marcado, os pontos dele são obrigatórios
+  const temTiebreak = (st: SetRow) => !!st.comTb;
+  const tbErro = (st: SetRow) => (temTiebreak(st) ? erroTiebreakLivre(num(st.a), num(st.b), st.tbA, st.tbB) : null);
+  const validSets: SetScore[] = sets
+    .filter(st => num(st.a) > 0 || num(st.b) > 0)
+    .map(st => ({ a: num(st.a), b: num(st.b), ...(temTiebreak(st) && !tbErro(st) ? { tb: { a: num(st.tbA ?? ''), b: num(st.tbB ?? '') } } : {}) }));
+  const tbInvalido = sets.some(st => (num(st.a) > 0 || num(st.b) > 0) && !!tbErro(st));
   const setsA = validSets.filter(s => s.a > s.b).length;
   const setsB = validSets.filter(s => s.b > s.a).length;
   const alreadyScored = match.scoreA != null;
   const canEdit = !alreadyScored || isAdmin;
   const canAddSet = sets.length < maxSets;
-  const canSave = validSets.length > 0 && setsA !== setsB && canEdit;
+  // Avulso é sessão livre: o placar pode terminar empatado, então só exige algum game e tie-break válido
+  const canSave = validSets.length > 0 && canEdit && !tbInvalido;
 
   function updateSet(i: number, side: 'a' | 'b', val: number) {
     setSets(prev => prev.map((s, idx) => idx === i ? { ...s, [side]: String(Math.max(0, val)) } : s));
+  }
+  function digitarGames(i: number, side: 'a' | 'b', raw: string) {
+    const v = raw.replace(/\D/g, '').slice(0, 2);
+    setSets(prev => prev.map((st, idx) => (idx === i ? { ...st, [side]: v } : st)));
+  }
+  function alternarTb(i: number) {
+    setSets(prev => prev.map((st, idx) => (idx === i ? (st.comTb ? { a: st.a, b: st.b } : { ...st, comTb: true }) : st)));
+  }
+  function digitarTb(i: number, side: 'a' | 'b', raw: string) {
+    const v = raw.replace(/\D/g, '').slice(0, 2);
+    setSets(prev => prev.map((st, idx) => (idx === i ? { ...st, [side === 'a' ? 'tbA' : 'tbB']: v } : st)));
   }
   function addSet() { if (canAddSet) setSets(prev => [...prev, { a: '', b: '' }]); }
   function removeLastSet() { if (sets.length > 1) setSets(prev => prev.slice(0, -1)); }
@@ -73,7 +94,7 @@ export function FreeScoreModal({ match, comp, onClose, onSave, onClear, isAdmin 
       router.push({ pathname: '/court', params: { compId: comp.id, matchId: match!.id } });
     };
     if (!alreadyScored) { ir(); return; }
-    const msg = 'Esta partida já tem placar registrado. Entrar na marcação ao vivo e marcar um novo ponto vai sobrescrever esse resultado. Continuar?';
+    const msg = 'Esta partida já tem placar registrado. Entrar na marcação ponto a ponto e marcar um novo ponto vai sobrescrever esse resultado. Continuar?';
     if (Platform.OS === 'web') {
       if (window.confirm(msg)) ir();
     } else {
@@ -114,39 +135,75 @@ export function FreeScoreModal({ match, comp, onClose, onSave, onClear, isAdmin 
           )}
 
           {/* Cabeçalho de nomes */}
-          <View style={sc.inputRow}>
+          <View style={sc.setRow}>
+            <View style={sc.setLabelSpace} />
             <View style={sc.inputBlock}><Text style={sc.inputLabel} numberOfLines={1}>{nameA}</Text></View>
             <View style={sc.inputBlock}><Text style={sc.inputLabel} numberOfLines={1}>{nameB}</Text></View>
           </View>
 
-          {/* Um par de contadores por set — games livres, sem limite */}
+          {/* Um par de contadores por set — games livres, sem limite; dá para tocar no número e digitar */}
           {sets.map((s, i) => {
             const a = num(s.a), b = num(s.b);
+            const erro = tbErro(s);
+            const lado = (side: 'a' | 'b', n: number, outro: number) => {
+              const venceu = n > outro;
+              return (
+                <View style={sc.inputBlock}>
+                  <View style={sc.stepper}>
+                    <TouchableOpacity style={sc.btn} onPress={() => updateSet(i, side, n - 1)} disabled={!canEdit}>
+                      <Icon name="minus" size={18} color={Colors.gold} />
+                    </TouchableOpacity>
+                    <TextInput
+                      style={[sc.gameInput, venceu && { borderColor: Colors.teal, color: Colors.teal }]}
+                      value={side === 'a' ? s.a : s.b} onChangeText={v => digitarGames(i, side, v)}
+                      keyboardType="number-pad" placeholder="0" placeholderTextColor={Colors.faint}
+                      editable={canEdit} selectTextOnFocus
+                      accessibilityLabel={`Games de ${side === 'a' ? nameA : nameB} no set ${i + 1}`}
+                    />
+                    <TouchableOpacity style={sc.btn} onPress={() => updateSet(i, side, n + 1)} disabled={!canEdit}>
+                      <Icon name="plus" size={18} color={Colors.gold} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            };
             return (
-              <View key={i} style={sc.inputRow}>
-                {sets.length > 1 && <Text style={sc.setTag}>{i + 1}º</Text>}
-                <View style={sc.inputBlock}>
-                  <View style={sc.stepper}>
-                    <TouchableOpacity style={sc.btn} onPress={() => updateSet(i, 'a', a - 1)} disabled={!canEdit}>
-                      <Icon name="minus" size={20} color={Colors.gold} />
-                    </TouchableOpacity>
-                    <Text style={sc.input}>{s.a || '0'}</Text>
-                    <TouchableOpacity style={sc.btn} onPress={() => updateSet(i, 'a', a + 1)} disabled={!canEdit}>
-                      <Icon name="plus" size={20} color={Colors.gold} />
-                    </TouchableOpacity>
-                  </View>
+              <View key={i} style={{ gap: 6 }}>
+                <View style={sc.setRow}>
+                  <Text style={sc.setLabel}>Set {i + 1}</Text>
+                  {lado('a', a, b)}
+                  {lado('b', b, a)}
                 </View>
-                <View style={sc.inputBlock}>
-                  <View style={sc.stepper}>
-                    <TouchableOpacity style={sc.btn} onPress={() => updateSet(i, 'b', b - 1)} disabled={!canEdit}>
-                      <Icon name="minus" size={20} color={Colors.gold} />
+                {canEdit && (a > 0 || b > 0) && (
+                  <View style={sc.setRow}>
+                    <TouchableOpacity style={sc.tbCheck} onPress={() => alternarTb(i)} activeOpacity={0.75}
+                      accessibilityRole="checkbox" accessibilityState={{ checked: temTiebreak(s) }}>
+                      <View style={[sc.tbBox, temTiebreak(s) && { backgroundColor: Colors.gold, borderColor: Colors.gold }]}>
+                        {temTiebreak(s) && <Icon name="check" size={12} color={Colors.bg} />}
+                      </View>
+                      <Text style={sc.tbToggleTxt}>Tie-break</Text>
                     </TouchableOpacity>
-                    <Text style={sc.input}>{s.b || '0'}</Text>
-                    <TouchableOpacity style={sc.btn} onPress={() => updateSet(i, 'b', b + 1)} disabled={!canEdit}>
-                      <Icon name="plus" size={20} color={Colors.gold} />
-                    </TouchableOpacity>
+                    {temTiebreak(s) ? (
+                      <>
+                        <View style={sc.inputBlock}>
+                          <TextInput
+                            style={sc.tbInput} value={s.tbA ?? ''} onChangeText={v => digitarTb(i, 'a', v)}
+                            keyboardType="number-pad" placeholder="Pts" placeholderTextColor={Colors.faint}
+                            accessibilityLabel={`Pontos do tie-break de ${nameA} no set ${i + 1}`}
+                          />
+                        </View>
+                        <View style={sc.inputBlock}>
+                          <TextInput
+                            style={sc.tbInput} value={s.tbB ?? ''} onChangeText={v => digitarTb(i, 'b', v)}
+                            keyboardType="number-pad" placeholder="Pts" placeholderTextColor={Colors.faint}
+                            accessibilityLabel={`Pontos do tie-break de ${nameB} no set ${i + 1}`}
+                          />
+                        </View>
+                      </>
+                    ) : <View style={{ flex: 2 }} />}
                   </View>
-                </View>
+                )}
+                {temTiebreak(s) && !!erro && !erro.startsWith('Informe') && <Text style={sc.tbErro}>{erro}</Text>}
               </View>
             );
           })}
@@ -167,15 +224,11 @@ export function FreeScoreModal({ match, comp, onClose, onSave, onClear, isAdmin 
             </View>
           )}
 
-          {validSets.length > 0 && setsA === setsB && (
-            <Text style={sc.warn}>⚠️ Empate não é permitido — decida em mais um set</Text>
-          )}
-
           {alreadyScored && !isAdmin && (
             <Text style={sc.lockedText}>🔒 Placar já registrado. Apenas admin pode corrigir.</Text>
           )}
 
-          {/* Ver pontos (log simples) e marcação ao vivo */}
+          {/* Ver pontos (log simples) e marcação ponto a ponto */}
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {!!analise?.pontos?.length && (
               <TouchableOpacity style={sc.pointsBtn} onPress={() => setShowPointLog(true)}>
@@ -183,7 +236,7 @@ export function FreeScoreModal({ match, comp, onClose, onSave, onClear, isAdmin 
               </TouchableOpacity>
             )}
             <TouchableOpacity style={sc.pointsBtn} onPress={abrirMarcacaoAoVivo}>
-              <Text style={sc.pointsBtnTxt}>🔴 Marcação ao vivo</Text>
+              <Text style={sc.pointsBtnTxt}>🔴 Marcação ponto a ponto</Text>
             </TouchableOpacity>
           </View>
 
@@ -223,10 +276,19 @@ const makeSc = (Colors: ThemeColors) => StyleSheet.create({
   title: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text, textAlign: 'center' },
   sub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
   inputRow: { flexDirection: 'row', justifyContent: 'space-around', gap: Spacing.md },
+  setRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  setLabel: { width: 66, fontFamily: FontFamily.numberBold, fontSize: 12, color: Colors.muted },
+  setLabelSpace: { width: 66 },
+  gameInput: { width: 46, height: 44, borderRadius: Radius.sm, backgroundColor: Colors.surf2, borderWidth: 1.5, borderColor: Colors.gold, fontFamily: FontFamily.numberBold, fontSize: 24, color: Colors.gold, textAlign: 'center' },
+  tbCheck: { width: 66, flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 2 },
+  tbBox: { width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: Colors.line, alignItems: 'center', justifyContent: 'center' },
+  tbToggleTxt: { fontFamily: FontFamily.bodyMed, fontSize: 10, color: Colors.text },
+  tbInput: { width: 52, height: 36, borderRadius: Radius.sm, borderWidth: 1.5, borderColor: Colors.line, backgroundColor: Colors.bg, textAlign: 'center', fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.text },
+  tbErro: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.coral, paddingLeft: 66 },
   inputBlock: { alignItems: 'center', gap: Spacing.sm, flex: 1 },
   inputLabel: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  btn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  btn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
   btnText: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.gold, lineHeight: 26 },
   input: { width: 54, height: 54, borderRadius: Radius.sm, backgroundColor: Colors.surf2, borderWidth: 1.5, borderColor: Colors.gold, fontFamily: FontFamily.numberBold, fontSize: 28, color: Colors.gold, textAlign: 'center', textAlignVertical: 'center', lineHeight: 54 },
   warn: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.coral, textAlign: 'center' },

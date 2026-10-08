@@ -316,6 +316,14 @@ export default function ProfileScreen() {
             </View>
             <Icon name="chevronRight" size={16} color={Colors.faint} />
           </TouchableOpacity>
+          <TouchableOpacity style={styles.shortcut} onPress={() => router.push('/analise')} activeOpacity={0.8}>
+            <Icon name="chart" size={20} color={Colors.gold} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.shortcutLabel}>King Scout</Text>
+              <Text style={styles.shortcutSub}>Jogos gravados ponto a ponto, relatórios em PDF e análise por atleta</Text>
+            </View>
+            <Icon name="chevronRight" size={16} color={Colors.faint} />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/desempenho-geral')} activeOpacity={0.8}>
             <Icon name="chart" size={16} color={Colors.text} />
             <Text style={styles.settingsBtnText}>Desempenho em todos os grupos</Text>

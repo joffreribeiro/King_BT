@@ -74,11 +74,6 @@ export function SobreTab({ about, ownerView = true, playerName = '', suggestion,
       {!!suggestion && (
         <CategorySuggestionCard suggestion={suggestion} declared={a.category} onApply={ownerView ? onApplyCategory : undefined} />
       )}
-      {ownerView && (
-        <Text style={s.note}>
-          {empty ? 'Ainda não há nada por aqui. ' : ''}Toque no lápis, ao lado do seu nome, para preencher ou editar.
-        </Text>
-      )}
     </View>
   );
 }

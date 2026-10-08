@@ -51,8 +51,8 @@ export function ProfileHeroCard({ name, avatarColor, position, points, winRate, 
 
   return (
     <View style={s.card}>
-      {/* Mesmo desenho do card de Próximo evento: a arte cobre o topo, o texto fica embaixo à esquerda (sobre a bola)
-          e o rosto da vespa fica livre à direita. */}
+      {/* Mesmo desenho do card de Próximo evento: a arte cobre o topo, o círculo, o nome e o ranking ficam centralizados
+          embaixo, sobre a imagem. */}
       <View style={s.hero}>
         <Image source={require('../../../assets/kingbt-mascote-fogo.jpg')} style={s.heroImg} resizeMode="cover" accessibilityIgnoresInvertColors />
         <LinearGradient
@@ -164,8 +164,8 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   // Igual ao EventHero (card de Próximo evento): borda a borda E largura/altura 100% de uma área de altura FIXA.
   // Só com as bordas, a web desenhava a imagem no tamanho natural e aparecia apenas o canto de cima.
   heroImg: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
-  heroBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'flex-end', gap: 12, paddingHorizontal: Spacing.md, paddingBottom: 12 },
-  heroInfo: { flex: 1, minWidth: 0 },
+  heroBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'column', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.md, paddingBottom: 12 },
+  heroInfo: { alignSelf: 'stretch', alignItems: 'center', minWidth: 0 },
   shareBtn: {
     position: 'absolute', top: 12, right: 12, zIndex: 2,
     width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
@@ -178,9 +178,9 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.gold, backgroundColor: Colors.surf,
   },
   // Texto sobre a arte: claro, com sombra, como o título do card de evento. O nome quebra de linha se for comprido.
-  name: { fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 22, lineHeight: 26, color: '#F6EFDD', textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 8, textShadowOffset: { width: 0, height: 1 } },
-  sub: { fontFamily: FontFamily.body, fontSize: 12.5, color: '#E7DFC8', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 } },
-  groupRow: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: Spacing.sm },
+  name: { fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 22, lineHeight: 26, textAlign: 'center', color: '#F6EFDD', textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 8, textShadowOffset: { width: 0, height: 1 } },
+  sub: { fontFamily: FontFamily.body, fontSize: 12.5, textAlign: 'center', color: '#E7DFC8', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 } },
+  groupRow: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: Spacing.sm },
   group: { flexShrink: 1, fontFamily: FontFamily.titleBold, fontSize: 16, lineHeight: 20, color: Colors.text },
   addBtn: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.gold, backgroundColor: Colors.gold + '1F' },
   addPlus: { fontFamily: FontFamily.titleBold, fontSize: 18, lineHeight: 20, color: Colors.gold, marginTop: -1 },

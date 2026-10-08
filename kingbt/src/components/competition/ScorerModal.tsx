@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform, TextInput } from 'react-native';
 import { Icon } from '@/components/icons';
 import { router } from 'expo-router';
 import { useState, useEffect, useMemo } from 'react';
@@ -6,17 +6,22 @@ import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
-import type { Match, Competition } from '@/logic/types';
+import type { Match, Competition, SetScore } from '@/logic/types';
+import { tiebreaksDosSets } from '@/logic/btPlacarPonto';
+import { erroTiebreak, setTerminouEmTiebreak } from '@/logic/tiebreakManual';
 import { carregarAnalise, placardInicial, avancaPonto, winRuleFromComp, type BtAnalise } from '@/logic/btTracker';
 import { loadAnaliseFs } from '@/firebase/analises';
 import { deriveWinRule, isDecidingSet as isDecidingSetShared } from '@/logic/setOutcome';
 import { getCompetitor } from './helpers';
 import { PointLogModal } from '@/components/analise/PointLogModal';
 
+/** Um set no formulário: games de cada lado e, quando o set foi decidido em tie-break, os pontos dele (opcionais). */
+type SetRow = { a: string; b: string; tbA?: string; tbB?: string };
+
 export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear, isAdmin = false }: {
   match: Match | null; comp: Competition;
   onClose: () => void;
-  onSave: (id: string, a: number, b: number, sets?: { a: number; b: number }[]) => void;
+  onSave: (id: string, a: number, b: number, sets?: SetScore[]) => void;
   onSaveDraft: (id: string, sets: { a: number; b: number }[]) => void;
   onClear: (matchId: string) => void;
   isAdmin?: boolean;
@@ -34,11 +39,12 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
   );
 
   // Estado: games por set. Começa com 1 set vazio.
-  const initSets = (): { a: string; b: string }[] => {
-    if (match?.sets?.length) return match.sets.map(s => ({ a: String(s.a), b: String(s.b) }));
+  const deSet = (s: SetScore): SetRow => ({ a: String(s.a), b: String(s.b), ...(s.tb ? { tbA: String(s.tb.a), tbB: String(s.tb.b) } : {}) });
+  const initSets = (): SetRow[] => {
+    if (match?.sets?.length) return match.sets.map(deSet);
     return [{ a: '', b: '' }];
   };
-  const [setScores, setSetScores] = useState<{ a: string; b: string }[]>(initSets);
+  const [setScores, setSetScores] = useState<SetRow[]>(initSets);
 
   useEffect(() => {
     if (!match) return;
@@ -51,7 +57,11 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
       // Prioridade 1: placar final do King Scout (partida encerrada)
       if (a?.placarFinal) {
         const { gamesA, gamesB } = a.placarFinal;
-        const sets = gamesA.map((gA, i) => ({ a: String(gA), b: String(gamesB[i] ?? 0) }));
+        const tbs = tiebreaksDosSets({ pontos: a.pontos, rule: a.rule, inicial: a.inicial });
+        const sets: SetRow[] = gamesA.map((gA, i) => ({
+          a: String(gA), b: String(gamesB[i] ?? 0),
+          ...(tbs[i] && !a.placarFinal?.stb?.[i] ? { tbA: String(tbs[i]!.a), tbB: String(tbs[i]!.b) } : {}),
+        }));
         setSetScores(sets.length > 0 ? sets : [{ a: '', b: '' }]);
         return;
       }
@@ -59,11 +69,13 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
       // Prioridade 2: King Scout em andamento — reconstrói placard dos pontos
       if (a?.pontos?.length) {
         const rule = winRuleFromComp(comp.config.winRule);
-        let pl = placardInicial(rule);
+        let pl = placardInicial(rule, a.inicial);
         for (const p of a.pontos) pl = avancaPonto(pl, p.vencedorDupla, p.sacador);
         // Monta sets encerrados + set atual
-        const sets: { a: string; b: string }[] = pl.historicGamesA.map((gA: number, i: number) => ({
+        const tbsAndamento = tiebreaksDosSets({ pontos: a.pontos, rule, inicial: a.inicial });
+        const sets: SetRow[] = pl.historicGamesA.map((gA: number, i: number) => ({
           a: String(gA), b: String(pl.historicGamesB[i] ?? 0),
+          ...(tbsAndamento[i] && !pl.historicStb[i] ? { tbA: String(tbsAndamento[i]!.a), tbB: String(tbsAndamento[i]!.b) } : {}),
         }));
         sets.push({ a: String(pl.gamesA), b: String(pl.gamesB) });
         setSetScores(sets);
@@ -78,7 +90,7 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
 
       // Prioridade 4: placar já registrado no Match
       if (match.sets?.length) {
-        setSetScores(match.sets.map(s => ({ a: String(s.a), b: String(s.b) })));
+        setSetScores(match.sets.map(deSet));
         return;
       }
 
@@ -149,6 +161,35 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
     return isDecidingSetShared(setIdx, priorSets, { maxSets, setsToWin, gamesWin, superTb, superTbPts, tieAt });
   }
 
+  // ── Tie-break do set (registro manual, opcional) ──────────────────────────
+  const tbLimite = comp.config.winRule?.tiebreak ?? 7;
+
+  /** O set terminou como termina um set decidido no tie-break (tieAt+1 × tieAt)? Aí dá para informar os pontos dele. */
+  function temTiebreak(setIdx: number): boolean {
+    const st = setScores[setIdx];
+    if (!st || isDecidingSet(setIdx)) return false;
+    return setTerminouEmTiebreak(parseInt(st.a) || 0, parseInt(st.b) || 0, tieAt);
+  }
+
+  /** Pontos do tie-break já válidos de um set, ou null (sem tie-break, em branco ou inválido). */
+  function tbDoSet(setIdx: number): { a: number; b: number } | null {
+    const st = setScores[setIdx];
+    if (!st || !temTiebreak(setIdx) || st.tbA === undefined || st.tbB === undefined || st.tbA === '' || st.tbB === '') return null;
+    return tbErro(setIdx) ? null : { a: parseInt(st.tbA) || 0, b: parseInt(st.tbB) || 0 };
+  }
+
+  /** Mensagem de erro do tie-break (null = válido). Em branco é erro: o tie-break é obrigatório. */
+  function tbErro(setIdx: number): string | null {
+    const st = setScores[setIdx];
+    if (!st || !temTiebreak(setIdx)) return null;
+    return erroTiebreak(parseInt(st.a) || 0, parseInt(st.b) || 0, st.tbA, st.tbB, tbLimite);
+  }
+
+  function updateTb(setIdx: number, side: 'a' | 'b', raw: string) {
+    const v = raw.replace(/\D/g, '').slice(0, 2);
+    setSetScores(prev => prev.map((st, i) => (i === setIdx ? { ...st, [side === 'a' ? 'tbA' : 'tbB']: v } : st)));
+  }
+
   // Limite máximo de pontos/games que um lado pode ter num set
   function maxGamesForSide(myVal: number, otherVal: number, setIdx: number): number {
     if (isDecidingSet(setIdx)) {
@@ -189,7 +230,7 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
       router.push({ pathname: '/court', params: { compId: comp.id, matchId: match!.id } });
     };
     if (!alreadyScored) { ir(); return; }
-    const msg = 'Esta partida já tem placar registrado. Entrar na marcação ao vivo e marcar um novo ponto vai sobrescrever esse resultado. Continuar?';
+    const msg = 'Esta partida já tem placar registrado. Entrar na marcação ponto a ponto e marcar um novo ponto vai sobrescrever esse resultado. Continuar?';
     if (Platform.OS === 'web') {
       if (window.confirm(msg)) ir();
     } else {
@@ -238,10 +279,15 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
     }
   }
 
-  const validSets = setScores.filter(s => {
+  const validSets: SetScore[] = setScores.map((s, i) => ({ s, i })).filter(({ s }) => {
     const gA = parseInt(s.a) || 0, gB = parseInt(s.b) || 0;
     return gA > 0 || gB > 0;
-  }).map(s => ({ a: parseInt(s.a) || 0, b: parseInt(s.b) || 0 }));
+  }).map(({ s, i }) => {
+    const tb = tbDoSet(i);
+    return { a: parseInt(s.a) || 0, b: parseInt(s.b) || 0, ...(tb ? { tb } : {}) };
+  });
+  // Set decidido em tie-break sem os pontos (ou com pontos inválidos) bloqueia o salvar
+  const tbInvalido = setScores.some((_, i) => !!tbErro(i));
 
   // Só permite salvar se todos os sets do placar têm games preenchidos
 
@@ -290,7 +336,8 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
               const canIncA = gA < maxA;
               const canIncB = gB < maxB;
               return (
-                <View key={i} style={sc.setRow}>
+                <View key={i} style={{ gap: 6 }}>
+                <View style={sc.setRow}>
                   <Text style={[sc.setLabel, deciding && { color: Colors.gold }]}>
                     {deciding ? `STB` : `Set ${i + 1}`}
                   </Text>
@@ -352,6 +399,26 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
                     </TouchableOpacity>
                   </View>
                 </View>
+                {temTiebreak(i) && (
+                  <View style={{ gap: 4 }}>
+                    <View style={sc.tbRow}>
+                      <Text style={sc.tbLabel}>Tie-break</Text>
+                      <TextInput
+                        style={sc.tbInput} value={s.tbA ?? ''} onChangeText={v => updateTb(i, 'a', v)}
+                        keyboardType="number-pad" placeholder="A" placeholderTextColor={Colors.faint}
+                        accessibilityLabel={`Pontos do tie-break de ${nameA} no set ${i + 1}`}
+                      />
+                      <Text style={sc.setDash}>–</Text>
+                      <TextInput
+                        style={sc.tbInput} value={s.tbB ?? ''} onChangeText={v => updateTb(i, 'b', v)}
+                        keyboardType="number-pad" placeholder="B" placeholderTextColor={Colors.faint}
+                        accessibilityLabel={`Pontos do tie-break de ${nameB} no set ${i + 1}`}
+                      />
+                    </View>
+                    {!!tbErro(i) && <Text style={sc.tbErro}>{tbErro(i)}</Text>}
+                  </View>
+                )}
+                </View>
               );
             })}
             {/* Botões add/remove set */}
@@ -383,7 +450,7 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
             <Text style={sc.adminNote}>⚙️ Admin — você pode corrigir ou apagar este placar.</Text>
           )}
 
-          {/* Ver pontos (log simples) e marcação ao vivo — disponível pra todos */}
+          {/* Ver pontos (log simples) e marcação ponto a ponto — disponível pra todos */}
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {!!analise?.pontos?.length && (
               <TouchableOpacity style={sc.pointsBtn} onPress={() => setShowPointLog(true)}>
@@ -391,7 +458,7 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
               </TouchableOpacity>
             )}
             <TouchableOpacity style={sc.pointsBtn} onPress={abrirMarcacaoAoVivo}>
-              <Text style={sc.pointsBtnTxt}>🔴 Marcação ao vivo</Text>
+              <Text style={sc.pointsBtnTxt}>🔴 Marcação ponto a ponto</Text>
             </TouchableOpacity>
           </View>
 
@@ -411,10 +478,10 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
             // Análise encerrada — só visualização + opção de nova análise
             <View style={{ gap: 6 }}>
               <TouchableOpacity style={sc.btBtn} onPress={abrirRelatorio}>
-                <Text style={sc.btBtnTxt}>📊 Ver análise BT salva</Text>
+                <Text style={sc.btBtnTxt}>📊 Ver análise do King Scout</Text>
               </TouchableOpacity>
               <TouchableOpacity style={sc.btBtnSecundario} onPress={abrirBtTracker}>
-                <Text style={sc.btBtnSecundarioTxt}>🎾 Nova análise BT</Text>
+                <Text style={sc.btBtnSecundarioTxt}>🎾 Nova análise do King Scout</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -443,12 +510,12 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
             )}
             <TouchableOpacity
               onPress={() => {
-                if (hasWinner && canEdit) {
+                if (hasWinner && canEdit && !tbInvalido) {
                   onSave(match.id, setsA, setsB, validSets.length > 0 ? validSets : undefined);
                 }
               }}
-              style={[sc.save, (!hasWinner || !canEdit) && sc.saveOff]}
-              disabled={!hasWinner || !canEdit}
+              style={[sc.save, (!hasWinner || !canEdit || tbInvalido) && sc.saveOff]}
+              disabled={!hasWinner || !canEdit || tbInvalido}
             >
               <Text style={sc.saveText}>{alreadyScored && isAdmin ? 'Corrigir' : 'Salvar'}</Text>
             </TouchableOpacity>
@@ -521,6 +588,10 @@ const makeSc = (Colors: ThemeColors) => StyleSheet.create({
   setsSection: { gap: 8 },
   setsTitle: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted, letterSpacing: 1, textAlign: 'center' },
   setRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  tbRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 52 },
+  tbLabel: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted },
+  tbInput: { width: 52, height: 36, borderRadius: Radius.sm, borderWidth: 1.5, borderColor: Colors.line, backgroundColor: Colors.bg, textAlign: 'center', fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.text },
+  tbErro: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.coral, paddingLeft: 52 },
   setLabel: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted, width: 44 },
   setDash: { fontFamily: FontFamily.body, fontSize: 17, color: Colors.faint },
   gameStepperWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 },

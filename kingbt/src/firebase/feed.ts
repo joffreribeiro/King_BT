@@ -4,6 +4,7 @@ import {
   Timestamp, type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './config';
+import type { SetScore } from '@/logic/types';
 
 export type FeedItem = {
   id: string;
@@ -17,7 +18,7 @@ export type FeedItem = {
   sideA?: { ids: string[]; name: string; score: number };
   sideB?: { ids: string[]; name: string; score: number };
   /** Games por set, gravados direto no post — sobrevive à exclusão da competição original */
-  sets?: { a: number; b: number }[] | null;
+  sets?: SetScore[] | null;
   timestamp: Timestamp;
   reactions: Record<string, string[]>;
   comments: { uid: string; name: string; text: string; ts: Timestamp }[];

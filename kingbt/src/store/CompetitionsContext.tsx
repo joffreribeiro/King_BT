@@ -36,7 +36,7 @@ type Action =
   | { type: 'ADD'; comp: Competition }
   | { type: 'CLONE'; compId: string; playerHandicaps?: Record<string, number> }
   // `confirmed`: o placar já foi confirmado (ou lançado por quem decide) — não passa de novo pela confirmação.
-  | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; sets?: { a: number; b: number }[]; confirmed?: boolean }
+  | { type: 'SAVE_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; sets?: SetScore[]; confirmed?: boolean }
   | { type: 'VALIDATE_SCORE'; compId: string; op: ValidationOp }
   | { type: 'CORRECT_SCORE'; compId: string; matchId: string; scoreA: number; scoreB: number; sets?: { a: number; b: number }[] }
   | { type: 'CLEAR_SCORE'; compId: string; matchId: string }
