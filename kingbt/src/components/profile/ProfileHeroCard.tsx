@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, Modal, ScrollView } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useMemo, useState } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
@@ -42,7 +43,7 @@ interface Props {
  * XP = jogos disputados + bônus pela nota do Radar (ver logic/playerLevel).
  */
 export function ProfileHeroCard({ name, avatarColor, position, points, winRate, xp, groupName, xpInfo, onEdit, onAddGroup, onShare, sharing }: Props) {
-  const { colors: Colors, mode } = useTheme();
+  const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
   const level = playerLevel(xp);
   const [showXp, setShowXp] = useState(false);
@@ -50,30 +51,39 @@ export function ProfileHeroCard({ name, avatarColor, position, points, winRate, 
 
   return (
     <View style={s.card}>
-      {/* Versão quadrada da arte, recortada em volta do rosto da vespa: a original é larga (4:3) e, no card quase quadrado, o corte automático deixava só a bola. */}
-      <Image source={require('../../../assets/kingbt-mascote-card.jpg')} style={[s.img, { opacity: mode === 'dark' ? 0.28 : 0.32 }]} resizeMode="cover" />
+      {/* Mesmo desenho do card de Próximo evento: a arte cobre o topo, o texto fica embaixo à esquerda (sobre a bola)
+          e o rosto da vespa fica livre à direita. */}
+      <View style={s.hero}>
+        <Image source={require('../../../assets/kingbt-mascote-fogo.jpg')} style={s.heroImg} resizeMode="cover" accessibilityIgnoresInvertColors />
+        <LinearGradient
+          colors={['rgba(11,11,13,0.35)', 'rgba(11,11,13,0)', 'rgba(11,11,13,0.55)', 'rgba(11,11,13,0.96)']}
+          locations={[0, 0.3, 0.62, 1]}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+        <View style={s.heroBottom}>
+          <View style={s.avatarWrap}>
+            <Avatar name={name} color={avatarColor} size={60} showCrown={position === 1} onDark />
+            {onEdit && (
+              <TouchableOpacity style={s.editBtn} onPress={onEdit} hitSlop={8} accessibilityRole="button" accessibilityLabel="Editar perfil" {...hoverTip('Editar perfil')}>
+                <Icon name="edit" size={13} color={Colors.gold} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={s.heroInfo}>
+            <Text style={s.name} numberOfLines={2}>{name.toUpperCase()}</Text>
+            <Text style={s.sub}>
+              {position > 0 ? `#${position}` : '#—'} no ranking · {formatRating(points)} pts · <Text style={{ color: Colors.teal, fontFamily: FontFamily.title }}>{winRate}%</Text> aproveit.
+            </Text>
+          </View>
+        </View>
+      </View>
 
       {onShare && (
         <TouchableOpacity style={[s.shareBtn, sharing && { opacity: 0.5 }]} onPress={onShare} activeOpacity={0.75} disabled={sharing} accessibilityRole="button" accessibilityLabel="Compartilhar">
           <Icon name="share" size={16} color={Colors.gold} />
         </TouchableOpacity>
       )}
-
-      {/* Lápis de editar ao lado do círculo do avatar (não disputa espaço com o nome). */}
-      <View style={s.avatarWrap}>
-        <Avatar name={name} color={avatarColor} size={64} showCrown={position === 1} />
-        {onEdit && (
-          <TouchableOpacity style={s.editBtn} onPress={onEdit} hitSlop={8} accessibilityRole="button" accessibilityLabel="Editar perfil" {...hoverTip('Editar perfil')}>
-            <Icon name="edit" size={14} color={Colors.gold} />
-          </TouchableOpacity>
-        )}
-      </View>
-      <View style={s.nameRow}>
-        <Text style={s.name}>{name.toUpperCase()}</Text>
-      </View>
-      <Text style={s.sub}>
-        {position > 0 ? `#${position}` : '#—'} no ranking · {formatRating(points)} pts · <Text style={{ color: Colors.teal, fontFamily: FontFamily.title }}>{winRate}%</Text> aproveit.
-      </Text>
 
       <View style={s.groupRow}>
         <Text style={s.group} numberOfLines={1}>{groupName}</Text>
@@ -144,13 +154,18 @@ export function ProfileHeroCard({ name, avatarColor, position, points, winRate, 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   card: {
     alignItems: 'center', marginTop: 0, marginBottom: Spacing.sm,
-    paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: Spacing.md,
+    paddingHorizontal: Spacing.md, paddingTop: 0, paddingBottom: Spacing.md,
     borderRadius: 20, borderWidth: 1, borderColor: Colors.gold + '55',
     backgroundColor: Colors.surf, position: 'relative', overflow: 'hidden',
   },
   // Só as bordas (top/left/right/bottom = 0), sem width/height em %: assim a imagem cobre o card inteiro,
   // mesmo quando a altura do card só é conhecida depois que o conteúdo é desenhado.
-  img: { ...StyleSheet.absoluteFillObject },
+  hero: { alignSelf: 'stretch', height: 210, marginHorizontal: -Spacing.md, backgroundColor: '#0B0B0D', overflow: 'hidden' },
+  // Igual ao EventHero (card de Próximo evento): borda a borda E largura/altura 100% de uma área de altura FIXA.
+  // Só com as bordas, a web desenhava a imagem no tamanho natural e aparecia apenas o canto de cima.
+  heroImg: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  heroBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'flex-end', gap: 12, paddingHorizontal: Spacing.md, paddingBottom: 12 },
+  heroInfo: { flex: 1, minWidth: 0 },
   shareBtn: {
     position: 'absolute', top: 12, right: 12, zIndex: 2,
     width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
@@ -159,14 +174,13 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   // minWidth/flexShrink: o nome encolhe e quebra de linha em vez de ser cortado pelo card (lápis ao lado).
   avatarWrap: { position: 'relative' },
   editBtn: {
-    position: 'absolute', right: -34, bottom: 6, width: 28, height: 28, borderRadius: 14,
+    position: 'absolute', right: -6, bottom: -4, width: 26, height: 26, borderRadius: 13,
     alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.gold, backgroundColor: Colors.surf,
   },
-  // O nome ocupa a largura toda do card e quebra de linha se for comprido (nunca é cortado).
-  nameRow: { alignSelf: 'stretch', alignItems: 'center', marginTop: Spacing.xs },
-  name: { fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 22, lineHeight: 26, color: Colors.text, textAlign: 'center' },
-  sub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, marginTop: 4, textAlign: 'center' },
-  groupRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: Spacing.sm },
+  // Texto sobre a arte: claro, com sombra, como o título do card de evento. O nome quebra de linha se for comprido.
+  name: { fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 22, lineHeight: 26, color: '#F6EFDD', textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 8, textShadowOffset: { width: 0, height: 1 } },
+  sub: { fontFamily: FontFamily.body, fontSize: 12.5, color: '#E7DFC8', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 } },
+  groupRow: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: Spacing.sm },
   group: { flexShrink: 1, fontFamily: FontFamily.titleBold, fontSize: 16, lineHeight: 20, color: Colors.text },
   addBtn: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.gold, backgroundColor: Colors.gold + '1F' },
   addPlus: { fontFamily: FontFamily.titleBold, fontSize: 18, lineHeight: 20, color: Colors.gold, marginTop: -1 },
