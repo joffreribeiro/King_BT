@@ -8,6 +8,8 @@ import { useAuth } from './AuthContext';
 interface UpdateContextType {
   /** Há uma versão mais nova publicada — apenas avisa, dá pra dispensar. */
   updateAvailable: boolean;
+  /** Versão publicada (ex.: "1.0.0-58"), quando o aviso vem do APK; null se desconhecida. */
+  latestVersion: string | null;
   /**
    * O build atual está abaixo da versão mínima obrigatória definida pelo
    * Super Admin — bloqueia o uso do app até atualizar (ver
@@ -18,6 +20,7 @@ interface UpdateContextType {
 
 const UpdateContext = createContext<UpdateContextType>({
   updateAvailable: false,
+  latestVersion: null,
   updateRequired: false,
 });
 
@@ -70,6 +73,7 @@ const WEB_CHECK_MIN_GAP_MS = 5 * 60 * 1000;
 export function UpdateProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [minRequiredBuildTime, setMinRequiredBuildTime] = useState<number | null>(null);
 
   // Web: compara o pacote em uso com o publicado no próprio site. Sem token, sem
@@ -107,8 +111,12 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
       try {
         const res = await fetch(`${VERSION_URL}?_=${Date.now()}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
         if (!res.ok) return;
-        const live = shaFromVersionJson(await res.json());
-        if (alive && isNewerBuild(CURRENT_SHA, live)) setUpdateAvailable(true);
+        const json = await res.json();
+        const live = shaFromVersionJson(json);
+        if (alive && isNewerBuild(CURRENT_SHA, live)) {
+          setUpdateAvailable(true);
+          setLatestVersion(typeof json?.versao === 'string' ? json.versao : null);
+        }
       } catch { /* sem rede: tenta de novo depois */ }
     }
     checkForUpdates();
@@ -141,7 +149,7 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
     CURRENT_BUILD_TIME < minRequiredBuildTime;
 
   return (
-    <UpdateContext.Provider value={{ updateAvailable, updateRequired }}>
+    <UpdateContext.Provider value={{ updateAvailable, latestVersion, updateRequired }}>
       {children}
     </UpdateContext.Provider>
   );

@@ -21,10 +21,21 @@ const CAPITULOS = [
       'Toque em <b>Entrar com e-mail</b> e use o seu e-mail e senha. Quem ainda não tem conta toca em <b>Criar conta</b>.',
       'Escolha o <b>grupo</b>. Você pode participar de mais de um; o grupo ativo aparece em destaque e dá para trocar a qualquer momento. Para entrar em outro grupo, digite o <b>código de convite</b> e toque em <b>Entrar</b>.',
       '<b>Instale o app.</b> No celular, use o menu do navegador e escolha <b>Adicionar à tela inicial</b>; no Android também há o aplicativo (APK) do grupo. O app avisa quando existe uma versão nova: toque na barra de atualização.',
+      '<b>Precisando de ajuda?</b> Em <b>Configurações → Ajuda</b> você abre este manual em PDF. No rodapé de Configurações aparece a <b>versão</b> instalada (a mesma que vai no nome do arquivo do aplicativo, por exemplo KINGBT_1.0.0-57.apk) — informe-a ao administrador se algo der errado.',
     ],
+    tabela: { cab: ['Onde', 'Para que serve'], linhas: [
+      ['Home', 'Pendências, sua posição no ranking e as novidades do grupo.'],
+      ['Arena', 'Feed, Ranking (pódio e tabela) e lista de Atletas.'],
+      ['Competições', 'Todas as disputas do grupo, com classificação e jogos.'],
+      ['Perfil', 'Seu cartão, nível, estatísticas, histórico e relatórios do King Scout.'],
+      ['Botão +', 'Atalhos: Nova Competição, Jogo Rápido e Marcação ponto a ponto.'],
+    ] },
     nota: 'As telas deste manual foram capturadas em um <b>grupo de teste</b>, por isso os jogadores têm nomes como A, B, C e Joffre.',
-    figs: [],
-    capa: true,
+    figs: [
+      { img: '02-arena.png', cap: 'Arena, uma das áreas da barra de baixo.' },
+      { img: '03-competicoes.png', cap: 'Competições, outra área da barra.' },
+    ],
+    capa: true, peq: true,
   },
   {
     cap: 'Capítulo 2', titulo: 'Início',
@@ -246,9 +257,9 @@ const CAPITULOS = [
 
 const esc = s => String(s);
 
-function figuras(figs) {
+function figuras(figs, peq) {
   if (!figs || figs.length === 0) return '';
-  return `<div class="figs n${figs.length}">${figs
+  return `<div class="figs n${figs.length}${peq ? ' peq' : ''}">${figs
     .map(f => `<figure><img src="img/${f.img}" alt="${esc(f.cap)}"><figcaption>${f.cap}</figcaption></figure>`)
     .join('')}</div>`;
 }
@@ -273,7 +284,7 @@ function capitulo(c) {
     ${c.intro ? `<p class="intro">${c.intro}</p>` : ''}
     ${passos}${tabela(c.tabela)}${faq}
     ${c.nota ? `<div class="nota">${c.nota}</div>` : ''}
-    ${figuras(c.figs)}`);
+    ${figuras(c.figs, c.peq)}`);
 }
 
 const indice = [
@@ -326,7 +337,7 @@ code { font-family:'Space Grotesk', monospace; color:var(--gold); background:rgb
 .figs { margin-top:auto; display:flex; justify-content:center; align-items:flex-start; gap:6mm; }
 figure { display:flex; flex-direction:column; align-items:center; gap:1.8mm; }
 figure img { display:block; border-radius:3.4mm; border:.35mm solid rgba(243,197,68,.35); box-shadow:0 1.5mm 5mm rgba(0,0,0,.6); background:#0b0905; }
-.n1 img { width:60mm; } .n2 img { width:58mm; } .n3 img { width:52mm; }
+.n1 img { width:76mm; } .figs.peq img { width:38mm; } .n2 img { width:58mm; } .n3 img { width:52mm; }
 figcaption { font-size:7.4pt; line-height:1.35; color:var(--muted); text-align:center; max-width:56mm; }
 .faq { border-bottom:.2mm solid rgba(243,197,68,.12); padding:2.4mm 0; }
 .faq .q { font-weight:700; font-size:9.6pt; color:var(--gold); margin-bottom:1mm; }
