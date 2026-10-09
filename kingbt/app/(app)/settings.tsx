@@ -10,7 +10,6 @@ import { HonorsAdminCard } from '@/components/HonorsAdminCard';
 import { AnnouncementsAdminCard } from '@/components/AnnouncementsAdminCard';
 import { useEffect, useMemo, useState } from 'react';
 import { router } from 'expo-router';
-import Constants from 'expo-constants';
 import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors, PLAYER_COLORS } from '@/theme';
 import { Avatar, Card, VisibilityPicker, ScreenHeader } from '@/components';
 import { Icon } from '@/components/icons';
@@ -30,10 +29,11 @@ import { StepperRow, ToggleRow } from '@/components/competition/FormKit';
 import { statPoints } from '@/logic/scoring';
 import { getMinRequiredBuildTime, setMinRequiredBuildTime } from '@/firebase/appVersion';
 import { MANUAL_URL } from '@/constants/manual';
-import { CURRENT_BUILD_TIME } from '@/store/UpdateContext';
+import { APP_VERSION } from '@/constants/version';
+import { CURRENT_BUILD_TIME, useUpdate } from '@/store/UpdateContext';
 
 // Nos APKs o workflow define EXPO_PUBLIC_APP_VERSION = versão + número do build (a mesma do nome do arquivo .apk).
-const version = process.env.EXPO_PUBLIC_APP_VERSION ?? Constants.expoConfig?.version ?? '1.0.0';
+const version = APP_VERSION;
 
 export default function SettingsScreen() {
   const { group, isAdmin, isSuperAdmin, leaveGroup, user, removeFromGroup, promoteToAdmin, addExistingUserToGroup, setGroupVisibility, updateGroupName } = useAuth();
@@ -135,6 +135,23 @@ export default function SettingsScreen() {
   const previewPts = scoringValid
     ? statPoints({ played: 8, wins: 5, gamesPro: 3, gamesCon: 2, events: 3 }, parsedScoring)
     : null;
+
+  // Verificar atualização: checa na hora e responde, em vez de depender só da checagem automática ao abrir
+  const { checkNow } = useUpdate();
+  const [verificando, setVerificando] = useState(false);
+  const [resultadoUpdate, setResultadoUpdate] = useState<string | null>(null);
+  async function handleVerificarAtualizacao() {
+    setVerificando(true);
+    setResultadoUpdate(null);
+    const r = await checkNow();
+    setVerificando(false);
+    setResultadoUpdate(
+      r === 'nova' ? 'Há uma versão nova — use o aviso no topo da tela para atualizar.'
+        : r === 'atual' ? 'Você está na versão mais recente.'
+        : r === 'offline' ? 'Não consegui consultar agora. Verifique a internet e tente de novo.'
+        : 'Indisponível nesta versão de desenvolvimento.',
+    );
+  }
 
   function notify(title: string, msg: string) {
     if (Platform.OS === 'web') window.alert(`${title}\n\n${msg}`);
@@ -400,6 +417,10 @@ export default function SettingsScreen() {
             <TouchableOpacity style={s.chip} onPress={() => Linking.openURL(MANUAL_URL)}>
               <Text style={s.chipText}>📘 Manual do usuário (PDF)</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={[s.chip, { marginTop: Spacing.xs }]} onPress={handleVerificarAtualizacao} disabled={verificando}>
+              <Text style={s.chipText}>{verificando ? 'Verificando...' : '🔄 Verificar atualização'}</Text>
+            </TouchableOpacity>
+            {resultadoUpdate && <Text style={s.versionFooter}>{resultadoUpdate}</Text>}
           </Card>
         </View>
 

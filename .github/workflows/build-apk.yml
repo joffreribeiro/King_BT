@@ -168,3 +168,14 @@ jobs:
             kingbt/KINGBT_*.apk
             kingbt/apk-version.json
           make_latest: true
+
+      # Mantém só os 3 APKs versionados mais recentes na release (kingbt.apk e apk-version.json ficam sempre).
+      - name: Limpar APKs antigos da release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/releases/tags/latest-apk" \
+            --jq '.assets | map(select(.name | test("^KINGBT_.*[.]apk$"))) | sort_by(.created_at) | reverse | .[3:] | .[].id' |
+          while read -r id; do
+            gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$id"
+          done

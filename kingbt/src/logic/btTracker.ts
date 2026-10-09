@@ -661,6 +661,7 @@ export function calcularEstatisticas(analise: BtAnalise): BtEstatisticas {
 // ─── Persistência (AsyncStorage) ─────────────────────────────────────────────
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { falhouGravar, gravouOk } from './avisoArmazenamento';
 
 const PREFIX = 'btAnalise:';
 
@@ -668,8 +669,20 @@ function storageKey(competitionId: string, matchId: string): string {
   return PREFIX + competitionId + ':' + matchId;
 }
 
+/**
+ * Grava a análise no aparelho. Se falhar (memória cheia, armazenamento indisponível) NÃO lança: o jogo
+ * segue na tela, a falha vai para o aviso do topo (StorageAlertBanner) com a opção de tentar de novo,
+ * e a cópia na nuvem (saveAnaliseSynced) continua independente.
+ */
 export async function salvarAnalise(analise: BtAnalise): Promise<void> {
-  await AsyncStorage.setItem(storageKey(analise.competitionId, analise.matchId), JSON.stringify(analise));
+  const chave = storageKey(analise.competitionId, analise.matchId);
+  const gravar = () => AsyncStorage.setItem(chave, JSON.stringify(analise));
+  try {
+    await gravar();
+    gravouOk(chave);
+  } catch {
+    falhouGravar(chave, gravar);
+  }
 }
 
 export async function carregarAnalise(matchId: string, competitionId: string): Promise<BtAnalise | null> {

@@ -1,7 +1,7 @@
 import { Tabs, router, usePathname } from 'expo-router';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated,
-  Modal, ScrollView, Pressable, Image, Linking, Platform, useWindowDimensions,
+  Modal, ScrollView, Pressable, Image, Linking, Platform, Alert, useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMemo, useRef, useEffect, useState } from 'react';
@@ -11,6 +11,7 @@ import { useSyncQueue } from '@/store/SyncQueueContext';
 import { syncBannerLabel } from '@/store/syncQueue';
 import { useAuth } from '@/store/AuthContext';
 import { useUpdate } from '@/store/UpdateContext';
+import { APP_VERSION } from '@/constants/version';
 import { useNotifications } from '@/hooks/useNotifications';
 import { useInstallPrompt, IOS_INSTALL_STEPS } from '@/hooks/useInstallPrompt';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -348,14 +349,21 @@ function UpdateBanner() {
     <View style={styles.updateBanner}>
       <View style={styles.updateContent}>
         <Text style={{ fontSize: 12 }}>⬆️</Text>
-        <Text style={styles.updateText}>{latestVersion ? `Nova versão disponível: v${latestVersion}` : 'Versão atualizada disponível'}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.updateText}>{latestVersion ? `Atualizar para v${latestVersion}` : 'Versão atualizada disponível'}</Text>
+          {latestVersion && <Text style={[styles.updateText, { color: Colors.muted }]}>Você está na v{APP_VERSION}</Text>}
+        </View>
       </View>
       <View style={styles.updateActions}>
         <TouchableOpacity onPress={() => setDismissed(true)} hitSlop={6}>
           <Text style={styles.updateDismiss}>Depois</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => (Platform.OS === 'web' ? window.location.reload() : Linking.openURL(apkUrl))}
+          onPress={() => {
+            if (Platform.OS === 'web') { window.location.reload(); return; }
+            // Se o GitHub não abrir (sem rede, link fora do ar), avisa em vez de parecer que travou
+            Linking.openURL(apkUrl).catch(() => Alert.alert('Download', 'Não consegui abrir o download, tente de novo.'));
+          }}
           hitSlop={6}
           style={styles.updateBtn}
         >

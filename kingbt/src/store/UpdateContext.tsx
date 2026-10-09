@@ -5,11 +5,16 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { useAuth } from './AuthContext';
 
+/** nova = há versão mais nova; atual = já está na mais recente; offline = não deu para consultar; indisponivel = build de desenvolvimento. */
+export type UpdateCheckResult = 'nova' | 'atual' | 'offline' | 'indisponivel';
+
 interface UpdateContextType {
   /** Há uma versão mais nova publicada — apenas avisa, dá pra dispensar. */
   updateAvailable: boolean;
   /** Versão publicada (ex.: "1.0.0-58"), quando o aviso vem do APK; null se desconhecida. */
   latestVersion: string | null;
+  /** Checa agora (botão em Configurações) e diz o que achou; atualiza o aviso se houver versão nova. */
+  checkNow: () => Promise<UpdateCheckResult>;
   /**
    * O build atual está abaixo da versão mínima obrigatória definida pelo
    * Super Admin — bloqueia o uso do app até atualizar (ver
@@ -21,6 +26,7 @@ interface UpdateContextType {
 const UpdateContext = createContext<UpdateContextType>({
   updateAvailable: false,
   latestVersion: null,
+  checkNow: async () => 'indisponivel',
   updateRequired: false,
 });
 
@@ -67,6 +73,28 @@ async function fetchLiveEntryHash(): Promise<string | null> {
   return entryHashFrom(await res.text());
 }
 
+/** Consulta a versão publicada (web: site; APK: release do GitHub). Nunca lança. */
+async function consultar(): Promise<{ status: UpdateCheckResult; versao: string | null }> {
+  if (Platform.OS === 'web') {
+    const running = runningEntryHash();
+    if (!running) return { status: 'indisponivel', versao: null }; // desenvolvimento: não há como saber a própria versão
+    try {
+      const live = await fetchLiveEntryHash();
+      if (!live) return { status: 'offline', versao: null };
+      return { status: isNewerBuild(running, live) ? 'nova' : 'atual', versao: null };
+    } catch { return { status: 'offline', versao: null }; }
+  }
+  if (!CURRENT_SHA) return { status: 'indisponivel', versao: null };
+  try {
+    const res = await fetch(`${VERSION_URL}?_=${Date.now()}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
+    if (!res.ok) return { status: 'offline', versao: null };
+    const json = await res.json();
+    const live = shaFromVersionJson(json);
+    if (!live) return { status: 'offline', versao: null };
+    return { status: isNewerBuild(CURRENT_SHA, live) ? 'nova' : 'atual', versao: typeof json?.versao === 'string' ? json.versao : null };
+  } catch { return { status: 'offline', versao: null }; }
+}
+
 const WEB_CHECK_EVERY_MS = 30 * 60 * 1000;
 const WEB_CHECK_MIN_GAP_MS = 5 * 60 * 1000;
 
@@ -87,10 +115,8 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
     let alive = true;
     async function check() {
       last = Date.now();
-      try {
-        const live = await fetchLiveEntryHash();
-        if (alive && isNewerBuild(running, live)) setUpdateAvailable(true);
-      } catch { /* sem rede: tenta de novo depois */ }
+      const r = await consultar(); // sem rede: tenta de novo depois
+      if (alive && r.status === 'nova') setUpdateAvailable(true);
     }
     check();
     const timer = setInterval(check, WEB_CHECK_EVERY_MS);
@@ -108,16 +134,11 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
     let last = 0;
     async function checkForUpdates() {
       last = Date.now();
-      try {
-        const res = await fetch(`${VERSION_URL}?_=${Date.now()}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } });
-        if (!res.ok) return;
-        const json = await res.json();
-        const live = shaFromVersionJson(json);
-        if (alive && isNewerBuild(CURRENT_SHA, live)) {
-          setUpdateAvailable(true);
-          setLatestVersion(typeof json?.versao === 'string' ? json.versao : null);
-        }
-      } catch { /* sem rede: tenta de novo depois */ }
+      const r = await consultar(); // sem rede: tenta de novo depois
+      if (alive && r.status === 'nova') {
+        setUpdateAvailable(true);
+        setLatestVersion(r.versao);
+      }
     }
     checkForUpdates();
     const sub = AppState.addEventListener('change', st => {
@@ -143,13 +164,22 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
     return unsub;
   }, [user]);
 
+  const checkNow = async (): Promise<UpdateCheckResult> => {
+    const r = await consultar();
+    if (r.status === 'nova') {
+      setUpdateAvailable(true);
+      if (r.versao) setLatestVersion(r.versao);
+    }
+    return r.status;
+  };
+
   const updateRequired =
     CURRENT_BUILD_TIME != null &&
     minRequiredBuildTime != null &&
     CURRENT_BUILD_TIME < minRequiredBuildTime;
 
   return (
-    <UpdateContext.Provider value={{ updateAvailable, latestVersion, updateRequired }}>
+    <UpdateContext.Provider value={{ updateAvailable, latestVersion, checkNow, updateRequired }}>
       {children}
     </UpdateContext.Provider>
   );

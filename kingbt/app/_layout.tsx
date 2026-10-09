@@ -30,6 +30,7 @@ import { UpdateProvider, useUpdate } from '@/store/UpdateContext';
 import { ThemeProvider, useTheme } from '@/store/ThemeContext';
 import { MandatoryUpdateScreen } from '@/components';
 import { initCrashReporting } from '@/services/crashReporting';
+import { StorageAlertBanner } from '@/components/StorageAlertBanner';
 
 initCrashReporting();
 
@@ -111,6 +112,7 @@ function RootStack({ splashDone, onSplashFinish }: { splashDone: boolean; onSpla
   return (
     <>
       <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+      <StorageAlertBanner />
       {updateRequired ? (
         <MandatoryUpdateScreen />
       ) : (
