@@ -37,6 +37,10 @@
       "expo-font",
       "expo-localization",
       [
+        "expo-local-authentication",
+        { "faceIDPermission": "O KING BT usa o Face ID para desbloquear o app." }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/kingbt-icon.png",

@@ -31,6 +31,8 @@ import { ThemeProvider, useTheme } from '@/store/ThemeContext';
 import { MandatoryUpdateScreen } from '@/components';
 import { initCrashReporting } from '@/services/crashReporting';
 import { StorageAlertBanner } from '@/components/StorageAlertBanner';
+import { BiometriaProvider } from '@/store/BiometriaContext';
+import { BiometriaGate } from '@/components/BiometriaGate';
 
 initCrashReporting();
 
@@ -88,6 +90,7 @@ export default function RootLayout() {
     <ThemeProvider>
     <AuthProvider>
     <UpdateProvider>
+    <BiometriaProvider>
     <SettingsProvider>
     <GroupPlayersProvider>
     <CompetitionsProvider>
@@ -99,6 +102,7 @@ export default function RootLayout() {
     </CompetitionsProvider>
     </GroupPlayersProvider>
     </SettingsProvider>
+    </BiometriaProvider>
     </UpdateProvider>
     </AuthProvider>
     </ThemeProvider>
@@ -113,6 +117,7 @@ function RootStack({ splashDone, onSplashFinish }: { splashDone: boolean; onSpla
     <>
       <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
       <StorageAlertBanner />
+      <BiometriaGate />
       {updateRequired ? (
         <MandatoryUpdateScreen />
       ) : (
