@@ -39,7 +39,7 @@ async function pedirBiometria(): Promise<boolean> {
 }
 
 /**
- * Bloqueio por biometria: ao abrir o app (e ao voltar de segundo plano depois de 1 min) cobre a tela até
+ * Bloqueio por biometria: ao abrir o app (e ao voltar de segundo plano depois de 5 min) cobre a tela até
  * o usuário confirmar digital/rosto do próprio celular. Não substitui o login; protege quem abre o app num
  * celular desbloqueado. Fica desligado por padrão e é uma preferência deste aparelho (não vai para a nuvem).
  * Na web não faz nada.

@@ -43,7 +43,7 @@ function timeAgo(ts: any): string {
 export default function HomeScreen() {
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
-  const { user, myPlayerId } = useAuth();
+  const { user, myPlayerId, group } = useAuth();
   const { state, refresh } = useCompetitions();
   const { groupPlayers } = useGroupPlayers();
   const { refresh: refreshFeed } = useFeed();
@@ -75,7 +75,7 @@ export default function HomeScreen() {
             {me && <Avatar name={me.name} color={me.color} size={56} />}
             <View style={{ flex: 1 }}>
               <Text style={s.date}>{todayLabel()}</Text>
-              <Text style={s.greeting}>Bem-vindo ao KINGBT{firstName ? <>, <Text style={{ color: Colors.gold, textTransform: 'uppercase' }}>{firstName}</Text></> : ''}</Text>
+              <Text style={s.greeting}>Bem-vindo ao {group?.name || 'KINGBT'}{firstName ? <>, <Text style={{ color: Colors.gold, textTransform: 'uppercase' }}>{firstName}</Text></> : ''}</Text>
               <Text style={s.group}>Play com respeito, evolua sempre</Text>
             </View>
           </View>
