@@ -4,6 +4,7 @@ name: Build e publicar APK
 # envio. Sai quando:
 #   1) você roda manualmente: aba Ações > "Build e publicar APK" > Run workflow; ou
 #   2) a mensagem do commit tem "[apk]" (ex.: "Corrige placar [apk]").
+# O push só dispara este workflow se mudar algo em kingbt/** ou neste arquivo (um commit vazio com [apk] não basta).
 # O site continua publicando sozinho a cada envio (deploy-web.yml).
 on:
   push:
