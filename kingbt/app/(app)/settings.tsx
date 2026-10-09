@@ -30,6 +30,7 @@ import { statPoints } from '@/logic/scoring';
 import { getMinRequiredBuildTime, setMinRequiredBuildTime } from '@/firebase/appVersion';
 import { MANUAL_URL } from '@/constants/manual';
 import { APP_VERSION } from '@/constants/version';
+import { useBiometria } from '@/store/BiometriaContext';
 import { CURRENT_BUILD_TIME, useUpdate } from '@/store/UpdateContext';
 
 // Nos APKs o workflow define EXPO_PUBLIC_APP_VERSION = versão + número do build (a mesma do nome do arquivo .apk).
@@ -138,6 +139,13 @@ export default function SettingsScreen() {
 
   // Verificar atualização: checa na hora e responde, em vez de depender só da checagem automática ao abrir
   const { checkNow } = useUpdate();
+  const bio = useBiometria();
+  async function handleBiometria(ligar: boolean) {
+    if (!ligar) { await bio.desativar(); return; }
+    const r = await bio.ativar();
+    if (r === 'falhou') notify('Não ativado', 'Não consegui confirmar a digital ou o rosto. O bloqueio continua desligado.');
+    else if (r === 'indisponivel') notify('Indisponível', 'Cadastre uma digital ou rosto nas configurações do celular para usar o bloqueio.');
+  }
   const [verificando, setVerificando] = useState(false);
   const [resultadoUpdate, setResultadoUpdate] = useState<string | null>(null);
   async function handleVerificarAtualizacao() {
@@ -408,6 +416,14 @@ export default function SettingsScreen() {
                 ))}
               </View>
             </View>
+            {Platform.OS !== 'web' && bio.carregado && (
+              <ToggleRow
+                title="Bloqueio por biometria"
+                subtitle={bio.disponivel ? 'Pede a digital ou o rosto do celular ao abrir o app. Não substitui a senha.' : 'Cadastre uma digital ou rosto no celular para usar.'}
+                value={bio.ativa}
+                onChange={handleBiometria}
+              />
+            )}
           </Card>
         </View>
 

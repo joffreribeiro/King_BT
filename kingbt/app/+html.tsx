@@ -13,8 +13,8 @@ import { ScrollViewStyleReset } from 'expo-router/html';
  * estático escrito neste arquivo fica ao lado do placeholder em vez de
  * substituí-lo, e a página acaba com dois <title>.
  *
- * O <link rel="icon"> também não é declarado aqui: o Expo CLI já injeta esse
- * link sozinho a partir de expo.web.favicon (app.json) durante o export.
+ * O Expo CLI também injeta /favicon.ico a partir de expo.web.favicon (app.json) durante o export;
+ * o <link rel="icon"> abaixo garante o ícone do King BT também no servidor de desenvolvimento.
  */
 export default function Root({ children }: { children: React.ReactNode }) {
   return (
@@ -33,6 +33,8 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <meta name="apple-mobile-web-app-title" content="King BT" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
+        {/* Ícone da aba do navegador (o Expo também injeta /favicon.ico no export; este vale inclusive no servidor de desenvolvimento). */}
+        <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <link rel="manifest" href="/manifest.json" />
 
