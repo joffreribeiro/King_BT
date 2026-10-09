@@ -1,7 +1,7 @@
 // Backup completo do Firestore em um arquivo JSON (só LÊ; nunca altera nada no banco).
 //
-// Uso (de D:\KINGBT\scripts):
-//   node backup-firestore.mjs                 -> grava em D:\KINGBT-dados\backup-AAAA-MM-DD-HHMM.json
+// Uso (de D:\KINGBT\projeto\scripts):
+//   node backup-firestore.mjs                 -> grava em D:\KINGBT\dados\backup-AAAA-MM-DD-HHMM.json
 //   node backup-firestore.mjs "E:\Meus backups" -> grava na pasta indicada
 //
 // Percorre TODAS as coleções e subcoleções (grupos, jogadores, competições, feed, desafios, usuários...).
@@ -49,7 +49,7 @@ for (const col of await db.listCollections()) await dump(col);
 const now = new Date();
 const p2 = n => String(n).padStart(2, '0');
 const stamp = `${now.getFullYear()}-${p2(now.getMonth() + 1)}-${p2(now.getDate())}-${p2(now.getHours())}${p2(now.getMinutes())}`;
-const outDir = process.argv[2] || 'D:\\KINGBT-dados';
+const outDir = process.argv[2] || 'D:\\KINGBT\\dados';
 mkdirSync(outDir, { recursive: true });
 const file = join(outDir, `backup-${stamp}.json`);
 writeFileSync(file, JSON.stringify({

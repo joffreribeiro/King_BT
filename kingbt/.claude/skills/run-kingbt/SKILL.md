@@ -30,9 +30,9 @@ npx expo start --web
 Sobe em `http://localhost:8081`. Deixe rodando em um terminal (ou em
 background) — o driver não inicia o servidor, só o navegador.
 
-> O projeto tem um hook próprio que sincroniza `kingbt/` → `D:\KINGBT` e
+> O projeto tem um hook próprio que sincroniza `kingbt/` → `D:\KINGBT\projeto` e
 > roda `expo export` + `firebase deploy` a cada edição (ver `AGENTS.md`).
-> Rodar `npx expo start --web` em `D:\KINGBT` também funciona — é o mesmo
+> Rodar `npx expo start --web` em `D:\KINGBT\projeto` também funciona — é o mesmo
 > app, só o diretório de deploy sincronizado.
 
 ## Run (agent path)

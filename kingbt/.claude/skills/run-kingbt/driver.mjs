@@ -14,7 +14,7 @@
 //   node driver.mjs html <path>               HTML renderizado (pós-JS), headless
 //
 // Requer: Chrome/Edge instalado localmente e o servidor Expo já rodando
-// (`npx expo start --web`, ex. em D:\KINGBT).
+// (`npx expo start --web`, ex. em D:\KINGBT\projeto).
 
 import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';

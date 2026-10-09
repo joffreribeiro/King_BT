@@ -4,7 +4,7 @@
     {
       "name": "kingbt-web-local",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "cd /d C:\\KINGBT && npx expo start --web --port %PORT%"],
+      "runtimeArgs": ["/c", "cd /d D:\\KINGBT\\projeto && npx expo start --web --port %PORT%"],
       "port": 8082,
       "autoPort": true
     }

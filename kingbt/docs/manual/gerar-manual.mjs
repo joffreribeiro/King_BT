@@ -1,6 +1,6 @@
 // Gera o Manual do Usuário do KING BT (HTML em páginas A4, pronto para virar PDF).
 //
-// Uso (de D:\KINGBT\docs\manual):
+// Uso (de D:\KINGBT\projeto\docs\manual):
 //   node gerar-manual.mjs            -> grava Manual-do-King-BT.html
 //   (PDF) msedge --headless --no-pdf-header-footer --print-to-pdf=Manual-do-King-BT.pdf Manual-do-King-BT.html
 //

@@ -30,8 +30,13 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files (.env contém a chave do Sentry; não commitar)
+.env
 .env*.local
+
+# binários de build (APK/AAB são gerados, não versionados)
+*.apk
+*.aab
 
 # typescript
 *.tsbuildinfo

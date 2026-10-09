@@ -9,17 +9,17 @@ Before changing any CSS layout/width/spacing rule, FIRST find every rule that af
 ## Environment & Sync
 
 Fonte: `C:\Users\JoffreRibeiro\OneDrive\Documentos\Sistemas\King_BT\kingbt`.
-Cópia de build: `D:\KINGBT` (fora do OneDrive — os `node_modules` no OneDrive
+Cópia de build: `D:\KINGBT\projeto` (fora do OneDrive — os `node_modules` no OneDrive
 são placeholders de nuvem e travam o bundler).
 
 **Era `C:\KINGBT` até 20/09/2026** — mudou porque o disco `C:` encheu (o hook
 recopia a árvore inteira a cada Write/Edit, e o volume acumulado ao longo de
 semanas esgotou os 238GB do disco). O hook, o `.claude/settings.json` e este
-arquivo foram todos atualizados juntos para `D:\KINGBT`. Se algo ainda
+arquivo foram todos atualizados juntos para `D:\KINGBT\projeto`. Se algo ainda
 mencionar `C:\KINGBT` (um terminal aberto, uma nota antiga), é resquício —
-o caminho atual é `D:\KINGBT`.
+o caminho atual é `D:\KINGBT\projeto`.
 
-Um hook `PostToolUse` (matcher `Write|Edit`) copia a fonte para `D:\KINGBT`,
+Um hook `PostToolUse` (matcher `Write|Edit`) copia a fonte para `D:\KINGBT\projeto`,
 roda `npx expo export --platform web` e `npx firebase-tools deploy --only
 hosting`. Se uma mudança "não aparece", confira primeiro se o hook rodou e
 sincronizou/publicou — a maioria dos casos de "mudança invisível" é tempo de
@@ -35,11 +35,11 @@ silêncio: nenhum erro, nenhum aviso, o sync simplesmente não acontece.
 
 Isso já aconteceu (03/09/2026): o hook passou semanas sem rodar por estar na
 subpasta, e ninguém percebeu porque não há mensagem de erro. Sintoma típico:
-`D:\KINGBT` com arquivos dias mais velhos que a fonte, e o site publicado
+`D:\KINGBT\projeto` com arquivos dias mais velhos que a fonte, e o site publicado
 mostrando uma versão antiga mesmo depois de vários edits.
 
 Como testar se está vivo: edite qualquer arquivo com a ferramenta Write/Edit e
-verifique se o arquivo aparece atualizado em `D:\KINGBT`. Se não aparecer, o
+verifique se o arquivo aparece atualizado em `D:\KINGBT\projeto`. Se não aparecer, o
 hook não está sendo carregado — confira em qual `settings.json` ele está.
 
 ### `firebase` não existe no PATH
@@ -51,10 +51,10 @@ segundo bug do hook, além do lugar errado.
 
 ### Deploy manual (quando o hook não rodou)
 
-Rodar de `D:\KINGBT`, nunca do OneDrive:
+Rodar de `D:\KINGBT\projeto`, nunca do OneDrive:
 
 ```bash
-cd /d/KINGBT
+cd /d/KINGBT/projeto
 npx expo export --platform web
 npx firebase-tools deploy --only hosting,firestore:rules --project king-bt-7f559
 ```
@@ -62,7 +62,7 @@ npx firebase-tools deploy --only hosting,firestore:rules --project king-bt-7f559
 Validar as regras do Firestore sem publicar: acrescente `--dry-run` ao deploy.
 Conferir se o bundle publicado é o atual: compare o hash de
 `curl -s https://king-bt-7f559.web.app/ | grep -oE 'entry-[a-f0-9]+\.js'` com o
-arquivo em `D:\KINGBT\dist\_expo\static\js\web\`.
+arquivo em `D:\KINGBT\projeto\dist\_expo\static\js\web\`.
 
 ### Regras do Firestore
 
@@ -151,7 +151,7 @@ npx firebase-tools functions:secrets:set GITHUB_TOKEN --project king-bt-7f559
 Deploy manual (depois do Blaze habilitado e do secret configurado):
 
 ```bash
-cd /d/KINGBT   # nunca do OneDrive
+cd /d/KINGBT/projeto   # nunca do OneDrive
 npx firebase-tools deploy --only functions --project king-bt-7f559
 ```
 

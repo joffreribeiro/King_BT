@@ -2,7 +2,7 @@
 //
 // SEGURO POR PADRÃO: sem --apply só MOSTRA o que seria feito. Sem --overwrite só recria o que NÃO existe mais.
 //
-// Uso (de D:\KINGBT\scripts):
+// Uso (de D:\KINGBT\projeto\scripts):
 //   node restore-firestore.mjs <backup.json> --only <caminho>            -> simulação
 //   node restore-firestore.mjs <backup.json> --only <caminho> --apply    -> grava de verdade
 //
