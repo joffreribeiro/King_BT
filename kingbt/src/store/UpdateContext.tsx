@@ -5,6 +5,9 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { useAuth } from './AuthContext';
 
+/** Link de download do APK mais recente, publicado pelo workflow de build. */
+export const APK_URL = 'https://github.com/joffreribeiro/King_BT/releases/download/latest-apk/kingbt.apk';
+
 /** nova = há versão mais nova; atual = já está na mais recente; offline = não deu para consultar; indisponivel = build de desenvolvimento. */
 export type UpdateCheckResult = 'nova' | 'atual' | 'offline' | 'indisponivel';
 
@@ -13,6 +16,8 @@ interface UpdateContextType {
   updateAvailable: boolean;
   /** Versão publicada (ex.: "1.0.0-58"), quando o aviso vem do APK; null se desconhecida. */
   latestVersion: string | null;
+  /** Link de download do APK mais recente (arquivo KINGBT_<versão>.apk quando a versão é conhecida). */
+  apkUrl: string;
   /** Checa agora (botão em Configurações) e diz o que achou; atualiza o aviso se houver versão nova. */
   checkNow: () => Promise<UpdateCheckResult>;
   /**
@@ -26,6 +31,7 @@ interface UpdateContextType {
 const UpdateContext = createContext<UpdateContextType>({
   updateAvailable: false,
   latestVersion: null,
+  apkUrl: APK_URL,
   checkNow: async () => 'indisponivel',
   updateRequired: false,
 });
@@ -38,8 +44,14 @@ const UpdateContext = createContext<UpdateContextType>({
  */
 const VERSION_URL = 'https://github.com/joffreribeiro/King_BT/releases/download/latest-apk/apk-version.json';
 
-/** Link de download do APK mais recente, publicado pelo workflow de build. */
-export const APK_URL = 'https://github.com/joffreribeiro/King_BT/releases/download/latest-apk/kingbt.apk';
+
+/**
+ * Link do APK com a versão no nome do arquivo (KINGBT_1.0.0-55.apk), para o arquivo baixado já vir identificado.
+ * Sem a versão (ainda não consultada), cai no link fixo kingbt.apk, que continua na release.
+ */
+export function apkUrlDaVersao(versao: string | null): string {
+  return versao ? `https://github.com/joffreribeiro/King_BT/releases/download/latest-apk/KINGBT_${versao}.apk` : APK_URL;
+}
 
 // SHA do commit a partir do qual este build foi gerado — embutido no bundle
 // no momento do build (ver EXPO_PUBLIC_GIT_SHA em .github/workflows/build-apk.yml
@@ -135,10 +147,8 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
     async function checkForUpdates() {
       last = Date.now();
       const r = await consultar(); // sem rede: tenta de novo depois
-      if (alive && r.status === 'nova') {
-        setUpdateAvailable(true);
-        setLatestVersion(r.versao);
-      }
+      if (alive && r.versao) setLatestVersion(r.versao);
+      if (alive && r.status === 'nova') setUpdateAvailable(true);
     }
     checkForUpdates();
     const sub = AppState.addEventListener('change', st => {
@@ -166,10 +176,8 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
 
   const checkNow = async (): Promise<UpdateCheckResult> => {
     const r = await consultar();
-    if (r.status === 'nova') {
-      setUpdateAvailable(true);
-      if (r.versao) setLatestVersion(r.versao);
-    }
+    if (r.versao) setLatestVersion(r.versao);
+    if (r.status === 'nova') setUpdateAvailable(true);
     return r.status;
   };
 
@@ -179,7 +187,7 @@ export function UpdateProvider({ children }: { children: React.ReactNode }) {
     CURRENT_BUILD_TIME < minRequiredBuildTime;
 
   return (
-    <UpdateContext.Provider value={{ updateAvailable, latestVersion, checkNow, updateRequired }}>
+    <UpdateContext.Provider value={{ updateAvailable, latestVersion, apkUrl: apkUrlDaVersao(latestVersion), checkNow, updateRequired }}>
       {children}
     </UpdateContext.Provider>
   );

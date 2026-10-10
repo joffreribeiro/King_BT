@@ -336,14 +336,13 @@ function OfflineBanner() {
 
 // Banner de atualização disponível
 function UpdateBanner() {
-  const { updateAvailable, latestVersion } = useUpdate();
+  const { updateAvailable, latestVersion, apkUrl } = useUpdate();
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
   const [dismissed, setDismissed] = useState(false);
 
   if (!updateAvailable || dismissed) return null;
 
-  const apkUrl = 'https://github.com/joffreribeiro/King_BT/releases/download/latest-apk/kingbt.apk';
 
   return (
     <View style={styles.updateBanner}>

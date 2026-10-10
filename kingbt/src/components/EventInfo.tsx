@@ -25,10 +25,12 @@ export function eventWhen(c: Pick<Competition, 'date' | 'time'>) {
  * é escura, para nunca cobrir o mascote. Cores fixas — a arte é escura nos
  * dois temas.
  */
-export function EventHero({ comp, statusLabel, statusColor, height = 240, top, showMeta = false }: {
+export function EventHero({ comp, statusLabel, statusColor, height = 240, top, showMeta = false, suave = false }: {
   comp: Competition; statusLabel: string; statusColor: string; height?: number; top?: ReactNode;
   /** Mostra data, dia da semana, horário e local sobre a imagem, abaixo do título (no lugar das caixas EventTiles). */
   showMeta?: boolean;
+  /** Imagem da vespa mais transparente, como marca d'água (card de Próximo evento). */
+  suave?: boolean;
 }) {
   const { colors: Colors } = useTheme();
   const s = useMemo(() => makeStyles(Colors), [Colors]);
@@ -36,7 +38,7 @@ export function EventHero({ comp, statusLabel, statusColor, height = 240, top, s
   const w = eventWhen(comp);
   return (
     <View style={[s.hero, { height }]}>
-      <Image source={require('../../assets/kingbt-mascote-fogo.jpg')} style={s.img} resizeMode="cover" accessibilityIgnoresInvertColors />
+      <Image source={require('../../assets/kingbt-mascote-fogo.jpg')} style={[s.img, suave && { opacity: 0.5 }]} resizeMode="cover" accessibilityIgnoresInvertColors />
       <LinearGradient
         colors={['rgba(11,11,13,0.35)', 'rgba(11,11,13,0)', 'rgba(11,11,13,0.55)', 'rgba(11,11,13,0.96)']}
         locations={[0, 0.3, 0.68, 1]}

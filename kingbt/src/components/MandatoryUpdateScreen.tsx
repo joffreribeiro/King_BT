@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Linking } from 'react-native';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
 import { useTheme } from '@/store/ThemeContext';
-import { APK_URL } from '@/store/UpdateContext';
+import { useUpdate } from '@/store/UpdateContext';
 
 /**
  * Bloqueia o app inteiro quando o build atual está abaixo da versão mínima
@@ -11,10 +11,11 @@ import { APK_URL } from '@/store/UpdateContext';
 export function MandatoryUpdateScreen() {
   const { colors: Colors } = useTheme();
   const s = makeStyles(Colors);
+  const { apkUrl } = useUpdate();
 
   function handleUpdate() {
     if (Platform.OS === 'web') window.location.reload();
-    else Linking.openURL(APK_URL);
+    else Linking.openURL(apkUrl).catch(() => {});
   }
 
   return (

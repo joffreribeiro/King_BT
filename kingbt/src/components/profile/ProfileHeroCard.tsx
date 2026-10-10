@@ -54,7 +54,7 @@ export function ProfileHeroCard({ name, avatarColor, position, points, winRate, 
       {/* Mesmo desenho do card de Próximo evento: a arte cobre o topo, o círculo, o nome e o ranking ficam centralizados
           embaixo, sobre a imagem. */}
       <View style={s.hero}>
-        <Image source={require('../../../assets/kingbt-mascote-fogo.jpg')} style={s.heroImg} resizeMode="cover" accessibilityIgnoresInvertColors />
+        <Image source={require('../../../assets/kingbt-mascote-fogo-pb.jpg')} style={s.heroImg} resizeMode="cover" accessibilityIgnoresInvertColors />
         <LinearGradient
           colors={['rgba(11,11,13,0.35)', 'rgba(11,11,13,0)', 'rgba(11,11,13,0.55)', 'rgba(11,11,13,0.96)']}
           locations={[0, 0.3, 0.62, 1]}
@@ -158,15 +158,16 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   // Só as bordas (top/left/right/bottom = 0), sem width/height em %: assim a imagem cobre o card inteiro,
   // mesmo quando a altura do card só é conhecida depois que o conteúdo é desenhado.
-  hero: { alignSelf: 'stretch', height: 124, marginHorizontal: -Spacing.md, backgroundColor: '#0B0B0D', overflow: 'hidden' },
+  hero: { alignSelf: 'stretch', height: 166, marginHorizontal: -Spacing.md, backgroundColor: '#0B0B0D', overflow: 'hidden' },
   // Igual ao EventHero (card de Próximo evento): borda a borda E largura/altura 100% de uma área de altura FIXA.
   // Só com as bordas, a web desenhava a imagem no tamanho natural e aparecia apenas o canto de cima.
-  heroImg: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
-  heroBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: Spacing.sm + 2, paddingHorizontal: Spacing.md, paddingBottom: 10 },
-  heroInfo: { flexShrink: 1, alignItems: 'center', minWidth: 0 },
+  // Vespa em preto e branco bem suave, quase marca d'água: o fundo escuro do hero aparece por baixo.
+  heroImg: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%', opacity: 0.38 },
+  heroBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 10, paddingHorizontal: Spacing.md, paddingBottom: 10 },
+  heroInfo: { alignSelf: 'stretch', alignItems: 'center', minWidth: 0 },
   // Etiqueta do grupo no canto superior esquerdo da imagem (o botão de compartilhar fica no direito).
   groupChip: {
-    position: 'absolute', top: 10, left: 12, zIndex: 2, maxWidth: '62%',
+    position: 'absolute', top: 10, left: 12, zIndex: 2, maxWidth: '32%',
     flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 12, paddingRight: 5, paddingVertical: 4,
     borderRadius: 999, borderWidth: 1, borderColor: Colors.gold + '66', backgroundColor: 'rgba(11,11,13,0.62)',
   },

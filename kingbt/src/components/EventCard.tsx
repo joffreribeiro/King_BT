@@ -44,7 +44,7 @@ export function EventCard() {
       <Text style={s.label}>PRÓXIMO EVENTO</Text>
       <View style={s.card}>
         <TouchableOpacity activeOpacity={0.92} onPress={open} accessibilityRole="button" accessibilityLabel={`Abrir ${comp.name}`}>
-          <EventHero comp={comp} statusLabel={status.t} statusColor={status.c} height={210} showMeta />
+          <EventHero comp={comp} statusLabel={status.t} statusColor={status.c} height={210} showMeta suave />
         </TouchableOpacity>
 
         <View style={s.body}>
