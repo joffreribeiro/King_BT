@@ -103,10 +103,10 @@ export function RadarTab({ playerId, playerName, skills, onSave }: Props) {
     <View style={tab.content}>
       <View style={s.toggleRow}>
         <TouchableOpacity style={[s.toggle, mode === 'self' && s.toggleOn]} onPress={() => setMode('self')} activeOpacity={0.8}>
-          <Text style={[s.toggleText, mode === 'self' && s.toggleTextOn]}>Minha Autoavaliação</Text>
+          <Text style={[s.toggleText, mode === 'self' && s.toggleTextOn]} numberOfLines={1}>Autoavaliação</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[s.toggle, mode === 'community' && s.toggleOn]} onPress={() => setMode('community')} activeOpacity={0.8}>
-          <Text style={[s.toggleText, mode === 'community' && s.toggleTextOn]}>Avaliação da Comunidade</Text>
+          <Text style={[s.toggleText, mode === 'community' && s.toggleTextOn]} numberOfLines={1}>Avaliação da Comunidade</Text>
         </TouchableOpacity>
       </View>
 
@@ -119,7 +119,7 @@ export function RadarTab({ playerId, playerName, skills, onSave }: Props) {
           <Card>
             <View style={s.head}>
               <View style={{ flex: 1 }}>
-                <Text style={s.headTitle}>Minha Autoavaliação</Text>
+                <Text style={s.headTitle}>Autoavaliação</Text>
                 <Text style={s.note}>Notas de 1 a 10 em cada habilidade.</Text>
               </View>
               <View style={s.avgBox}>
@@ -157,10 +157,11 @@ export function RadarTab({ playerId, playerName, skills, onSave }: Props) {
 }
 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
-  toggleRow: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
-  toggle: { paddingHorizontal: 16, minHeight: 44, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line },
+  // Os dois botões dividem a linha (também no celular): cada um ocupa metade e o texto não quebra.
+  toggleRow: { flexDirection: 'row', gap: Spacing.sm },
+  toggle: { flex: 1, paddingHorizontal: 8, minHeight: 44, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line },
   toggleOn: { backgroundColor: Colors.gold + '26', borderColor: Colors.gold },
-  toggleText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
+  toggleText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
   toggleTextOn: { fontFamily: FontFamily.title, color: Colors.gold },
 
   head: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginBottom: Spacing.md },

@@ -206,12 +206,12 @@ export default function ProfileScreen() {
   // Estatísticas das conquistas, já com o rating atual (usadas na aba Honrarias).
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: 'sobre',       label: 'SOBRE' },
-    { key: 'radar',       label: 'AVALIAÇÃO' },
-    { key: 'honrarias',   label: 'CONQUISTAS' },
-    { key: 'batalhas',    label: 'RIVALIDADE' },
-    { key: 'resumo',      label: 'ESTATÍSTICAS' },
-    { key: 'historico',   label: 'HISTÓRICO' },
+    { key: 'sobre',       label: 'Sobre' },
+    { key: 'radar',       label: 'Avaliação' },
+    { key: 'honrarias',   label: 'Conquistas' },
+    { key: 'batalhas',    label: 'Rivalidade' },
+    { key: 'resumo',      label: 'Estatísticas' },
+    { key: 'historico',   label: 'Histórico' },
   ];
 
   if (!player) {

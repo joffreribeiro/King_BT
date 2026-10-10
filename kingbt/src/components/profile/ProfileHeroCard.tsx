@@ -61,9 +61,17 @@ export function ProfileHeroCard({ name, avatarColor, position, points, winRate, 
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
+        <View style={s.groupChip}>
+          <Text style={s.group} numberOfLines={1}>{groupName}</Text>
+          {onAddGroup && (
+            <TouchableOpacity style={s.addBtn} onPress={onAddGroup} activeOpacity={0.75} hitSlop={8} accessibilityRole="button" accessibilityLabel="Trocar ou entrar em grupo" {...hoverTip('Trocar ou entrar em grupo')}>
+              <Text style={s.addPlus}>+</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <View style={s.heroBottom}>
           <View style={s.avatarWrap}>
-            <Avatar name={name} color={avatarColor} size={60} showCrown={position === 1} onDark />
+            <Avatar name={name} color={avatarColor} size={56} showCrown={position === 1} onDark />
             {onEdit && (
               <TouchableOpacity style={s.editBtn} onPress={onEdit} hitSlop={8} accessibilityRole="button" accessibilityLabel="Editar perfil" {...hoverTip('Editar perfil')}>
                 <Icon name="edit" size={13} color={Colors.gold} />
@@ -85,29 +93,19 @@ export function ProfileHeroCard({ name, avatarColor, position, points, winRate, 
         </TouchableOpacity>
       )}
 
-      <View style={s.groupRow}>
-        <Text style={s.group} numberOfLines={1}>{groupName}</Text>
-        {onAddGroup && (
-          <TouchableOpacity style={s.addBtn} onPress={onAddGroup} activeOpacity={0.75} hitSlop={8} accessibilityRole="button" accessibilityLabel="Trocar ou entrar em grupo" {...hoverTip('Trocar ou entrar em grupo')}>
-            <Text style={s.addPlus}>+</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
       <TouchableOpacity style={s.levelBox} activeOpacity={xpInfo ? 0.8 : 1} disabled={!xpInfo} onPress={() => setShowXp(true)} accessibilityRole="button" accessibilityLabel="Ver como o XP é calculado">
         <View style={s.levelTop}>
-          <Text style={s.levelLabel}>NÍVEL</Text>
-          <Text style={s.levelName}>{level.name}</Text>
+          <Text style={s.levelName} numberOfLines={1}>{level.name}</Text>
+          <Text style={s.levelHint} numberOfLines={2}>
+            {level.next ? (
+              <>
+                Faltam <Text style={s.levelStrong}>{level.remaining} XP</Text> para <Text style={s.levelStrong}>{level.next.name}</Text>
+              </>
+            ) : 'Nível máximo'}
+          </Text>
+          {!!xpInfo && <Icon name="chevronRight" size={14} color={Colors.muted} />}
         </View>
         <ProgressBar pct={level.progress * 100} height={8} />
-        <Text style={s.levelHint}>
-          {level.next ? (
-            <>
-              Faltam <Text style={s.levelStrong}>{level.remaining} XP</Text> para <Text style={s.levelStrong}>{level.next.name}</Text>
-            </>
-          ) : 'Nível máximo'}
-        </Text>
-        {!!xpInfo && <Text style={s.levelMore}>Toque para ver como o XP é calculado</Text>}
       </TouchableOpacity>
 
       {!!xpInfo && (
@@ -154,18 +152,24 @@ export function ProfileHeroCard({ name, avatarColor, position, points, winRate, 
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   card: {
     alignItems: 'center', marginTop: 0, marginBottom: Spacing.sm,
-    paddingHorizontal: Spacing.md, paddingTop: 0, paddingBottom: Spacing.md,
+    paddingHorizontal: Spacing.md, paddingTop: 0, paddingBottom: Spacing.sm,
     borderRadius: 20, borderWidth: 1, borderColor: Colors.gold + '55',
     backgroundColor: Colors.surf, position: 'relative', overflow: 'hidden',
   },
   // Só as bordas (top/left/right/bottom = 0), sem width/height em %: assim a imagem cobre o card inteiro,
   // mesmo quando a altura do card só é conhecida depois que o conteúdo é desenhado.
-  hero: { alignSelf: 'stretch', height: 210, marginHorizontal: -Spacing.md, backgroundColor: '#0B0B0D', overflow: 'hidden' },
+  hero: { alignSelf: 'stretch', height: 124, marginHorizontal: -Spacing.md, backgroundColor: '#0B0B0D', overflow: 'hidden' },
   // Igual ao EventHero (card de Próximo evento): borda a borda E largura/altura 100% de uma área de altura FIXA.
   // Só com as bordas, a web desenhava a imagem no tamanho natural e aparecia apenas o canto de cima.
   heroImg: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
-  heroBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'column', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.md, paddingBottom: 12 },
-  heroInfo: { alignSelf: 'stretch', alignItems: 'center', minWidth: 0 },
+  heroBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: Spacing.sm + 2, paddingHorizontal: Spacing.md, paddingBottom: 10 },
+  heroInfo: { flexShrink: 1, alignItems: 'center', minWidth: 0 },
+  // Etiqueta do grupo no canto superior esquerdo da imagem (o botão de compartilhar fica no direito).
+  groupChip: {
+    position: 'absolute', top: 10, left: 12, zIndex: 2, maxWidth: '62%',
+    flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 12, paddingRight: 5, paddingVertical: 4,
+    borderRadius: 999, borderWidth: 1, borderColor: Colors.gold + '66', backgroundColor: 'rgba(11,11,13,0.62)',
+  },
   shareBtn: {
     position: 'absolute', top: 12, right: 12, zIndex: 2,
     width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
@@ -178,18 +182,15 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.gold, backgroundColor: Colors.surf,
   },
   // Texto sobre a arte: claro, com sombra, como o título do card de evento. O nome quebra de linha se for comprido.
-  name: { fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 22, lineHeight: 26, textAlign: 'center', color: '#F6EFDD', textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 8, textShadowOffset: { width: 0, height: 1 } },
+  name: { fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 20, lineHeight: 24, textAlign: 'center', color: '#F6EFDD', textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 8, textShadowOffset: { width: 0, height: 1 } },
   sub: { fontFamily: FontFamily.body, fontSize: 12.5, textAlign: 'center', color: '#E7DFC8', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.7)', textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 } },
-  groupRow: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: Spacing.sm },
-  group: { flexShrink: 1, fontFamily: FontFamily.titleBold, fontSize: 16, lineHeight: 20, color: Colors.text },
+  group: { flexShrink: 1, fontFamily: FontFamily.titleBold, fontSize: 14, lineHeight: 18, color: '#F6EFDD' },
   addBtn: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.gold, backgroundColor: Colors.gold + '1F' },
   addPlus: { fontFamily: FontFamily.titleBold, fontSize: 18, lineHeight: 20, color: Colors.gold, marginTop: -1 },
-  levelBox: { alignSelf: 'stretch', marginTop: Spacing.sm, gap: 6, padding: Spacing.sm + 2, borderRadius: Radius.md, backgroundColor: Colors.bg + 'B3', borderWidth: 1, borderColor: Colors.gold + '33' },
-  levelTop: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
-  levelLabel: { fontFamily: FontFamily.titleBold, fontSize: 12, letterSpacing: 1.4, color: Colors.muted },
-  levelName: { fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 22, lineHeight: 26, color: Colors.gold },
-  levelHint: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.text },
-  levelMore: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.muted },
+  levelBox: { alignSelf: 'stretch', marginTop: Spacing.sm, gap: 6, paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm + 2, borderRadius: Radius.md, backgroundColor: Colors.bg + 'B3', borderWidth: 1, borderColor: Colors.gold + '33' },
+  levelTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  levelName: { flexShrink: 0, fontFamily: FontFamily.serif, fontVariant: ['lining-nums' as const], fontSize: 19, lineHeight: 24, color: Colors.gold },
+  levelHint: { flex: 1, textAlign: 'right', fontFamily: FontFamily.body, fontSize: 12, color: Colors.text },
   xpOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', padding: Spacing.lg },
   xpSheet: { backgroundColor: Colors.surf, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.gold + '55', padding: Spacing.md, maxHeight: '88%', maxWidth: 480, width: '100%', alignSelf: 'center' },
   xpClose: { minHeight: 48, borderRadius: Radius.full, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center', marginTop: Spacing.sm },
