@@ -677,7 +677,7 @@ export default function RelatorioScreen() {
     const excluir = async () => {
       try {
         await deletarAnalise(analise.matchId, analise.competitionId);
-        if (group?.id) await deleteAnaliseFs(group.id, analise.matchId);
+        if (group?.id) await deleteAnaliseFs(group.id, analise.matchId, analise.competitionId);
         if (router.canGoBack()) router.back();
         else router.replace('/analise');
       } catch {
@@ -698,7 +698,7 @@ export default function RelatorioScreen() {
     async function load() {
       let a = await carregarAnalise(matchId, compId ?? '');
       if (!a && group?.id) {
-        a = await loadAnaliseFs(group.id, matchId).catch(() => null);
+        a = await loadAnaliseFs(group.id, matchId, compId ?? '').catch(() => null);
         if (a) await salvarAnalise(a);
       }
       setLoading(false);

@@ -7,6 +7,7 @@ import {
 } from '../competitionPlan';
 import { applyRegister } from '../eventRegistration';
 import type { Competition } from '../types';
+import { todayLocal } from '../eventDateTime';
 
 const filled = (over: Partial<NewCompForm> = {}): NewCompForm => ({
   ...emptyForm(),
@@ -58,7 +59,7 @@ describe('estimativas', () => {
   });
   it('minutos por preset e por sets no modo manual', () => {
     expect(minutesPerGame({ presetIndex: 0, manual: false, sets: null })).toBe(15);
-    expect(minutesPerGame({ presetIndex: 8, manual: false, sets: null })).toBe(50);
+    expect(minutesPerGame({ presetIndex: 10, manual: false, sets: null })).toBe(50);
     expect(minutesPerGame({ presetIndex: null, manual: true, sets: 1 })).toBe(20);
     expect(minutesPerGame({ presetIndex: null, manual: true, sets: 3 })).toBe(45);
     expect(minutesPerGame({ presetIndex: null, manual: true, sets: 5 })).toBe(70);
@@ -90,7 +91,7 @@ describe('validação dos obrigatórios', () => {
     expect(f.presetIndex).toBeNull();
     expect(f.registrationOn).toBe(false);
     expect(f.countsForRanking).toBe(true);
-    expect(missingFields(f)).toEqual(['nome', 'tipo de competição', 'competem em', 'gênero', 'categoria de nível', 'data', 'formato de disputa']);
+    expect(missingFields(f)).toEqual(['nome', 'tipo de competição', 'competem em', 'gênero', 'categoria de nível', 'formato de disputa']);
   });
   it('completo não falta nada', () => {
     expect(missingFields(filled())).toEqual([]);
@@ -104,8 +105,13 @@ describe('validação dos obrigatórios', () => {
     expect(missingFields(filled({ registrationOn: true, timeText: '20:00', vagasText: '8' }))).toEqual([]);
     expect(missingFields(filled({ registrationOn: true, timeText: '20:00', noLimit: true }))).toEqual([]);
   });
-  it('data inválida conta como faltando', () => {
+  it('data é opcional: em branco não falta nada e a competição sai com a data de hoje', () => {
+    expect(missingFields(filled({ dateText: '' }))).toEqual([]);
+    expect(competitionFromForm(filled({ dateText: '' })).date).toBe(todayLocal().iso);
+  });
+  it('data preenchida errada conta como faltando; série semanal exige data', () => {
     expect(missingFields(filled({ dateText: '31/02/2026' }))).toEqual(['data']);
+    expect(missingFields(filled({ dateText: '', repeatWeeks: 3 }))).toEqual(['data']);
   });
   it('rótulo do botão muda conforme o caso', () => {
     expect(createLabel(filled())).toBe('Criar competição');
@@ -116,7 +122,7 @@ describe('validação dos obrigatórios', () => {
 
 describe('competitionFromForm', () => {
   it('sem inscrições: vai para "setup" (ou ativa, no avulso) e traz o preset', () => {
-    const c = competitionFromForm(filled({ format: 'grupos', presetIndex: 6 }), 'u1');
+    const c = competitionFromForm(filled({ format: 'grupos', presetIndex: 8 }), 'u1');
     expect(c.status).toBe('setup');
     expect(c.matches).toEqual([]);
     expect(c.competitors).toEqual([]);
@@ -148,8 +154,10 @@ describe('competitionFromForm', () => {
     expect(competitionFromForm(filled({ countsForRanking: false })).countsForRanking).toBe(false);
   });
   it('configuração por formato', () => {
-    expect(competitionFromForm(filled({ format: 'super8', winPts: '4', gdPts: '2' })).config.scoring).toMatchObject({ winPts: 4, gdPts: 2 });
-    expect(competitionFromForm(filled({ format: 'liga', drawPts: '2' })).config.scoring).toMatchObject({ winPts: 3, drawPts: 2 });
+    // A pontuação é só a do grupo: nenhum formato grava pontos/desempate próprios.
+    for (const format of ['super8', 'liga', 'grupos'] as const) {
+      expect(competitionFromForm(filled({ format, winPts: '4', gdPts: '2', drawPts: '2' })).config.scoring).toBeUndefined();
+    }
     expect(competitionFromForm(filled({ format: 'mata', thirdPlace: true })).config.thirdPlace).toBe(true);
     expect(competitionFromForm(filled({ format: 'liga', thirdPlace: true })).config.thirdPlace).toBe(false);
     expect(competitionFromForm(filled({ format: 'avulso' })).config.scoring).toBeUndefined();

@@ -16,7 +16,7 @@ interface UpdateContextType {
   updateAvailable: boolean;
   /** Versão publicada (ex.: "1.0.0-58"), quando o aviso vem do APK; null se desconhecida. */
   latestVersion: string | null;
-  /** Link de download do APK mais recente (arquivo KINGBT_<versão>.apk quando a versão é conhecida). */
+  /** Link de download do APK mais recente (arquivo KingBT_<versão>.apk quando a versão é conhecida). */
   apkUrl: string;
   /** Checa agora (botão em Configurações) e diz o que achou; atualiza o aviso se houver versão nova. */
   checkNow: () => Promise<UpdateCheckResult>;
@@ -46,11 +46,11 @@ const VERSION_URL = 'https://github.com/joffreribeiro/King_BT/releases/download/
 
 
 /**
- * Link do APK com a versão no nome do arquivo (KINGBT_1.0.0-55.apk), para o arquivo baixado já vir identificado.
+ * Link do APK com a versão no nome do arquivo (KingBT_1.0.0-55.apk), para o arquivo baixado já vir identificado.
  * Sem a versão (ainda não consultada), cai no link fixo kingbt.apk, que continua na release.
  */
 export function apkUrlDaVersao(versao: string | null): string {
-  return versao ? `https://github.com/joffreribeiro/King_BT/releases/download/latest-apk/KINGBT_${versao}.apk` : APK_URL;
+  return versao ? `https://github.com/joffreribeiro/King_BT/releases/download/latest-apk/KingBT_${versao}.apk` : APK_URL;
 }
 
 // SHA do commit a partir do qual este build foi gerado — embutido no bundle

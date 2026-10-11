@@ -67,7 +67,7 @@ jobs:
       - name: Definir timestamp do build
         run: echo "EXPO_PUBLIC_BUILD_TIME=$(date -u +%s%3N)" >> "$GITHUB_ENV"
 
-      # Versão mostrada em Configurações (igual à do nome do arquivo KINGBT_<versão>.apk).
+      # Versão mostrada em Configurações (igual à do nome do arquivo KingBT_<versão>.apk).
       - name: Definir versão do app
         run: echo "EXPO_PUBLIC_APP_VERSION=$(node -p "require('./app.json').expo.version")-${{ github.run_number }}" >> "$GITHUB_ENV"
 
@@ -145,10 +145,13 @@ jobs:
           KINGBT_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
 
       - name: Renomear APK
-        # kingbt.apk (nome fixo) é o que o app baixa na atualização; KINGBT_<versão>.apk é a cópia com a versão no nome.
+        # KingBT_<versão>.apk é o arquivo oficial, com a versão no nome. kingbt.apk (nome fixo) e KINGBT_<versão>.apk
+        # são cópias só para os apps já instalados, cujo botão de atualizar ainda aponta para esses nomes; dá para
+        # parar de publicá-las quando todo mundo estiver numa versão com o link novo.
         run: |
           APP_VERSION=$(node -p "require('./app.json').expo.version")
           cp android/app/build/outputs/apk/release/app-release.apk kingbt.apk
+          cp kingbt.apk "KingBT_${APP_VERSION}-${{ github.run_number }}.apk"
           cp kingbt.apk "KINGBT_${APP_VERSION}-${{ github.run_number }}.apk"
 
       # Versão deste APK, publicada junto com ele: o app compara o commit embutido no build com este
@@ -166,17 +169,20 @@ jobs:
           body: "Build automático gerado a partir do commit ${{ github.sha }}."
           files: |
             kingbt/kingbt.apk
+            kingbt/KingBT_*.apk
             kingbt/KINGBT_*.apk
             kingbt/apk-version.json
           make_latest: true
 
-      # Mantém só os 3 APKs versionados mais recentes na release (kingbt.apk e apk-version.json ficam sempre).
+      # Mantém só os 3 APKs mais recentes de cada nome (KingBT_ e KINGBT_); kingbt.apk e apk-version.json ficam sempre.
       - name: Limpar APKs antigos da release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh api "repos/${{ github.repository }}/releases/tags/latest-apk" \
-            --jq '.assets | map(select(.name | test("^KINGBT_.*[.]apk$"))) | sort_by(.created_at) | reverse | .[3:] | .[].id' |
-          while read -r id; do
-            gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$id"
+          for padrao in '^KingBT_.*[.]apk$' '^KINGBT_.*[.]apk$'; do
+            gh api "repos/${{ github.repository }}/releases/tags/latest-apk" \
+              --jq ".assets | map(select(.name | test(\"$padrao\"))) | sort_by(.created_at) | reverse | .[3:] | .[].id" |
+            while read -r id; do
+              gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$id"
+            done
           done

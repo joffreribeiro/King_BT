@@ -85,7 +85,7 @@ function PulseRing({ size, delay, borderColor, centerY }: { size: number; delay:
 export default function LoginScreen() {
   const { colors: Colors } = useTheme();
   const styles = useMemo(() => makeStyles(Colors), [Colors]);
-  const { signInWithEmail, signUpWithEmail, resetPassword, error, clearError, user, groupIds, loading } = useAuth();
+  const { signInWithEmail, signUpWithEmail, resetPassword, error, clearError, user, groupIds, loading, groupConfirmed } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('options');
 
@@ -136,10 +136,11 @@ export default function LoginScreen() {
 
   useEffect(() => {
     if (loading) return;
-    // Após o login: com grupos vai para a tela de escolha; sem grupos, entra/cria
-    if (user && groupIds.length > 0) router.replace('/(auth)/groups');
+    // Após o login: com o último grupo ativo vai direto para ele; com outros grupos, para a tela de escolha; sem grupos, entra/cria
+    if (user && groupConfirmed) router.replace('/(app)/home');
+    else if (user && groupIds.length > 0) router.replace('/(auth)/groups');
     else if (user) router.replace('/(auth)/join');
-  }, [loading, user, groupIds]);
+  }, [loading, user, groupIds, groupConfirmed]);
   const [name, setName]         = useState('');
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');

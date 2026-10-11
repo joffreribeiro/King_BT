@@ -6,7 +6,7 @@ import { useTheme } from '@/store/ThemeContext';
 import SplashAnimation from '@/components/SplashAnimation';
 
 export default function Root() {
-  const { user, groupIds, loading } = useAuth();
+  const { user, groupIds, loading, groupConfirmed } = useAuth();
   const { colors: Colors } = useTheme();
   const router = useRouter();
   const [splashDone, setSplashDone] = useState(true); // splash desativada temporariamente
@@ -24,9 +24,10 @@ export default function Root() {
     if (!user) router.replace('/(auth)/login');
     // Sem nenhum grupo — fluxo de entrar com código / criar
     else if (groupIds.length === 0) router.replace('/(auth)/join');
-    // Com 1+ grupos — sempre passa pela tela de escolha de grupo
+    // Com um grupo ativo do qual ainda é membro — abre direto nele; senão, escolhe o grupo
+    else if (groupConfirmed) router.replace('/(app)/home');
     else router.replace('/(auth)/groups');
-  }, [splashDone, loading, user, groupIds]);
+  }, [splashDone, loading, user, groupIds, groupConfirmed]);
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.bg }}>

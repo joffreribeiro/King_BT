@@ -133,7 +133,7 @@ export interface WinRule {
    * 'full':  tie em gamesWin x gamesWin (ex: 4-4 num set de 4 games).
    * Padrão: 'deuce'.
    */
-  tiebreakAt?: 'deuce' | 'full';
+  tiebreakAt?: 'deuce' | 'full' | 'none' | 'fixed';
   /** Super tie-break no set decisivo em vez de jogar o set completo. */
   superTiebreak?: boolean;
   /** Pontos do super tie-break (padrão 10). */
@@ -144,8 +144,13 @@ export interface WinRule {
   target?: number;
 }
 
-/** Pontuação própria da competição (escolhida na criação). Ausente = fórmula do grupo. */
+/**
+ * Pontuação própria da competição (escolhida na criação). Ausente = fórmula do grupo.
+ * `custom` usa os mesmos critérios da fórmula do grupo: Pts = Vitórias×A + Jogos×B + GA×C + Eventos×D.
+ * Vale só para a classificação desta competição; o ranking do grupo segue a fórmula do grupo.
+ */
 export interface CompetitionScoring {
+  custom?: { winCoef: number; playedCoef: number; gaCoef: number; eventCoef?: number };
   winPts?: number;
   drawPts?: number;
   /** Super 8: pontos por saldo de games. */

@@ -21,7 +21,7 @@ const CAPITULOS = [
       'Toque em <b>Entrar com e-mail</b> e use o seu e-mail e senha. Quem ainda não tem conta toca em <b>Criar conta</b>.',
       'Escolha o <b>grupo</b>. Você pode participar de mais de um; o grupo ativo aparece em destaque e dá para trocar a qualquer momento. Para entrar em outro grupo, digite o <b>código de convite</b> e toque em <b>Entrar</b>.',
       '<b>Instale o app.</b> No celular, use o menu do navegador e escolha <b>Adicionar à tela inicial</b>; no Android também há o aplicativo (APK) do grupo. O app avisa quando existe uma versão nova: toque na barra de atualização.',
-      '<b>Precisando de ajuda?</b> Em <b>Configurações → Ajuda</b> você abre este manual em PDF. No rodapé de Configurações aparece a <b>versão</b> instalada (a mesma que vai no nome do arquivo do aplicativo, por exemplo KINGBT_1.0.0-57.apk) — informe-a ao administrador se algo der errado.',
+      '<b>Precisando de ajuda?</b> Em <b>Configurações → Ajuda</b> você abre este manual em PDF. No rodapé de Configurações aparece a <b>versão</b> instalada (a mesma que vai no nome do arquivo do aplicativo, por exemplo KingBT_1.0.0-57.apk) — informe-a ao administrador se algo der errado.',
     ],
     tabela: { cab: ['Onde', 'Para que serve'], linhas: [
       ['Home', 'Pendências, sua posição no ranking e as novidades do grupo.'],

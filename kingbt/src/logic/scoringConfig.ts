@@ -126,8 +126,16 @@ export function isScoringConfigValid(cfg: unknown): boolean {
   return isValidCoef(c.winCoef) && isValidCoef(c.playedCoef) && isValidCoef(c.gaCoef) && isValidOptionalCoef(c.eventCoef);
 }
 
-/** Aplica os pontos por vitória escolhidos na criação da competição (config.scoring.winPts) sobre a fórmula do grupo. */
-export function withCompetitionScoring(cfg: ScoringConfig, config?: { scoring?: { winPts?: number } }): ScoringConfig {
-  const w = config?.scoring?.winPts;
-  return typeof w === 'number' && Number.isFinite(w) && w >= 0 ? { ...cfg, winCoef: w } : cfg;
+/**
+ * Pontuação de uma competição: a fórmula do grupo, ou — se quem criou marcou "pontuação própria" — os quatro
+ * coeficientes escolhidos na criação (config.scoring.custom). Os demais ajustes do grupo (suavização do GA,
+ * mínimo de jogos) continuam valendo. Só afeta a classificação da própria competição.
+ */
+export function withCompetitionScoring(
+  cfg: ScoringConfig,
+  config?: { scoring?: { custom?: { winCoef: number; playedCoef: number; gaCoef: number; eventCoef?: number } } },
+): ScoringConfig {
+  const c = config?.scoring?.custom;
+  if (!c || !isScoringConfigValid(c)) return cfg;
+  return { ...cfg, winCoef: c.winCoef, playedCoef: c.playedCoef, gaCoef: c.gaCoef, eventCoef: c.eventCoef ?? 0 };
 }

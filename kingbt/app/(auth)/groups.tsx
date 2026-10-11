@@ -74,10 +74,15 @@ export default function GroupsScreen() {
   const [publicGroupsError, setPublicGroupsError] = useState(false);
   const [visitBusy, setVisitBusy] = useState(false);
 
+  // Espera o usuário carregar: ao recarregar a página direto em /groups o login ainda não terminou na primeira
+  // renderização, getMyGroups devolvia [] (sem usuário) e a lista ficava vazia para sempre.
+  const uid = user?.uid;
   useEffect(() => {
+    if (!uid) return;
     loadGroups();
     loadPublicGroups();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid]);
 
   async function loadGroups() {
     setLoadingGroups(true);

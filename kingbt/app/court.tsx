@@ -141,7 +141,7 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const remote = group?.id ? await loadAnaliseFs(group.id, match.id).catch(() => null) : null;
+      const remote = group?.id ? await loadAnaliseFs(group.id, match.id, comp.id).catch(() => null) : null;
       const local = remote ?? await carregarAnalise(match.id, comp.id).catch(() => null);
       if (cancelled) return;
 
@@ -418,7 +418,7 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
         <Text style={live.ruleHint}>
           {isAvulso
             ? `MD${rule.sets} · games livres${rule.superTiebreak ? ` · STB ${rule.superTiebreakPts}` : ''}`
-            : `MD${rule.sets} · ${rule.games} games · TB ${rule.tiebreak}${rule.superTiebreak ? ` · STB ${rule.superTiebreakPts}` : ''}`}
+            : `MD${rule.sets} · ${rule.games} games${rule.tiebreakAt === 'fixed' ? ' fixos (pode empatar)' : rule.tiebreakAt === 'none' ? ' · sem tie' : ` · TB ${rule.tiebreak}`}${rule.superTiebreak ? ` · STB ${rule.superTiebreakPts}` : ''}`}
         </Text>
       </View>
 

@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Platform, TextInput } from 'react-native';
 import { Icon } from '@/components/icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useState, useEffect, useMemo } from 'react';
 import { FontFamily, Spacing, Radius, type ThemeColors } from '@/theme';
@@ -30,10 +31,11 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
   const { isSuperAdmin, group } = useAuth();
   const { colors: Colors } = useTheme();
   const sc = useMemo(() => makeSc(Colors), [Colors]);
+  const insets = useSafeAreaInsets();
   const [analise, setAnalise] = useState<BtAnalise | null>(null);
   const [showPointLog, setShowPointLog] = useState(false);
 
-  const { maxSets, setsToWin, gamesWin, superTb, superTbPts, tieAt } = useMemo(
+  const { maxSets, setsToWin, gamesWin, superTb, superTbPts, tieAt, tieMode } = useMemo(
     () => deriveWinRule(comp.config.winRule),
     [comp.config.winRule]
   );
@@ -49,7 +51,7 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
   useEffect(() => {
     if (!match) return;
 
-    (group?.id ? loadAnaliseFs(group.id, match.id).catch(() => null) : Promise.resolve(null))
+    (group?.id ? loadAnaliseFs(group.id, match.id, comp.id).catch(() => null) : Promise.resolve(null))
       .then(remote => remote ?? carregarAnalise(match.id, comp.id))
       .then(a => {
       setAnalise(a);
@@ -125,6 +127,14 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
         return acc;
       }
 
+      // Só G games no total: fecha ao completar os games; quem fez mais leva o set, empatado ninguém leva
+      if (tieMode === 'fixed') {
+        if (gA + gB < gamesWin) return acc;
+        if (gA > gB) return { a: acc.a + 1, b: acc.b };
+        if (gB > gA) return { a: acc.a, b: acc.b + 1 };
+        return acc;
+      }
+
       // Set normal: primeiro a gamesWin vence, tie-break quando ambos chegam em tieAt
       const tied = gA === tieAt && gB === tieAt;
       if (tied) {
@@ -143,9 +153,15 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
   const setsA = computedSets.a;
   const setsB = computedSets.b;
   const totalSetsPlayed = setScores.filter(s => (parseInt(s.a) || 0) + (parseInt(s.b) || 0) > 0).length;
-  const matchFinished = setsA >= setsToWin || setsB >= setsToWin;
+  // Games fixos: a partida acaba quando os G games foram jogados, mesmo empatada (2 x 2)
+  const fixoCompleto = tieMode === 'fixed' && setScores.some(s => (parseInt(s.a) || 0) + (parseInt(s.b) || 0) >= gamesWin);
+  const matchFinished = setsA >= setsToWin || setsB >= setsToWin || fixoCompleto;
   const hasWinner = matchFinished && setsA !== setsB;
-  const canAddSet = !matchFinished && totalSetsPlayed < maxSets;
+  const empateFixo = fixoCompleto && setsA === setsB;
+  // Pode salvar o resultado final: tem vencedor, ou é um jogo de games fixos terminado em empate
+  const finalizavel = hasWinner || empateFixo;
+  // Compara com os sets que já estão na tela, não só com os preenchidos: em melhor de 1 set o botão não deve aparecer.
+  const canAddSet = !matchFinished && setScores.length < maxSets;
   const alreadyScored = match.scoreA != null;
   const canEdit = !alreadyScored || isAdmin;
   const analiseEncerrada = !!analise?.placarFinal;
@@ -158,7 +174,7 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
     const priorSets = setScores.slice(0, setIdx).map(s => ({
       a: parseInt(s.a) || 0, b: parseInt(s.b) || 0,
     }));
-    return isDecidingSetShared(setIdx, priorSets, { maxSets, setsToWin, gamesWin, superTb, superTbPts, tieAt });
+    return isDecidingSetShared(setIdx, priorSets, { maxSets, setsToWin, gamesWin, superTb, superTbPts, tieAt, tieMode });
   }
 
   // ── Tie-break do set (registro manual, opcional) ──────────────────────────
@@ -190,8 +206,38 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
     setSetScores(prev => prev.map((st, i) => (i === setIdx ? { ...st, [side === 'a' ? 'tbA' : 'tbB']: v } : st)));
   }
 
+  // Tie-break por +/−: o teclado numérico cobria os campos no celular. Vazio conta como 0; "−" em 0 não faz nada.
+  function stepTb(setIdx: number, side: 'a' | 'b', delta: number) {
+    setSetScores(prev => prev.map((st, i) => {
+      if (i !== setIdx) return st;
+      const key = side === 'a' ? 'tbA' : 'tbB';
+      const atual = parseInt(st[key] ?? '', 10) || 0;
+      const prox = Math.max(0, Math.min(99, atual + delta));
+      return { ...st, [key]: String(prox) };
+    }));
+  }
+
+  /** Atalhos de placar do set (derivados da regra: ex. 6–0, 6–4, 7–5, 7–6). Só preenche os games; o tie-break é pedido logo abaixo. */
+  // Só placares que a regra permite: gamesWin × 0..(gamesWin−2) e o set decidido no tie-break (tieAt+1 × tieAt).
+  const atalhosBase: [number, number][] =
+    tieMode === 'fixed' ? Array.from({ length: Math.floor(gamesWin / 2) + 1 }, (_, i) => [gamesWin - i, i] as [number, number])   // 4–0, 3–1, 2–2
+      : tieMode === 'none' ? [[gamesWin, 0], [gamesWin, gamesWin - 2], [gamesWin, gamesWin - 1]]                                 // 4–0, 4–2, 4–3
+      : [[gamesWin, 0], [gamesWin, 2], [gamesWin, gamesWin - 2], [tieAt + 1, tieAt]];
+  const atalhos: [number, number][] = atalhosBase
+    .filter(([x, y], i, arr) => x >= y && y >= 0 && arr.findIndex(([a, b]) => a === x && b === y) === i) as [number, number][];
+  function aplicarAtalho(setIdx: number, a: number, b: number) {
+    setSetScores(prev => prev.map((st, i) => (i === setIdx ? { a: String(a), b: String(b) } : st)));
+  }
+  function inverterSet(setIdx: number) {
+    setSetScores(prev => prev.map((st, i) => (i === setIdx ? { ...st, a: st.b, b: st.a, tbA: st.tbB, tbB: st.tbA } : st)));
+  }
+
   // Limite máximo de pontos/games que um lado pode ter num set
   function maxGamesForSide(myVal: number, otherVal: number, setIdx: number): number {
+    // Só G games no total: o que sobrou depois dos games do outro lado
+    if (tieMode === 'fixed') return Math.max(0, gamesWin - otherVal);
+    // Sem tie-break: o set fecha em G games; se o outro lado já fechou, este não passa do que tem
+    if (tieMode === 'none') return otherVal >= gamesWin ? Math.min(myVal, gamesWin - 1) : gamesWin;
     if (isDecidingSet(setIdx)) {
       const minPts = superTbPts;
       const leading = Math.max(myVal, otherVal);
@@ -295,10 +341,10 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
     <Modal visible transparent animationType="slide">
       <View style={sc.overlay}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ justifyContent: 'flex-end', flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-        <View style={sc.sheet}>
+        <View style={[sc.sheet, { paddingBottom: Spacing.xl + Math.max(insets.bottom, 12) }]}>
           <Text style={sc.title}>Registrar Placar</Text>
-          <Text style={sc.sub}>{nameA} vs {nameB}</Text>
-          <Text style={sc.setsRule}>Melhor de {maxSets} sets · {gamesWin} games por set</Text>
+          <Text style={sc.sub}>{comp.name}{match.round ? ` · Rodada ${match.round}` : ''}</Text>
+          <Text style={sc.setsRule}>{tieMode === 'fixed' ? `${gamesWin} games no total · pode empatar` : `${maxSets === 1 ? 'Melhor de 1 set' : `Melhor de ${maxSets} sets`} · ${gamesWin} games por set${tieMode === 'none' ? ' · sem tie-break' : ''}`}</Text>
 
           {/* Placar calculado automaticamente */}
           <View style={sc.autoScore}>
@@ -308,8 +354,7 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
             </View>
             <View style={sc.autoCenter}>
               <Text style={sc.autoLabel}>sets</Text>
-              {hasWinner && <Text style={sc.autoWinner}>{setsA > setsB ? '🏆 ' + nameA.split('/')[0] : '🏆 ' + nameB.split('/')[0]}</Text>}
-              {matchFinished && !hasWinner && <Text style={[sc.autoLabel, { color: Colors.coral }]}>⚠️ Empate</Text>}
+              {matchFinished && !hasWinner && (empateFixo ? <Text style={sc.autoLabel}>Empate</Text> : <Text style={[sc.autoLabel, { color: Colors.coral }]}>⚠️ Empate</Text>)}
             </View>
             <View style={sc.autoSide}>
               <Text style={sc.autoName} numberOfLines={1}>{nameB}</Text>
@@ -401,21 +446,53 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
                 </View>
                 {temTiebreak(i) && (
                   <View style={{ gap: 4 }}>
-                    <View style={sc.tbRow}>
-                      <Text style={sc.tbLabel}>Tie-break</Text>
-                      <TextInput
-                        style={sc.tbInput} value={s.tbA ?? ''} onChangeText={v => updateTb(i, 'a', v)}
-                        keyboardType="number-pad" placeholder="A" placeholderTextColor={Colors.faint}
-                        accessibilityLabel={`Pontos do tie-break de ${nameA} no set ${i + 1}`}
-                      />
-                      <Text style={sc.setDash}>–</Text>
-                      <TextInput
-                        style={sc.tbInput} value={s.tbB ?? ''} onChangeText={v => updateTb(i, 'b', v)}
-                        keyboardType="number-pad" placeholder="B" placeholderTextColor={Colors.faint}
-                        accessibilityLabel={`Pontos do tie-break de ${nameB} no set ${i + 1}`}
-                      />
+                    <Text style={sc.tbLabel}>Tie-break</Text>
+                    <View style={sc.setRow}>
+                      <View style={{ width: 44 }} />
+                      {(['a', 'b'] as const).map((side, k) => {
+                        const nome = side === 'a' ? nameA : nameB;
+                        const val = side === 'a' ? s.tbA : s.tbB;
+                        const n = parseInt(val ?? '', 10) || 0;
+                        return (
+                          <View key={side} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            {k === 1 && <Text style={sc.setDash}>–</Text>}
+                            <View style={sc.gameStepperWrap}>
+                              <TouchableOpacity
+                                style={[sc.gameBtn, n === 0 && { opacity: 0.3 }]}
+                                onPress={() => stepTb(i, side, -1)} disabled={n === 0}
+                                accessibilityRole="button" accessibilityLabel={`Diminuir pontos do tie-break de ${nome} no set ${i + 1}`}
+                              >
+                                <Icon name="minus" size={16} color={Colors.gold} />
+                              </TouchableOpacity>
+                              <View style={sc.gameVal} accessible accessibilityLabel={`${nome}, tie-break do set ${i + 1}: ${n} pontos`}>
+                                <Text style={sc.gameValTxt}>{n}</Text>
+                              </View>
+                              <TouchableOpacity
+                                style={sc.gameBtn}
+                                onPress={() => stepTb(i, side, 1)}
+                                accessibilityRole="button" accessibilityLabel={`Aumentar pontos do tie-break de ${nome} no set ${i + 1}`}
+                              >
+                                <Icon name="plus" size={16} color={Colors.gold} />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        );
+                      })}
                     </View>
                     {!!tbErro(i) && <Text style={sc.tbErro}>{tbErro(i)}</Text>}
+                  </View>
+                )}
+                {canEdit && i === setScores.length - 1 && !deciding && (
+                  <View style={sc.chipsRow}>
+                    {atalhos.map(([x, y]) => (
+                      <TouchableOpacity key={`${x}-${y}`} style={sc.chip} onPress={() => aplicarAtalho(i, x, y)}
+                        accessibilityRole="button" accessibilityLabel={`Placar ${x} a ${y} no set ${i + 1}`}>
+                        <Text style={sc.chipTxt}>{x}–{y}</Text>
+                      </TouchableOpacity>
+                    ))}
+                    <TouchableOpacity style={sc.chip} onPress={() => inverterSet(i)} accessibilityRole="button" accessibilityLabel="Inverter o placar do set">
+                      <Text style={sc.chipTxt}>⇄ inverter</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
                 </View>
@@ -449,18 +526,6 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
           {isAdmin && alreadyScored && (
             <Text style={sc.adminNote}>⚙️ Admin — você pode corrigir ou apagar este placar.</Text>
           )}
-
-          {/* Ver pontos (log simples) e marcação ponto a ponto — disponível pra todos */}
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {!!analise?.pontos?.length && (
-              <TouchableOpacity style={sc.pointsBtn} onPress={() => setShowPointLog(true)}>
-                <Text style={sc.pointsBtnTxt}>📋 Ver pontos</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={sc.pointsBtn} onPress={abrirMarcacaoAoVivo}>
-              <Text style={sc.pointsBtnTxt}>🔴 Marcação ponto a ponto</Text>
-            </TouchableOpacity>
-          </View>
 
           {/* King Scout — exclusivo do Super Admin */}
           {!isSuperAdmin ? null : analise && !analiseEncerrada ? (
@@ -496,7 +561,7 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
               <Text style={sc.cancelText}>Cancelar</Text>
             </TouchableOpacity>
             {/* Salvar rascunho — só quando não tem vencedor e tem algum game preenchido */}
-            {!hasWinner && !alreadyScored && validSets.length > 0 && (
+            {!finalizavel && !alreadyScored && validSets.length > 0 && (
               <TouchableOpacity
                 style={sc.draft}
                 onPress={() => {
@@ -510,14 +575,24 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
             )}
             <TouchableOpacity
               onPress={() => {
-                if (hasWinner && canEdit && !tbInvalido) {
+                if (finalizavel && canEdit && !tbInvalido) {
                   onSave(match.id, setsA, setsB, validSets.length > 0 ? validSets : undefined);
                 }
               }}
-              style={[sc.save, (!hasWinner || !canEdit || tbInvalido) && sc.saveOff]}
-              disabled={!hasWinner || !canEdit || tbInvalido}
+              style={[sc.save, (!finalizavel || !canEdit || tbInvalido) && sc.saveOff]}
+              disabled={!finalizavel || !canEdit || tbInvalido}
             >
-              <Text style={sc.saveText}>{alreadyScored && isAdmin ? 'Corrigir' : 'Salvar'}</Text>
+              <Text style={sc.saveText}>{alreadyScored && isAdmin ? 'Corrigir' : 'Salvar placar'}</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={sc.linksRow}>
+            {!!analise?.pontos?.length && (
+              <TouchableOpacity onPress={() => setShowPointLog(true)} hitSlop={8} accessibilityRole="button">
+                <Text style={sc.linkTxt}>Ver pontos</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={abrirMarcacaoAoVivo} hitSlop={8} accessibilityRole="button">
+              <Text style={sc.linkTxt}>Marcar ponto a ponto</Text>
             </TouchableOpacity>
           </View>
           {isAdmin && alreadyScored && (
@@ -550,7 +625,7 @@ const makeSc = (Colors: ThemeColors) => StyleSheet.create({
   stepper: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   btn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
   btnText: { fontFamily: FontFamily.titleBold, fontSize: 22, color: Colors.gold, lineHeight: 26 },
-  input: { width: 54, height: 54, borderRadius: Radius.sm, backgroundColor: Colors.surf2, borderWidth: 1.5, borderColor: Colors.gold, fontFamily: FontFamily.numberBold, fontSize: 28, color: Colors.gold, textAlign: 'center' },
+  input: { width: 54, height: 54, borderRadius: Radius.sm, backgroundColor: Colors.surf2, borderWidth: 1.5, borderColor: Colors.gold, fontFamily: FontFamily.numberBold, fontSize: 28, color: Colors.gold, textAlign: 'center', paddingVertical: 0, paddingHorizontal: 0, textAlignVertical: 'center', includeFontPadding: false },
   warn: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.coral, textAlign: 'center' },
   btns: { flexDirection: 'row', gap: Spacing.md },
   cancel: { flex: 1, padding: Spacing.md, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.line, alignItems: 'center' },
@@ -566,7 +641,7 @@ const makeSc = (Colors: ThemeColors) => StyleSheet.create({
   adminNote: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.gold, textAlign: 'center' },
   pointsBtn: { flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
   pointsBtnTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
-  clearBtn: { alignItems: 'center', paddingVertical: Spacing.xs },
+  clearBtn: { alignItems: 'center', paddingVertical: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.line, marginTop: Spacing.xs },
   clearBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.coral },
   btBtn: { borderWidth: 1, borderColor: Colors.gold + '55', backgroundColor: Colors.gold + '15', borderRadius: Radius.md, padding: Spacing.sm + 2, alignItems: 'center' },
   btBtnTxt: { fontFamily: FontFamily.bodyMed, fontSize: 15, color: Colors.gold },
@@ -589,8 +664,13 @@ const makeSc = (Colors: ThemeColors) => StyleSheet.create({
   setsTitle: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted, letterSpacing: 1, textAlign: 'center' },
   setRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tbRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 52 },
-  tbLabel: { flex: 1, fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted },
-  tbInput: { width: 52, height: 36, borderRadius: Radius.sm, borderWidth: 1.5, borderColor: Colors.line, backgroundColor: Colors.bg, textAlign: 'center', fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.text },
+  tbLabel: { fontFamily: FontFamily.bodyMed, fontSize: 12, color: Colors.muted, paddingLeft: 52 },
+  tbInput: { width: 52, height: 36, borderRadius: Radius.sm, borderWidth: 1.5, borderColor: Colors.line, backgroundColor: Colors.bg, textAlign: 'center', fontFamily: FontFamily.numberBold, fontSize: 16, color: Colors.text, paddingVertical: 0, paddingHorizontal: 0, textAlignVertical: 'center', includeFontPadding: false },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingLeft: 52 },
+  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.line, backgroundColor: Colors.surf2 },
+  chipTxt: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.teal },
+  linksRow: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.lg },
+  linkTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted, textDecorationLine: 'underline' },
   tbErro: { fontFamily: FontFamily.body, fontSize: 11, color: Colors.coral, paddingLeft: 52 },
   setLabel: { fontFamily: FontFamily.numberBold, fontSize: 13, color: Colors.muted, width: 44 },
   setDash: { fontFamily: FontFamily.body, fontSize: 17, color: Colors.faint },
@@ -604,7 +684,7 @@ const makeSc = (Colors: ThemeColors) => StyleSheet.create({
   addSetTxt: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
   // Legacy
   setsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
-  setInput: { width: 36, height: 34, borderRadius: 4, backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.line, fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.gold, textAlign: 'center' },
+  setInput: { width: 36, height: 34, borderRadius: 4, backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.line, fontFamily: FontFamily.numberBold, fontSize: 17, color: Colors.gold, textAlign: 'center', paddingVertical: 0, paddingHorizontal: 0, textAlignVertical: 'center', includeFontPadding: false },
   quickRow: { gap: 6 },
   quickLabel: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.faint, textAlign: 'center' },
   quickChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' },

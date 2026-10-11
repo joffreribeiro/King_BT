@@ -6,16 +6,40 @@ import { enqueueLatest } from '@/store/syncQueue';
 const analisesCol = (groupId: string) =>
   collection(db, 'groups', groupId, 'analises');
 
-const analiseDoc = (groupId: string, matchId: string) =>
-  doc(db, 'groups', groupId, 'analises', matchId);
+/**
+ * Os ids dos jogos se repetem entre competições (L0, L1, G0L2…). Antes o documento da análise era só o id do jogo,
+ * então a análise do "L0" de uma competição aparecia — e era sobrescrita — no "L0" de qualquer outra do grupo.
+ * Agora o documento é "<competição>__<jogo>". Os documentos antigos (só o id do jogo) continuam lidos, mas só
+ * valem para a competição que consta dentro deles.
+ */
+export const chaveAnalise = (a: { competitionId: string; matchId: string }) => `${a.competitionId}__${a.matchId}`;
+
+const analiseDoc = (groupId: string, docId: string) =>
+  doc(db, 'groups', groupId, 'analises', docId);
 
 export async function saveAnaliseFs(groupId: string, analise: BtAnalise): Promise<void> {
-  await setDoc(analiseDoc(groupId, analise.matchId), analise);
+  await setDoc(analiseDoc(groupId, chaveAnalise(analise)), analise);
 }
 
-export async function loadAnaliseFs(groupId: string, matchId: string): Promise<BtAnalise | null> {
-  const snap = await getDoc(analiseDoc(groupId, matchId));
-  return snap.exists() ? (snap.data() as BtAnalise) : null;
+export async function loadAnaliseFs(groupId: string, matchId: string, competitionId: string): Promise<BtAnalise | null> {
+  const novo = await getDoc(analiseDoc(groupId, chaveAnalise({ competitionId, matchId })));
+  if (novo.exists()) return novo.data() as BtAnalise;
+  // Formato antigo: só vale se a análise guardada ali é mesmo desta competição.
+  const antigo = await getDoc(analiseDoc(groupId, matchId));
+  if (!antigo.exists()) return null;
+  const a = antigo.data() as BtAnalise;
+  return a.competitionId === competitionId ? a : null;
+}
+
+/** Junta duplicatas (formato antigo + novo da mesma partida): fica a mais completa, depois a mais recente. */
+export function semDuplicatas(analises: BtAnalise[]): BtAnalise[] {
+  const porChave = new Map<string, BtAnalise>();
+  for (const a of analises) {
+    const k = chaveAnalise(a);
+    const atual = porChave.get(k);
+    if (!atual || a.pontos.length > atual.pontos.length || (a.pontos.length === atual.pontos.length && a.criadaEm > atual.criadaEm)) porChave.set(k, a);
+  }
+  return [...porChave.values()];
 }
 
 /** As `qtd` (padrão 50) análises mais recentes do grupo — a tela já ordena por `criadaEm`
@@ -24,11 +48,14 @@ export async function loadAnaliseFs(groupId: string, matchId: string): Promise<B
 export async function listAnalisesFs(groupId: string, qtd = 50): Promise<BtAnalise[]> {
   const q = query(analisesCol(groupId), orderBy('criadaEm', 'desc'), limit(qtd));
   const snap = await getDocs(q);
-  return snap.docs.map(d => d.data() as BtAnalise);
+  return semDuplicatas(snap.docs.map(d => d.data() as BtAnalise));
 }
 
-export async function deleteAnaliseFs(groupId: string, matchId: string): Promise<void> {
-  await deleteDoc(analiseDoc(groupId, matchId));
+export async function deleteAnaliseFs(groupId: string, matchId: string, competitionId: string): Promise<void> {
+  await deleteDoc(analiseDoc(groupId, chaveAnalise({ competitionId, matchId })));
+  // Documento no formato antigo: só apaga se for desta competição (o id pode ser de outra).
+  const antigo = await getDoc(analiseDoc(groupId, matchId));
+  if (antigo.exists() && (antigo.data() as BtAnalise).competitionId === competitionId) await deleteDoc(analiseDoc(groupId, matchId));
 }
 
 /**
@@ -44,7 +71,7 @@ export async function saveAnaliseSynced(groupId: string, analise: BtAnalise): Pr
   } catch {
     await enqueueLatest(
       { type: 'SAVE_ANALISE', payload: { groupId, analise } },
-      a => `SAVE_ANALISE:${(a.payload.analise as BtAnalise | undefined)?.matchId ?? ''}`,
+      a => `SAVE_ANALISE:${(() => { const x = a.payload.analise as BtAnalise | undefined; return x ? chaveAnalise(x) : ''; })()}`,
     );
   }
 }

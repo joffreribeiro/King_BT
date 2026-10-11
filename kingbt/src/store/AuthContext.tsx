@@ -218,6 +218,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   limit(1),
                 ));
                 setMyPlayerId(myPlayerSnap.docs[0]?.id ?? null);
+                // Último grupo ativo: se o usuário ainda é membro (ou admin), abre direto nele. A tela de escolha de
+                // grupo continua disponível no perfil; quem foi removido do grupo cai nela como antes.
+                const membros: string[] = gData.members ?? [];
+                if (membros.includes(u.uid) || admins.includes(u.uid)) setGroupConfirmed(true);
               }
             }
           }

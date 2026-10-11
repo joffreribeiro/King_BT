@@ -15,7 +15,7 @@ import { tiebreaksDosSets } from '@/logic/btPlacarPonto';
 import { useAuth } from '@/store/AuthContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
-import { listAnalisesFs } from '@/firebase/analises';
+import { listAnalisesFs, chaveAnalise } from '@/firebase/analises';
 import { resolverNomes } from '@/logic/btNomes';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
@@ -170,8 +170,8 @@ export default function AnaliseListScreen() {
         try {
           const remote = await listAnalisesFs(group.id, qtd);
           setTemMais(remote.length >= qtd);
-          const localIds = new Set(list.map(a => a.matchId));
-          const novos = remote.filter(a => !localIds.has(a.matchId));
+          const localIds = new Set(list.map(chaveAnalise));
+          const novos = remote.filter(a => !localIds.has(chaveAnalise(a)));
           list = [...list, ...novos];
         } catch { /* offline ou sem permissão */ }
       }
@@ -224,7 +224,7 @@ export default function AnaliseListScreen() {
 
       {!loading && analises.length > 0 && (
         <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-          {analises.map(a => <AnaliseCard key={a.matchId} analise={a} onPdf={pdfDoJogo} />)}
+          {analises.map(a => <AnaliseCard key={chaveAnalise(a)} analise={a} onPdf={pdfDoJogo} />)}
           {temMais && (
             <TouchableOpacity style={[s.atletaBtn, { alignSelf: 'center' }]} onPress={() => setQtd(q => q + 50)}>
               <Text style={s.atletaTxt}>Ver mais jogos</Text>

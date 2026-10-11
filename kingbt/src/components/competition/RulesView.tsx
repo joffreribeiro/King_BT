@@ -4,11 +4,17 @@ import { FontFamily, Spacing, centeredContent, Radius, type ThemeColors } from '
 import { useTheme } from '@/store/ThemeContext';
 import { Icon, type IconName } from '@/components/icons';
 import type { Competition } from '@/logic/types';
+import { useSettings } from '@/store/SettingsContext';
+import { withCompetitionScoring } from '@/logic/scoringConfig';
 
 export function RulesView({ comp }: { comp: Competition }) {
   const { colors: Colors } = useTheme();
   const rls = useMemo(() => makeRls(Colors), [Colors]);
   const wr = comp.config.winRule;
+  // Pontuação que vale nesta competição: a do grupo, ou a própria escolhida na criação
+  const { scoringConfig } = useSettings();
+  const pts = withCompetitionScoring(scoringConfig, comp.config);
+  const fmtPts = (n: number) => String(Math.round(n * 100) / 100).replace('.', ',');
 
   const formatName: Record<string, string> = {
     liga: 'Liga', grupos: 'Grupos + Mata-mata', mata: 'Mata-mata', avulso: 'Avulso', super8: 'Super 8',
@@ -19,6 +25,10 @@ export function RulesView({ comp }: { comp: Competition }) {
   const sets = wr.sets ?? 3;
   const games = wr.games ?? 6;
   const tb = wr.tiebreak ?? 7;
+  const tieMode = wr.tiebreakAt ?? 'deuce';
+  const tbTexto = tieMode === 'fixed' ? 'Sem tie-break · só os games, pode empatar'
+    : tieMode === 'none' ? `Sem tie-break · em ${games - 1}-${games - 1} o próximo game decide`
+    : `Primeiro a ${tb} pontos`;
   const superTb = wr.superTiebreak ?? false;
   const superTbPts = wr.superTiebreakPts ?? 10;
 
@@ -79,9 +89,9 @@ export function RulesView({ comp }: { comp: Competition }) {
       <Section title="REGRAS DO JOGO">
         <RuleRow icon="crown" label="Sets para vencer" value={`Melhor de ${sets} set${sets > 1 ? 's' : ''}`} valueColor={Colors.gold} />
         <View style={rls.divider} />
-        <RuleRow icon="competitions" label="Games por set" value={`${games} games`} valueColor={Colors.gold} />
+        <RuleRow icon="competitions" label={tieMode === 'fixed' ? 'Games no total' : 'Games por set'} value={`${games} games`} valueColor={Colors.gold} />
         <View style={rls.divider} />
-        <RuleRow icon="chart" label="Tie-break" value={`Primeiro a ${tb} pontos`} />
+        <RuleRow icon="chart" label="Tie-break" value={tbTexto} />
         <View style={rls.divider} />
         <RuleRow
           icon="chart"
@@ -93,11 +103,15 @@ export function RulesView({ comp }: { comp: Competition }) {
 
       {/* Pontuação */}
       <Section title="PONTUAÇÃO">
-        <RuleRow icon="crown" label="Vitória" value="+3 pontos" valueColor={Colors.teal} />
+        <RuleRow icon="crown" label="Vitória" value={`+${fmtPts(pts.winCoef)} pontos`} valueColor={Colors.teal} />
         <View style={rls.divider} />
         <RuleRow icon="minus" label="Derrota" value="+0 pontos" valueColor={Colors.muted} />
         <View style={rls.divider} />
-        <RuleRow icon="chart" label="Jogo disputado" value="+0.5 pontos" />
+        <RuleRow icon="chart" label="Jogo disputado" value={`+${fmtPts(pts.playedCoef)} pontos`} />
+        <View style={rls.divider} />
+        <RuleRow icon="chart" label="Game Average (GP ÷ GC)" value={`× ${fmtPts(pts.gaCoef)}`} />
+        <View style={rls.divider} />
+        <RuleRow icon="calendar" label="Origem" value={comp.config.scoring?.custom ? 'Pontuação própria da competição' : 'Fórmula do grupo'} valueColor={comp.config.scoring?.custom ? Colors.gold : Colors.muted} />
       </Section>
 
       {/* Critérios de desempate */}

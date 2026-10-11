@@ -78,7 +78,7 @@ export default function PontoScreen() {
     sets:             params.sets             ? parseInt(params.sets)             : undefined,
     games:            params.games            ? parseInt(params.games)            : undefined,
     tiebreak:         params.tiebreak         ? parseInt(params.tiebreak)         : undefined,
-    tiebreakAt:       params.tiebreakAt === 'full' ? 'full' : 'deuce',
+    tiebreakAt:       params.tiebreakAt === 'full' || params.tiebreakAt === 'none' || params.tiebreakAt === 'fixed' ? params.tiebreakAt : 'deuce',
     superTiebreak:    params.superTiebreak === 'true',
     superTiebreakPts: params.superTiebreakPts ? parseInt(params.superTiebreakPts) : undefined,
   });
@@ -185,7 +185,7 @@ export default function PontoScreen() {
     async function load() {
       let a = await carregarAnalise(matchId, compId);
       if (!a && group?.id) {
-        a = await loadAnaliseFs(group.id, matchId).catch(() => null);
+        a = await loadAnaliseFs(group.id, matchId, compId).catch(() => null);
         if (a) await salvarAnalise(a);
       }
       if (a) {

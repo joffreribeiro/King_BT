@@ -3,8 +3,8 @@ import { WIN_RULE_PRESETS } from '@/constants/winRulePresets';
 import { genLeague, genBracket, genGroups, genGroupsManual, resolveCompetition } from './formats';
 import { generateSchedule, generateScheduleIndividual } from './roundRobin';
 import { CATEGORIES, isoToBr } from './playerAbout';
-import { parseBrDate, parseTime } from './eventDateTime';
-import type { ScoringConfig } from './scoringConfig';
+import { parseBrDate, parseTime, todayLocal } from './eventDateTime';
+import { isScoringConfigValid, type ScoringConfig } from './scoringConfig';
 
 // ─── Rótulos e textos ─────────────────────────────────────────────────────────
 
@@ -185,6 +185,13 @@ export interface NewCompForm {
   tiebreak: string;
   thirdPlace: boolean;
 
+  /** Pontuação própria da competição (mesmos critérios da fórmula do grupo). Desligada = segue o grupo. */
+  ownScoring: boolean;
+  scWin: string;
+  scPlayed: string;
+  scGa: string;
+  scEvent: string;
+
   // Formato de disputa
   presetIndex: number | null;
   manual: boolean;
@@ -210,6 +217,7 @@ export function emptyForm(): NewCompForm {
     registrationOn: false, vagasText: '', noLimit: false, regMode: 'open',
     scheduleOpen: false, opensDateText: '', opensTimeText: '', waitlist: true, cancelHoursText: '10',
     winPts: '3', drawPts: '1', gdPts: '1', tiebreak: 'saldo', thirdPlace: true,
+    ownScoring: false, scWin: '3', scPlayed: '0.5', scGa: '2', scEvent: '0',
     presetIndex: null, manual: false, sets: null, games: 4, tiebreakPts: 7,
     superTiebreak: false, superTiebreakPts: 10, officialRules: false,
     countsForRanking: true, requireConfirmation: false, courts: 2, repeatWeeks: 1,
@@ -229,6 +237,16 @@ export function expectedCompetitors(f: NewCompForm): number | null {
   return f.registrationOn && !f.noLimit ? parseVagas(f.vagasText) : null;
 }
 
+// Vazio é inválido (Number('') daria 0 e passaria como se o usuário tivesse digitado zero)
+const coef = (t: string) => (t.trim() === '' ? NaN : Number(t.replace(',', '.').trim()));
+
+/** Fórmula própria digitada no formulário, ou null se está desligada ou inválida. */
+export function ownScoringOf(f: NewCompForm): { winCoef: number; playedCoef: number; gaCoef: number; eventCoef: number } | null {
+  if (!f.ownScoring) return null;
+  const c = { winCoef: coef(f.scWin), playedCoef: coef(f.scPlayed), gaCoef: coef(f.scGa), eventCoef: coef(f.scEvent) };
+  return isScoringConfigValid(c) ? c : null;
+}
+
 /** Rótulos do que falta preencher, na ordem da tela. Vazio = pode criar. */
 export function missingFields(f: NewCompForm): string[] {
   const miss: string[] = [];
@@ -237,10 +255,12 @@ export function missingFields(f: NewCompForm): string[] {
   if (!f.unit) miss.push('competem em');
   if (!f.gender) miss.push('gênero');
   if (!f.level) miss.push('categoria de nível');
-  if (!parseBrDate(f.dateText)) miss.push('data');
+  // A data é opcional (em branco = hoje). Só falta se foi preenchida errada ou se a série semanal precisa de uma data de partida.
+  if (f.dateText.trim() ? !parseBrDate(f.dateText) : f.repeatWeeks > 1) miss.push('data');
   if (f.registrationOn && !parseTime(f.timeText)) miss.push('horário');
   if (f.registrationOn && !f.noLimit && !parseVagas(f.vagasText)) miss.push('vagas ou "sem limite"');
   if (f.presetIndex === null && !(f.manual && f.sets)) miss.push('formato de disputa');
+  if (f.ownScoring && !ownScoringOf(f)) miss.push('pontuação (números de 0 a 100)');
   return miss;
 }
 
@@ -262,7 +282,7 @@ export function winRuleOf(f: NewCompForm): WinRule {
 export function disputeSummary(f: NewCompForm): string | null {
   if (f.presetIndex !== null) {
     const p = WIN_RULE_PRESETS[f.presetIndex];
-    return `${p.label} · ${p.desc.toLowerCase()}`;
+    return p.desc ? `${p.label} · ${p.desc.toLowerCase()}` : p.label;
   }
   if (f.manual && f.sets) {
     const sets = f.sets <= 1 ? '1 set' : `Melhor de ${f.sets}`;
@@ -280,7 +300,7 @@ const num = (t: string, d: number) => {
 export function competitionFromForm(f: NewCompForm, creatorId?: string | null): Competition {
   const format = f.format as Format;
   const unit = f.unit as Unit;
-  const dateIso = parseBrDate(f.dateText) as string;
+  const dateIso = parseBrDate(f.dateText) ?? todayLocal().iso;
   const time = parseTime(f.timeText);
   const vagas = f.registrationOn && !f.noLimit ? parseVagas(f.vagasText) : null;
 
@@ -291,13 +311,9 @@ export function competitionFromForm(f: NewCompForm, creatorId?: string | null): 
     useOfficialRules: f.officialRules,
     ...(f.requireConfirmation ? { requireConfirmation: true } : {}),
   };
-  if (format === 'super8') {
-    config.scoring = { winPts: num(f.winPts, 3), gdPts: num(f.gdPts, 1), tiebreak: f.tiebreak };
-  } else if (format === 'liga') {
-    config.scoring = { winPts: num(f.winPts, 3), drawPts: num(f.drawPts, 1), tiebreak: f.tiebreak };
-  } else if (format === 'grupos') {
-    config.scoring = { winPts: num(f.winPts, 3), tiebreak: f.tiebreak };
-  }
+  // Pontuação: por padrão a fórmula do grupo (nada gravado); com "pontuação própria", os 4 coeficientes escolhidos.
+  const own = ownScoringOf(f);
+  if (own) config.scoring = { custom: own };
 
   let registration: RegistrationSettings | undefined;
   if (f.registrationOn) {
@@ -417,6 +433,11 @@ export function formFromCompetition(c: Competition, shiftDays = 7): NewCompForm 
   if (sc?.gdPts != null) f.gdPts = String(sc.gdPts);
   if (sc?.tiebreak) f.tiebreak = sc.tiebreak;
   f.thirdPlace = c.format === 'mata' ? !!c.config?.thirdPlace : true;
+  const cu = c.config?.scoring?.custom;
+  if (cu) {
+    f.ownScoring = true;
+    f.scWin = String(cu.winCoef); f.scPlayed = String(cu.playedCoef); f.scGa = String(cu.gaCoef); f.scEvent = String(cu.eventCoef ?? 0);
+  }
 
   const w = c.config?.winRule;
   if (w?.sets) {

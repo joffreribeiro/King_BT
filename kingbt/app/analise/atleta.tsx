@@ -18,7 +18,7 @@ import {
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
-import { listAnalisesFs } from '@/firebase/analises';
+import { listAnalisesFs, chaveAnalise } from '@/firebase/analises';
 import { resolverNomes } from '@/logic/btNomes';
 import { Chip } from '@/components/analise/Chip';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -66,8 +66,8 @@ export default function AtletaScreen() {
       if (group?.id) {
         try {
           const remote = await listAnalisesFs(group.id, 200);
-          const locais = new Set(list.map(a => a.matchId));
-          list = [...list, ...remote.filter(a => !locais.has(a.matchId))];
+          const locais = new Set(list.map(chaveAnalise));
+          list = [...list, ...remote.filter(a => !locais.has(chaveAnalise(a)))];
         } catch { /* offline ou sem permissão: segue só com as do aparelho */ }
       }
       setBruto(list);
@@ -264,7 +264,7 @@ export default function AtletaScreen() {
                     <Text style={s.blocoTitulo}>Partidas</Text>
                     {[...resumo.lista].reverse().map(p => (
                       <TouchableOpacity
-                        key={p.matchId}
+                        key={`${p.competitionId}__${p.matchId}`}
                         style={s.partida}
                         activeOpacity={0.8}
                         onPress={() => router.push({ pathname: '/analise/[matchId]/relatorio', params: { matchId: p.matchId, compId: p.competitionId } })}

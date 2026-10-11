@@ -18,6 +18,7 @@ import { HomeSummary } from '@/components/HomeSummary';
 import { AnnouncementsBanner } from '@/components/AnnouncementsBanner';
 import { FadeScreen } from '@/components/FadeScreen';
 import { Icon, Avatar } from '@/components';
+import { FeedRows } from './feed';
 
 /** "terça-feira, 29 de setembro" — com a inicial maiúscula. */
 function todayLabel(): string {
@@ -90,38 +91,10 @@ export default function HomeScreen() {
           <View style={wide ? s.colSide : undefined}>
           <StreakBanner streak={streak} onPress={() => router.push({ pathname: '/(app)/arena', params: { tab: 'ranking' } })} />
 
-          {recent.length > 0 && (
-            <>
-              <View style={s.sectionRow}>
-                <Text style={s.label}>ACONTECENDO NO GRUPO</Text>
-                <TouchableOpacity onPress={() => router.push({ pathname: '/(app)/arena', params: { tab: 'feed' } })} hitSlop={8} style={s.seeAll}>
-                  <Text style={s.seeAllText}>Ver tudo</Text>
-                  <Icon name="chevronRight" size={14} color={Colors.gold} />
-                </TouchableOpacity>
-              </View>
-              <View style={s.card}>
-                {recent.map((it, i) => {
-                  const l = feedLine(it);
-                  return (
-                    <TouchableOpacity
-                      key={it.id}
-                      style={[s.post, i > 0 && s.postDivider]}
-                      onPress={() => router.push({ pathname: '/(app)/arena', params: { tab: 'feed' } })}
-                      activeOpacity={0.75}
-                    >
-                      <View style={s.emoji}><Text style={{ fontSize: 18 }}>{l.emoji}</Text></View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={s.postTitle} numberOfLines={2}>{l.title}</Text>
-                        {!!l.sub && <Text style={s.postSub} numberOfLines={1}>{l.sub}</Text>}
-                      </View>
-                      <Text style={s.time}>{timeAgo(it.timestamp)}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </>
-          )}
-          {!loaded && recent.length === 0 && <Text style={s.hint}>Carregando atividade…</Text>}
+          <View style={s.sectionRow}>
+            <Text style={s.label}>ACONTECENDO NO GRUPO</Text>
+          </View>
+          <FeedRows />
           </View>
           </View>
         </ScrollView>

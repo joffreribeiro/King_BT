@@ -9,9 +9,13 @@ import { FontFamily, Spacing, Radius, centeredContent, type ThemeColors } from '
 import { useTheme } from '@/store/ThemeContext';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useAuth } from '@/store/AuthContext';
+import { useSettings } from '@/store/SettingsContext';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { WIN_RULE_PRESETS } from '@/constants/winRulePresets';
 import { maskDate, maskTime, parseBrDate, todayLocal } from '@/logic/eventDateTime';
+import { isoToBr } from '@/logic/playerAbout';
+import { CalendarModal } from '@/components/competition/CalendarModal';
+import { Icon } from '@/components/icons';
 import {
   FORMAT_ORDER, FORMAT_BUTTON, FORMAT_HINT, FORMAT_NAME, LEVELS, GENDERS, emptyForm, missingFields,
   competitionsFromForm, formFromCompetition, seriesDates, createLabel, unitText, suggestedName, usedLocations, expectedCompetitors, estimateGames,
@@ -22,18 +26,6 @@ import type { Format, Gender, Unit } from '@/logic/types';
 import {
   SectionTitle, FieldLabel, Hint, Notice, AppInput, ChipGroup, SelectField, Segment, ToggleRow, StepperRow, Box, SummaryRow, PrimaryButton,
 } from '@/components/competition/FormKit';
-
-const TIEBREAKS: Record<'liga' | 'grupos' | 'super8', { value: string; label: string }[]> = {
-  liga: [{ value: 'saldo', label: 'Saldo de games' }, { value: 'confronto', label: 'Confronto direto' }, { value: 'vitorias', label: 'Vitórias' }],
-  grupos: [{ value: 'saldo', label: 'Saldo de games' }, { value: 'confronto', label: 'Confronto direto' }],
-  super8: [{ value: 'saldo', label: 'Saldo de games' }, { value: 'vitorias', label: 'Vitórias' }, { value: 'pontos', label: 'Pontos' }],
-};
-
-const SUPER8_ORDER_HINT: Record<string, string> = {
-  saldo: 'Saldo de games; desempate: vitórias, depois confronto direto.',
-  vitorias: 'Vitórias; desempate: saldo de games.',
-  pontos: 'Pontos; desempate: confronto direto.',
-};
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -94,6 +86,8 @@ export default function NewCompetition() {
   }, [form]);
 
   const dateIso = parseBrDate(form.dateText);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const { scoringConfig } = useSettings();
   const nameSug = suggestedName(form.format, dateIso);
   const locations = useMemo(() => usedLocations(state.competitions), [state.competitions]);
   const miss = missingFields(form);
@@ -193,10 +187,26 @@ export default function NewCompetition() {
 
         <View style={s.row2}>
           <View style={{ flex: 3 }}>
-            <FieldLabel required>Data</FieldLabel>
-            <AppInput
-              value={form.dateText} onChangeText={t => set({ dateText: maskDate(t), dateAuto: false })}
-              placeholder="DD/MM/AAAA" keyboardType="number-pad" maxLength={10}
+            <FieldLabel required={form.repeatWeeks > 1}>Data (opcional)</FieldLabel>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <AppInput
+                  value={form.dateText} onChangeText={t => set({ dateText: maskDate(t), dateAuto: false })}
+                  placeholder="DD/MM/AAAA" keyboardType="number-pad" maxLength={10}
+                />
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowCalendar(true)} activeOpacity={0.75}
+                style={{ width: 48, height: 48, borderRadius: Radius.md, borderWidth: 1, borderColor: C.gold + '66', backgroundColor: C.gold + '14', alignItems: 'center', justifyContent: 'center' }}
+                accessibilityRole="button" accessibilityLabel="Abrir calendário"
+              >
+                <Icon name="calendar" size={20} color={C.gold} />
+              </TouchableOpacity>
+            </View>
+            <CalendarModal
+              visible={showCalendar} valueIso={dateIso}
+              onSelect={iso => set({ dateText: isoToBr(iso), dateAuto: false })}
+              onClose={() => setShowCalendar(false)}
             />
           </View>
           <View style={{ flex: 2 }}>
@@ -207,6 +217,8 @@ export default function NewCompetition() {
             />
           </View>
         </View>
+
+        {!form.dateText.trim() && form.repeatWeeks <= 1 ? <Hint>Sem data, a competição é criada com a data de hoje.</Hint> : null}
 
         <FieldLabel>Local (opcional)</FieldLabel>
         <AppInput value={form.location} onChangeText={location => set({ location })} placeholder="Ex.: Arena Beach, quadras 1 e 2" />
@@ -225,6 +237,116 @@ export default function NewCompetition() {
           value={form.notes} onChangeText={notes => set({ notes })} multiline
           placeholder="Critério de desempate, premiação, observações…"
         />
+
+        {/* ── Configuração do formato ── */}
+        {/* Super 8 não tem nada para configurar aqui (a pontuação é só a do grupo): a seção some. */}
+        {form.format !== 'super8' ? (
+          <>
+            <SectionTitle>{form.format ? `Configuração · ${FORMAT_NAME[form.format]}` : 'Configuração do formato'}</SectionTitle>
+            <Box>
+              {!form.format ? <Text style={s.empty}>Escolha o tipo de competição para ver as configurações.</Text> : null}
+              {form.format === 'liga' ? (
+                <>
+                  <Notice>Turno único ou ida e volta: escolhido <Text style={s.bold}>ao fechar a lista</Text>, já com a estimativa de jogos.</Notice>
+                </>
+              ) : null}
+              {form.format === 'grupos' ? (
+                <>
+                  <Notice>Nº de grupos, classificados, melhores 3ºs e turnos são definidos <Text style={s.bold}>depois de fechar as inscrições</Text>, com sugestão automática pelo número de inscritos.</Notice>
+                </>
+              ) : null}
+              {form.format === 'mata' ? (
+                <>
+                  <ToggleRow title="Disputa de 3º lugar" value={form.thirdPlace} onChange={thirdPlace => set({ thirdPlace })} />
+                  <Notice>O chaveamento é sorteado <Text style={s.bold}>quando a lista fecha</Text>.</Notice>
+                </>
+              ) : null}
+              {form.format === 'avulso' ? (
+                <Notice>Sem calendário fixo e sem chaveamento. Depois de criar, você lança cada jogo à mão.</Notice>
+              ) : null}
+            </Box>
+          </>
+        ) : null}
+
+        {/* ── Formato de disputa ── */}
+        <SectionTitle required>Formato de disputa</SectionTitle>
+        <Hint>Como cada jogo é decidido. Escolha um preset ou configure manualmente. MD1 = 1 set; MD3 = melhor de 3 sets.</Hint>
+        <SelectField
+          title="Formato de disputa"
+          options={[
+            ...WIN_RULE_PRESETS.map((p, i) => ({ value: `p${i}`, label: p.label, desc: p.desc })),
+            { value: 'manual', label: 'Configurar manualmente', desc: 'Sets, games, tie-break e super tie-break' },
+          ]}
+          value={form.manual ? 'manual' : form.presetIndex !== null ? `p${form.presetIndex}` : null}
+          onChange={v => (v === 'manual' ? set({ manual: true, presetIndex: null }) : set({ presetIndex: parseInt(v.slice(1), 10), manual: false }))}
+        />
+        {form.manual ? (
+          <Box>
+            <FieldLabel>Quantos sets</FieldLabel>
+            <Segment
+              options={[{ value: '1', label: '1 set' }, { value: '3', label: 'Melhor de 3' }, { value: '5', label: 'Melhor de 5' }]}
+              value={form.sets ? String(form.sets) : null} onChange={v => set({ sets: parseInt(v, 10) })}
+            />
+            <StepperRow label="Games por set" value={form.games} min={1} max={12} onChange={games => set({ games })} />
+            <StepperRow label="Pontos do tie-break" value={form.tiebreakPts} min={5} max={15} onChange={tiebreakPts => set({ tiebreakPts })} />
+            {form.sets && form.sets > 1 ? (
+              <>
+                <ToggleRow
+                  title="Super tie-break no set decisivo" subtitle={`${form.sets}º set substituído por super tie-break`}
+                  value={form.superTiebreak} onChange={superTiebreak => set({ superTiebreak })}
+                />
+                {form.superTiebreak ? (
+                  <StepperRow label="Pontos do super tie-break" value={form.superTiebreakPts} min={7} max={15} onChange={superTiebreakPts => set({ superTiebreakPts })} />
+                ) : null}
+              </>
+            ) : null}
+            <ToggleRow
+              title="Usar regras oficiais BT" subtitle="Valida placares: 6-0 a 6-4, 7-5, 7-6 (TB)"
+              value={form.officialRules} onChange={officialRules => set({ officialRules })}
+            />
+          </Box>
+        ) : null}
+
+        {/* ── Ranking ── */}
+        <SectionTitle>Ranking</SectionTitle>
+        <ToggleRow
+          title="Vale pontos no ranking" subtitle="Desligado, vira uma competição amistosa."
+          value={form.countsForRanking} onChange={countsForRanking => set({ countsForRanking })}
+        />
+        {!form.countsForRanking ? (
+          <Notice tone="coral">
+            <Text style={s.bold}>Competição amistosa:</Text> não conta para o ranking, nem para o XP, as conquistas ou a avaliação dos colegas.
+          </Notice>
+        ) : null}
+
+        <ToggleRow
+          title="Confirmar placares" subtitle="O placar lançado por um jogador só vale depois que o adversário confirma. Quem criou a competição e o admin lançam direto."
+          value={form.requireConfirmation} onChange={requireConfirmation => set({ requireConfirmation })}
+        />
+
+        {/* ── Pontuação da competição ── */}
+        <SectionTitle>Pontuação</SectionTitle>
+        <ToggleRow
+          title="Pontuação própria"
+          subtitle="Desligado: a competição segue a fórmula de pontuação do grupo. Ligado: você define os números só para a classificação desta competição."
+          value={form.ownScoring}
+          onChange={on => set(on
+            ? { ownScoring: true, scWin: String(scoringConfig.winCoef), scPlayed: String(scoringConfig.playedCoef), scGa: String(scoringConfig.gaCoef), scEvent: String(scoringConfig.eventCoef ?? 0) }
+            : { ownScoring: false })}
+        />
+        {form.ownScoring ? (
+          <Box>
+            <Hint>Pts = (Vitórias × A) + (Jogos × B) + (Game Average × C) + (Eventos × D). O ranking geral do grupo continua com a fórmula do grupo.</Hint>
+            <View style={s.row2}>
+              <View style={{ flex: 1 }}><FieldLabel>Vitórias (A)</FieldLabel><AppInput value={form.scWin} onChangeText={scWin => set({ scWin })} keyboardType="decimal-pad" /></View>
+              <View style={{ flex: 1 }}><FieldLabel>Jogos (B)</FieldLabel><AppInput value={form.scPlayed} onChangeText={scPlayed => set({ scPlayed })} keyboardType="decimal-pad" /></View>
+            </View>
+            <View style={s.row2}>
+              <View style={{ flex: 1 }}><FieldLabel>GA (C)</FieldLabel><AppInput value={form.scGa} onChangeText={scGa => set({ scGa })} keyboardType="decimal-pad" /></View>
+              <View style={{ flex: 1 }}><FieldLabel>Eventos (D)</FieldLabel><AppInput value={form.scEvent} onChangeText={scEvent => set({ scEvent })} keyboardType="decimal-pad" /></View>
+            </View>
+          </Box>
+        ) : null}
 
         {/* ── Série semanal ── */}
         <SectionTitle>Série semanal (opcional)</SectionTitle>
@@ -307,108 +429,6 @@ export default function NewCompetition() {
             <AppInput value={form.cancelHoursText} onChangeText={t => set({ cancelHoursText: digits(t).slice(0, 3) })} keyboardType="number-pad" maxLength={3} placeholder="10" />
           </View>
         ) : null}
-
-        {/* ── Configuração do formato ── */}
-        <SectionTitle>{form.format ? `Configuração · ${FORMAT_NAME[form.format]}` : 'Configuração do formato'}</SectionTitle>
-        <Box>
-          {!form.format ? <Text style={s.empty}>Escolha o tipo de competição para ver as configurações.</Text> : null}
-          {form.format === 'liga' ? (
-            <>
-              <View style={s.row2}>
-                <View style={{ flex: 1 }}><FieldLabel>Pontos por vitória</FieldLabel><AppInput value={form.winPts} onChangeText={t => set({ winPts: digits(t).slice(0, 2) })} keyboardType="number-pad" /></View>
-                <View style={{ flex: 1 }}><FieldLabel>Pontos por empate</FieldLabel><AppInput value={form.drawPts} onChangeText={t => set({ drawPts: digits(t).slice(0, 2) })} keyboardType="number-pad" /></View>
-              </View>
-              <FieldLabel>Critério de desempate</FieldLabel>
-              <ChipGroup options={TIEBREAKS.liga} value={form.tiebreak} onChange={tiebreak => set({ tiebreak })} />
-              <Notice>Turno único ou ida e volta: escolhido <Text style={s.bold}>ao fechar a lista</Text>, já com a estimativa de jogos.</Notice>
-            </>
-          ) : null}
-          {form.format === 'grupos' ? (
-            <>
-              <FieldLabel>Pontos por vitória</FieldLabel>
-              <AppInput value={form.winPts} onChangeText={t => set({ winPts: digits(t).slice(0, 2) })} keyboardType="number-pad" />
-              <FieldLabel>Critério de desempate</FieldLabel>
-              <ChipGroup options={TIEBREAKS.grupos} value={form.tiebreak} onChange={tiebreak => set({ tiebreak })} />
-              <Notice>Nº de grupos, classificados, melhores 3ºs e turnos são definidos <Text style={s.bold}>depois de fechar as inscrições</Text>, com sugestão automática pelo número de inscritos.</Notice>
-            </>
-          ) : null}
-          {form.format === 'mata' ? (
-            <>
-              <ToggleRow title="Disputa de 3º lugar" value={form.thirdPlace} onChange={thirdPlace => set({ thirdPlace })} />
-              <Notice>O chaveamento é sorteado <Text style={s.bold}>quando a lista fecha</Text>.</Notice>
-            </>
-          ) : null}
-          {form.format === 'avulso' ? (
-            <Notice>Sem calendário fixo e sem chaveamento. Depois de criar, você lança cada jogo à mão.</Notice>
-          ) : null}
-          {form.format === 'super8' ? (
-            <>
-              <View style={s.row2}>
-                <View style={{ flex: 1 }}><FieldLabel>Pontos por vitória</FieldLabel><AppInput value={form.winPts} onChangeText={t => set({ winPts: digits(t).slice(0, 2) })} keyboardType="number-pad" /></View>
-                <View style={{ flex: 1 }}><FieldLabel>Pontos por saldo de games</FieldLabel><AppInput value={form.gdPts} onChangeText={t => set({ gdPts: digits(t).slice(0, 2) })} keyboardType="number-pad" /></View>
-              </View>
-              <FieldLabel>Critério de ordenação da classificação final</FieldLabel>
-              <ChipGroup options={TIEBREAKS.super8} value={form.tiebreak} onChange={tiebreak => set({ tiebreak })} />
-              <Hint>{SUPER8_ORDER_HINT[form.tiebreak] ?? ''}</Hint>
-            </>
-          ) : null}
-        </Box>
-
-        {/* ── Formato de disputa ── */}
-        <SectionTitle required>Formato de disputa</SectionTitle>
-        <Hint>Como cada jogo é decidido. Escolha um preset ou configure manualmente. MD1 = 1 set; MD3 = melhor de 3 sets.</Hint>
-        <SelectField
-          title="Formato de disputa"
-          options={[
-            ...WIN_RULE_PRESETS.map((p, i) => ({ value: `p${i}`, label: p.label, desc: p.desc })),
-            { value: 'manual', label: 'Configurar manualmente', desc: 'Sets, games, tie-break e super tie-break' },
-          ]}
-          value={form.manual ? 'manual' : form.presetIndex !== null ? `p${form.presetIndex}` : null}
-          onChange={v => (v === 'manual' ? set({ manual: true, presetIndex: null }) : set({ presetIndex: parseInt(v.slice(1), 10), manual: false }))}
-        />
-        {form.manual ? (
-          <Box>
-            <FieldLabel>Quantos sets</FieldLabel>
-            <Segment
-              options={[{ value: '1', label: '1 set' }, { value: '3', label: 'Melhor de 3' }, { value: '5', label: 'Melhor de 5' }]}
-              value={form.sets ? String(form.sets) : null} onChange={v => set({ sets: parseInt(v, 10) })}
-            />
-            <StepperRow label="Games por set" value={form.games} min={1} max={12} onChange={games => set({ games })} />
-            <StepperRow label="Pontos do tie-break" value={form.tiebreakPts} min={5} max={15} onChange={tiebreakPts => set({ tiebreakPts })} />
-            {form.sets && form.sets > 1 ? (
-              <>
-                <ToggleRow
-                  title="Super tie-break no set decisivo" subtitle={`${form.sets}º set substituído por super tie-break`}
-                  value={form.superTiebreak} onChange={superTiebreak => set({ superTiebreak })}
-                />
-                {form.superTiebreak ? (
-                  <StepperRow label="Pontos do super tie-break" value={form.superTiebreakPts} min={7} max={15} onChange={superTiebreakPts => set({ superTiebreakPts })} />
-                ) : null}
-              </>
-            ) : null}
-            <ToggleRow
-              title="Usar regras oficiais BT" subtitle="Valida placares: 6-0 a 6-4, 7-5, 7-6 (TB)"
-              value={form.officialRules} onChange={officialRules => set({ officialRules })}
-            />
-          </Box>
-        ) : null}
-
-        {/* ── Ranking ── */}
-        <SectionTitle>Ranking</SectionTitle>
-        <ToggleRow
-          title="Vale pontos no ranking" subtitle="Desligado, vira uma competição amistosa."
-          value={form.countsForRanking} onChange={countsForRanking => set({ countsForRanking })}
-        />
-        {!form.countsForRanking ? (
-          <Notice tone="coral">
-            <Text style={s.bold}>Competição amistosa:</Text> não conta para o ranking, nem para o XP, as conquistas ou a avaliação dos colegas.
-          </Notice>
-        ) : null}
-
-        <ToggleRow
-          title="Confirmar placares" subtitle="O placar lançado por um jogador só vale depois que o adversário confirma. Quem criou a competição e o admin lançam direto."
-          value={form.requireConfirmation} onChange={requireConfirmation => set({ requireConfirmation })}
-        />
 
         {/* ── Resumo ── */}
         <View style={s.summary}>

@@ -1,26 +1,27 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { FontFamily, Spacing, Type, wideContent, type ThemeColors } from '@/theme';
 import { useIsWide } from '@/hooks/useIsWide';
 import { useAuth } from '@/store/AuthContext';
 import { useTheme } from '@/store/ThemeContext';
-import FeedScreen from './feed';
 import RankingScreen from './ranking';
 import { AtletasSection } from '@/components/AtletasSection';
+import { CompetitionsHub } from '@/components/CompetitionsHub';
 
-type Section = 'feed' | 'ranking' | 'atletas';
+type Section = 'competicoes' | 'ranking' | 'atletas';
 const SECTIONS: { key: Section; label: string }[] = [
-  { key: 'feed', label: 'FEED' },
-  { key: 'ranking', label: 'RANKING' },
-  { key: 'atletas', label: 'ATLETAS' },
+  { key: 'competicoes', label: 'Competições' },
+  { key: 'ranking', label: 'Ranking' },
+  { key: 'atletas', label: 'Atletas' },
 ];
+const SECTION_KEYS: string[] = SECTIONS.map(x => x.key);
 
 /**
- * Arena: onde o grupo se encontra. Três seções — Feed (o que aconteceu),
- * Ranking (quem está na frente) e Atletas (todos os jogadores). Abre em
- * `?tab=ranking` ou `?tab=atletas` quando o link pede.
+ * Arena: o jogo do grupo. Três seções — Competições (a lista e os jogos), Ranking (quem está na frente) e
+ * Atletas (todos os jogadores). O Feed mora na Início. Abre em `?tab=ranking`, `?tab=atletas` ou
+ * `?tab=competicoes` quando o link pede; `?tab=feed` (links antigos) leva para a Início.
  */
 export default function ArenaScreen() {
   const { colors: Colors } = useTheme();
@@ -28,11 +29,12 @@ export default function ArenaScreen() {
   const { group } = useAuth();
   const wide = useIsWide();
   const { tab } = useLocalSearchParams<{ tab?: string }>();
-  const [active, setActive] = useState<Section>(tab === 'ranking' || tab === 'atletas' ? tab : 'feed');
+  const [active, setActive] = useState<Section>(tab && SECTION_KEYS.includes(tab) ? (tab as Section) : 'competicoes');
 
   // Links de outras telas ("Ver tudo", posição no ranking) escolhem a seção pelo parâmetro.
   useEffect(() => {
-    if (tab === 'ranking' || tab === 'feed' || tab === 'atletas') setActive(tab);
+    if (tab === 'feed') router.replace('/(app)/home');
+    else if (tab && SECTION_KEYS.includes(tab)) setActive(tab as Section);
   }, [tab]);
 
   return (
@@ -50,7 +52,7 @@ export default function ArenaScreen() {
       </View>
       </View>
       <View style={{ flex: 1 }}>
-        {active === 'feed' ? <FeedScreen embedded /> : active === 'ranking' ? <RankingScreen embedded /> : <AtletasSection />}
+        {active === 'competicoes' ? <CompetitionsHub embedded /> : active === 'ranking' ? <RankingScreen embedded /> : <AtletasSection />}
       </View>
     </SafeAreaView>
   );

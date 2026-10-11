@@ -131,7 +131,7 @@ export default function AmistosoScreen() {
                   onPress={() => setPreset(i)}
                 >
                   <Text style={[s.presetLabel, isActive && s.presetLabelActive]}>{p.label}</Text>
-                  <Text style={[s.presetDesc, isActive && s.presetDescActive]}>{p.desc}</Text>
+                  {!!p.desc && <Text style={[s.presetDesc, isActive && s.presetDescActive]}>{p.desc}</Text>}
                 </TouchableOpacity>
               );
             })}

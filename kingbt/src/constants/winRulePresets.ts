@@ -4,7 +4,7 @@ export interface WinRulePreset {
   sets: number;
   games: number;
   tb: number;
-  tbAt: 'deuce' | 'full';
+  tbAt: 'deuce' | 'full' | 'none' | 'fixed';
   stb: boolean;
   stbPts: number;
   /** Duração média de um jogo, em minutos (usada na estimativa de duração da competição). */
@@ -17,6 +17,8 @@ export const WIN_RULE_PRESETS: WinRulePreset[] = [
   // MD1 ordenado por games
   { label: 'MD1 · 4 games', desc: 'Com tie 7 em 3-3',            sets: 1, games: 4, tb: 7, tbAt: 'deuce', stb: false, stbPts: 10, minutes: 15 },
   { label: 'MD1 · 4 games', desc: 'Com tie 7 em 4-4',            sets: 1, games: 4, tb: 7, tbAt: 'full',  stb: false, stbPts: 10, minutes: 15 },
+  { label: 'MD1 · 4 games', desc: 'Sem tie', sets: 1, games: 4, tb: 7, tbAt: 'none',  stb: false, stbPts: 10, minutes: 15 },
+  { label: 'MD1 · 4 games', desc: '4 games no total', sets: 1, games: 4, tb: 7, tbAt: 'fixed', stb: false, stbPts: 10, minutes: 12 },
   { label: 'MD1 · 6 games', desc: 'Com tie 7 em 5-5',            sets: 1, games: 6, tb: 7, tbAt: 'deuce', stb: false, stbPts: 10, minutes: 20 },
   { label: 'MD1 · 7 games', desc: 'Com tie 7 em 6-6',            sets: 1, games: 7, tb: 7, tbAt: 'deuce', stb: false, stbPts: 10, minutes: 25 },
   { label: 'MD1 · 8 games', desc: 'Com tie 7 em 8-8',            sets: 1, games: 8, tb: 7, tbAt: 'full',  stb: false, stbPts: 10, minutes: 30 },

@@ -1,5 +1,5 @@
 import type { SetScore } from './types';
-import { tieAtGames } from './setOutcome';
+import { tieAtGames, setFechado, type TiebreakAt } from './setOutcome';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
@@ -155,7 +155,7 @@ export interface BtWinRule {
   games: number;
   tiebreak: number;
   /** Onde o tie-break do set acontece: 'deuce' = (G-1)-(G-1), 'full' = G-G. */
-  tiebreakAt?: 'deuce' | 'full';
+  tiebreakAt?: TiebreakAt;
   superTiebreak?: boolean;     // substitui set decisivo por super tie-break
   superTiebreakPts?: number;   // pontos do super tie-break (padrão 10)
   scoutMode?: BtScoutMode;     // modo de scout: aovivo / padrao / avancado
@@ -164,7 +164,7 @@ export interface BtWinRule {
 export const BT_WIN_RULE_DEFAULT: BtWinRule = { sets: 3, games: 6, tiebreak: 7, superTiebreak: false, superTiebreakPts: 10 };
 
 export function winRuleFromComp(wr?: {
-  sets?: number; games?: number; tiebreak?: number; tiebreakAt?: 'deuce' | 'full';
+  sets?: number; games?: number; tiebreak?: number; tiebreakAt?: TiebreakAt;
   superTiebreak?: boolean; superTiebreakPts?: number;
 }): BtWinRule {
   return {
@@ -202,8 +202,7 @@ export interface BtPlacardState {
 
 /** Um set com `mine` games contra `theirs` já está fechado nesta regra? (mesma conta do fechamento ao vivo) */
 export function setFoiFechado(mine: number, theirs: number, rule: BtWinRule): boolean {
-  const T = tieAtGames(rule.games, rule.tiebreakAt);
-  return (mine >= T + 1 && mine > theirs) || (mine >= rule.games && mine - theirs >= 2);
+  return setFechado(mine, theirs, rule.games, rule.tiebreakAt);
 }
 
 export function placardInicial(rule: BtWinRule = BT_WIN_RULE_DEFAULT, seed?: BtPlacarSeed): BtPlacardState {
@@ -302,20 +301,26 @@ function avancaGame(state: BtPlacardState, dupla: 'A' | 'B'): BtPlacardState {
   // resolvido pelo tie-break, e o vencedor fecha em G. Em 'full' (T = G) a
   // vantagem de 2 vale até G-G, e o vencedor do tie-break fecha em G+1.
   const T = tieAtGames(G, s.rule.tiebreakAt);
-  const fechou = (mine: number, theirs: number) =>
-    (mine >= T + 1 && mine > theirs) || (mine >= G && mine - theirs >= 2);
+  // 'fixed' (só G games no total): o set fecha ao completar os games e pode terminar empatado.
+  const fixo = s.rule.tiebreakAt === 'fixed';
+  const fimFixo = fixo && gamesA + gamesB >= G;
+  const fechou = (mine: number, theirs: number) => (fixo ? fimFixo && mine > theirs : setFechado(mine, theirs, G, s.rule.tiebreakAt));
   const fechouA = fechou(gamesA, gamesB);
   const fechouB = fechou(gamesB, gamesA);
 
-  if (fechouA || fechouB) {
+  if (fechouA || fechouB || fimFixo) {
     s.historicGamesA.push(s.gamesA);
     s.historicGamesB.push(s.gamesB);
     s.historicStb.push(false);
-    if (fechouA) s.setsA += 1; else s.setsB += 1;
+    if (fechouA) s.setsA += 1; else if (fechouB) s.setsB += 1;
     s.gamesA = 0; s.gamesB = 0;
 
     const setsParaVencer = Math.ceil(S / 2);
-    if (s.setsA >= setsParaVencer || s.setsB >= setsParaVencer) {
+    if (fimFixo) {
+      // Jogo de games fixos é de 1 set: acabou os games, acabou a partida (empate = sem vencedor)
+      s.encerrada = true;
+      s.winnerDupla = fechouA ? 'A' : fechouB ? 'B' : null;
+    } else if (s.setsA >= setsParaVencer || s.setsB >= setsParaVencer) {
       s.encerrada = true;
       s.winnerDupla = s.setsA >= setsParaVencer ? 'A' : 'B';
     } else if (s.rule.superTiebreak && s.setsA === setsParaVencer - 1 && s.setsB === setsParaVencer - 1) {

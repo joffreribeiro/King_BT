@@ -600,17 +600,11 @@ function dayLabel(date: Date): string {
   return `${date.getDate()} de ${MONTHS[date.getMonth()]}`;
 }
 
-/** `embedded`: dentro da aba Arena — sem título próprio e sem o recuo do topo (a Arena já cuida). */
-export default function FeedScreen({ embedded = false }: { embedded?: boolean } = {}) {
-  const { colors: Colors } = useTheme();
-  const s = useMemo(() => makeStyles(Colors), [Colors]);
-  const { items, loaded, error } = useActivityItems();
-  const wide = useIsWide();
-
-  // Agrupa match_result da mesma competição E do mesmo dia num card só.
-  // Antes agrupava só por compName ao longo do feed inteiro — uma competição
-  // "Avulso" (sessão livre, fica aberta por semanas) acumulava jogos de datas
-  // bem diferentes debaixo do mesmo card, carimbado com a data do primeiro.
+// Agrupa match_result da mesma competição E do mesmo dia num card só.
+// Antes agrupava só por compName ao longo do feed inteiro — uma competição
+// "Avulso" (sessão livre, fica aberta por semanas) acumulava jogos de datas
+// bem diferentes debaixo do mesmo card, carimbado com a data do primeiro.
+export function buildRows(items: FeedItem[]): FeedRow[] {
   const rows: FeedRow[] = [];
   let lastGroup: { compId?: string; day: string; bucket: FeedItem[] } | null = null;
   let lastDay: string | null = null;
@@ -635,14 +629,62 @@ export default function FeedScreen({ embedded = false }: { embedded?: boolean } 
     }
   }
 
+  return rows;
+}
+
+/** Desenha uma linha do feed (divisor de dia, card de competição, campeão, ranking…). */
+export function renderFeedRow(item: FeedRow, dividerStyle: any) {
+  if (item.kind === 'divider') return <Text style={dividerStyle}>{item.label}</Text>;
+  if (item.kind === 'group') return <CompGroupCard compName={item.compName} matches={item.matches} />;
+  if (item.item.type === 'champion') return <ChampionCard item={item.item} />;
+  if (item.item.type === 'comp_done') return <CompDoneCard item={item.item} />;
+  if (item.item.type === 'rank_change') return <RankChangeCard item={item.item} />;
+  if (item.item.type === 'rivalry_milestone' || item.item.type === 'honor') return <MilestoneCard item={item.item} />;
+  return null;
+}
+
+/**
+ * O feed corrido, para ficar dentro de outra tela que já rola (a Home). Mostra os primeiros `inicial` itens e
+ * um "Ver mais" que soma mais `inicial` — sem lista virtualizada, que não pode ficar dentro de um ScrollView.
+ */
+export function FeedRows({ inicial = 20 }: { inicial?: number }) {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStyles(Colors), [Colors]);
+  const { items, loaded, error } = useActivityItems();
+  const [qtd, setQtd] = useState(inicial);
+  const rows = useMemo(() => buildRows(items.slice(0, qtd)), [items, qtd]);
+  if (!loaded && rows.length === 0) return <FeedSkeleton />;
+  if (rows.length === 0) {
+    return (
+      <Card style={s.empty}>
+        <Text style={s.emptyTitle}>{error ? 'Sem permissão para ler o feed' : 'Nada por aqui ainda'}</Text>
+        <Text style={s.emptySub}>Quando uma competição for encerrada, o campeão aparece aqui com reações e comentários.</Text>
+      </Card>
+    );
+  }
+  return (
+    <View style={{ gap: Spacing.sm }}>
+      {rows.map((r, i) => <View key={r.kind === 'group' ? r.matches[0].id : r.kind === 'divider' ? `divider-${i}-${r.label}` : r.item.id}>{renderFeedRow(r, s.dayDivider)}</View>)}
+      {items.length > qtd && (
+        <TouchableOpacity onPress={() => setQtd(q => q + inicial)} style={{ alignSelf: 'center', paddingVertical: Spacing.sm }} accessibilityRole="button">
+          <Text style={s.emptySub}>Ver mais</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+/** `embedded`: dentro da aba Arena — sem título próprio e sem o recuo do topo (a Arena já cuida). */
+export default function FeedScreen({ embedded = false }: { embedded?: boolean } = {}) {
+  const { colors: Colors } = useTheme();
+  const s = useMemo(() => makeStyles(Colors), [Colors]);
+  const { items, loaded, error } = useActivityItems();
+  const wide = useIsWide();
+
+  const rows = buildRows(items);
+
   function renderRow({ item }: { item: FeedRow }) {
-    if (item.kind === 'divider') return <Text style={s.dayDivider}>{item.label}</Text>;
-    if (item.kind === 'group') return <CompGroupCard compName={item.compName} matches={item.matches} />;
-    if (item.item.type === 'champion') return <ChampionCard item={item.item} />;
-    if (item.item.type === 'comp_done') return <CompDoneCard item={item.item} />;
-    if (item.item.type === 'rank_change') return <RankChangeCard item={item.item} />;
-    if (item.item.type === 'rivalry_milestone' || item.item.type === 'honor') return <MilestoneCard item={item.item} />;
-    return null;
+    return renderFeedRow(item, s.dayDivider);
   }
 
   const [refreshing, setRefreshing] = useState(false);

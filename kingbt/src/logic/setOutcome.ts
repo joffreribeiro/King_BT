@@ -9,6 +9,8 @@ export interface DerivedWinRule {
   superTb: boolean;
   superTbPts: number;
   tieAt: number;
+  /** Modo do tie-break da regra (padrão 'deuce'). */
+  tieMode: TiebreakAt;
 }
 
 // Mesmos defaults usados ao vivo em ScorerModal.tsx — mantidos aqui para que
@@ -34,8 +36,25 @@ export interface DerivedWinRule {
  * são impossíveis sob 'deuce', então a classificação nunca chega a rodar
  * sobre eles na prática. Não mexer nesse default sem reconfirmar a regra.
  */
-export function tieAtGames(games: number, tiebreakAt?: 'deuce' | 'full'): number {
+export type TiebreakAt = 'deuce' | 'full' | 'none' | 'fixed';
+
+/**
+ * Além de 'deuce' e 'full' há dois formatos sem tie-break:
+ * - `'none'`: sem tie-break — o set vai a G games e em (G-1)-(G-1) o próximo game decide (fecha em G x (G-1)).
+ * - `'fixed'`: joga SÓ G games no total (ex.: 4) e quem fez mais vence; pode terminar empatado (2 x 2).
+ * Nos dois nunca há tie-break, então o ponto de tie-break é "nunca" (Infinity).
+ */
+export function tieAtGames(games: number, tiebreakAt?: TiebreakAt): number {
+  if (tiebreakAt === 'none' || tiebreakAt === 'fixed') return Number.POSITIVE_INFINITY;
   return (tiebreakAt ?? 'deuce') === 'full' ? games : games - 1;
+}
+
+/** Um set com `mine` x `theirs` games já está fechado? (mesma conta no placar ao vivo, na semente e no registro manual) */
+export function setFechado(mine: number, theirs: number, games: number, tiebreakAt?: TiebreakAt): boolean {
+  if (tiebreakAt === 'fixed') return mine + theirs >= games;
+  if (tiebreakAt === 'none') return mine >= games;
+  const T = tieAtGames(games, tiebreakAt);
+  return (mine >= T + 1 && mine > theirs) || (mine >= games && mine - theirs >= 2);
 }
 
 export function deriveWinRule(winRule: WinRule | undefined): DerivedWinRule {
@@ -45,7 +64,8 @@ export function deriveWinRule(winRule: WinRule | undefined): DerivedWinRule {
   const superTb    = winRule?.superTiebreak ?? true;
   const superTbPts = winRule?.superTiebreakPts ?? 10;
   const tieAt      = tieAtGames(gamesWin, winRule?.tiebreakAt);
-  return { maxSets, setsToWin, gamesWin, superTb, superTbPts, tieAt };
+  const tieMode: TiebreakAt = winRule?.tiebreakAt ?? 'deuce';
+  return { maxSets, setsToWin, gamesWin, superTb, superTbPts, tieAt, tieMode };
 }
 
 export function isDecidingSet(setIdx: number, priorSets: SetScore[], rule: DerivedWinRule): boolean {

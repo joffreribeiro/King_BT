@@ -11,7 +11,7 @@ export interface BtScoreRule {
   games: number;
   tiebreak: number;
   /** Onde o tie-break do set acontece — ver `tieAtGames`. Padrão: 'deuce'. */
-  tiebreakAt?: 'deuce' | 'full';
+  tiebreakAt?: 'deuce' | 'full' | 'none' | 'fixed';
 }
 
 const DEFAULT_RULE: BtScoreRule = { games: 6, tiebreak: 7 };
@@ -32,6 +32,12 @@ export function getBeachTennisScoreState(a: number, b: number, rule: BtScoreRule
   if (!Number.isInteger(a) || !Number.isInteger(b)) return 'invalid';
 
   const G = rule.games;
+  // Sem tie-break: 'fixed' fecha ao completar G games no total (empate vale); 'none' fecha em G games.
+  if (rule.tiebreakAt === 'fixed') return a + b === G ? 'done' : a + b > G ? 'invalid' : 'normal';
+  if (rule.tiebreakAt === 'none') {
+    if (Math.max(a, b) > G) return 'invalid';
+    return Math.max(a, b) === G ? (a === b ? 'invalid' : 'done') : 'normal';
+  }
   const T = tieAtGames(G, rule.tiebreakAt);
   const maxGames = T + 1; // maior nº de games que um lado pode ter no set
 

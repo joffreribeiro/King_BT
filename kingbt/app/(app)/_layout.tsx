@@ -19,9 +19,8 @@ import { Icon, HexBackground, type IconName } from '@/components';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 const TAB_CONFIG: Record<string, { icon: IconName; label: string }> = {
-  home:    { icon: 'home',         label: 'Home'         },
+  home:    { icon: 'home',         label: 'Início'       },
   arena:   { icon: 'users',        label: 'Arena'        },
-  index:   { icon: 'competitions', label: 'Competições'  },
   profile: { icon: 'profile',      label: 'Perfil'       },
 };
 
@@ -486,7 +485,7 @@ export default function AppLayout() {
       >
         <Tabs.Screen name="home" />
         <Tabs.Screen name="arena" />
-        <Tabs.Screen name="index" />
+        <Tabs.Screen name="index"        options={{ href: null }} />
         <Tabs.Screen name="profile" />
         {/* Ocultas da tab bar (Feed e Ranking agora vivem dentro da Arena) */}
         <Tabs.Screen name="feed"         options={{ href: null }} />
