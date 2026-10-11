@@ -145,14 +145,13 @@ jobs:
           KINGBT_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
 
       - name: Renomear APK
-        # KingBT_<versão>.apk é o arquivo oficial, com a versão no nome. kingbt.apk (nome fixo) e KINGBT_<versão>.apk
-        # são cópias só para os apps já instalados, cujo botão de atualizar ainda aponta para esses nomes; dá para
-        # parar de publicá-las quando todo mundo estiver numa versão com o link novo.
+        # KingBT_<versão>.apk é o arquivo oficial, com a versão no nome. kingbt.apk (nome fixo) é uma cópia só para os
+        # apps antigos, cujo botão de atualizar ainda aponta para esse nome. O GitHub não diferencia maiúsculas de
+        # minúsculas nos nomes dos arquivos da release: KingBT_x.apk e KINGBT_x.apk colidem, então não dá para manter as duas.
         run: |
           APP_VERSION=$(node -p "require('./app.json').expo.version")
           cp android/app/build/outputs/apk/release/app-release.apk kingbt.apk
           cp kingbt.apk "KingBT_${APP_VERSION}-${{ github.run_number }}.apk"
-          cp kingbt.apk "KINGBT_${APP_VERSION}-${{ github.run_number }}.apk"
 
       # Versão deste APK, publicada junto com ele: o app compara o commit embutido no build com este
       # arquivo para avisar de atualização (ver src/store/UpdateContext.tsx).
@@ -170,19 +169,17 @@ jobs:
           files: |
             kingbt/kingbt.apk
             kingbt/KingBT_*.apk
-            kingbt/KINGBT_*.apk
             kingbt/apk-version.json
           make_latest: true
 
-      # Mantém só os 3 APKs mais recentes de cada nome (KingBT_ e KINGBT_); kingbt.apk e apk-version.json ficam sempre.
+      # Mantém só os 3 APKs com versão no nome mais recentes (KingBT_ e os antigos KINGBT_, sem diferenciar maiúsculas);
+      # kingbt.apk e apk-version.json ficam sempre.
       - name: Limpar APKs antigos da release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for padrao in '^KingBT_.*[.]apk$' '^KINGBT_.*[.]apk$'; do
-            gh api "repos/${{ github.repository }}/releases/tags/latest-apk" \
-              --jq ".assets | map(select(.name | test(\"$padrao\"))) | sort_by(.created_at) | reverse | .[3:] | .[].id" |
-            while read -r id; do
-              gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$id"
-            done
+          gh api "repos/${{ github.repository }}/releases/tags/latest-apk" \
+            --jq '.assets | map(select(.name | test("^kingbt_.*[.]apk$"; "i"))) | sort_by(.created_at) | reverse | .[3:] | .[].id' |
+          while read -r id; do
+            gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$id"
           done
