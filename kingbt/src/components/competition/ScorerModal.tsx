@@ -616,7 +616,7 @@ export function ScorerModal({ match, comp, onClose, onSave, onSaveDraft, onClear
 
 const makeSc = (Colors: ThemeColors) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, padding: Spacing.xl, gap: Spacing.md },
+  sheet: { backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg, paddingHorizontal: Spacing.md + 4, paddingVertical: Spacing.xl, gap: Spacing.md },
   title: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text, textAlign: 'center' },
   sub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
   inputRow: { flexDirection: 'row', justifyContent: 'space-around', gap: Spacing.md },
@@ -677,7 +677,7 @@ const makeSc = (Colors: ThemeColors) => StyleSheet.create({
   gameStepperWrap: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 },
   // 44px: é o controle mais usado do app e é usado na beira da quadra, em pé,
   // muitas vezes com a mão suada ou com areia. Era 28px e sem hitSlop.
-  gameBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
+  gameBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.surf2, alignItems: 'center', justifyContent: 'center' },
   gameVal: { flex: 1, height: 44, borderRadius: Radius.sm, borderWidth: 1.5, borderColor: Colors.line, backgroundColor: Colors.bg, alignItems: 'center', justifyContent: 'center' },
   gameValTxt: { fontFamily: FontFamily.numberBold, fontSize: 18, color: Colors.text },
   addSetBtn: { flex: 1, borderWidth: 1, borderColor: Colors.line, borderRadius: Radius.sm, paddingVertical: 6, alignItems: 'center' },

@@ -302,7 +302,7 @@ export function FreeScoreModal({ match, comp, onClose, onSave, onClear, isAdmin 
 const makeSc = (Colors: ThemeColors) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   sheetScroll: { flexGrow: 0, maxHeight: '94%', backgroundColor: Colors.surf, borderTopLeftRadius: Radius.lg, borderTopRightRadius: Radius.lg },
-  sheet: { padding: Spacing.xl, gap: Spacing.md },
+  sheet: { paddingHorizontal: Spacing.md + 4, paddingVertical: Spacing.xl, gap: Spacing.md },
   title: { fontFamily: FontFamily.titleBold, fontSize: 20, color: Colors.text, textAlign: 'center' },
   sub: { fontFamily: FontFamily.body, fontSize: 13, color: Colors.muted, textAlign: 'center' },
   inputRow: { flexDirection: 'row', justifyContent: 'space-around', gap: Spacing.md },
