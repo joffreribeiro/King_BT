@@ -1,24 +1,18 @@
 // Backup completo do Firestore em um arquivo JSON (só LÊ; nunca altera nada no banco).
 //
-// Uso (de D:\KINGBT\projeto\scripts):
+// Uso (da pasta scripts; exige o login do gcloud — ver scripts/README.md):
 //   node backup-firestore.mjs                 -> grava em D:\KINGBT\dados\backup-AAAA-MM-DD-HHMM.json
 //   node backup-firestore.mjs "E:\Meus backups" -> grava na pasta indicada
 //
 // Percorre TODAS as coleções e subcoleções (grupos, jogadores, competições, feed, desafios, usuários...).
 // O arquivo contém dados pessoais (nomes e e-mails dos usuários): guarde fora do repositório e não envie a ninguém.
 // Para restaurar: restore-firestore.mjs.
-import { initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore, Timestamp, GeoPoint, DocumentReference } from 'firebase-admin/firestore';
-import { readFileSync, mkdirSync, writeFileSync, existsSync, readdirSync, unlinkSync } from 'fs';
-import { resolve, dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { Timestamp, GeoPoint, DocumentReference } from 'firebase-admin/firestore';
+import { mkdirSync, writeFileSync, readdirSync, unlinkSync } from 'fs';
+import { join } from 'path';
+import { initAdmin, PROJECT_ID } from './_admin.mjs';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const keyPath = process.env.KINGBT_KEY || resolve(__dirname, 'serviceAccountKey.json');
-if (!existsSync(keyPath)) { console.error('Chave não encontrada:', keyPath, '(defina KINGBT_KEY ou coloque serviceAccountKey.json aqui)'); process.exit(1); }
-const key = JSON.parse(readFileSync(keyPath, 'utf8'));
-initializeApp({ credential: cert(key) });
-const db = getFirestore();
+const db = await initAdmin();
 
 /** Valores especiais do Firestore viram objetos marcados, para a restauração recriar o tipo certo. */
 export function enc(v) {
@@ -53,7 +47,7 @@ const outDir = process.argv[2] || 'D:\\KINGBT\\dados';
 mkdirSync(outDir, { recursive: true });
 const file = join(outDir, `backup-${stamp}.json`);
 writeFileSync(file, JSON.stringify({
-  meta: { projectId: key.project_id, createdAt: now.toISOString(), totalDocs: Object.keys(docs).length, perCollection },
+  meta: { projectId: PROJECT_ID, createdAt: now.toISOString(), totalDocs: Object.keys(docs).length, perCollection },
   docs,
 }));
 // Guarda só os KEEP mais recentes (backup semanal: ~5 meses) para a pasta não crescer sem limite.

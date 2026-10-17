@@ -41,9 +41,13 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-# Firebase Admin key (nunca commitar)
+# Firebase Admin key (nunca commitar). Os scripts usam o login do gcloud (scripts/README.md) e não aceitam arquivo de chave.
 serviceAccount*.json
 **/serviceAccount*.json
+# nome padrão do arquivo baixado do console do Firebase / Google Cloud
+*-firebase-adminsdk-*.json
+# credencial do login do gcloud (fica em %APPDATA%\gcloud; aqui só por garantia)
+application_default_credentials.json
 
 # generated native folders
 /ios

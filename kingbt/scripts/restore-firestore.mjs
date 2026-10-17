@@ -2,7 +2,7 @@
 //
 // SEGURO POR PADRÃO: sem --apply só MOSTRA o que seria feito. Sem --overwrite só recria o que NÃO existe mais.
 //
-// Uso (de D:\KINGBT\projeto\scripts):
+// Uso (da pasta scripts; exige o login do gcloud — ver scripts/README.md):
 //   node restore-firestore.mjs <backup.json> --only <caminho>            -> simulação
 //   node restore-firestore.mjs <backup.json> --only <caminho> --apply    -> grava de verdade
 //
@@ -12,11 +12,9 @@
 //        groups/ID_DO_GRUPO                                 (o grupo inteiro, com tudo dentro)
 //   --overwrite       também sobrescreve documentos que ainda existem (padrão: pula)
 //   --list            só lista os caminhos do backup que começam com o prefixo (não consulta o banco)
-import { initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore, Timestamp, GeoPoint } from 'firebase-admin/firestore';
+import { Timestamp, GeoPoint } from 'firebase-admin/firestore';
 import { readFileSync, existsSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { initAdmin, PROJECT_ID } from './_admin.mjs';
 
 const args = process.argv.slice(2);
 const file = args.find(a => !a.startsWith('--') && args[args.indexOf(a) - 1] !== '--only');
@@ -34,12 +32,9 @@ console.log(`Backup de ${backup.meta?.createdAt} (${backup.meta?.projectId}): ${
 if (matches.length === 0) process.exit(0);
 if (listOnly) { matches.slice(0, 200).forEach(p => console.log(' ', p)); if (matches.length > 200) console.log(`  ... e mais ${matches.length - 200}`); process.exit(0); }
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const keyPath = process.env.KINGBT_KEY || resolve(__dirname, 'serviceAccountKey.json');
-const key = JSON.parse(readFileSync(keyPath, 'utf8'));
-if (backup.meta?.projectId && backup.meta.projectId !== key.project_id) { console.error(`Projeto diferente: backup ${backup.meta.projectId} x chave ${key.project_id}. Abortando.`); process.exit(1); }
-initializeApp({ credential: cert(key) });
-const db = getFirestore();
+if (backup.meta?.projectId && backup.meta.projectId !== PROJECT_ID) { console.error(`Projeto diferente: backup ${backup.meta.projectId} x projeto ${PROJECT_ID}. Abortando.`); process.exit(1); }
+const db = await initAdmin();
+if (apply) console.log(`ATENÇÃO: gravando no projeto ${PROJECT_ID} com o seu login do Google.`);
 
 function dec(v) {
   if (v === null || typeof v !== 'object') return v;
