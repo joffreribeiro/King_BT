@@ -61,3 +61,6 @@ functions/lib/
 
 # cache local do Firebase CLI (dry-run, deploy, emulador)
 .firebase/
+
+# binários de build gerados (APK/AAB e pasta release/ do Android Studio)
+/release/

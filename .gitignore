@@ -1,0 +1,3 @@
+# binários gerados não são versionados (o APK oficial sai na release do GitHub)
+*.apk
+*.aab
