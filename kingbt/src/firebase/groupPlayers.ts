@@ -134,7 +134,10 @@ export async function deleteGroup(groupId: string): Promise<void> {
   // código de entrada quebrado que este fix resolve.
   for (const uid of groupData?.members ?? []) {
     const userRef = doc(db, 'users', uid);
-    const userSnap = await getDoc(userRef);
+    // A regra só deixa o admin ler o doc de quem tem ESTE grupo como ativo; quem já trocou de grupo
+    // (ou nunca teve doc) responde permission-denied — nesse caso não há nada a desassociar.
+    let userSnap;
+    try { userSnap = await getDoc(userRef); } catch { continue; }
     if (userSnap.data()?.groupId === groupId) {
       b.update(userRef, { groupId: null, groupIds: arrayRemove(groupId) });
     }

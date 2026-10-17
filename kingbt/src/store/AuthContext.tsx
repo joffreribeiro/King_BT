@@ -491,7 +491,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await setDoc(doc(db, 'groups', group.id), { members: arrayRemove(uid) }, { merge: true });
     setGroup(prev => prev ? { ...prev, members: prev.members?.filter(m => m !== uid) } : prev);
     // Desassocia o grupo do usuário removido — senão ele continua vendo o grupo
-    const userSnap = await getDoc(doc(db, 'users', uid));
+    // A regra só deixa o admin ler o doc de quem tem ESTE grupo como ativo; senão responde
+    // permission-denied e não há nada a desassociar.
+    let userSnap;
+    try { userSnap = await getDoc(doc(db, 'users', uid)); } catch { return; }
     if (userSnap.data()?.groupId === group.id) {
       await setDoc(doc(db, 'users', uid), { groupId: null }, { merge: true });
     }

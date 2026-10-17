@@ -28,8 +28,16 @@ service cloud.firestore {
     // Mesmo e-mail tratado como super admin no cliente (SUPER_ADMIN_EMAILS em
     // AuthContext) e na regra de /config abaixo — super admin não precisa
     // estar na lista `admins` de um grupo específico para gerenciá-lo.
+    //
+    // O e-mail precisa estar VERIFICADO (`email_verified`, que o token do
+    // Firebase traz junto de `email`). Sem isso, quem conseguisse registrar uma
+    // conta com este endereço — um provedor que não confirma o e-mail, ou a
+    // opção "uma conta por e-mail" desligada no Authentication — virava dono de
+    // todos os grupos e de /config. A regra de /config usa esta mesma função.
     function isSuperAdmin() {
-      return signedIn() && request.auth.token.email == 'joffre.ribeiro@gmail.com';
+      return signedIn()
+        && request.auth.token.email == 'joffre.ribeiro@gmail.com'
+        && request.auth.token.email_verified == true;
     }
 
     // Admin do grupo OU super admin — o portão para excluir/corrigir/editar
@@ -53,9 +61,17 @@ service cloud.firestore {
 
     // ── Usuários ─────────────────────────────────────────────────────────
     match /users/{uid} {
-      // Get por uid específico — usado por removeFromGroup (admin lendo o
-      // doc de um membro que está saindo) e pelo próprio dono do doc.
-      allow get: if signedIn();
+      // Get por uid específico. O doc guarda nome, e-mail e dados do aparelho,
+      // então só leem: o próprio dono; o super admin; e o admin do grupo ATIVO
+      // da pessoa (removeFromGroup e deleteGroup leem o groupId de quem sai).
+      // Antes valia para qualquer conta logada: com o uid de alguém (visível em
+      // grupo público) dava para baixar o e-mail dele. Quem já trocou de grupo
+      // ativo fica fora do alcance do admin antigo — o cliente trata o erro.
+      allow get: if signedIn() && (
+        request.auth.uid == uid
+        || isSuperAdmin()
+        || (resource.data.get('groupId', null) != null && isGroupAdmin(resource.data.groupId))
+      );
       // NUNCA list: getDocs(collection('users')) sem filtro baixava nome e
       // e-mail de TODOS os usuários do app para qualquer conta logada — era
       // a implementação antiga de searchUsers (tela "adicionar membro
@@ -271,11 +287,17 @@ service cloud.firestore {
         // barrados no cliente (ADMIN_ONLY em CompetitionsContext.tsx) — quem
         // escrever direto no Firestore, ignorando o app, ainda consegue.
         // Fechar isso de verdade pede validação no servidor (Cloud Function).
+        //
+        // Endurecimento parcial (A3): quem não é admin também não muda os campos de
+        // identidade da competição — formato, unidade, gênero e criador — e o `status`
+        // tem de continuar sendo um dos quatro valores válidos.
         allow update: if isMember(gid) && (
           canManageComp(gid)
           || (
             request.resource.data.matches.size() >= resource.data.matches.size()
             && request.resource.data.name == resource.data.name
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['format', 'unit', 'gender', 'createdBy'])
+            && request.resource.data.status in ['upcoming', 'setup', 'active', 'done']
           )
         );
 
@@ -293,7 +315,11 @@ service cloud.firestore {
         // endurecimento de segurança, só performance.
         match /liveMatches/{matchId} {
           allow read: if isMember(gid) || (signedIn() && isPublic(gid));
-          allow write: if isMember(gid);
+          // Só os dois campos que o app grava (A3): sem isso o doc aceitava qualquer
+          // conteúdo, de qualquer tamanho.
+          allow create, update: if isMember(gid)
+            && request.resource.data.keys().hasOnly(['liveScore', 'draftSets']);
+          allow delete: if isMember(gid);
         }
       }
 
@@ -321,6 +347,10 @@ service cloud.firestore {
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments'])
             && request.resource.data.comments.size() == resource.data.comments.size() + 1
             && request.resource.data.comments[request.resource.data.comments.size() - 1].uid == request.auth.uid
+            && request.resource.data.comments[request.resource.data.comments.size() - 1].text is string
+            && request.resource.data.comments[request.resource.data.comments.size() - 1].text.size() <= 1000
+            && request.resource.data.comments[request.resource.data.comments.size() - 1].name is string
+            && request.resource.data.comments[request.resource.data.comments.size() - 1].name.size() <= 80
           )
           || (
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments'])
@@ -379,10 +409,11 @@ service cloud.firestore {
     }
 
     // ── Config global (fórmula de pontuação etc.) ────────────────────────
-    // Leitura por qualquer autenticado; escrita só pelo Super Admin.
+    // Leitura por qualquer autenticado; escrita só pelo Super Admin (e-mail
+    // verificado — ver isSuperAdmin no topo).
     match /config/{doc} {
       allow read: if request.auth != null;
-      allow write: if request.auth.token.email == 'joffre.ribeiro@gmail.com';
+      allow write: if isSuperAdmin();
     }
 
     // Bloqueia qualquer outro caminho

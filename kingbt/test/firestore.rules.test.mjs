@@ -86,8 +86,12 @@ async function seed() {
   });
 }
 
-function ctxFor(uid, email) {
-  return testEnv.authenticatedContext(uid, email ? { email } : undefined);
+// `verificado` só vale quando há e-mail: true (padrão — o token do Firebase de uma conta com e-mail
+// confirmado), false (e-mail não confirmado) ou 'ausente' (token sem o campo email_verified).
+function ctxFor(uid, email, verificado = true) {
+  if (!email) return testEnv.authenticatedContext(uid);
+  const claims = verificado === 'ausente' ? { email } : { email, email_verified: verificado };
+  return testEnv.authenticatedContext(uid, claims);
 }
 
 async function run() {
@@ -681,6 +685,23 @@ async function run() {
     'succeed',
   );
 
+  // ── A2: GET de /users só pelo dono, super admin e admin do grupo ativo ──
+  await seed(); await seedUsers();
+  await check('A2: outro MEMBRO comum não lê o doc (e-mail) de um colega',
+    getDoc(doc(ctxFor(MEMBER2_UID).firestore(), 'users', MEMBER_UID)), 'fail');
+  await check('A2: conta de FORA não lê o doc de um membro',
+    getDoc(doc(ctxFor(OUTSIDER_UID).firestore(), 'users', MEMBER_UID)), 'fail');
+  await check('A2: admin de OUTRO grupo não lê o doc de quem está no grupo1',
+    getDoc(doc(ctxFor(OUTSIDER_UID).firestore(), 'users', MEMBER_UID)), 'fail');
+  await check('A2: admin do grupo ativo lê o doc do membro (removeFromGroup)',
+    getDoc(doc(ctxFor(ADMIN_UID).firestore(), 'users', MEMBER_UID)), 'succeed');
+  await check('A2: super admin verificado lê o doc de qualquer um',
+    getDoc(doc(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, true).firestore(), 'users', OUTSIDER_UID)), 'succeed');
+  await check('A2: admin não lê o doc de quem não tem grupo ativo (groupId nulo)',
+    getDoc(doc(ctxFor(ADMIN_UID).firestore(), 'users', OUTSIDER_UID)), 'fail');
+  await check('A2: admin lendo doc que não existe é negado (o cliente trata)',
+    getDoc(doc(ctxFor(ADMIN_UID).firestore(), 'users', 'inexistente')), 'fail');
+
   // ── Avaliação da comunidade (players/{id}/ratings/{uid}) ───────────────
   await seed();
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
@@ -779,6 +800,87 @@ async function run() {
   await seedCh();
   await check('O desafiado não apaga o desafio', deleteDoc(chRef(MEMBER2_UID, 'c1')), 'fail');
   await check('O desafiante apaga o próprio desafio', deleteDoc(chRef(MEMBER_UID, 'c1')), 'succeed');
+
+  // ── A1: super admin exige e-mail VERIFICADO ────────────────────────────
+  // Antes bastava o token ter o e-mail certo. Sem `email_verified`, quem registrasse uma conta com
+  // este endereço virava dono de todos os grupos e de /config.
+  {
+    const OUTRO_EMAIL = 'outra.pessoa@gmail.com';
+    const cfgRef = (db) => doc(db, 'config', 'appVersion');
+    const grupoRef = (db) => doc(db, 'groups', GID);
+    const compRef = (db) => doc(db, 'groups', GID, 'competitions', 'comp1');
+
+    await seed();
+    await check('A1: SUPER ADMIN com e-mail verificado grava em /config',
+      setDoc(cfgRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, true).firestore()), { minBuildTime: 1 }), 'succeed');
+    await check('A1: o mesmo e-mail SEM verificação não grava em /config',
+      setDoc(cfgRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, false).firestore()), { minBuildTime: 2 }), 'fail');
+    await check('A1: o mesmo e-mail com token SEM o campo email_verified não grava em /config',
+      setDoc(cfgRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, 'ausente').firestore()), { minBuildTime: 3 }), 'fail');
+    await check('A1: e-mail verificado de OUTRA pessoa não grava em /config',
+      setDoc(cfgRef(ctxFor('outro-uid', OUTRO_EMAIL, true).firestore()), { minBuildTime: 4 }), 'fail');
+    await check('A1: membro comum (sem e-mail) não grava em /config',
+      setDoc(cfgRef(ctxFor(MEMBER_UID).firestore()), { minBuildTime: 5 }), 'fail');
+    await check('A1: /config continua legível por qualquer conta logada',
+      getDoc(cfgRef(ctxFor(MEMBER_UID).firestore())), 'succeed');
+
+    await seed();
+    await check('A1: SUPER ADMIN verificado edita um grupo em que não é admin',
+      updateDoc(grupoRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, true).firestore()), { name: 'Nome pelo super admin' }), 'succeed');
+    await seed();
+    await check('A1: o mesmo e-mail SEM verificação não edita o grupo',
+      updateDoc(grupoRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, false).firestore()), { name: 'Nome invasor' }), 'fail');
+    await check('A1: o mesmo e-mail SEM verificação não exclui a competição',
+      deleteDoc(compRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, false).firestore())), 'fail');
+    await check('A1: o mesmo e-mail com token SEM o campo email_verified não exclui a competição',
+      deleteDoc(compRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, 'ausente').firestore())), 'fail');
+    await check('A1: e-mail verificado de OUTRA pessoa não exclui a competição',
+      deleteDoc(compRef(ctxFor('outro-uid', OUTRO_EMAIL, true).firestore())), 'fail');
+    await check('A1: SUPER ADMIN verificado exclui a competição',
+      deleteDoc(compRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, true).firestore())), 'succeed');
+  }
+
+  // ── A3 (plano A): endurecimento parcial de competição, liveMatches e comentários ──
+  {
+    const compRef = (uid) => doc(ctxFor(uid).firestore(), 'groups', GID, 'competitions', 'comp1');
+    await seed();
+    await check('A3: membro NÃO troca o formato da competição',
+      updateDoc(compRef(MEMBER_UID), { format: 'super8' }), 'fail');
+    await check('A3: membro NÃO passa a ser "criador" da competição',
+      updateDoc(compRef(MEMBER_UID), { createdBy: MEMBER_UID }), 'fail');
+    await check('A3: membro NÃO acrescenta unit/gender depois de criada',
+      updateDoc(compRef(MEMBER_UID), { unit: 'duplas' }), 'fail');
+    await check('A3: membro NÃO grava um status inventado',
+      updateDoc(compRef(MEMBER_UID), { status: 'hackeada' }), 'fail');
+    await check('A3: membro encerra a competição (status válido) — uso normal',
+      updateDoc(compRef(MEMBER_UID), { status: 'done' }), 'succeed');
+    await seed();
+    await check('A3: ADMIN troca o formato (continua podendo)',
+      updateDoc(compRef(ADMIN_UID), { format: 'super8' }), 'succeed');
+
+    const liveRef = (uid) => doc(ctxFor(uid).firestore(), 'groups', GID, 'competitions', 'comp1', 'liveMatches', 'm1');
+    await seed();
+    await check('A3: membro grava o placar ao vivo (liveScore)',
+      setDoc(liveRef(MEMBER_UID), { liveScore: { a: 1, b: 0 } }, { merge: true }), 'succeed');
+    await check('A3: membro grava rascunho (draftSets)',
+      setDoc(liveRef(MEMBER_UID), { draftSets: [] }, { merge: true }), 'succeed');
+    await check('A3: liveMatches rejeita campo estranho',
+      setDoc(liveRef(MEMBER_UID), { lixo: 'x'.repeat(100) }, { merge: true }), 'fail');
+    await check('A3: membro apaga o doc ao vivo (fim da partida)',
+      deleteDoc(liveRef(MEMBER_UID)), 'succeed');
+    await check('A3: quem é de fora não grava em liveMatches',
+      setDoc(liveRef(OUTSIDER_UID), { liveScore: { a: 9, b: 9 } }, { merge: true }), 'fail');
+
+    const postRef = (uid) => doc(ctxFor(uid).firestore(), 'groups', GID, 'feed', 'post1');
+    const antigos = [{ uid: MEMBER_UID, name: 'Membro Um', text: 'Boa partida!', ts: Timestamp.now() }];
+    const comentario = (text, name = 'Membro Dois') => ({ comments: [...antigos, { uid: MEMBER2_UID, name, text, ts: Timestamp.now() }] });
+    await seed();
+    await check('A3: comentário normal passa', updateDoc(postRef(MEMBER2_UID), comentario('Boa!')), 'succeed');
+    await seed();
+    await check('A3: comentário gigante (>1000) é recusado', updateDoc(postRef(MEMBER2_UID), comentario('x'.repeat(1001))), 'fail');
+    await seed();
+    await check('A3: nome gigante no comentário é recusado', updateDoc(postRef(MEMBER2_UID), comentario('oi', 'n'.repeat(81))), 'fail');
+  }
 
   await testEnv.cleanup();
 
