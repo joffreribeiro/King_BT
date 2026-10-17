@@ -1,6 +1,7 @@
 import type { RankedPlayer } from '@/logic/scoring';
 import type { PlayerInfo } from '@/logic/types';
 import { formatRating, formatGA } from '@/logic/format';
+import { esc, safeColor } from '@/logic/html';
 
 export function generateRankingHtml(
   ranking: RankedPlayer[],
@@ -31,8 +32,8 @@ export function generateRankingHtml(
         <td style="color:${medalColor}; font-weight:800; font-size:15px; padding:10px 8px; text-align:center;">${i + 1}°</td>
         <td style="padding:10px 8px;">
           <div style="display:flex; align-items:center; gap:8px;">
-            <div style="width:28px;height:28px;border-radius:50%;background:${pl?.color ?? '#555'};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:#000;">${pl?.name?.slice(0, 2).toUpperCase()}</div>
-            <span style="font-weight:700;font-size:14px;color:${i < 3 ? medalColor : '#fff'};">${pl?.name ?? r.id}</span>
+            <div style="width:28px;height:28px;border-radius:50%;background:${safeColor(pl?.color)};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;color:#000;">${esc(pl?.name?.slice(0, 2).toUpperCase())}</div>
+            <span style="font-weight:700;font-size:14px;color:${i < 3 ? medalColor : '#fff'};">${esc(pl?.name ?? r.id)}</span>
           </div>
         </td>
         <td style="text-align:center;font-size:14px;font-weight:600;padding:10px 4px;">${r.wins}</td>
@@ -60,13 +61,13 @@ export function generateRankingHtml(
   const destaquesHtml = destaques.map(d => `
     <div style="margin-bottom:10px;">
       <div style="font-size:10px;color:#F3C544;font-weight:800;letter-spacing:1px;">${d.titulo}</div>
-      <div style="font-size:14px;font-weight:700;color:#fff;">${d.nome}</div>
+      <div style="font-size:14px;font-weight:700;color:#fff;">${esc(d.nome)}</div>
     </div>
   `).join('');
 
   const elencoHtml = players.map(p => `
     <div style="font-size:12px;color:#ddd;margin-bottom:4px;">
-      <span style="color:${p.color};font-weight:700;">●</span> ${p.name}
+      <span style="color:${safeColor(p.color)};font-weight:700;">●</span> ${esc(p.name)}
     </div>
   `).join('');
 
@@ -107,7 +108,7 @@ export function generateRankingHtml(
     <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(243,197,68,0.3);border-radius:8px;padding:12px;display:grid;gap:8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:10px;color:#888;letter-spacing:1px;">📅 ATUALIZADO EM</span>
-        <span style="font-size:12px;font-weight:700;color:#F3C544;">${date}</span>
+        <span style="font-size:12px;font-weight:700;color:#F3C544;">${esc(date)}</span>
       </div>
       <div style="height:1px;background:rgba(255,255,255,0.08);"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -122,7 +123,7 @@ export function generateRankingHtml(
       <div style="height:1px;background:rgba(255,255,255,0.08);"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:10px;color:#888;letter-spacing:1px;">📍 LOCAL</span>
-        <span style="font-size:11px;font-weight:600;color:#fff;text-align:right;max-width:150px;">${location}</span>
+        <span style="font-size:11px;font-weight:600;color:#fff;text-align:right;max-width:150px;">${esc(location)}</span>
       </div>
     </div>
   </div>
@@ -134,8 +135,8 @@ export function generateRankingHtml(
   <!-- 2° lugar -->
   <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding-top:40px;">
     <div style="font-size:16px;font-weight:800;color:#C7D4E0;margin-bottom:6px;">2°</div>
-    <div style="width:60px;height:60px;border-radius:50%;background:${getPlayer(second?.id)?.color ?? '#555'};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#000;border:3px solid #C7D4E0;">${getPlayer(second?.id)?.name?.slice(0,2).toUpperCase()}</div>
-    <div style="font-size:16px;font-weight:800;color:#C7D4E0;margin-top:8px;text-transform:uppercase;">${getPlayer(second?.id)?.name?.toUpperCase()}</div>
+    <div style="width:60px;height:60px;border-radius:50%;background:${safeColor(getPlayer(second?.id)?.color, '#555')};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#000;border:3px solid #C7D4E0;">${esc(getPlayer(second?.id)?.name?.slice(0, 2).toUpperCase())}</div>
+    <div style="font-size:16px;font-weight:800;color:#C7D4E0;margin-top:8px;text-transform:uppercase;">${esc(getPlayer(second?.id)?.name?.toUpperCase())}</div>
     <div style="font-size:24px;font-weight:900;color:#C7D4E0;margin-bottom:8px;">${second ? formatRating(second.points) : ''}</div>
     <div style="width:100%;height:90px;background:rgba(199,212,224,0.1);border-top:3px solid #C7D4E0;display:flex;align-items:center;justify-content:center;">
       <span style="font-size:36px;font-weight:900;color:#C7D4E0;">2</span>
@@ -145,8 +146,8 @@ export function generateRankingHtml(
   <!-- 1° lugar -->
   <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding-top:0;">
     <div style="font-size:20px;font-weight:900;color:#F3C544;margin-bottom:6px;">👑 1°</div>
-    <div style="width:80px;height:80px;border-radius:50%;background:${getPlayer(first?.id)?.color ?? '#F3C544'};display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;color:#000;border:4px solid #F3C544;box-shadow:0 0 20px rgba(243,197,68,0.5);">${getPlayer(first?.id)?.name?.slice(0,2).toUpperCase()}</div>
-    <div style="font-size:22px;font-weight:900;color:#F3C544;margin-top:8px;text-transform:uppercase;letter-spacing:1px;">${getPlayer(first?.id)?.name?.toUpperCase()}</div>
+    <div style="width:80px;height:80px;border-radius:50%;background:${safeColor(getPlayer(first?.id)?.color, '#F3C544')};display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:900;color:#000;border:4px solid #F3C544;box-shadow:0 0 20px rgba(243,197,68,0.5);">${esc(getPlayer(first?.id)?.name?.slice(0, 2).toUpperCase())}</div>
+    <div style="font-size:22px;font-weight:900;color:#F3C544;margin-top:8px;text-transform:uppercase;letter-spacing:1px;">${esc(getPlayer(first?.id)?.name?.toUpperCase())}</div>
     <div style="font-size:36px;font-weight:900;color:#F3C544;margin-bottom:8px;text-shadow:0 0 20px rgba(243,197,68,0.5);">${first ? formatRating(first.points) : ''}</div>
     <div style="width:100%;height:130px;background:rgba(243,197,68,0.1);border-top:4px solid #F3C544;display:flex;align-items:center;justify-content:center;box-shadow:0 -10px 30px rgba(243,197,68,0.2);">
       <span style="font-size:52px;font-weight:900;color:#F3C544;">1</span>
@@ -156,8 +157,8 @@ export function generateRankingHtml(
   <!-- 3° lugar -->
   <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding-top:60px;">
     <div style="font-size:16px;font-weight:800;color:#D89A6A;margin-bottom:6px;">3°</div>
-    <div style="width:52px;height:52px;border-radius:50%;background:${getPlayer(third?.id)?.color ?? '#555'};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#000;border:3px solid #D89A6A;">${getPlayer(third?.id)?.name?.slice(0,2).toUpperCase()}</div>
-    <div style="font-size:14px;font-weight:800;color:#D89A6A;margin-top:8px;text-transform:uppercase;">${getPlayer(third?.id)?.name?.toUpperCase()}</div>
+    <div style="width:52px;height:52px;border-radius:50%;background:${safeColor(getPlayer(third?.id)?.color, '#555')};display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#000;border:3px solid #D89A6A;">${esc(getPlayer(third?.id)?.name?.slice(0, 2).toUpperCase())}</div>
+    <div style="font-size:14px;font-weight:800;color:#D89A6A;margin-top:8px;text-transform:uppercase;">${esc(getPlayer(third?.id)?.name?.toUpperCase())}</div>
     <div style="font-size:22px;font-weight:900;color:#D89A6A;margin-bottom:8px;">${third ? formatRating(third.points) : ''}</div>
     <div style="width:100%;height:70px;background:rgba(216,154,106,0.1);border-top:3px solid #D89A6A;display:flex;align-items:center;justify-content:center;">
       <span style="font-size:30px;font-weight:900;color:#D89A6A;">3</span>
@@ -215,7 +216,7 @@ export function generateRankingHtml(
       <div>= GAMES PRÓ ÷ GAMES CONTRA</div>
     </div>
     <div style="margin-top:10px;font-size:10px;color:#888;text-align:center;">
-      <div style="color:#F3C544;font-weight:700;">EXEMPLO: ${getPlayer(first?.id)?.name?.toUpperCase()}</div>
+      <div style="color:#F3C544;font-weight:700;">EXEMPLO: ${esc(getPlayer(first?.id)?.name?.toUpperCase())}</div>
       <div>(${first?.wins}×3) + (${first?.played}×0,5) + (${first ? formatGA(first.ga) : ''}×2)</div>
       <div style="color:#F3C544;font-weight:800;font-size:13px;margin-top:4px;">= ${first ? formatRating(first.points) : ''} PONTOS KING BT</div>
     </div>
@@ -239,7 +240,7 @@ export function generateRankingHtml(
     <div style="font-size:9px;color:#888;letter-spacing:1px;">TREINE COM PROPÓSITO · JOGUE COM PAIXÃO</div>
   </div>
   <div style="text-align:right;font-size:10px;color:#F3C544;font-weight:700;">
-    ${groupName} · ${season}
+    ${esc(groupName)} · ${esc(season)}
   </div>
 </div>
 

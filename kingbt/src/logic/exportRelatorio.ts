@@ -9,6 +9,7 @@ import type { ResumoAtleta } from './btAtleta';
 import type { EvolucaoAtleta, Sugestao } from './btAtletaAnalise';
 import type { BtTreino, BtAnaliseTreino } from './btTreino';
 import { TREINO_GOLPES } from './btTreino';
+import { esc } from './html';
 
 const BASE_STYLE = `
   body { font-family: -apple-system, Helvetica, Arial, sans-serif; background:#0F1512; color:#EDEFEA; padding: 24px; }
@@ -31,9 +32,7 @@ function html(title: string, body: string): string {
 }
 
 /** Nomes de jogador entram direto no HTML do PDF: escapa para um nome com < ou & não quebrar (nem injetar) o documento. */
-export function esc(t: string | number): string {
-  return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+export { esc };
 
 const nomeDaDupla = (a: BtAnalise, ids: string[]) => ids.filter(Boolean).map(id => a.nomes[id] ?? id).join(' / ');
 
@@ -162,11 +161,11 @@ export function gerarRelatorioTreinoHtml(treino: BtTreino, analise: BtAnaliseTre
     .map(({ g, c }) => {
       const total = c!.bom + c!.ruim;
       const pct = Math.round((c!.bom / total) * 100);
-      return `<tr><td>${g.label}</td><td class="num">${c!.bom}</td><td class="num">${c!.ruim}</td><td class="num">${pct}%</td></tr>`;
+      return `<tr><td>${esc(g.label)}</td><td class="num">${c!.bom}</td><td class="num">${c!.ruim}</td><td class="num">${pct}%</td></tr>`;
     }).join('');
 
   const body = `
-    <div class="sub">${nomeJogador} — ${treino.titulo} — ${new Date(treino.criadoEm).toLocaleDateString('pt-BR')}</div>
+    <div class="sub">${esc(nomeJogador)} — ${esc(treino.titulo)} — ${new Date(treino.criadoEm).toLocaleDateString('pt-BR')}</div>
 
     <h2>Resumo</h2>
     <table>
