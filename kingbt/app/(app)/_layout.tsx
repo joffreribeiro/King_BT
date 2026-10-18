@@ -147,6 +147,7 @@ function DrawerMenu({ visible, onClose }: { visible: boolean; onClose: () => voi
 }
 
 // ── FAB ───────────────────────────────────────────────────────────────────────
+const FAB_ROUTES = ['/', '/home', '/arena'];
 function FABMenu({ insetBottom, wide = false }: { insetBottom: number; wide?: boolean }) {
   const { colors: Colors } = useTheme();
   const fab = useMemo(() => makeFabStyles(Colors), [Colors]);
@@ -174,6 +175,10 @@ function FABMenu({ insetBottom, wide = false }: { insetBottom: number; wide?: bo
   const pathname = usePathname();
   useEffect(() => { setOpen(false); }, [pathname]);
 
+  // Criar competição ou jogo só faz sentido no Início e na Arena; nas outras telas (Perfil, Ranking, Notificações,
+  // Configurações...) o botão só cobria o conteúdo.
+  const showFab = FAB_ROUTES.includes(pathname);
+
   function action(path: string) {
     setOpen(false);
     setTimeout(() => router.push(path as any), 200);
@@ -194,6 +199,8 @@ function FABMenu({ insetBottom, wide = false }: { insetBottom: number; wide?: bo
     { icon: 'ranking',      label: 'Marcação ponto a ponto',  path: '/court' },
   ];
 
+  if (!showFab) return null;
+
   return (
     <>
       {/* Overlay para fechar — só quando aberto */}
@@ -205,7 +212,7 @@ function FABMenu({ insetBottom, wide = false }: { insetBottom: number; wide?: bo
       {open && FAB_ITEMS.map((item, i) => (
         <Animated.View key={item.path} style={[
           fab.itemAbsolute,
-          { bottom: fabBottom + 68 + i * 58, right: 20 },
+          { bottom: fabBottom + 60 + i * 58, right: 20 },
           makeItemStyle(
             i === 0 ? item1Anim : i === 1 ? item2Anim : item3Anim,
             i === 0 ? 20 : i === 1 ? 40 : 60
@@ -581,13 +588,13 @@ const makeDrStyles = (Colors: ThemeColors) => StyleSheet.create({
 const makeFabStyles = (Colors: ThemeColors) => StyleSheet.create({
   itemAbsolute: { position: 'absolute', alignItems: 'flex-end', zIndex: 30 },
   btn: {
-    width: 56, height: 56, borderRadius: 28,
+    width: 48, height: 48, borderRadius: 24,
     backgroundColor: Colors.gold,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: Colors.gold, shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4, shadowRadius: 16, elevation: 12,
   },
-  btnIcon: { fontFamily: FontFamily.titleBold, fontSize: 28, color: '#000', lineHeight: 34 },
+  btnIcon: { fontFamily: FontFamily.titleBold, fontSize: 24, color: '#000', lineHeight: 30 },
   item: { marginBottom: 10, alignItems: 'flex-end' },
   itemBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
