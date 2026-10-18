@@ -55,8 +55,36 @@ service cloud.firestore {
 
     // Visitante de grupo público solicitando/cancelando inscrição numa
     // competição: só pode mexer no campo joinRequests, nada mais.
+    //
+    // Além de mexer só nesse campo, o visitante só pode (a) ACRESCENTAR um único
+    // pedido, com o PRÓPRIO uid e só os campos conhecidos, ou (b) REMOVER o próprio
+    // pedido. Antes bastava o campo ser o mesmo: dava para apagar os pedidos dos
+    // outros ou inserir um pedido em nome de terceiros (que o admin aprovaria
+    // achando que a pessoa pediu — approveJoinRequest a torna membro).
     function onlyChangesJoinRequests() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['joinRequests']);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['joinRequests'])
+        && (visitorAddsOwnRequest() || visitorRemovesOwnRequest());
+    }
+
+    function visitorAddsOwnRequest() {
+      let antes = resource.data.get('joinRequests', []);
+      let depois = request.resource.data.get('joinRequests', []);
+      let novos = depois.removeAll(antes);
+      return depois.size() == antes.size() + 1
+        && novos.size() == 1
+        && novos[0].keys().hasOnly(['uid', 'name', 'requestedAt'])
+        && novos[0].uid == request.auth.uid
+        && novos[0].name is string && novos[0].name.size() <= 80
+        && novos[0].requestedAt is string;
+    }
+
+    function visitorRemovesOwnRequest() {
+      let antes = resource.data.get('joinRequests', []);
+      let depois = request.resource.data.get('joinRequests', []);
+      let removidos = antes.removeAll(depois);
+      return antes.size() == depois.size() + 1
+        && removidos.size() == 1
+        && removidos[0].uid == request.auth.uid;
     }
 
     // ── Usuários ─────────────────────────────────────────────────────────

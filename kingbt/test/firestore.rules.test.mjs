@@ -17,7 +17,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
 import {
-  doc, getDoc, getDocs, collection, query, where, setDoc, updateDoc, deleteDoc, arrayUnion, Timestamp,
+  doc, getDoc, getDocs, collection, query, where, setDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove, writeBatch, Timestamp,
 } from 'firebase/firestore';
 
 // Docs de teste para /groupCodes que precisam ser recriados do zero por não
@@ -838,6 +838,56 @@ async function run() {
       deleteDoc(compRef(ctxFor('outro-uid', OUTRO_EMAIL, true).firestore())), 'fail');
     await check('A1: SUPER ADMIN verificado exclui a competição',
       deleteDoc(compRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, true).firestore())), 'succeed');
+  }
+
+  // ── M1: visitante de grupo público só mexe no PRÓPRIO pedido de inscrição ──
+  {
+    const PUB = 'grupopub';
+    const VISITOR = OUTSIDER_UID;
+    const OTHER_UID = 'outro-visitante';
+    const meu = { uid: VISITOR, name: 'Visitante', requestedAt: '2026-10-17T10:00:00.000Z' };
+    const alheio = { uid: OTHER_UID, name: 'Outro', requestedAt: '2026-10-17T09:00:00.000Z' };
+    const seedPub = async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        const db = ctx.firestore();
+        await setDoc(doc(db, 'groups', PUB), { name: 'Aberto', code: 'ABERTO2', members: [ADMIN_UID], admins: [ADMIN_UID], visibility: 'publico' });
+        await setDoc(doc(db, 'groups', PUB, 'competitions', 'c1'), { name: 'Aberta', format: 'avulso', status: 'upcoming', matches: [], joinRequests: [alheio] });
+      });
+    };
+    const cRef = (uid) => doc(ctxFor(uid).firestore(), 'groups', PUB, 'competitions', 'c1');
+
+    await seedPub();
+    await check('M1: visitante acrescenta o PRÓPRIO pedido', updateDoc(cRef(VISITOR), { joinRequests: arrayUnion(meu) }), 'succeed');
+    await seedPub();
+    await check('M1: visitante NÃO acrescenta pedido em nome de outra pessoa',
+      updateDoc(cRef(VISITOR), { joinRequests: arrayUnion({ uid: 'vitima', name: 'Vítima', requestedAt: 'x' }) }), 'fail');
+    await check('M1: visitante NÃO acrescenta pedido com campo extra',
+      updateDoc(cRef(VISITOR), { joinRequests: arrayUnion({ ...meu, extra: 'lixo' }) }), 'fail');
+    await check('M1: visitante NÃO acrescenta dois pedidos de uma vez',
+      updateDoc(cRef(VISITOR), { joinRequests: [alheio, meu, { ...meu, requestedAt: 'y' }] }), 'fail');
+    await check('M1: visitante NÃO apaga o pedido de OUTRA pessoa',
+      updateDoc(cRef(VISITOR), { joinRequests: arrayRemove(alheio) }), 'fail');
+    await check('M1: visitante NÃO zera a lista inteira', updateDoc(cRef(VISITOR), { joinRequests: [] }), 'fail');
+    await check('M1: visitante NÃO troca o pedido alheio por outro (mesmo tamanho)',
+      updateDoc(cRef(VISITOR), { joinRequests: [meu] }), 'fail');
+    await check('M1: visitante NÃO mexe em outro campo junto', updateDoc(cRef(VISITOR), { joinRequests: arrayUnion(meu), status: 'done' }), 'fail');
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'groups', PUB, 'competitions', 'c1'), { name: 'Aberta', format: 'avulso', status: 'upcoming', matches: [], joinRequests: [alheio, meu] });
+    });
+    await check('M1: visitante remove o PRÓPRIO pedido', updateDoc(cRef(VISITOR), { joinRequests: arrayRemove(meu) }), 'succeed');
+    await seedPub();
+    await check('M1: admin (membro) recusa o pedido de outra pessoa', updateDoc(cRef(ADMIN_UID), { joinRequests: arrayRemove(alheio) }), 'succeed');
+
+    // M6: aprovar um pedido vira UM lote atômico (jogador + membro + inscrição + remoção do pedido)
+    await seedPub();
+    {
+      const adb = ctxFor(ADMIN_UID).firestore();
+      const b = writeBatch(adb);
+      b.set(doc(adb, 'groups', PUB, 'players', OTHER_UID), { name: 'Outro', uid: OTHER_UID, color: '#2DD4BF', guest: false });
+      b.update(doc(adb, 'groups', PUB), { members: arrayUnion(OTHER_UID) });
+      b.update(doc(adb, 'groups', PUB, 'competitions', 'c1'), { confirmedIds: arrayUnion(OTHER_UID), joinRequests: arrayRemove(alheio) });
+      await check('M6: lote atômico de aprovação (admin) é aceito pelas regras', b.commit(), 'succeed');
+    }
   }
 
   // ── A3 (plano A): endurecimento parcial de competição, liveMatches e comentários ──
