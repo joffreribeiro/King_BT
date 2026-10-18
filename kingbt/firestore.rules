@@ -101,10 +101,9 @@ service cloud.firestore {
         || (resource.data.get('groupId', null) != null && isGroupAdmin(resource.data.groupId))
       );
       // NUNCA list: getDocs(collection('users')) sem filtro baixava nome e
-      // e-mail de TODOS os usuários do app para qualquer conta logada — era
-      // a implementação antiga de searchUsers (tela "adicionar membro
-      // existente"). Essa busca agora roda na Cloud Function searchUsers
-      // (functions/src/index.ts), com Admin SDK, sem passar pelas regras.
+      // e-mail de TODOS os usuários do app para qualquer conta logada. O app não
+      // tem mais busca de usuários (a tela "membro existente" foi removida; a
+      // entrada em grupo é por código de convite com aprovação do admin).
       allow list: if false;
       // Escrita: só o próprio usuário...
       allow write: if signedIn() && request.auth.uid == uid;
@@ -122,11 +121,9 @@ service cloud.firestore {
         && (isGroupAdmin(resource.data.groupId) || isSuperAdmin());
     }
 
-    // Contador de rate limit da Cloud Function searchUsers
-    // (functions/src/index.ts) — só o Admin SDK toca aqui, que ignora estas
-    // regras de qualquer forma. Bloqueio explícito por defesa em
-    // profundidade: o cliente nunca tem motivo legítimo pra ler ou escrever
-    // isto diretamente.
+    // Coleção reservada (era o contador de limite da antiga Cloud Function
+    // searchUsers, já removida): o cliente nunca tem motivo para ler ou
+    // escrever aqui. Bloqueio explícito por defesa em profundidade.
     match /rateLimits/{doc} {
       allow read, write: if false;
     }

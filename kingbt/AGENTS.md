@@ -108,59 +108,9 @@ npx firebase-tools emulators:exec --only firestore --project kingbt-concurrency-
 `npm run test:rules` sozinho ainda falha, porque não exporta nada disso.
 `--dry-run` continua útil, mas valida só sintaxe — não substitui a suíte.
 
-## Cloud Functions (`functions/`)
+## Cloud Functions
 
-Criada em 20/09/2026, com duas funções:
-
-- `searchUsers` — a única maneira de buscar usuário por nome/e-mail parcial
-  sem violar a regra `allow list: if false` em `/users` (o Firestore não
-  consegue filtrar uma `list` por conteúdo de substring; a busca por nome
-  parcial só é segura rodando no servidor com Admin SDK, fora do alcance das
-  regras).
-- `getLatestCommitSha` — checagem de atualização do app (UpdateContext.tsx)
-  contra a API do GitHub, autenticada com um token guardado como secret. Sem
-  token, o limite público é 60 req/hora por IP, e numa rede compartilhada
-  (clube, quadra) isso esgota rápido. Precisa do secret `GITHUB_TOKEN`
-  configurado (ver abaixo) — sem ele, a checagem de atualização falha em
-  silêncio (o `catch` de UpdateContext.tsx engole o erro de propósito, pra
-  não incomodar quem só quer marcar um jogo).
-
-Pasta própria, com seu próprio `package.json`/`node_modules`/`tsconfig.json`
-— não faz parte do bundle do app, nem do `npm install` da raiz.
-
-```bash
-cd functions
-npm install       # só na primeira vez, ou quando o package.json mudar
-npm run typecheck  # tsc --noEmit
-npm run build      # compila src/ → lib/ (é o que o deploy publica)
-```
-
-**O deploy exige o plano Blaze (pay-as-you-go) habilitado no console do
-Firebase** — Cloud Functions não roda no plano gratuito Spark. Isso é uma
-decisão de billing que só o dono do projeto faz manualmente no console;
-nenhum comando de CLI habilita isso.
-
-**Secret `GITHUB_TOKEN`** — gerar um PAT em
-https://github.com/settings/tokens (classic, sem nenhum escopo marcado — o
-repo é público, leitura anônima de commits já basta) e configurar uma vez:
-
-```bash
-npx firebase-tools functions:secrets:set GITHUB_TOKEN --project king-bt-7f559
-```
-
-Deploy manual (depois do Blaze habilitado e do secret configurado):
-
-```bash
-cd /d/KINGBT/projeto   # nunca do OneDrive
-npx firebase-tools deploy --only functions --project king-bt-7f559
-```
-
-**De propósito, `functions` NÃO está no `--only` do `deploy-web.yml`** (que
-roda a cada push na main). Se o Blaze não estiver habilitado, um deploy que
-inclui `functions` falha por inteiro — e como hosting e firestore:rules
-publicam no MESMO comando, isso bloquearia publicações que não têm nada a
-ver com functions. Depois de confirmar que o deploy manual funciona, dá pra
-somar `functions` ao `--only` do workflow.
+**Não há.** A pasta `functions/` foi removida em 17/10/2026. Das duas funções que existiam, `getLatestCommitSha` não era chamada por ninguém (a checagem de versão usa `version.json` e `apk-version.json`) e `searchUsers` só alimentava a tela "adicionar membro existente", que também saiu: entrar num grupo é pelo código de convite, com aprovação do admin. Sem funções, o projeto não precisa do plano Blaze. Se algum dia voltar a precisar de código no servidor, a busca por e-mail devolve dados pessoais: faça por e-mail exato e só para admins.
 
 ## Decisões de produto pendentes (não mexer sem reconfirmar)
 

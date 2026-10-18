@@ -130,7 +130,6 @@ type AuthContextType = AuthState & {
   clearError: () => void;
   promoteToAdmin: (uid: string) => Promise<void>;
   removeFromGroup: (uid: string) => Promise<void>;
-  addExistingUserToGroup: (targetUser: { uid: string; name: string }, color: string) => Promise<void>;
   setGroupVisibility: (visibility: 'privado' | 'publico') => Promise<void>;
   /** Admin: renomeia o grupo ativo. */
   updateGroupName: (name: string) => Promise<void>;
@@ -467,21 +466,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function addExistingUserToGroup(targetUser: { uid: string; name: string }, color: string) {
-    if (!group || !(isAdmin || isSuperAdmin)) return;
-    // arrayUnion opera sobre o documento real no servidor, não sobre o
-    // estado local — evita sobrescrever a lista de membros se o `group` em
-    // memória estiver desatualizado (ex.: logo após criar o grupo).
-    await setDoc(doc(db, 'groups', group.id), { members: arrayUnion(targetUser.uid) }, { merge: true });
-    setGroup(prev => prev ? { ...prev, members: [...(prev.members ?? []), targetUser.uid] } : prev);
-    await setDoc(doc(db, 'groups', group.id, 'players', targetUser.uid), {
-      name: targetUser.name,
-      uid: targetUser.uid,
-      color,
-      guest: false,
-    });
-  }
-
   async function promoteToAdmin(uid: string) {
     if (!group || !(isAdmin || isSuperAdmin)) return;
     await setDoc(doc(db, 'groups', group.id), { admins: arrayUnion(uid) }, { merge: true });
@@ -729,7 +713,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     groupConfirmed, confirmGroup,
     signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, joinGroup, checkPendingJoins, finishApprovedJoin, cancelPendingJoin, linkToPlayer,
     createGroup, leaveGroup, switchGroup, getMyGroups, updateProfileName, logout,
-    clearError: () => setError(null), promoteToAdmin, removeFromGroup, addExistingUserToGroup, setGroupVisibility, updateGroupName,
+    clearError: () => setError(null), promoteToAdmin, removeFromGroup, setGroupVisibility, updateGroupName,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [user, group, effectiveAdmin, loading, error, myPlayerId, groupIds, isMember, isSuperAdmin, groupConfirmed]);
 
