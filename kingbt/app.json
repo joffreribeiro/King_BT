@@ -32,7 +32,6 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-localization",
       [
         "expo-local-authentication",
         {
