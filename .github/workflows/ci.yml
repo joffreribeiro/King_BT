@@ -33,6 +33,12 @@ jobs:
       - name: Testes
         run: npm test
 
+      # Só avisa: o código antigo ainda tem avisos (nenhum erro) e eles são limpos aos poucos.
+      # Para virar obrigatório, basta tirar o continue-on-error.
+      - name: Lint (só aviso)
+        run: npm run lint
+        continue-on-error: true
+
   # Testa firestore.rules contra o emulador: fecha as mesmas duas brechas de
   # segurança encontradas nesta auditoria (vinculação de perfil quebrada, e
   # /groupCodes listável para qualquer conta) e a race condition de placar
