@@ -1,74 +1,24 @@
-# Expo HAS CHANGED
+# Expo: leia a documentação da versão instalada
 
-Read the exact versioned docs at https://docs.expo.dev/versions/v56.0.0/ before writing any code.
+O projeto está no **Expo SDK 55** (React Native 0.83, React 19.2; `sdkVersion` em `app.json`). Antes de escrever código, leia a documentação versionada em https://docs.expo.dev/versions/v55.0.0/ e atualize esta linha a cada troca de SDK.
 
 ## CSS & Styling Workflow
 
 Before changing any CSS layout/width/spacing rule, FIRST find every rule that affects the target element: grep all stylesheets for the selector, including inline styles, `!important`, global `nth-child` rules, `table-layout: fixed`, colspan summary rows, and freeze-column rules. List every matching rule with its specificity and flag which ones conflict. Do not edit until the conflicting layers are identified. Apply one consolidated fix, not one rule at a time.
 
-## Environment & Sync
+## Ambiente, publicação e CI
 
-Fonte: `C:\Users\JoffreRibeiro\OneDrive\Documentos\Sistemas\King_BT\kingbt`.
-Cópia de build: `D:\KINGBT\projeto` (fora do OneDrive — os `node_modules` no OneDrive
-são placeholders de nuvem e travam o bundler).
-
-**Era `C:\KINGBT` até 20/09/2026** — mudou porque o disco `C:` encheu (o hook
-recopia a árvore inteira a cada Write/Edit, e o volume acumulado ao longo de
-semanas esgotou os 238GB do disco). O hook, o `.claude/settings.json` e este
-arquivo foram todos atualizados juntos para `D:\KINGBT\projeto`. Se algo ainda
-mencionar `C:\KINGBT` (um terminal aberto, uma nota antiga), é resquício —
-o caminho atual é `D:\KINGBT\projeto`.
-
-Um hook `PostToolUse` (matcher `Write|Edit`) copia a fonte para `D:\KINGBT\projeto`,
-roda `npx expo export --platform web` e `npx firebase-tools deploy --only
-hosting`. Se uma mudança "não aparece", confira primeiro se o hook rodou e
-sincronizou/publicou — a maioria dos casos de "mudança invisível" é tempo de
-sync/deploy, não cascata de CSS.
-
-### O hook mora na RAIZ do repositório, não em `kingbt/`
-
-Ele fica em **`King_BT\.claude\settings.json`** (junto do `.git`), e não em
-`kingbt\.claude\settings.json`. O Claude Code carrega hooks do `settings.json`
-da raiz do projeto reconhecido — ele não varre subpastas atrás de outro. Um
-hook declarado em `kingbt/.claude/settings.json` **nunca dispara**, e falha em
-silêncio: nenhum erro, nenhum aviso, o sync simplesmente não acontece.
-
-Isso já aconteceu (03/09/2026): o hook passou semanas sem rodar por estar na
-subpasta, e ninguém percebeu porque não há mensagem de erro. Sintoma típico:
-`D:\KINGBT\projeto` com arquivos dias mais velhos que a fonte, e o site publicado
-mostrando uma versão antiga mesmo depois de vários edits.
-
-Como testar se está vivo: edite qualquer arquivo com a ferramenta Write/Edit e
-verifique se o arquivo aparece atualizado em `D:\KINGBT\projeto`. Se não aparecer, o
-hook não está sendo carregado — confira em qual `settings.json` ele está.
-
-### `firebase` não existe no PATH
-
-Chame sempre **`npx firebase-tools`**, nunca `firebase` puro. O CLI não está
-instalado globalmente aqui (a pasta global do npm nem existe), então
-`firebase deploy ...` falha com "não é reconhecido como comando". Esse era o
-segundo bug do hook, além do lugar errado.
-
-### Deploy manual (quando o hook não rodou)
-
-Rodar de `D:\KINGBT\projeto`, nunca do OneDrive:
-
-```bash
-cd /d/KINGBT/projeto
-npx expo export --platform web
-npx firebase-tools deploy --only hosting,firestore:rules --project king-bt-7f559
-```
-
-Validar as regras do Firestore sem publicar: acrescente `--dry-run` ao deploy.
-Conferir se o bundle publicado é o atual: compare o hash de
-`curl -s https://king-bt-7f559.web.app/ | grep -oE 'entry-[a-f0-9]+\.js'` com o
-arquivo em `D:\KINGBT\projeto\dist\_expo\static\js\web\`.
+- Repositório: `D:\SISTEMAS\KINGBT\King_BT-repo` (o app está em `kingbt/`); remoto github.com/joffreribeiro/King_BT. Os caminhos antigos `C:\KINGBT` e `D:\KINGBT\projeto` não existem mais.
+- **Publicar é pelo GitHub Actions**, não por cópia de pasta. Push na `main` que mude `kingbt/**` roda `deploy-web.yml`: testes, suíte de regras no emulador, build web e deploy no Firebase Hosting **mais as regras do Firestore**. O APK só sai com `[apk]` na mensagem do commit ou disparo manual de `build-apk.yml`, e ele **publica a release `latest-apk`** (os celulares recebem o aviso de atualização).
+- Não há hook que copie ou publique ao editar arquivos (o `.claude/settings.json` não tem hooks).
+- `firebase` não está no PATH: use sempre `npx firebase-tools`.
+- O CI usa Node 22 / npm 10. Um `package-lock.json` gerado pelo npm 11 pode ser recusado pelo `npm ci`: depois de mexer em dependências, rode `npx -y npm@10 install --package-lock-only`.
+- Para conferir o que está no ar: `curl https://kingbt.web.app/version.json` devolve o sha do commit publicado.
+- Manutenção do banco: `kingbt/scripts/`, com o login do gcloud e **sem arquivo de chave** (ver `scripts/README.md`). Nunca crie chave de conta de serviço: o histórico público do repositório já vazou duas (revogadas).
 
 ### Regras do Firestore
 
-`firestore.rules` é deploy separado do app — não passa por `D:\KINGBT` nem pelo
-build; vai direto para o backend. `git push` não publica nem um nem outro.
-Testes de comportamento das regras: `npm run test:rules` (emulador).
+`firestore.rules` é publicado pelo mesmo `deploy-web.yml`, depois da suíte do emulador. Toda regra nova ganha teste em `test/firestore.rules.test.mjs`, e o teste precisa **falhar contra a regra antiga** (senão não prova nada). Cuidado: os testes de criação reutilizam ids; use um id novo para o caso ser uma criação de verdade. `--dry-run` valida só sintaxe.
 
 ### O emulador SOBE nesta máquina — com duas condições (19/09/2026)
 
@@ -121,10 +71,7 @@ para NÃO corrigir agora — não são bugs esquecidos, são escolhas consciente
   Quem jogou 1 partida 6×0 sobe ao topo do ranking à frente de quem jogou a
   temporada inteira. Corrigir exigiria decidir um critério mínimo de jogos
   primeiro — não decidido ainda.
-- **Sem Crashlytics/Sentry** — nenhuma observabilidade de crash em produção
-  além do Logger local (200 entradas em memória, só em `__DEV__`). Adicionar
-  é infraestrutura nova (conta terceiro ou rebuild nativo pro Crashlytics),
-  não pedida ainda.
+- **Observabilidade de crash:** o Sentry está ligado (`src/services/crashReporting.ts`; DSN em `EXPO_PUBLIC_SENTRY_DSN`, que só envia em build de produção). Não há Crashlytics.
 
 ## Git Workflow
 

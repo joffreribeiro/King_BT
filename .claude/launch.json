@@ -4,7 +4,7 @@
     {
       "name": "kingbt-web",
       "runtimeExecutable": "cmd",
-      "runtimeArgs": ["/c", "cd /d C:\\KINGBT && npx expo start --web"],
+      "runtimeArgs": ["/c", "cd /d D:\\SISTEMAS\\KINGBT\\King_BT-repo\\kingbt && npx expo start --web"],
       "port": 8081
     }
   ]
