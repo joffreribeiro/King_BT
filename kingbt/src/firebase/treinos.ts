@@ -1,6 +1,7 @@
 import { collection, doc, setDoc, getDoc, getDocs, deleteDoc, query, orderBy, limit } from 'firebase/firestore';
 import { db } from './config';
 import type { BtTreino } from '@/logic/btTreino';
+import { enqueueLatest } from '@/store/syncQueue';
 
 const treinosCol = (groupId: string) =>
   collection(db, 'groups', groupId, 'treinos');
@@ -10,6 +11,22 @@ const treinoDoc = (groupId: string, treinoId: string) =>
 
 export async function saveTreinoFs(groupId: string, treino: BtTreino): Promise<void> {
   await setDoc(treinoDoc(groupId, treino.id), treino);
+}
+
+/**
+ * Grava o treino na nuvem e, se falhar (quadra sem sinal), deixa na fila de sincronização para subir quando a conexão
+ * voltar, como já é feito com a análise do King Scout. Antes a chamada era `saveTreinoFs(...).catch(() => {})`: o treino
+ * inteiro ficava só no aparelho, sem aviso.
+ */
+export async function saveTreinoSynced(groupId: string, treino: BtTreino): Promise<void> {
+  try {
+    await saveTreinoFs(groupId, treino);
+  } catch {
+    await enqueueLatest(
+      { type: 'SAVE_TREINO', payload: { groupId, treino } },
+      a => `SAVE_TREINO:${(a.payload.treino as { id?: string } | undefined)?.id ?? ''}`,
+    );
+  }
 }
 
 export async function loadTreinoFs(groupId: string, treinoId: string): Promise<BtTreino | null> {
