@@ -42,9 +42,9 @@ const CODE2 = 'KINGBT2';
 
 let testEnv;
 
-// Passo 3 da migração do super admin: só a custom claim vale (o e-mail verificado deixa de bastar).
-// Rode com SUPER_ADMIN_SO_POR_CLAIM=1 depois de trocar isSuperAdmin() em firestore.rules pelo modo só-claim.
-const SO_CLAIM = process.env.SUPER_ADMIN_SO_POR_CLAIM === '1';
+// Migração do super admin concluída: só a custom claim vale (o e-mail verificado NÃO basta mais).
+// Os testes de "e-mail verificado sem claim" abaixo esperam recusa.
+const SO_CLAIM = true;
 // O que se espera de um e-mail verificado SEM claim: vale durante a migração, deixa de valer no Passo 3.
 const EMAIL_VERIFICADO_SEM_CLAIM = SO_CLAIM ? 'fail' : 'succeed';
 

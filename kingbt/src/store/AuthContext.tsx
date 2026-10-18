@@ -20,9 +20,9 @@ import { validateScoringConfig, type ScoringConfig } from '@/logic/scoringConfig
 import { requestToJoin, hasJoinRequest, cancelJoinRequest } from '@/firebase/joinRequests';
 import { syncGroupPreview } from '@/firebase/groupCodes';
 
-// Super Admins: acesso total em qualquer grupo + recursos exclusivos (King Scout).
-// Identificados pelo e-mail da conta logada.
-const SUPER_ADMIN_EMAILS = ['joffre.ribeiro@gmail.com'];
+// Super Admin: acesso total em qualquer grupo + recursos exclusivos (King Scout). Vem da custom claim
+// `superAdmin` do token de login (gravada só pelo servidor, com scripts/set-super-admin.mjs), a mesma que as regras
+// do Firestore exigem. O e-mail do dono não está mais no aplicativo.
 
 // Só o necessário para saber como a conta nasceu. Marca, modelo, sistema, fuso, idioma e região do aparelho
 // deixaram de ser coletados: ninguém lia esses dados e, por LGPD, dado pessoal sem uso não se guarda.
@@ -131,6 +131,7 @@ const Ctx = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser]         = useState<User | null>(null);
+  const [superAdminClaim, setSuperAdminClaim] = useState(false);
   const [group, setGroup]       = useState<Group | null>(null);
   const [isAdmin, setIsAdmin]   = useState(false);
   const [loading, setLoading]   = useState(true);
@@ -166,6 +167,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(safetyTimer);
       setUser(u);
       setCrashUser(u?.uid ?? null);
+      // Lê a claim com um token recém-renovado (se a rede falhar, usa o guardado). Sem conta ou sem claim = não é super admin.
+      if (u) {
+        u.getIdTokenResult(true)
+          .catch(() => u.getIdTokenResult())
+          .then(r => setSuperAdminClaim(r.claims.superAdmin === true))
+          .catch(() => setSuperAdminClaim(false));
+      } else {
+        setSuperAdminClaim(false);
+      }
       if (u) {
         try {
           const userDoc = await getDoc(doc(db, 'users', u.uid));
@@ -703,7 +713,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }).catch(() => {});
   }, [group?.id, group?.code, group?.name, group?.description, group?.visibility, isAdmin]);
 
-  const isSuperAdmin = !!user?.email && SUPER_ADMIN_EMAILS.includes(user.email.toLowerCase());
+  const isSuperAdmin = !!user && superAdminClaim;
   const effectiveAdmin = isAdmin || isSuperAdmin;
   const isMember = !!user && (effectiveAdmin || !!group?.members?.includes(user.uid));
 

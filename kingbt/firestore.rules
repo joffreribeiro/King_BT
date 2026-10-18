@@ -25,20 +25,12 @@ service cloud.firestore {
       return signedIn() && request.auth.uid in groupData(gid).admins;
     }
 
-    // Super admin: quem tem a custom claim `superAdmin: true` no token (gravada só pelo servidor, com
-    // scripts/set-super-admin.mjs — o cliente não consegue forjá-la) OU, ENQUANTO a migração não termina,
-    // o e-mail do dono VERIFICADO (`email_verified`). Super admin não precisa estar na lista `admins` de
-    // um grupo para gerenciá-lo. A regra de /config também usa esta função.
-    //
-    // Migração: (1) publicar esta regra; (2) rodar o script com --apply; (3) sair e entrar no app (a claim
-    // só chega no próximo token); (4) conferir; (5) trocar por só a claim (Passo 3), tirando a alternativa
-    // por e-mail daqui e o SUPER_ADMIN_EMAILS do cliente.
+    // Super admin: quem tem a custom claim `superAdmin: true` no token. A claim só é gravada pelo servidor
+    // (scripts/set-super-admin.mjs), então o cliente não consegue forjá-la, e o e-mail do dono deixou de
+    // estar nas regras. Super admin não precisa estar na lista `admins` de um grupo para gerenciá-lo.
+    // A regra de /config também usa esta função. Para dar ou tirar a claim: node scripts/set-super-admin.mjs <e-mail> [--revoke] --apply
     function isSuperAdmin() {
-      return signedIn() && (
-        request.auth.token.get('superAdmin', false) == true
-        || (request.auth.token.get('email', '') == 'joffre.ribeiro@gmail.com'
-            && request.auth.token.get('email_verified', false) == true)
-      );
+      return signedIn() && request.auth.token.get('superAdmin', false) == true;
     }
 
     // Admin do grupo OU super admin — o portão para excluir/corrigir/editar
