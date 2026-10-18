@@ -1,5 +1,6 @@
 import { collection, onSnapshot, addDoc, deleteDoc, doc, getDoc, updateDoc, writeBatch, getDocs, arrayRemove, type DocumentReference } from 'firebase/firestore';
 import { db } from './config';
+import { Logger } from '@/services/Logger';
 
 import type { PlayerAbout } from '@/logic/playerAbout';
 import type { Skills } from '@/logic/skills';
@@ -31,7 +32,7 @@ export function subscribeGroupPlayers(
         .sort((a, b) => a.name.localeCompare(b.name, 'pt'));
       onData(players);
     },
-    () => {}
+    (err) => Logger.warn('Listener de jogadores falhou', { groupId, code: (err as any)?.code }),
   );
 }
 

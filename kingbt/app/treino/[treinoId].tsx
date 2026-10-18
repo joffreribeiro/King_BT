@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
+import { Logger } from '@/services/Logger';
 import { HexBackground } from '@/components/HexBackground';
 import { Icon } from '@/components/icons';
 import { notify } from '@/services/notify';
@@ -131,7 +132,7 @@ export default function TreinoDetailScreen() {
     const atualizado = ajustarContagem(treino, golpeKey, campo, delta);
     setTreino(atualizado);
     await salvarTreino(atualizado);
-    if (group?.id) saveTreinoFs(group.id, atualizado).catch(() => {});
+    if (group?.id) saveTreinoFs(group.id, atualizado).catch(e => Logger.warn('Falha ao salvar o treino na nuvem', { code: e?.code }));
   }
 
   const analise = treino ? calcularAnaliseTreino(treino) : null;

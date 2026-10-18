@@ -8,7 +8,7 @@ import { ScreenHeader, Icon } from '@/components';
 import { useCompetitions } from '@/store/CompetitionsContext';
 import { useGroupPlayers } from '@/store/GroupPlayersContext';
 import { useAuth } from '@/store/AuthContext';
-import { saveAnaliseFs, loadAnaliseFs } from '@/firebase/analises';
+import { saveAnaliseSynced, loadAnaliseFs } from '@/firebase/analises';
 import { PointLogModal } from '@/components/analise/PointLogModal';
 import { GamesComTb } from '@/components/analise/GamesComTb';
 import { ScoreboardCard } from '@/components/competition/ScoreboardCard';
@@ -179,7 +179,8 @@ function CourtLive({ comp, match, onSave, onBack, onLiveScore }: {
       ...(placarFinal ? { placarFinal } : {}),
     };
     salvarAnalise(analise).catch(() => {});
-    if (group?.id) saveAnaliseFs(group.id, analise).catch(() => {});
+    // saveAnaliseSynced enfileira para tentar de novo se a rede falhar (o saveAnaliseFs puro perdia a análise em silêncio).
+    if (group?.id) saveAnaliseSynced(group.id, analise).catch(() => {});
   }
 
   // Pontos do game atual (0-3 internamente, exibidos como 0/15/30/40)

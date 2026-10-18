@@ -2,6 +2,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native';
+import { Logger } from '@/services/Logger';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'expo-router';
@@ -92,7 +93,7 @@ export default function GroupsScreen() {
       for (const g of groups) {
         if (!g.code || !(g.admins ?? []).includes(user.uid) || codeBackfilled.has(g.id)) continue;
         codeBackfilled.add(g.id);
-        syncGroupPreview(g.code, g.id, { name: g.name, description: g.description ?? '', visibility: g.visibility ?? 'privado' }).catch(() => {});
+        syncGroupPreview(g.code, g.id, { name: g.name, description: g.description ?? '', visibility: g.visibility ?? 'privado' }).catch(e => Logger.warn('Falha ao sincronizar a prévia do convite', { code: e?.code }));
       }
     }
     setPendingList(check.pending.filter(p => !groups.some(g => g.id === p.groupId)));

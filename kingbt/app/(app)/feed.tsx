@@ -1,6 +1,7 @@
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Modal, KeyboardAvoidingView, Platform, ScrollView, Animated, RefreshControl, Alert,
 } from 'react-native';
+import { Logger } from '@/services/Logger';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -183,7 +184,7 @@ function CommentsModal({ item, visible, onClose }: { item: FeedItem; visible: bo
 
   function handleDeleteComment(c: FeedItem['comments'][number]) {
     if (!group) return;
-    const doDelete = () => deleteComment(group.id, item.id, c).catch(() => {});
+    const doDelete = () => deleteComment(group.id, item.id, c).catch(e => Logger.warn('Falha ao apagar comentário', { code: e?.code }));
     if (Platform.OS === 'web') {
       if (window.confirm('Apagar este comentário?')) doDelete();
     } else {

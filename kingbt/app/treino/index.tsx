@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, TextInput } from 'react-native';
+import { Logger } from '@/services/Logger';
 import { HexBackground } from '@/components/HexBackground';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useState, useEffect, useMemo } from 'react';
@@ -88,7 +89,7 @@ export default function TreinoListScreen() {
     if (!titulo.trim() || !playerId || !group?.id) return;
     const treino = novoTreino(group.id, playerId, titulo.trim());
     await salvarTreino(treino);
-    saveTreinoFs(group.id, treino).catch(() => {});
+    saveTreinoFs(group.id, treino).catch(e => Logger.warn('Falha ao salvar o treino na nuvem', { code: e?.code }));
     setTreinos(prev => [treino, ...prev]);
     setTitulo(''); setPlayerId(null); setShowNovo(false);
     goToTreino(treino.id, treino.playerId);

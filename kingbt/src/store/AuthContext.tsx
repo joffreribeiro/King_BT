@@ -321,8 +321,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userSnap = await getDoc(doc(db, 'users', uid));
     const prevGroupIds: string[] = userSnap.data()?.groupIds ?? [];
     const newGroupIds = prevGroupIds.includes(groupId) ? prevGroupIds : [...prevGroupIds, groupId];
+    // arrayUnion: duas entradas ao mesmo tempo (dois aparelhos) não perdem uma à outra,
+    // o que acontecia ao regravar o array lido acima.
     await setDoc(doc(db, 'users', uid), {
-      groupId, groupIds: newGroupIds,
+      groupId, groupIds: arrayUnion(groupId),
       lastJoinedGroupAt: new Date().toISOString(),
       ...collectDeviceInfo('invite'),
     }, { merge: true });

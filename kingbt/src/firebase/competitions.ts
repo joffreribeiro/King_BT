@@ -1,8 +1,9 @@
 import {
   collection, doc, addDoc, updateDoc, setDoc, deleteDoc, onSnapshot, getDocs,
-  query, orderBy, arrayUnion, arrayRemove, runTransaction, type Unsubscribe,
+  query, orderBy, arrayUnion, arrayRemove, runTransaction, writeBatch, type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './config';
+import { Logger } from '@/services/Logger';
 import { applyRegister, applyCancel, registrationOf, type RegisterOutcome } from '@/logic/eventRegistration';
 import { registrationGate, canCancelRegistration } from '@/logic/competitionPlan';
 import type { Competition, Match, JoinRequest, LiveScore, SetScore } from '@/logic/types';
@@ -22,12 +23,17 @@ const liveMatchDoc = (groupId: string, compId: string, matchId: string) =>
 /** Escuta competições do grupo em tempo real */
 export function subscribeCompetitions(
   groupId: string,
-  onData: (comps: Competition[]) => void
+  onData: (comps: Competition[]) => void,
+  onError?: (err: unknown) => void,
 ): Unsubscribe {
   const q = query(compsCol(groupId), orderBy('date', 'desc'));
   return onSnapshot(q, snap => {
     const comps = snap.docs.map(d => ({ id: d.id, ...d.data() } as Competition));
     onData(comps);
+  }, err => {
+    // permission-denied (saiu do grupo) ou rede: o listener morre; sem isto a tela ficava com dados velhos, sem aviso.
+    Logger.warn('Listener de competições falhou', { groupId, code: (err as any)?.code });
+    onError?.(err);
   });
 }
 
@@ -148,7 +154,8 @@ export async function deleteLiveMatch(
 export function subscribeLiveMatches(
   groupId: string,
   compId: string,
-  onUpdate: (matchId: string, data: { liveScore: LiveScore | null; draftSets: SetScore[] | null }) => void
+  onUpdate: (matchId: string, data: { liveScore: LiveScore | null; draftSets: SetScore[] | null }) => void,
+  onError?: (err: unknown) => void,
 ): Unsubscribe {
   return onSnapshot(liveMatchesCol(groupId, compId), snap => {
     snap.docChanges().forEach(change => {
@@ -160,6 +167,9 @@ export function subscribeLiveMatches(
         onUpdate(matchId, { liveScore: data.liveScore ?? null, draftSets: data.draftSets ?? null });
       }
     });
+  }, err => {
+    Logger.warn('Listener de placar ao vivo falhou', { groupId, compId, code: (err as any)?.code });
+    onError?.(err);
   });
 }
 
@@ -258,17 +268,21 @@ export async function approveJoinRequest(
   request: JoinRequest,
   playerColor: string
 ): Promise<void> {
-  await setDoc(doc(db, 'groups', groupId, 'players', request.uid), {
+  // Um lote atômico: ou os quatro efeitos acontecem, ou nenhum. Em gravações separadas, uma falha
+  // no meio deixava o perfil criado com a pessoa fora de `members` (ou o pedido preso na lista).
+  const batch = writeBatch(db);
+  batch.set(doc(db, 'groups', groupId, 'players', request.uid), {
     name: request.name,
     uid: request.uid,
     color: playerColor,
     guest: false,
   });
-  await updateDoc(doc(db, 'groups', groupId), {
+  batch.update(doc(db, 'groups', groupId), {
     members: arrayUnion(request.uid),
   });
-  await updateDoc(compDoc(groupId, compId), {
+  batch.update(compDoc(groupId, compId), {
     confirmedIds: arrayUnion(request.uid),
     joinRequests: arrayRemove(request),
   });
+  await batch.commit();
 }
