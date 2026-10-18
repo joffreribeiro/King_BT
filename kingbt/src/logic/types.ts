@@ -110,6 +110,13 @@ export interface Match {
   teamB?: string[];
 }
 
+/** Placar oficial de um jogo, no mapa `results` da competição (ver logic/matchResults.ts). */
+export interface MatchResult {
+  scoreA: number;
+  scoreB: number;
+  sets: SetScore[] | null;
+}
+
 export interface GroupDef {
   name: string;
   ids: string[];
@@ -211,6 +218,8 @@ export interface Competition {
   competitors: Competitor[];
   groupDefs?: GroupDef[];
   matches: Match[];
+  /** Placar oficial por jogo. Quando existe, vale ele e não o placar dentro de `matches` (logic/matchResults.ts). */
+  results?: Record<string, MatchResult>;
   substitutions?: Substitution[];
   /** IDs dos jogadores que confirmaram participação (status: upcoming) */
   confirmedIds?: string[];

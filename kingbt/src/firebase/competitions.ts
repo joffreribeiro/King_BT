@@ -6,10 +6,15 @@ import { db } from './config';
 import { Logger } from '@/services/Logger';
 import { applyRegister, applyCancel, registrationOf, type RegisterOutcome } from '@/logic/eventRegistration';
 import { registrationGate, canCancelRegistration } from '@/logic/competitionPlan';
-import type { Competition, Match, JoinRequest, LiveScore, SetScore } from '@/logic/types';
+import type { Competition, JoinRequest, LiveScore, SetScore } from '@/logic/types';
+import { withTrustedScores, buildResults } from '@/logic/matchResults';
 
 const compsCol = (groupId: string) =>
   collection(db, 'groups', groupId, 'competitions');
+
+// O placar oficial vem do mapa `results` (ver logic/matchResults.ts): toda leitura passa por aqui.
+const fromDoc = (d: { id: string; data: () => unknown }) =>
+  withTrustedScores({ id: d.id, ...(d.data() as object) } as Competition);
 
 const compDoc = (groupId: string, compId: string) =>
   doc(db, 'groups', groupId, 'competitions', compId);
@@ -28,7 +33,7 @@ export function subscribeCompetitions(
 ): Unsubscribe {
   const q = query(compsCol(groupId), orderBy('date', 'desc'));
   return onSnapshot(q, snap => {
-    const comps = snap.docs.map(d => ({ id: d.id, ...d.data() } as Competition));
+    const comps = snap.docs.map(fromDoc);
     onData(comps);
   }, err => {
     // permission-denied (saiu do grupo) ou rede: o listener morre; sem isto a tela ficava com dados velhos, sem aviso.
@@ -40,7 +45,7 @@ export function subscribeCompetitions(
 /** Busca competições do grupo uma única vez (sem listener) — usado por telas de resumo/agregação que não precisam de tempo real. */
 export async function fetchCompetitionsOnce(groupId: string): Promise<Competition[]> {
   const snap = await getDocs(query(compsCol(groupId), orderBy('date', 'desc')));
-  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Competition));
+  return snap.docs.map(fromDoc);
 }
 
 /** Cria nova competição */
@@ -48,7 +53,7 @@ export async function createCompetition(
   groupId: string,
   comp: Omit<Competition, 'id'>
 ): Promise<string> {
-  const ref = await addDoc(compsCol(groupId), comp);
+  const ref = await addDoc(compsCol(groupId), { ...comp, results: buildResults(comp.matches ?? [], undefined) });
   return ref.id;
 }
 
@@ -88,10 +93,12 @@ export async function mutateCompetition(
     const ref = compDoc(groupId, compId);
     const snap = await tx.get(ref);
     if (!snap.exists()) return;
-    const atual = { id: snap.id, ...snap.data() } as Competition;
-    const proximo = mutate(atual);
+    const bruto = { id: snap.id, ...snap.data() } as Competition;
+    const proximo = mutate(withTrustedScores(bruto));
     if (!proximo) return;
-    const { id, ...data } = proximo;
+    // O mapa parte do que está no servidor: as entradas que já existiam voltam
+    // idênticas, e a regra só aceita de quem não é admin entradas novas.
+    const { id, ...data } = { ...proximo, results: buildResults(proximo.matches ?? [], bruto.results) };
     // Remove undefined — o Firestore rejeita a gravação inteira se qualquer
     // campo aninhado (ex.: match.aId) vier undefined.
     tx.update(ref, JSON.parse(JSON.stringify(data)));
@@ -103,11 +110,8 @@ export async function updateCompetition(
   groupId: string,
   comp: Competition
 ): Promise<void> {
-  const { id, ...data } = comp;
-  // Remove chaves com valor undefined — o Firestore rejeita a gravação inteira
-  // se qualquer campo aninhado (ex.: match.aId) for undefined.
-  const sanitized = JSON.parse(JSON.stringify(data));
-  await updateDoc(compDoc(groupId, id), sanitized);
+  // Em transação, para o mapa `results` partir do que está no servidor (ver mutateCompetition).
+  await mutateCompetition(groupId, comp.id, () => comp);
 }
 
 // ── Placar ao vivo / rascunho (subcoleção liveMatches) ──────────────────────

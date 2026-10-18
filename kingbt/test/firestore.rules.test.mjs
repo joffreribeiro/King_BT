@@ -17,7 +17,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import { readFileSync } from 'fs';
 import {
-  doc, getDoc, getDocs, collection, query, where, setDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove, writeBatch, Timestamp,
+  doc, getDoc, getDocs, collection, query, where, setDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove, writeBatch, Timestamp, deleteField,
 } from 'firebase/firestore';
 
 // Docs de teste para /groupCodes que precisam ser recriados do zero por não
@@ -1012,6 +1012,60 @@ async function run() {
     await seed();
     await check('A1/claim: membro SEM a claim não exclui a competição',
       deleteDoc(compRef(ctxFor(MEMBER_UID).firestore())), 'fail');
+  }
+
+  // ── M7: o placar registrado (mapa `results`) só é corrigido/apagado por admin ──
+  // Cada caso que deve falhar é uma escrita que a regra anterior aceitava.
+  {
+    const m1 = { scoreA: 6, scoreB: 3, sets: null };
+    const jogos = [
+      { id: 'm1', stage: 'rotating', teamA: ['p1', 'p2'], teamB: ['p3', 'p4'], scoreA: 6, scoreB: 3 },
+      { id: 'm2', stage: 'rotating', teamA: ['p1', 'p3'], teamB: ['p2', 'p4'], scoreA: null, scoreB: null },
+    ];
+    const seedM7 = () => testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'groups', GID, 'competitions', 'compM7'), {
+        name: 'Rodada M7', format: 'avulso', status: 'active', matches: jogos, results: { m1 },
+      });
+      // Competição de antes da migração: sem o mapa.
+      await setDoc(doc(db, 'groups', GID, 'competitions', 'compM7legado'), {
+        name: 'Rodada antiga', format: 'avulso', status: 'active', matches: jogos,
+      });
+    });
+    const ref = (uid, id = 'compM7') => doc(ctxFor(uid).firestore(), 'groups', GID, 'competitions', id);
+
+    await seed(); await seedM7();
+    await check('M7: membro registra o placar de um jogo ainda sem resultado',
+      updateDoc(ref(MEMBER_UID), { 'results.m2': { scoreA: 4, scoreB: 6, sets: null } }), 'succeed');
+    await seedM7();
+    await check('M7: membro NÃO corrige um placar já registrado',
+      updateDoc(ref(MEMBER_UID), { 'results.m1': { scoreA: 3, scoreB: 6, sets: null } }), 'fail');
+    await check('M7: membro NÃO apaga um placar já registrado',
+      updateDoc(ref(MEMBER_UID), { 'results.m1': deleteField() }), 'fail');
+    await check('M7: membro NÃO esvazia o mapa de resultados',
+      updateDoc(ref(MEMBER_UID), { results: {} }), 'fail');
+    await check('M7: membro NÃO remove o campo results',
+      updateDoc(ref(MEMBER_UID), { results: deleteField() }), 'fail');
+    await check('M7: membro NÃO troca o mapa por outro tipo',
+      updateDoc(ref(MEMBER_UID), { results: 'nada' }), 'fail');
+    await check('M7: membro adiciona jogo (array cresce) mantendo os resultados — uso normal',
+      updateDoc(ref(MEMBER_UID), { matches: [...jogos, { id: 'm3', stage: 'rotating', teamA: ['p1', 'p4'], teamB: ['p2', 'p3'], scoreA: null, scoreB: null }], results: { m1 } }), 'succeed');
+    await seedM7();
+    await check('M7: membro grava o documento inteiro (transação) com os resultados iguais + 1 novo',
+      updateDoc(ref(MEMBER_UID), { matches: jogos, status: 'active', results: { m1, m2: { scoreA: 6, scoreB: 4, sets: [{ a: 6, b: 4 }] } } }), 'succeed');
+    await seedM7();
+    await check('M7: competição antiga (sem results) — membro cria o mapa ao registrar',
+      updateDoc(ref(MEMBER_UID, 'compM7legado'), { results: { m1, m2: { scoreA: 6, scoreB: 1, sets: null } } }), 'succeed');
+    await seedM7();
+    await check('M7: ADMIN corrige um placar já registrado',
+      updateDoc(ref(ADMIN_UID), { 'results.m1': { scoreA: 3, scoreB: 6, sets: null } }), 'succeed');
+    await check('M7: ADMIN apaga um placar já registrado',
+      updateDoc(ref(ADMIN_UID), { 'results.m1': deleteField() }), 'succeed');
+    await seedM7();
+    await check('M7: SUPER ADMIN (claim, membro do grupo, fora de admins) corrige um placar já registrado',
+      updateDoc(doc(ctxClaim(SUPER_ADMIN_UID).firestore(), 'groups', GID, 'competitions', 'compM7'), { 'results.m1': { scoreA: 6, scoreB: 0, sets: null } }), 'succeed');
+    await check('M7: quem é de fora não registra placar',
+      updateDoc(ref(OUTSIDER_UID), { 'results.m2': { scoreA: 6, scoreB: 0, sets: null } }), 'fail');
   }
 
   await testEnv.cleanup();

@@ -41,6 +41,22 @@ service cloud.firestore {
       return isGroupAdmin(gid) || isSuperAdmin();
     }
 
+    // M7: o placar oficial de cada jogo mora no mapa `results` da competição
+    // (results.{matchId} = { scoreA, scoreB, sets }). Quem não é admin só ACRESCENTA
+    // entradas: não muda nem apaga um resultado já registrado, e não some com o mapa.
+    // O app lê o placar só daqui (src/logic/matchResults.ts); o placar que estiver
+    // dentro do array `matches` é ignorado, então reescrevê-lo direto no banco não
+    // muda resultado nenhum. Era o buraco que a regra do array não conseguia fechar
+    // (ela não compara jogo a jogo).
+    function onlyAddsResults() {
+      let antes = resource.data.get('results', {});
+      let depois = request.resource.data.get('results', {});
+      return depois is map
+        && depois.diff(antes).changedKeys().size() == 0
+        && depois.diff(antes).removedKeys().size() == 0
+        && (!('results' in resource.data) || 'results' in request.resource.data);
+    }
+
     // Grupo público: qualquer usuário logado pode visitar em modo leitura
     function isPublic(gid) {
       return groupData(gid).visibility == 'publico';
@@ -309,6 +325,10 @@ service cloud.firestore {
         // exigem canManageComp: encolher `matches` (excluir um jogo — o
         // array só aumenta fora daqui) e trocar `name` (renomear).
         //
+        // M7: corrigir ou apagar um placar já registrado agora é barrado aqui
+        // (onlyAddsResults: o placar vale pelo mapa `results`, não pelo array).
+        // O parágrafo abaixo é de antes disso e continua valendo para os jogadores.
+        //
         // O que a regra NÃO cobre: trocar os jogadores de um jogo já
         // existente, e corrigir/limpar o placar de um jogo já registrado —
         // ambos ficam do mesmo tamanho de array, então não dá pra distinguir
@@ -329,6 +349,7 @@ service cloud.firestore {
             && request.resource.data.name == resource.data.name
             && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['format', 'unit', 'gender', 'createdBy'])
             && request.resource.data.status in ['upcoming', 'setup', 'active', 'done']
+            && onlyAddsResults()
           )
         );
 
