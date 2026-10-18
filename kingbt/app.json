@@ -47,7 +47,6 @@
           "backgroundColor": "#0B0B0D"
         }
       ],
-      "@sentry/react-native",
       "expo-sharing"
     ],
     "experiments": {

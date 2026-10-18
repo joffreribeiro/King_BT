@@ -64,6 +64,9 @@ jobs:
       # estar disponível em todos os passos, pois o bundle JS é gerado
       # dentro do "gradlew assembleRelease", não num passo isolado.
       EXPO_PUBLIC_GIT_SHA: ${{ github.sha }}
+      # O Sentry do app só envia ERROS em produção; o envio de mapas de código no build exigiria organização, projeto e
+      # token, que o projeto não usa. Sem isto, o plugin do Sentry derrubava o Gradle ("An organization ID or slug is required").
+      SENTRY_DISABLE_AUTO_UPLOAD: "true"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
