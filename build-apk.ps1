@@ -4,8 +4,9 @@ Write-Host "=====================================================" -ForegroundCo
 Write-Host "  KING BT -- Build APK" -ForegroundColor Cyan
 Write-Host "=====================================================" -ForegroundColor Cyan
 
-$src = "C:\Users\JoffreRibeiro\OneDrive\Documentos\Sistemas\King_BT\kingbt"
-$dst = "C:\KINGBT"
+# O repositório já fica fora do OneDrive, então não há mais cópia a fazer: o build roda no próprio kingbt/.
+$src = "$PSScriptRoot\kingbt"
+$dst = $src
 
 # 1. Matar processos que travam arquivos
 Write-Host "`n1/4  Encerrando processos..." -ForegroundColor Yellow
@@ -15,6 +16,7 @@ Write-Host "     OK" -ForegroundColor Green
 
 # 2. Sincronizar OneDrive -> C:\KINGBT (codigo fonte)
 Write-Host "`n2/4  Sincronizando codigo..." -ForegroundColor Yellow
+if ($src -ne $dst) {
 $excludeDirs  = @("node_modules", ".expo", "ios", "dist", ".git", "android\build", "android\.gradle")
 $excludeFiles = @("*.keystore", "*.log")
 
@@ -41,6 +43,7 @@ foreach ($srcFile in $allFiles) {
     $count++
 }
 Write-Host "     $count arquivos sincronizados" -ForegroundColor Green
+} else { Write-Host "     (sem cópia: o build roda no repositório)" -ForegroundColor Green }
 
 # 3. Limpar pasta build (inclui o cache de autolinking, que guarda caminhos absolutos)
 Write-Host "`n3/4  Limpando build anterior..." -ForegroundColor Yellow

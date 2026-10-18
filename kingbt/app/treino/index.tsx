@@ -12,7 +12,7 @@ import { Avatar, ScreenHeader } from '@/components';
 import {
   listarTreinos, novoTreino, salvarTreino, calcularAnaliseTreino, type BtTreino,
 } from '@/logic/btTreino';
-import { saveTreinoFs, listTreinosFs } from '@/firebase/treinos';
+import { saveTreinoSynced, listTreinosFs } from '@/firebase/treinos';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 
 function formatDate(ts: number): string {
@@ -89,7 +89,7 @@ export default function TreinoListScreen() {
     if (!titulo.trim() || !playerId || !group?.id) return;
     const treino = novoTreino(group.id, playerId, titulo.trim());
     await salvarTreino(treino);
-    saveTreinoFs(group.id, treino).catch(e => Logger.warn('Falha ao salvar o treino na nuvem', { code: e?.code }));
+    saveTreinoSynced(group.id, treino).catch(e => Logger.warn('Falha ao salvar o treino na nuvem', { code: e?.code }));
     setTreinos(prev => [treino, ...prev]);
     setTitulo(''); setPlayerId(null); setShowNovo(false);
     goToTreino(treino.id, treino.playerId);

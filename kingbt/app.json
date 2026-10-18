@@ -7,10 +7,7 @@
     "icon": "./assets/kingbt-icon.png",
     "scheme": "kingbt",
     "userInterfaceStyle": "dark",
-    "sdkVersion": "54.0.0",
-    "notification": {
-      "icon": "./assets/kingbt-icon-notif.png"
-    },
+    "sdkVersion": "55.0.0",
     "splash": {
       "image": "./assets/kingbt-icon.png",
       "resizeMode": "contain",
@@ -35,10 +32,11 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-localization",
       [
         "expo-local-authentication",
-        { "faceIDPermission": "O KING BT usa o Face ID para desbloquear o app." }
+        {
+          "faceIDPermission": "O KING BT usa o Face ID para desbloquear o app."
+        }
       ],
       [
         "expo-splash-screen",
@@ -48,7 +46,9 @@
           "resizeMode": "contain",
           "backgroundColor": "#0B0B0D"
         }
-      ]
+      ],
+      "@sentry/react-native",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true

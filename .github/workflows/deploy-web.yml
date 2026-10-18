@@ -8,7 +8,7 @@ on:
       - ".github/workflows/deploy-web.yml"
   workflow_dispatch:
 
-# Só leitura: o deploy usa o FIREBASE_TOKEN, não o token do GitHub.
+# Só leitura: o deploy se autentica no Google por Workload Identity Federation (token OIDC de curta duração), não pelo token do GitHub.
 permissions:
   contents: read
 
@@ -105,6 +105,12 @@ jobs:
       # "nova versão" nunca aparecia na web (ver src/store/UpdateContext.tsx).
       - name: Definir SHA do build
         run: echo "EXPO_PUBLIC_GIT_SHA=${{ github.sha }}" >> "$GITHUB_ENV"
+
+      - name: Definir DSN do Sentry
+        # Vem da variável do repositório (Settings > Secrets and variables > Actions > Variables > EXPO_PUBLIC_SENTRY_DSN).
+        # Enquanto ela não existir, vale o DSN do .env versionado (o DSN não é segredo: só permite ENVIAR erros).
+        if: ${{ vars.EXPO_PUBLIC_SENTRY_DSN != '' }}
+        run: echo "EXPO_PUBLIC_SENTRY_DSN=${{ vars.EXPO_PUBLIC_SENTRY_DSN }}" >> "$GITHUB_ENV"
 
       - name: Exportar build web
         run: npx expo export --platform web

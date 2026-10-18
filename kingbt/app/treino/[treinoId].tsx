@@ -17,7 +17,7 @@ import {
   carregarTreino, salvarTreino, ajustarContagem, calcularAnaliseTreino,
   TREINO_GOLPES, type BtTreino,
 } from '@/logic/btTreino';
-import { saveTreinoFs, loadTreinoFs } from '@/firebase/treinos';
+import { saveTreinoSynced, loadTreinoFs } from '@/firebase/treinos';
 import { BarChart } from 'react-native-gifted-charts';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
@@ -132,7 +132,7 @@ export default function TreinoDetailScreen() {
     const atualizado = ajustarContagem(treino, golpeKey, campo, delta);
     setTreino(atualizado);
     await salvarTreino(atualizado);
-    if (group?.id) saveTreinoFs(group.id, atualizado).catch(e => Logger.warn('Falha ao salvar o treino na nuvem', { code: e?.code }));
+    if (group?.id) saveTreinoSynced(group.id, atualizado).catch(e => Logger.warn('Falha ao salvar o treino na nuvem', { code: e?.code }));
   }
 
   const analise = treino ? calcularAnaliseTreino(treino) : null;

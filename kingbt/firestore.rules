@@ -1,9 +1,9 @@
 rules_version = '2';
 
 // ============================================================================
-// RASCUNHO — revisar e testar antes de fazer deploy!
-// Deploy: npx firebase deploy --only firestore:rules --project king-bt-7f559
-// Teste antes no console: Firestore > Regras > Playground, ou emulador local.
+// Publicadas pelo workflow deploy-web.yml (push na main), DEPOIS de passar na suíte do
+// emulador (test/firestore.rules.test.mjs e test/competition.concurrency.test.mjs).
+// Rodar localmente: ver "Regras do Firestore" no AGENTS.md. Toda regra nova ganha teste.
 // ============================================================================
 
 service cloud.firestore {
@@ -25,19 +25,20 @@ service cloud.firestore {
       return signedIn() && request.auth.uid in groupData(gid).admins;
     }
 
-    // Mesmo e-mail tratado como super admin no cliente (SUPER_ADMIN_EMAILS em
-    // AuthContext) e na regra de /config abaixo — super admin não precisa
-    // estar na lista `admins` de um grupo específico para gerenciá-lo.
+    // Super admin: quem tem a custom claim `superAdmin: true` no token (gravada só pelo servidor, com
+    // scripts/set-super-admin.mjs — o cliente não consegue forjá-la) OU, ENQUANTO a migração não termina,
+    // o e-mail do dono VERIFICADO (`email_verified`). Super admin não precisa estar na lista `admins` de
+    // um grupo para gerenciá-lo. A regra de /config também usa esta função.
     //
-    // O e-mail precisa estar VERIFICADO (`email_verified`, que o token do
-    // Firebase traz junto de `email`). Sem isso, quem conseguisse registrar uma
-    // conta com este endereço — um provedor que não confirma o e-mail, ou a
-    // opção "uma conta por e-mail" desligada no Authentication — virava dono de
-    // todos os grupos e de /config. A regra de /config usa esta mesma função.
+    // Migração: (1) publicar esta regra; (2) rodar o script com --apply; (3) sair e entrar no app (a claim
+    // só chega no próximo token); (4) conferir; (5) trocar por só a claim (Passo 3), tirando a alternativa
+    // por e-mail daqui e o SUPER_ADMIN_EMAILS do cliente.
     function isSuperAdmin() {
-      return signedIn()
-        && request.auth.token.email == 'joffre.ribeiro@gmail.com'
-        && request.auth.token.email_verified == true;
+      return signedIn() && (
+        request.auth.token.get('superAdmin', false) == true
+        || (request.auth.token.get('email', '') == 'joffre.ribeiro@gmail.com'
+            && request.auth.token.get('email_verified', false) == true)
+      );
     }
 
     // Admin do grupo OU super admin — o portão para excluir/corrigir/editar
@@ -118,6 +119,11 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['groupId', 'groupIds'])
         && request.resource.data.groupId == null
         && resource.data.groupId != null
+        // groupIds: ou fica como está, ou perde só o grupo de onde a pessoa sai. Antes aceitava qualquer lista.
+        && request.resource.data.get('groupIds', []) in [
+          resource.data.get('groupIds', []),
+          resource.data.get('groupIds', []).removeAll([resource.data.groupId])
+        ]
         && (isGroupAdmin(resource.data.groupId) || isSuperAdmin());
     }
 
@@ -181,7 +187,13 @@ service cloud.firestore {
         // Criar continua liberado a qualquer membro — é o uso legítimo do
         // dia a dia (autocadastro ao entrar no grupo, adicionar um
         // convidado avulso ao montar uma competição).
-        allow create: if isMember(gid);
+        allow create: if isMember(gid) && (
+          canManageComp(gid)
+          // Quem não é admin só cria perfil sem dono (convidado) ou com o PRÓPRIO uid. Antes dava para
+          // gravar o uid de outra pessoa num perfil novo (aprovar inscrição, que cria perfil de outro, é do admin).
+          || request.resource.data.get('uid', null) in [null, request.auth.uid]
+        );
+
         // Editar. Três caminhos legítimos, e nenhum a mais:
         //  1. Sou o dono do perfil. Vale tanto pelo uid gravado nele quanto
         //     pelo id do doc — um perfil criado pelo próprio usuário nasce
@@ -263,6 +275,8 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['fromId', 'toId', 'fromUid', 'toUid', 'fromPartnerId', 'toPartnerId', 'message', 'when', 'status', 'createdAt'])
           && request.resource.data.keys().hasAll(['fromId', 'toId', 'fromUid', 'toUid', 'status', 'createdAt'])
           && request.resource.data.fromUid == request.auth.uid
+          // O perfil que desafia (fromId) é o do próprio usuário — sem isso dava para desafiar "em nome de" outro jogador.
+          && get(/databases/$(database)/documents/groups/$(gid)/players/$(request.resource.data.fromId)).data.get('uid', null) == request.auth.uid
           && request.resource.data.fromUid != request.resource.data.toUid
           && request.resource.data.fromId != request.resource.data.toId
           && request.resource.data.status == 'pending'

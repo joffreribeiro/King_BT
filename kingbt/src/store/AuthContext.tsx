@@ -5,6 +5,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
   updateProfile,
   GoogleAuthProvider,
   signOut,
@@ -15,8 +16,6 @@ import { setCrashUser } from '@/services/crashReporting';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, limit, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { auth, db } from '@/firebase/config';
 import { Logger } from '@/services/Logger';
-import * as Device from 'expo-device';
-import * as Localization from 'expo-localization';
 import { validateScoringConfig, type ScoringConfig } from '@/logic/scoringConfig';
 import { requestToJoin, hasJoinRequest, cancelJoinRequest } from '@/firebase/joinRequests';
 import { syncGroupPreview } from '@/firebase/groupCodes';
@@ -25,20 +24,13 @@ import { syncGroupPreview } from '@/firebase/groupCodes';
 // Identificados pelo e-mail da conta logada.
 const SUPER_ADMIN_EMAILS = ['joffre.ribeiro@gmail.com'];
 
+// Só o necessário para saber como a conta nasceu. Marca, modelo, sistema, fuso, idioma e região do aparelho
+// deixaram de ser coletados: ninguém lia esses dados e, por LGPD, dado pessoal sem uso não se guarda.
 function collectDeviceInfo(via: 'email' | 'google' | 'invite') {
   return {
     registeredAt: new Date().toISOString(),
     registeredVia: via,
     platform: Platform.OS,
-    platformVersion: Platform.Version,
-    deviceBrand: Device.brand ?? null,
-    deviceModel: Device.modelName ?? null,
-    deviceType: Device.deviceType === 1 ? 'phone' : Device.deviceType === 2 ? 'tablet' : 'unknown',
-    osName: Device.osName ?? null,
-    osVersion: Device.osVersion ?? null,
-    locale: Localization.getLocales()[0]?.languageTag ?? null,
-    region: Localization.getLocales()[0]?.regionCode ?? null,
-    timezone: Localization.getCalendars()[0]?.timeZone ?? null,
   };
 }
 
@@ -290,6 +282,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
       const result = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(result.user, { displayName: name });
+      // Pede a confirmação do e-mail. Não bloqueia o cadastro (o app segue usável), mas a conta passa a poder
+      // provar que o endereço é dela — base para o super admin e para qualquer regra que dependa de e-mail verificado.
+      sendEmailVerification(result.user).catch(e => Logger.warn('Falha ao enviar o e-mail de verificação', { code: e?.code }));
       await setDoc(doc(db, 'users', result.user.uid), {
         name, email, updatedAt: new Date().toISOString(),
         ...collectDeviceInfo('email'),
@@ -611,15 +606,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Se já existir grupo com esse código, adiciona sufixo numérico até ficar único.
       // Checa colisão via /groupCodes (não /groups — essa coleção não é mais
       // legível por quem não é membro).
-      const base = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'GRUPO' + Math.floor(Math.random() * 1000);
+      // Prefixo legível do nome + 4 caracteres aleatórios (alfabeto sem 0/O/1/I): o código deixa de ser deduzível
+      // só pelo nome do grupo. Quem tem o código ainda depende da aprovação do admin para entrar.
+      const ALFABETO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      const sufixoAleatorio = () => Array.from({ length: 4 }, () => ALFABETO[Math.floor(Math.random() * ALFABETO.length)]).join('');
+      const prefixo = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'GRUPO';
+      const base = prefixo + sufixoAleatorio();
       const groupRef = doc(collection(db, 'groups'));
       let code = base;
       let codeIsFree = false;
       for (let attempt = 0; attempt < 5; attempt++) {
         const clash = await getDoc(doc(db, 'groupCodes', code));
         if (!clash.exists()) { codeIsFree = true; break; }
-        const suffix = String(Math.floor(Math.random() * 90) + 10); // 2 dígitos
-        code = base.slice(0, 8 - suffix.length) + suffix;
+        code = prefixo + sufixoAleatorio();
       }
       // As 5 tentativas com sufixo aleatório colidiram (extremamente raro,
       // mas o `setDoc` de groupCodes abaixo é um `update` se o código já

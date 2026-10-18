@@ -42,6 +42,12 @@ const CODE2 = 'KINGBT2';
 
 let testEnv;
 
+// Passo 3 da migração do super admin: só a custom claim vale (o e-mail verificado deixa de bastar).
+// Rode com SUPER_ADMIN_SO_POR_CLAIM=1 depois de trocar isSuperAdmin() em firestore.rules pelo modo só-claim.
+const SO_CLAIM = process.env.SUPER_ADMIN_SO_POR_CLAIM === '1';
+// O que se espera de um e-mail verificado SEM claim: vale durante a migração, deixa de valer no Passo 3.
+const EMAIL_VERIFICADO_SEM_CLAIM = SO_CLAIM ? 'fail' : 'succeed';
+
 // Estado inicial do grupo e da competição, recriado antes de cada teste via
 // setDoc "as admin" (a API de teste ignora as regras — with.withSecurityRulesDisabled).
 async function seed() {
@@ -94,6 +100,11 @@ function ctxFor(uid, email, verificado = true) {
   return testEnv.authenticatedContext(uid, claims);
 }
 
+// Conta que recebeu a custom claim `superAdmin` (gravada pelo servidor). `extra` acrescenta ou sobrescreve campos do token.
+function ctxClaim(uid, extra = {}) {
+  return testEnv.authenticatedContext(uid, { superAdmin: true, ...extra });
+}
+
 async function run() {
   testEnv = await initializeTestEnvironment({
     projectId: PROJECT_ID,
@@ -143,7 +154,7 @@ async function run() {
   }
   await seed();
   {
-    const superDb = ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL).firestore();
+    const superDb = ctxClaim(SUPER_ADMIN_UID, { email: SUPER_ADMIN_EMAIL, email_verified: true }).firestore();
     const compRef = doc(superDb, 'groups', GID, 'competitions', 'comp1');
     const snap = await getDoc(compRef);
     const comp = snap.data();
@@ -696,7 +707,9 @@ async function run() {
   await check('A2: admin do grupo ativo lê o doc do membro (removeFromGroup)',
     getDoc(doc(ctxFor(ADMIN_UID).firestore(), 'users', MEMBER_UID)), 'succeed');
   await check('A2: super admin verificado lê o doc de qualquer um',
-    getDoc(doc(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, true).firestore(), 'users', OUTSIDER_UID)), 'succeed');
+    getDoc(doc(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, true).firestore(), 'users', OUTSIDER_UID)), EMAIL_VERIFICADO_SEM_CLAIM);
+  await check('A2: super admin com a claim lê o doc de qualquer um',
+    getDoc(doc(ctxClaim(SUPER_ADMIN_UID).firestore(), 'users', OUTSIDER_UID)), 'succeed');
   await check('A2: admin não lê o doc de quem não tem grupo ativo (groupId nulo)',
     getDoc(doc(ctxFor(ADMIN_UID).firestore(), 'users', OUTSIDER_UID)), 'fail');
   await check('A2: admin lendo doc que não existe é negado (o cliente trata)',
@@ -749,33 +762,44 @@ async function run() {
   // ── Desafios (groups/{gid}/challenges/{id}) ────────────────────────────
   const chRef = (asUid, id) => doc(ctxFor(asUid).firestore(), 'groups', GID, 'challenges', id);
   const newCh = { fromId: 'p1', toId: 'p2', fromUid: MEMBER_UID, toUid: MEMBER2_UID, message: 'Bora?', status: 'pending', createdAt: '2026-10-02T12:00:00.000Z' };
+  // seed() + o perfil p1 do desafiante (a regra exige que o fromId seja o perfil do próprio usuário)
+  const seedC = async () => {
+    await seed();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'groups', GID, 'players', 'p1'), { name: 'P1', uid: MEMBER_UID, guest: false });
+      await setDoc(doc(ctx.firestore(), 'groups', GID, 'players', 'p-do-outro'), { name: 'Do outro', uid: MEMBER2_UID, guest: false });
+    });
+  };
   const seedCh = async (over = {}) => {
     await seed();
     await testEnv.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'groups', GID, 'challenges', 'c1'), { ...newCh, ...over });
     });
   };
-  await seed();
+  await seedC();
   await check('MEMBRO cria um desafio', setDoc(chRef(MEMBER_UID, 'c1'), newCh), 'succeed');
-  await seed();
+  await seedC();
   await check('Não cria desafio assinado por outra pessoa', setDoc(chRef(MEMBER2_UID, 'c1'), newCh), 'fail');
-  await seed();
+  await seedC();
   await check('Desafio já nasce pendente (aceito é recusado)', setDoc(chRef(MEMBER_UID, 'c1'), { ...newCh, status: 'accepted' }), 'fail');
-  await seed();
+  await seedC();
   await check('Desafio com campo extra é recusado', setDoc(chRef(MEMBER_UID, 'c1'), { ...newCh, compId: 'x' }), 'fail');
-  await seed();
+  await seedC();
   await check('Não desafia a si mesmo', setDoc(chRef(MEMBER_UID, 'c1'), { ...newCh, toUid: MEMBER_UID }), 'fail');
-  await seed();
+  await seedC();
   await check('Mensagem grande demais é recusada', setDoc(chRef(MEMBER_UID, 'c1'), { ...newCh, message: 'x'.repeat(141) }), 'fail');
-  await seed();
+  await seedC();
   await check('Desafio de duplas válido', setDoc(chRef(MEMBER_UID, 'c-duplas'), { ...newCh, fromPartnerId: 'p3', toPartnerId: 'p4' }), 'succeed');
-  await seed();
+  await seedC();
   await check('Duplas: só um parceiro é recusado', setDoc(chRef(MEMBER_UID, 'c1'), { ...newCh, fromPartnerId: 'p3' }), 'fail');
-  await seed();
+  await seedC();
   await check('Duplas: parceiro repetido é recusado', setDoc(chRef(MEMBER_UID, 'c1'), { ...newCh, fromPartnerId: 'p3', toPartnerId: 'p3' }), 'fail');
-  await seed();
+  await seedC();
   await check('Duplas: parceiro igual ao adversário é recusado', setDoc(chRef(MEMBER_UID, 'c1'), { ...newCh, fromPartnerId: 'p2', toPartnerId: 'p4' }), 'fail');
-  await seed();
+  await seedC();
+  await check('B6: NÃO desafia usando o perfil (fromId) de OUTRA pessoa', setDoc(chRef(MEMBER_UID, 'c-b6-novo'), { ...newCh, fromId: 'p-do-outro' }), 'fail');
+  await check('B6: controle — o mesmo desafio com o PRÓPRIO perfil (p1) é aceito', setDoc(chRef(MEMBER_UID, 'c-b6-controle'), newCh), 'succeed');
+  await seedC();
   await check('DE FORA do grupo não cria desafio', setDoc(chRef(OUTSIDER_UID, 'c1'), { ...newCh, fromUid: OUTSIDER_UID }), 'fail');
 
   await seedCh();
@@ -812,7 +836,7 @@ async function run() {
 
     await seed();
     await check('A1: SUPER ADMIN com e-mail verificado grava em /config',
-      setDoc(cfgRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, true).firestore()), { minBuildTime: 1 }), 'succeed');
+      setDoc(cfgRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, true).firestore()), { minBuildTime: 1 }), EMAIL_VERIFICADO_SEM_CLAIM);
     await check('A1: o mesmo e-mail SEM verificação não grava em /config',
       setDoc(cfgRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, false).firestore()), { minBuildTime: 2 }), 'fail');
     await check('A1: o mesmo e-mail com token SEM o campo email_verified não grava em /config',
@@ -826,7 +850,7 @@ async function run() {
 
     await seed();
     await check('A1: SUPER ADMIN verificado edita um grupo em que não é admin',
-      updateDoc(grupoRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, true).firestore()), { name: 'Nome pelo super admin' }), 'succeed');
+      updateDoc(grupoRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, true).firestore()), { name: 'Nome pelo super admin' }), EMAIL_VERIFICADO_SEM_CLAIM);
     await seed();
     await check('A1: o mesmo e-mail SEM verificação não edita o grupo',
       updateDoc(grupoRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, false).firestore()), { name: 'Nome invasor' }), 'fail');
@@ -837,7 +861,37 @@ async function run() {
     await check('A1: e-mail verificado de OUTRA pessoa não exclui a competição',
       deleteDoc(compRef(ctxFor('outro-uid', OUTRO_EMAIL, true).firestore())), 'fail');
     await check('A1: SUPER ADMIN verificado exclui a competição',
-      deleteDoc(compRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, true).firestore())), 'succeed');
+      deleteDoc(compRef(ctxFor(SUPER_ADMIN_UID, SUPER_ADMIN_EMAIL, true).firestore())), EMAIL_VERIFICADO_SEM_CLAIM);
+  }
+
+  // ── B6: brechas pequenas das regras ─────────────────────────────────────
+  {
+    const uRef = (uid, alvo) => doc(ctxFor(uid).firestore(), 'users', alvo);
+    const seedU = async () => {
+      await seed();
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'users', MEMBER_UID), { name: 'Membro', groupId: GID, groupIds: [GID, 'outro-grupo'] });
+      });
+    };
+    await seedU();
+    await check('B6: admin tira o grupo da lista de quem sai (groupIds sem o grupo)',
+      updateDoc(uRef(ADMIN_UID, MEMBER_UID), { groupId: null, groupIds: arrayRemove(GID) }), 'succeed');
+    await seedU();
+    await check('B6: admin limpa só o groupId e deixa a lista como está',
+      updateDoc(uRef(ADMIN_UID, MEMBER_UID), { groupId: null }), 'succeed');
+    await seedU();
+    await check('B6: admin NÃO põe uma lista arbitrária em groupIds',
+      updateDoc(uRef(ADMIN_UID, MEMBER_UID), { groupId: null, groupIds: ['grupo-inventado'] }), 'fail');
+    await seedU();
+    await check('B6: admin NÃO apaga outros grupos da lista (só o de onde a pessoa sai)',
+      updateDoc(uRef(ADMIN_UID, MEMBER_UID), { groupId: null, groupIds: [] }), 'fail');
+
+    const pRef = (uid, id) => doc(ctxFor(uid).firestore(), 'groups', GID, 'players', id);
+    await seed();
+    await check('B6: membro cria o PRÓPRIO perfil (uid dele)', setDoc(pRef(MEMBER_UID, MEMBER_UID), { name: 'Eu', uid: MEMBER_UID, guest: false }), 'succeed');
+    await check('B6: membro cria convidado (sem uid)', setDoc(pRef(MEMBER_UID, 'conv1'), { name: 'Convidado', uid: null, guest: true }), 'succeed');
+    await check('B6: membro NÃO cria perfil com o uid de OUTRA pessoa', setDoc(pRef(MEMBER_UID, 'falso1'), { name: 'Falso', uid: MEMBER2_UID, guest: false }), 'fail');
+    await check('B6: admin cria perfil para outra pessoa (aprovar inscrição)', setDoc(pRef(ADMIN_UID, 'aprovado1'), { name: 'Aprovado', uid: OUTSIDER_UID, guest: false }), 'succeed');
   }
 
   // ── M1: visitante de grupo público só mexe no PRÓPRIO pedido de inscrição ──
@@ -930,6 +984,34 @@ async function run() {
     await check('A3: comentário gigante (>1000) é recusado', updateDoc(postRef(MEMBER2_UID), comentario('x'.repeat(1001))), 'fail');
     await seed();
     await check('A3: nome gigante no comentário é recusado', updateDoc(postRef(MEMBER2_UID), comentario('oi', 'n'.repeat(81))), 'fail');
+  }
+
+  // ── A1 (passo 2): custom claim `superAdmin` ────────────────────────────
+  // A claim é gravada pelo servidor (scripts/set-super-admin.mjs); o cliente não consegue forjá-la.
+  {
+    const cfgRef = (db) => doc(db, 'config', 'appVersion');
+    const grupoRef = (db) => doc(db, 'groups', GID);
+    const compRef = (db) => doc(db, 'groups', GID, 'competitions', 'comp1');
+    const comClaim = (uid, extra) => ctxClaim(uid, extra).firestore();
+
+    await seed();
+    await check('A1/claim: conta com superAdmin=true grava em /config (mesmo sem e-mail no token)',
+      setDoc(cfgRef(comClaim('uid-claim')), { minBuildTime: 10 }), 'succeed');
+    await check('A1/claim: superAdmin=false não grava em /config',
+      setDoc(cfgRef(comClaim('uid-claim', { superAdmin: false })), { minBuildTime: 11 }), 'fail');
+    await check('A1/claim: superAdmin como TEXTO "true" não vale (tem de ser booleano)',
+      setDoc(cfgRef(comClaim('uid-claim', { superAdmin: 'true' })), { minBuildTime: 12 }), 'fail');
+    await check('A1/claim: e-mail de outra pessoa COM claim vale (a prova é a claim, não o e-mail)',
+      setDoc(cfgRef(comClaim('uid-claim', { email: 'outra.pessoa@gmail.com', email_verified: true })), { minBuildTime: 13 }), 'succeed');
+    await seed();
+    await check('A1/claim: conta com claim edita um grupo em que não é admin',
+      updateDoc(grupoRef(comClaim('uid-claim')), { name: 'Pela claim' }), 'succeed');
+    await seed();
+    await check('A1/claim: conta com claim exclui a competição',
+      deleteDoc(compRef(comClaim('uid-claim'))), 'succeed');
+    await seed();
+    await check('A1/claim: membro SEM a claim não exclui a competição',
+      deleteDoc(compRef(ctxFor(MEMBER_UID).firestore())), 'fail');
   }
 
   await testEnv.cleanup();

@@ -7,6 +7,8 @@ import { applyValidationOp, type ValidationOp } from '@/logic/scoreValidation';
 import { DEFAULT_SCORING, validateScoringConfig } from '@/logic/scoringConfig';
 import type { SetScore } from '@/logic/types';
 import { saveAnaliseFs } from '@/firebase/analises';
+import { saveTreinoFs } from '@/firebase/treinos';
+import type { BtTreino } from '@/logic/btTreino';
 import type { BtAnalise } from '@/logic/btTracker';
 import type { Competition } from '@/logic/types';
 import { useAuth } from './AuthContext';
@@ -118,6 +120,12 @@ export function SyncQueueProvider({ children }: { children: React.ReactNode }) {
           await saveAnaliseFs(
             item.payload.groupId as string,
             item.payload.analise as BtAnalise
+          );
+          await removeFromQueue(item.id);
+        } else if (item.type === 'SAVE_TREINO') {
+          await saveTreinoFs(
+            item.payload.groupId as string,
+            item.payload.treino as BtTreino
           );
           await removeFromQueue(item.id);
         } else {

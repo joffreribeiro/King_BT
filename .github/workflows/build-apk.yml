@@ -98,6 +98,12 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      - name: Definir DSN do Sentry
+        # Vem da variável do repositório (Settings > Secrets and variables > Actions > Variables > EXPO_PUBLIC_SENTRY_DSN).
+        # Enquanto ela não existir, vale o DSN do .env versionado (o DSN não é segredo: só permite ENVIAR erros).
+        if: ${{ vars.EXPO_PUBLIC_SENTRY_DSN != '' }}
+        run: echo "EXPO_PUBLIC_SENTRY_DSN=${{ vars.EXPO_PUBLIC_SENTRY_DSN }}" >> "$GITHUB_ENV"
+
       - name: Gerar projeto Android nativo (expo prebuild)
         run: npx expo prebuild --platform android --non-interactive
 
