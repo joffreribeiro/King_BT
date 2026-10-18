@@ -15,8 +15,6 @@ import { setCrashUser } from '@/services/crashReporting';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, getDocs, limit, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { auth, db } from '@/firebase/config';
 import { Logger } from '@/services/Logger';
-import * as Device from 'expo-device';
-import * as Localization from 'expo-localization';
 import { validateScoringConfig, type ScoringConfig } from '@/logic/scoringConfig';
 import { requestToJoin, hasJoinRequest, cancelJoinRequest } from '@/firebase/joinRequests';
 import { syncGroupPreview } from '@/firebase/groupCodes';
@@ -25,20 +23,13 @@ import { syncGroupPreview } from '@/firebase/groupCodes';
 // Identificados pelo e-mail da conta logada.
 const SUPER_ADMIN_EMAILS = ['joffre.ribeiro@gmail.com'];
 
+// Só o necessário para saber como a conta nasceu. Marca, modelo, sistema, fuso, idioma e região do aparelho
+// deixaram de ser coletados: ninguém lia esses dados e, por LGPD, dado pessoal sem uso não se guarda.
 function collectDeviceInfo(via: 'email' | 'google' | 'invite') {
   return {
     registeredAt: new Date().toISOString(),
     registeredVia: via,
     platform: Platform.OS,
-    platformVersion: Platform.Version,
-    deviceBrand: Device.brand ?? null,
-    deviceModel: Device.modelName ?? null,
-    deviceType: Device.deviceType === 1 ? 'phone' : Device.deviceType === 2 ? 'tablet' : 'unknown',
-    osName: Device.osName ?? null,
-    osVersion: Device.osVersion ?? null,
-    locale: Localization.getLocales()[0]?.languageTag ?? null,
-    region: Localization.getLocales()[0]?.regionCode ?? null,
-    timezone: Localization.getCalendars()[0]?.timeZone ?? null,
   };
 }
 
