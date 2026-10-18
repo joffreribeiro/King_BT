@@ -606,15 +606,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Se já existir grupo com esse código, adiciona sufixo numérico até ficar único.
       // Checa colisão via /groupCodes (não /groups — essa coleção não é mais
       // legível por quem não é membro).
-      const base = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'GRUPO' + Math.floor(Math.random() * 1000);
+      // Prefixo legível do nome + 4 caracteres aleatórios (alfabeto sem 0/O/1/I): o código deixa de ser deduzível
+      // só pelo nome do grupo. Quem tem o código ainda depende da aprovação do admin para entrar.
+      const ALFABETO = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      const sufixoAleatorio = () => Array.from({ length: 4 }, () => ALFABETO[Math.floor(Math.random() * ALFABETO.length)]).join('');
+      const prefixo = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'GRUPO';
+      const base = prefixo + sufixoAleatorio();
       const groupRef = doc(collection(db, 'groups'));
       let code = base;
       let codeIsFree = false;
       for (let attempt = 0; attempt < 5; attempt++) {
         const clash = await getDoc(doc(db, 'groupCodes', code));
         if (!clash.exists()) { codeIsFree = true; break; }
-        const suffix = String(Math.floor(Math.random() * 90) + 10); // 2 dígitos
-        code = base.slice(0, 8 - suffix.length) + suffix;
+        code = prefixo + sufixoAleatorio();
       }
       // As 5 tentativas com sufixo aleatório colidiram (extremamente raro,
       // mas o `setDoc` de groupCodes abaixo é um `update` se o código já
