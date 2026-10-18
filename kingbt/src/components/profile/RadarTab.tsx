@@ -103,10 +103,10 @@ export function RadarTab({ playerId, playerName, skills, onSave }: Props) {
     <View style={tab.content}>
       <View style={s.toggleRow}>
         <TouchableOpacity style={[s.toggle, mode === 'self' && s.toggleOn]} onPress={() => setMode('self')} activeOpacity={0.8}>
-          <Text style={[s.toggleText, mode === 'self' && s.toggleTextOn]} numberOfLines={1}>Autoavaliação</Text>
+          <Text style={[s.toggleText, mode === 'self' && s.toggleTextOn]} numberOfLines={2}>Autoavaliação</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[s.toggle, mode === 'community' && s.toggleOn]} onPress={() => setMode('community')} activeOpacity={0.8}>
-          <Text style={[s.toggleText, mode === 'community' && s.toggleTextOn]} numberOfLines={1}>Avaliação da Comunidade</Text>
+          <Text style={[s.toggleText, mode === 'community' && s.toggleTextOn]} numberOfLines={2}>Avaliação da Comunidade</Text>
         </TouchableOpacity>
       </View>
 
@@ -159,9 +159,9 @@ export function RadarTab({ playerId, playerName, skills, onSave }: Props) {
 const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   // Os dois botões dividem a linha (também no celular): cada um ocupa metade e o texto não quebra.
   toggleRow: { flexDirection: 'row', gap: Spacing.sm },
-  toggle: { flex: 1, paddingHorizontal: 8, minHeight: 44, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line },
+  toggle: { flex: 1, paddingHorizontal: 8, paddingVertical: 6, minHeight: 44, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line },
   toggleOn: { backgroundColor: Colors.gold + '26', borderColor: Colors.gold },
-  toggleText: { fontFamily: FontFamily.bodyMed, fontSize: 13, color: Colors.muted },
+  toggleText: { fontFamily: FontFamily.bodyMed, fontSize: 13, lineHeight: 17, textAlign: 'center', color: Colors.muted },
   toggleTextOn: { fontFamily: FontFamily.title, color: Colors.gold },
 
   head: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginBottom: Spacing.md },

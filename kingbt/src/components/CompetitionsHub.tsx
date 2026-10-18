@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Animated, RefreshControl, useWindowDimensions, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Animated, RefreshControl, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useState, useMemo, useCallback } from 'react';
@@ -15,6 +15,7 @@ import type { Competition, Format } from '@/logic/types';
 import { competitionChampion as getChampion } from '@/logic/formats';
 import { formatRelativeDate, parseStoredDate } from '@/logic/format';
 import { eventView } from '@/logic/eventRegistration';
+import { matchesStatus, filterBeforeStatus, countByStatus, type StatusFilter } from '@/logic/competitionFilters';
 import { usePulseAnim } from '@/hooks/usePulseAnim';
 import { FadeScreen } from '@/components/FadeScreen';
 
@@ -28,7 +29,6 @@ const STATUS_FILTERS = [
   { key: 'active',   label: 'Em andamento' },
   { key: 'done',   label: 'Encerradas' },
 ] as const;
-type StatusFilter = typeof STATUS_FILTERS[number]['key'];
 
 const FORMAT_FILTERS: { key: Format | 'all'; label: string }[] = [
   { key: 'all',    label: 'Todos' },
@@ -241,16 +241,15 @@ export function CompetitionsHub({ embedded = false }: { embedded?: boolean } = {
   const [search, setSearch]           = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [formatFilter, setFormatFilter] = useState<Format | 'all'>('all');
-  const [showSearch, setShowSearch]   = useState(false);
   const [showFormatSheet, setShowFormatSheet] = useState(false);
+  const [showStatusSheet, setShowStatusSheet] = useState(false);
 
-  const filtered = state.competitions.filter(c => {
-    if (c.isFriendly) return false;
-    if (statusFilter !== 'all' && (statusFilter === 'active' ? c.status !== 'active' && c.status !== 'setup' : c.status !== statusFilter)) return false;
-    if (formatFilter !== 'all' && c.format !== formatFilter) return false;
-    if (search.trim() && !c.name.toLowerCase().includes(search.trim().toLowerCase())) return false;
-    return true;
-  });
+  // A regra de filtro e a contagem de cada status moram em logic/competitionFilters.ts (com testes). A contagem sai do que
+  // vale antes do status (formato e busca): é o número que a pessoa verá ao escolher aquele status.
+  const beforeStatus = filterBeforeStatus(state.competitions, { format: formatFilter, search });
+  const statusCounts = countByStatus(beforeStatus);
+  const filtered = beforeStatus.filter(c => matchesStatus(c, statusFilter));
+  const statusLabel = STATUS_FILTERS.find(f => f.key === statusFilter)?.label ?? 'Todas';
 
   // Agendadas primeiro (eventos com inscrição aberta), depois as em andamento e as encerradas.
   const upcomingList = filtered.filter(c => c.status === 'upcoming');
@@ -292,57 +291,43 @@ export function CompetitionsHub({ embedded = false }: { embedded?: boolean } = {
               </View>
             )}
 
-            {/* Uma linha de controles em vez das duas fileiras de chips + 2
-                botões que ocupavam a tela antes da primeira competição.
-                A busca substitui o segmented ao abrir, em vez de empilhar. */}
+            {/* Uma linha de controles: seletor de status (abre uma folha com a contagem de cada um), busca sempre à vista e
+                filtro de formato. Antes eram 4 opções num quadro que rolava na horizontal: em celular estreito "Em andamento"
+                aparecia cortado e "Encerradas" ficava escondido, sem nenhum sinal de que existia. */}
             <View style={styles.controlRow}>
-              {showSearch ? (
-                <View style={[styles.searchBar, { flex: 1, marginBottom: 0 }]}>
-                  <TextInput
-                    style={styles.searchInput}
-                    value={search}
-                    onChangeText={setSearch}
-                    placeholder="Buscar competição..."
-                    placeholderTextColor={Colors.faint}
-                    autoFocus
-                    returnKeyType="search"
-                  />
+              <TouchableOpacity
+                onPress={() => setShowStatusSheet(true)}
+                style={[styles.statusBtn, statusFilter !== 'all' && styles.statusBtnActive]}
+                accessibilityRole="button"
+                accessibilityLabel={`Filtrar por status: ${statusLabel}`}
+              >
+                <Text style={[styles.statusBtnText, statusFilter !== 'all' && { color: Colors.gold }]} numberOfLines={1}>{statusLabel}</Text>
+                <Icon name="chevronDown" size={14} color={statusFilter !== 'all' ? Colors.gold : Colors.muted} />
+              </TouchableOpacity>
+
+              <View style={styles.searchField}>
+                <Icon name="search" size={16} color={Colors.muted} />
+                <TextInput
+                  style={styles.searchFieldInput}
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder="Buscar"
+                  placeholderTextColor={Colors.faint}
+                  returnKeyType="search"
+                  autoCorrect={false}
+                  accessibilityLabel="Buscar competição"
+                />
+                {search.length > 0 && (
                   <TouchableOpacity
-                    onPress={() => { setSearch(''); setShowSearch(false); }}
+                    onPress={() => setSearch('')}
                     style={styles.searchClear}
+                    accessibilityRole="button"
+                    accessibilityLabel="Limpar a busca"
                   >
                     <Icon name="close" size={14} color={Colors.coral} />
                   </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={styles.segmented}>
-                  {/* Rola na horizontal: com 4 opções e fonte legível, "Em andamento" não cabe em celular estreito. */}
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.segmentedInner}>
-                  {STATUS_FILTERS.map(f => (
-                    <TouchableOpacity
-                      key={f.key}
-                      style={[styles.segment, statusFilter === f.key && styles.segmentActive]}
-                      onPress={() => setStatusFilter(f.key)}
-                    >
-                      <Text style={[styles.segmentText, statusFilter === f.key && styles.segmentTextActive]} numberOfLines={1}>
-                        {f.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                  </ScrollView>
-                </View>
-              )}
-
-              {!showSearch && (
-                <TouchableOpacity
-                  onPress={() => setShowSearch(true)}
-                  style={styles.iconBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel="Buscar competição"
-                >
-                  <Icon name="search" size={18} color={Colors.muted} />
-                </TouchableOpacity>
-              )}
+                )}
+              </View>
 
               <TouchableOpacity
                 onPress={() => setShowFormatSheet(true)}
@@ -429,6 +414,29 @@ export function CompetitionsHub({ embedded = false }: { embedded?: boolean } = {
         }
       />
 
+      {/* Status: as 4 opções com a contagem de cada uma. */}
+      <BottomSheet visible={showStatusSheet} onClose={() => setShowStatusSheet(false)} height={340}>
+        <View style={{ paddingHorizontal: Spacing.md, gap: Spacing.xs }}>
+          <Text style={styles.sheetTitle}>Status</Text>
+          {STATUS_FILTERS.map(f => {
+            const selected = statusFilter === f.key;
+            return (
+              <TouchableOpacity
+                key={f.key}
+                style={[styles.sheetOption, selected && styles.sheetOptionActive]}
+                onPress={() => { setStatusFilter(f.key); setShowStatusSheet(false); }}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+              >
+                <Text style={[styles.sheetOptionText, { flex: 1 }, selected && { color: Colors.gold }]}>{f.label}</Text>
+                <Text style={[styles.sheetCount, selected && { color: Colors.gold }]}>{statusCounts[f.key]}</Text>
+                {selected && <Icon name="check" size={16} color={Colors.gold} />}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </BottomSheet>
+
       {/* Formato saiu da tela: 6 chips permanentes viraram um sheet sob demanda. */}
       <BottomSheet visible={showFormatSheet} onClose={() => setShowFormatSheet(false)} height={380}>
         <View style={{ paddingHorizontal: Spacing.md, gap: Spacing.xs }}>
@@ -499,18 +507,6 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   iconBtnActive: { borderColor: Colors.gold },
 
-  searchBar: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.surf, borderRadius: Radius.md,
-    borderWidth: 1, borderColor: Colors.line,
-    paddingHorizontal: Spacing.md,
-    marginBottom: Spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: Spacing.sm,
-    ...Type.title, fontFamily: FontFamily.body, color: Colors.text,
-  },
   searchClear: { padding: Spacing.xs },
   searchClearText: { ...Type.body, color: Colors.coral },
 
@@ -528,23 +524,24 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   chipText: { ...Type.bodyMed, color: Colors.muted },
   chipTextActive: { color: Colors.gold },
 
-  // Linha única de controles: segmented (ou busca) + lupa + filtro.
+  // Linha única de controles: seletor de status + campo de busca + filtro de formato.
   controlRow: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.xs,
     marginBottom: Spacing.md, marginTop: Spacing.xs,
   },
-  segmented: {
-    flex: 1, overflow: 'hidden',
-    backgroundColor: Colors.surf, borderRadius: Radius.full,
-    borderWidth: 1, borderColor: Colors.line, padding: 3,
+  statusBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.xs + 2, flexShrink: 0,
+    height: 44, paddingHorizontal: Spacing.md, borderRadius: Radius.full,
+    backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line,
   },
-  segmentedInner: { flexGrow: 1, flexDirection: 'row' },
-  // Ativo em ouro sólido — era 13% de tinta (Colors.gold + '22'), o único
-  // controle da tela com esse peso de seleção mais fraco que os vizinhos.
-  segment: { flexGrow: 1, paddingVertical: 12, paddingHorizontal: 16, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center' },
-  segmentActive: { backgroundColor: Colors.gold },
-  segmentText: { fontFamily: FontFamily.bodyMed, fontSize: 14, lineHeight: 18, color: Colors.muted },
-  segmentTextActive: { color: Colors.bg, fontFamily: FontFamily.title },
+  statusBtnActive: { borderColor: Colors.gold },
+  statusBtnText: { fontFamily: FontFamily.bodyMed, fontSize: 14, lineHeight: 18, color: Colors.text },
+  searchField: {
+    flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    height: 44, paddingLeft: Spacing.md, paddingRight: Spacing.xs, borderRadius: Radius.full,
+    backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line,
+  },
+  searchFieldInput: { flex: 1, minWidth: 0, ...Type.body, fontSize: 14, color: Colors.text, paddingVertical: 0 },
   filterDot: {
     position: 'absolute', top: 6, right: 6,
     width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.gold,
@@ -559,6 +556,7 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   sheetOptionActive: { backgroundColor: Colors.gold + '18' },
   sheetOptionText: { ...Type.title, color: Colors.text },
   sheetSwatch: { width: 4, height: 20, borderRadius: 2 },
+  sheetCount: { ...Type.body, color: Colors.muted, minWidth: 20, textAlign: 'right' },
 
   createRow: {
     flexDirection: 'row',
