@@ -27,6 +27,7 @@ Estes scripts **não usam arquivo de chave** de conta de serviço (um `serviceAc
 | `restore-firestore.mjs <backup.json> --only <caminho>` | Simula a restauração; só grava com `--apply` (e só sobrescreve com `--overwrite`) | só com `--apply` |
 | `list-players.mjs` | Lista os jogadores do grupo `KINGBT` | não |
 | `list-competitions.mjs` | Lista as competições do grupo `KINGBT` | não |
+| `limpar-dados-aparelho.mjs` | Apaga de `/users` os dados de aparelho que o cadastro coletava (simula por padrão) | só com `--apply` |
 
 ## Regras para scripts novos
 
