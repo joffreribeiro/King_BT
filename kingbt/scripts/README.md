@@ -28,6 +28,7 @@ Estes scripts **não usam arquivo de chave** de conta de serviço (um `serviceAc
 | `list-players.mjs` | Lista os jogadores do grupo `KINGBT` | não |
 | `list-competitions.mjs` | Lista as competições do grupo `KINGBT` | não |
 | `limpar-dados-aparelho.mjs` | Apaga de `/users` os dados de aparelho que o cadastro coletava (simula por padrão) | só com `--apply` |
+| `auditoria-acesso-dados.mjs <servico>` | Liga os logs de auditoria de acesso a dados de um serviço na política de IAM do projeto (simula por padrão; muda configuração de segurança) | só com `--apply` |
 
 ## Regras para scripts novos
 
