@@ -453,15 +453,15 @@ export default function RankingScreen({ embedded = false }: { embedded?: boolean
         <View style={styles.utilRow}>
           <TouchableOpacity style={styles.utilBtn} onPress={() => setShowCompare(true)}>
             <Icon name="compare" size={15} color={Colors.muted} />
-            <Text style={styles.utilBtnText}>Comparar</Text>
+            <Text style={styles.utilBtnText} numberOfLines={1}>Comparar</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.utilBtn} onPress={() => setShowSeasons(true)}>
             <Icon name="calendar" size={15} color={Colors.muted} />
-            <Text style={styles.utilBtnText}>Temporadas</Text>
+            <Text style={styles.utilBtnText} numberOfLines={1}>Temporadas</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.utilBtn} onPress={() => setShowFormula(true)}>
             <Icon name="chart" size={15} color={Colors.muted} />
-            <Text style={styles.utilBtnText}>Como pontua?</Text>
+            <Text style={styles.utilBtnText} numberOfLines={1}>Como pontua?</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.utilBtnSquare}
@@ -704,15 +704,18 @@ const makeStyles = (Colors: ThemeColors) => StyleSheet.create({
   periodChipOn: { backgroundColor: Colors.gold + '26', borderColor: Colors.gold },
   periodText: { fontFamily: FontFamily.bodyMed, fontSize: 14, color: Colors.muted },
   periodTextOn: { fontFamily: FontFamily.title, color: Colors.gold },
-  utilRow: { flexDirection: 'row', gap: Spacing.xs, paddingHorizontal: Spacing.md, marginTop: Spacing.md },
+  // flexWrap: num celular estreito os botões não cabem lado a lado; quebrar a linha é melhor que cortar o texto.
+  utilRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, paddingHorizontal: Spacing.md, marginTop: Spacing.md },
   utilBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    height: 44, borderRadius: Radius.full,
+    // flexBasis auto + flexGrow: nunca menor que o próprio texto, e ocupa a sobra da linha (antes era flex: 1, que
+    // espremia os três botões na mesma fatia e quebrava "Como pontua?" em duas linhas).
+    flexGrow: 1, flexShrink: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    height: 44, paddingHorizontal: Spacing.md, borderRadius: Radius.full,
     backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line,
   },
-  utilBtnText: { ...Type.body, color: Colors.muted },
+  utilBtnText: { ...Type.body, color: Colors.muted, flexShrink: 0 },
   utilBtnSquare: {
-    width: 44, height: 44, borderRadius: Radius.full,
+    width: 44, height: 44, borderRadius: Radius.full, flexShrink: 0,
     backgroundColor: Colors.surf, borderWidth: 1, borderColor: Colors.line,
     alignItems: 'center', justifyContent: 'center',
   },
