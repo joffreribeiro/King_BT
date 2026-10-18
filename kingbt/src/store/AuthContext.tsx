@@ -5,6 +5,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
   updateProfile,
   GoogleAuthProvider,
   signOut,
@@ -281,6 +282,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
       const result = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(result.user, { displayName: name });
+      // Pede a confirmação do e-mail. Não bloqueia o cadastro (o app segue usável), mas a conta passa a poder
+      // provar que o endereço é dela — base para o super admin e para qualquer regra que dependa de e-mail verificado.
+      sendEmailVerification(result.user).catch(e => Logger.warn('Falha ao enviar o e-mail de verificação', { code: e?.code }));
       await setDoc(doc(db, 'users', result.user.uid), {
         name, email, updatedAt: new Date().toISOString(),
         ...collectDeviceInfo('email'),
