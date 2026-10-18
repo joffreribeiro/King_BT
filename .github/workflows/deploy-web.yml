@@ -75,6 +75,9 @@ jobs:
   deploy:
     needs: [check, rules-test]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # o GitHub emite um token OIDC de curta duração; o Google o troca por credencial do deploy
     defaults:
       run:
         working-directory: kingbt
@@ -115,7 +118,12 @@ jobs:
       # uma correção em firestore.rules só ia ao ar se alguém lembrasse de
       # rodar `firebase deploy --only firestore:rules` manualmente. Os jobs
       # `check`/`rules-test` acima já validaram tudo antes deste passo rodar.
+      # Sem chave nem token de longa duração: a identidade federada só vale para este repositório, na branch main.
+      - name: Autenticar no Google Cloud (Workload Identity Federation)
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+
       - name: Publicar no Firebase Hosting e nas regras do Firestore
-        run: npx firebase-tools deploy --only hosting,firestore:rules --project king-bt-7f559 --token "$FIREBASE_TOKEN"
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: npx firebase-tools deploy --only hosting,firestore:rules --project king-bt-7f559
